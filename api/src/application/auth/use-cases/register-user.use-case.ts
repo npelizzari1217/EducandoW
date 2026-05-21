@@ -1,51 +1,61 @@
-import { Email, Result, ok, err } from '@educandow/domain';
+import {
+  Email,
+  Password,
+  User,
+  UserRepository,
+  EmailAlreadyExistsError,
+  InvalidCredentialsError,
+  Result,
+  ok,
+  err,
+} from '@educandow/domain';
 import { PasswordHasher } from '../ports/password-hasher';
 import { RegisterUserDTO } from '../dtos/register-user.dto';
 import { UserProfileDTO } from '../dtos/user-profile.dto';
 
 export class RegisterUserUseCase {
   constructor(
-    private readonly userRepo: any,
+    private readonly userRepo: UserRepository,
     private readonly passwordHasher: PasswordHasher,
   ) {}
 
   async execute(dto: RegisterUserDTO): Promise<Result<UserProfileDTO, Error>> {
     const emailResult = Email.create(dto.email);
-    if (emailResult.isErr()) {
-      return err(emailResult.unwrapErr());
-    }
+    if (emailResult.isErr()) return err(emailResult.unwrapErr());
     const email = emailResult.unwrap();
 
-    if (!dto.name || dto.name.trim().length === 0) {
-      return err(new Error('Name cannot be empty'));
-    }
-    if (!dto.password || dto.password.length < 6) {
-      return err(new Error('Password must be at least 6 characters'));
-    }
+    if (!dto.name?.trim()) return err(new Error('Name cannot be empty'));
+
+    const passwordResult = Password.create(dto.password);
+    if (passwordResult.isErr()) return err(passwordResult.unwrapErr());
+    const plainPassword = passwordResult.unwrap();
 
     const exists = await this.userRepo.existsByEmail(email);
-    if (exists) {
-      return err(new Error('Email already exists'));
-    }
+    if (exists) return err(new EmailAlreadyExistsError(email.get()));
 
-    const hashedPassword = await this.passwordHasher.hash(dto.password);
-
-    const user = await this.userRepo.create({
-      email: email.get(),
-      name: dto.name,
-      password: hashedPassword,
-      role: dto.role ?? 'ADMIN',
+    const user = User.create({
+      email,
+      name: dto.name.trim(),
+      hashedPassword: '',
+      role: (dto.role as any) ?? 'ADMIN',
       institutionId: dto.institutionId,
     });
 
+    const hashed = await this.passwordHasher.hash(plainPassword.get());
+    user.setHashedPassword(hashed);
+
+    const saveResult = await this.userRepo.save(user);
+    if (saveResult.isErr()) return err(saveResult.unwrapErr());
+    const saved = saveResult.unwrap();
+
     return ok({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      institutionId: user.institutionId,
-      level: user.level,
-      createdAt: user.createdAt.toISOString(),
+      id: saved.id.get(),
+      email: saved.email.get(),
+      name: saved.name,
+      role: saved.role,
+      institutionId: saved.institutionId,
+      level: saved.level,
+      createdAt: saved.createdAt.toISOString(),
     });
   }
 }

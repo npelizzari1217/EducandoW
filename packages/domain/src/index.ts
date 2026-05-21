@@ -20,3 +20,12 @@ export { Dni } from './personnel/value-objects';
 
 // Enrollment
 export { Enrollment } from './enrollment/entities';
+
+// Auth
+export { User } from './auth/entities/user';
+export type { UserRole } from './auth/entities/user';
+export { Password } from './auth/value-objects/password';
+export { UserRepository } from './auth/repositories/user-repository';
+export { RefreshTokenRepository } from './auth/repositories/refresh-token-repository';
+export { UserRegistered } from './auth/events/user-registered';
+export { UserNotFoundError, EmailAlreadyExistsError, InvalidCredentialsError } from './auth/errors/user.errors';

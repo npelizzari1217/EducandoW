@@ -5,6 +5,7 @@ import { LoginUseCase } from '../../application/auth/use-cases/login.use-case';
 import { JwtAuthPort } from '../../infrastructure/auth/jwt-auth-port';
 import { BcryptPasswordHasher } from '../../infrastructure/auth/bcrypt-password-hasher';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { PrismaUserRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-user.repository';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { loadEnvConfig } from '../../infrastructure/config/env.config';
 
@@ -13,7 +14,7 @@ const env = loadEnvConfig();
 @Module({
   controllers: [AuthController],
   providers: [
-    // Use Cases
+    // ── Use Cases ──────────────────────────────────────────────────────
     {
       provide: RegisterUserUseCase,
       useFactory: (repo, hasher) => new RegisterUserUseCase(repo, hasher),
@@ -24,7 +25,7 @@ const env = loadEnvConfig();
       useFactory: (repo, hasher, authPort) => new LoginUseCase(repo, hasher, authPort),
       inject: ['UserRepository', 'PasswordHasher', 'AuthPort'],
     },
-    // Infrastructure
+    // ── Auth Infrastructure ────────────────────────────────────────────
     {
       provide: JwtAuthPort,
       useFactory: () => new JwtAuthPort(env.jwtSecret, env.jwtExpiresIn),
@@ -41,25 +42,19 @@ const env = loadEnvConfig();
       provide: 'PasswordHasher',
       useExisting: BcryptPasswordHasher,
     },
+    AuthGuard,
+    // ── Persistence ────────────────────────────────────────────────────
     PrismaService,
     {
-      provide: 'UserRepository',
-      useFactory: (prisma: PrismaService) => ({
-        existsByEmail: async (email: any) => {
-          const user = await prisma.user.findUnique({ where: { email: email.get() } });
-          return !!user;
-        },
-        findByEmail: async (email: string) => {
-          return prisma.user.findUnique({ where: { email } });
-        },
-        create: async (data: any) => {
-          return prisma.user.create({ data });
-        },
-      }),
+      provide: PrismaUserRepository,
+      useFactory: (prisma) => new PrismaUserRepository(prisma),
       inject: [PrismaService],
     },
-    AuthGuard,
+    {
+      provide: 'UserRepository',
+      useExisting: PrismaUserRepository,
+    },
   ],
-  exports: [AuthGuard, JwtAuthPort, PrismaService],
+  exports: [AuthGuard, JwtAuthPort, 'AuthPort', PrismaUserRepository, 'UserRepository', PrismaService],
 })
 export class AuthModule {}

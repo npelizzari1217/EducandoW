@@ -13,10 +13,19 @@ out/
 # Turborepo
 .turbo/
 
-# Variables de Entorno
+# Variables de Entorno y secretos
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+credentials.json
+credentials.*
+secrets.yaml
+secrets.yml
+secrets.json
+*.secret
 
 # Logs
 *.log
@@ -49,6 +58,12 @@ opencode_state.json
 # Prisma
 api/prisma/generated/
 
+# Turbo cache
+node_modules/.cache/
+
 # Expo / React Native
 mobile/.expo/
 mobile/android/
+
+# Herramientas
+mobile/.atl/

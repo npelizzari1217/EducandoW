@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { loadEnvConfig } from './infrastructure/config/env.config';
 
@@ -9,6 +10,25 @@ async function bootstrap() {
 
   app.setGlobalPrefix('v1');
 
+  // ── Swagger / OpenAPI ─────────────────────────────────────────────────
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('EducandoW API')
+    .setDescription('API de administración pedagógica para instituciones educativas')
+    .setVersion('0.0.1')
+    .addBearerAuth()
+    .addTag('auth', 'Autenticación y usuarios')
+    .addTag('nivel-inicial', 'Pedagogía Inicial')
+    .addTag('nivel-primario', 'Pedagogía Primario')
+    .addTag('nivel-secundario', 'Pedagogía Secundario')
+    .addTag('nivel-terciario', 'Pedagogía Terciario')
+    .addTag('institucion', 'Gestión institucional')
+    .addTag('health', 'Health check')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document);
+
+  // ── CORS ──────────────────────────────────────────────────────────────
   const rawOrigin = config.corsOrigin;
   const corsOrigin =
     rawOrigin === '*'
@@ -19,11 +39,13 @@ async function bootstrap() {
         : rawOrigin;
   app.enableCors({ origin: corsOrigin, credentials: true });
 
+  // ── Cookie parser ─────────────────────────────────────────────────────
   const cookieParser = require('cookie-parser');
   app.use(cookieParser());
 
   await app.listen(config.port);
   console.log(`🚀 EducandoW API running on http://localhost:${config.port}/v1`);
+  console.log(`📚 Swagger docs at http://localhost:${config.port}/docs`);
 }
 
 bootstrap();
