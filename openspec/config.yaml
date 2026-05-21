@@ -1,0 +1,37 @@
+# openspec/config.yaml
+schema: spec-driven
+
+context: |
+  Tech stack: pnpm + Turborepo monorepo, NestJS v10 + SWC, Prisma + PostgreSQL, React 19 + Vite
+  Architecture: Clean Architecture (domain → application → infrastructure → presentation)
+  Levels: INICIAL, PRIMARIO, SECUNDARIO, TERCIARIO — bounded contexts dentro del monolith
+  Testing: Vitest v1.6.1 en domain, api, web. Strict TDD habilitado.
+  Style: TypeScript strict, Conventional Commits, Result pattern, Value Objects inmutables
+
+rules:
+  proposal:
+    - Especificar qué nivel pedagógico afecta (INICIAL | PRIMARIO | SECUNDARIO | TERCIARIO | ALL)
+    - Incluir rollback plan para cambios riesgosos
+    - Mapear capacidades afectadas del sistema
+  specs:
+    - Usar Given/When/Then para escenarios
+    - Usar RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Cada escenario debe ser verificable
+  design:
+    - Incluir decisiones de arquitectura con rationale
+    - Especificar qué archivos se crean/modifican/eliminan
+    - Mantener la regla de dependencias de Clean Arch
+  tasks:
+    - Agrupar por fase, usar numeración jerárquica
+    - Cada tarea debe ser completable en una sesión
+    - Separar por capa (domain/application/infrastructure/presentation)
+  apply:
+    - Seguir patrones existentes del codebase
+    tdd: true
+    test_command: "pnpm test"
+  verify:
+    test_command: "pnpm test"
+    build_command: "pnpm build"
+    coverage_threshold: 80
+  archive:
+    - Mergear deltas sin perder especificaciones canónicas
