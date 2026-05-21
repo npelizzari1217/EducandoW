@@ -7,6 +7,7 @@ import { BcryptPasswordHasher } from '../../infrastructure/auth/bcrypt-password-
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaUserRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-user.repository';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import { UserRegisteredHandler } from '../../infrastructure/event-bus/handlers/user-registered.handler';
 import { loadEnvConfig } from '../../infrastructure/config/env.config';
 
 const env = loadEnvConfig();
@@ -17,8 +18,8 @@ const env = loadEnvConfig();
     // ── Use Cases ──────────────────────────────────────────────────────
     {
       provide: RegisterUserUseCase,
-      useFactory: (repo, hasher) => new RegisterUserUseCase(repo, hasher),
-      inject: ['UserRepository', 'PasswordHasher'],
+      useFactory: (repo, hasher, eventBus) => new RegisterUserUseCase(repo, hasher, eventBus),
+      inject: ['UserRepository', 'PasswordHasher', 'EventBus'],
     },
     {
       provide: LoginUseCase,
@@ -54,6 +55,8 @@ const env = loadEnvConfig();
       provide: 'UserRepository',
       useExisting: PrismaUserRepository,
     },
+    // ── Event Handlers ─────────────────────────────────────────────────
+    UserRegisteredHandler,
   ],
   exports: [AuthGuard, JwtAuthPort, 'AuthPort', PrismaUserRepository, 'UserRepository', PrismaService],
 })

@@ -4,7 +4,8 @@ import {
   User,
   UserRepository,
   EmailAlreadyExistsError,
-  InvalidCredentialsError,
+  UserRegistered,
+  EventBus,
   Result,
   ok,
   err,
@@ -17,6 +18,7 @@ export class RegisterUserUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly passwordHasher: PasswordHasher,
+    private readonly eventBus: EventBus,
   ) {}
 
   async execute(dto: RegisterUserDTO): Promise<Result<UserProfileDTO, Error>> {
@@ -47,6 +49,10 @@ export class RegisterUserUseCase {
     const saveResult = await this.userRepo.save(user);
     if (saveResult.isErr()) return err(saveResult.unwrapErr());
     const saved = saveResult.unwrap();
+
+    this.eventBus.publish(
+      new UserRegistered(saved.id, saved.email, saved.name, saved.role),
+    );
 
     return ok({
       id: saved.id.get(),
