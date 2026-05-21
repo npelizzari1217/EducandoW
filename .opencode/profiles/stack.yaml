@@ -1,0 +1,61 @@
+# =============================================================================
+# Stack Profile: nestjs-enterprise
+# =============================================================================
+
+profile:
+  name: nestjs-enterprise
+  version: "1.0"
+  description: "NestJS + Clean Architecture + Prisma + React — perfil base para EducandoW"
+
+  technology:
+    backend:
+      framework: NestJS v10
+      builder: SWC
+      language: TypeScript 5.4 (strict)
+      runtime: Node.js >=20
+
+    database:
+      engine: PostgreSQL
+      orm: Prisma v5
+      migrations: prisma migrate dev
+
+    frontend:
+      framework: React 19
+      bundler: Vite 6
+      routing: react-router-dom v7
+
+    mobile:
+      framework: Expo SDK 52
+      language: TypeScript
+
+    testing:
+      unit: Vitest v1.6.1
+      integration: "@nestjs/testing + @testing-library/react"
+      e2e: "No configurado"
+
+    quality:
+      type_checker: tsc --noEmit (strict)
+      linter: "No configurado"
+      formatter: "No configurado"
+
+  architecture:
+    pattern: clean-architecture
+    layers:
+      - domain
+      - application
+      - infrastructure
+      - presentation
+    domain_package: "packages/domain (zero deps)"
+    domain_patterns:
+      - "Entity: comportamiento en la entidad"
+      - "Value Object: inmutable, self-validating, comparado por valor"
+      - "Repository: interfaz en domain, implementación en infra"
+      - "Use Case: una clase, un execute()"
+      - "Result<T,E>: nunca throw en domain/application"
+    bounded_contexts:
+      - shared-kernel
+      - auth
+      - nivel-inicial
+      - nivel-primario
+      - nivel-secundario
+      - nivel-terciario

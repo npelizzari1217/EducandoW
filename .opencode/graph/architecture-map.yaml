@@ -1,0 +1,98 @@
+# =============================================================================
+# Architecture Map — Topology View
+# =============================================================================
+
+# EducandoW System Architecture
+#
+#                   ┌─────────────────────────────────┐
+#                   │       Web (React 19 + Vite)      │
+#                   │  Panel institucional             │
+#                   │  Panel nivel: INICIAL | PRIMARIO │
+#                   │              SECUNDARIO | TERCIARIO│
+#                   └──────────────┬──────────────────┘
+#                                  │ HTTP + JWT
+#                                  ↓
+#                   ┌─────────────────────────────────┐
+#                   │   PRESENTATION (NestJS)          │
+#                   │   /v1/auth/*                     │
+#                   │   /v1/instituciones/*            │
+#                   │   /v1/inicial/*   ← nivel módulo│
+#                   │   /v1/primario/*  ← nivel módulo│
+#                   │   /v1/secundario/*← nivel módulo│
+#                   │   /v1/terciario/* ← nivel módulo│
+#                   └──────────────┬──────────────────┘
+#                                  │
+#                   ┌──────────────┴──────────────────┐
+#                   │   APPLICATION (Use Cases)         │
+#                   │   auth/                           │
+#                   │   nivel-inicial/  (salas, informes)│
+#                   │   nivel-primario/ (grados, notas) │
+#                   │   nivel-secundario/(cursos, mesas)│
+#                   │   nivel-terciario/(carreras, actas)│
+#                   └──────────────┬──────────────────┘
+#                                  │
+#                   ┌──────────────┴──────────────────┐
+#                   │   DOMAIN (packages/domain)        │
+#                   │   shared-kernel: Institution,     │
+#                   │     Student, Teacher, Enrollment  │
+#                   │   Cada nivel tiene su domain      │
+#                   │   propio dentro de api/src/       │
+#                   └──────────────┬──────────────────┘
+#                                  │ (ports)
+#                   ┌──────────────┴──────────────────┐
+#                   │   INFRASTRUCTURE                  │
+#                   │   Prisma ORM, JWT, bcrypt         │
+#                   │   PostgreSQL                      │
+#                   └──────────────────────────────────┘
+
+# Layer Dependency Flow (Clean Architecture)
+#
+#   ┌──────────┐     ┌──────────┐
+#   │   WEB    │     │  MOBILE  │
+#   │ (React)  │     │  (Expo)  │
+#   └────┬─────┘     └────┬─────┘
+#        │                │
+#        └────────┬───────┘
+#                 │ HTTP (JWT Bearer)
+#                 ↓
+#      ┌──────────────────────────┐
+#      │     PRESENTATION         │ ← controllers por nivel pedagógico
+#      │  /v1/auth                │
+#      │  /v1/inicial/*           │   Cada nivel = módulo independiente
+#      │  /v1/primario/*          │   Zero lógica de negocio
+#      │  /v1/secundario/*        │
+#      │  /v1/terciario/*         │
+#      └──────────┬───────────────┘
+#                 │
+#                 ↓
+#      ┌──────────────────────────┐
+#      │     APPLICATION          │ ← use cases (orquestación)
+#      │  auth/                   │
+#      │  nivel-inicial/use-cases │   Un use case = una clase
+#      │  nivel-primario/use-cases│   Single execute()
+#      │  nivel-secundario/use-cases│
+#      │  nivel-terciario/use-cases│
+#      └──────────┬───────────────┘
+#                 │
+#                 ↓
+#      ┌──────────────────────────┐
+#      │     DOMAIN               │ ← entidades, VOs, ports
+#      │  packages/domain/        │   ZERO deps externas
+#      │  shared-kernel + auth    │
+#      └──────────────────────────┘
+#                 ↑ (ports/interfaces)
+#      ┌──────────────────────────┐
+#      │     INFRASTRUCTURE       │ ← Prisma, JWT, bcrypt
+#      │  persistence/, auth/     │
+#      └──────────────────────────┘
+
+# Level Selector Flow (Pedagogical Level Discrimination)
+#
+#   User logs in → JWT contains { level, institutionId }
+#     → Web reads level from /v1/auth/me
+#     → Renders panel: NivelComponent[level]
+#     → Cada panel carga su API específica:
+#       nivel === 'INICIAL'   → /v1/inicial/salas, /v1/inicial/informes
+#       nivel === 'PRIMARIO'  → /v1/primario/grados, /v1/primario/calificaciones
+#       nivel === 'SECUNDARIO'→ /v1/secundario/cursos, /v1/secundario/mesas
+#       nivel === 'TERCIARIO' → /v1/terciario/carreras, /v1/terciario/actas

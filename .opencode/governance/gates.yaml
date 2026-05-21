@@ -1,0 +1,141 @@
+# =============================================================================
+# Governance Gates — Enterprise Quality Control
+# =============================================================================
+
+gates:
+
+  # ── Gate 1: Specification Approved ────────────────────────────────────
+  spec_approved:
+    phase: spec
+    evaluator: orchestrator
+    criteria:
+      - "Todas las requirements usan RFC 2119 (MUST/SHOULD/MAY)"
+      - "Cada requirement tiene al menos un scenario Given/When/Then"
+      - "Happy paths Y edge cases cubiertos"
+      - "Delta specs referencian correctamente specs existentes"
+      - "No leaks de implementación en specs"
+      - "El nivel pedagógico afectado está explícito (INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO|ALL)"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 2: Design Approved ───────────────────────────────────────────
+  design_approved:
+    phase: design
+    evaluator: orchestrator
+    criteria:
+      - "Cada decisión de arquitectura tiene rationale y alternativas"
+      - "File changes list es concreta (paths reales)"
+      - "Testing strategy cubre todos los spec scenarios"
+      - "Se respeta la regla: niveles NO comparten lógica pedagógica"
+      - "Data flow entre capas está documentado"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 3: Architecture Guardian ─────────────────────────────────────
+  architecture_guardian:
+    phase: apply-plan
+    evaluator: architecture-guardian (sub-agent)
+    criteria:
+      - "No circular dependencies"
+      - "Domain layer: zero imports de infra o presentación"
+      - "Application layer: zero imports directos de infra (usa ports)"
+      - "Bounded context boundaries respetados (niveles no se cruzan)"
+      - "Level se usa como VO, nunca como string suelto"
+      - "Value Objects usados para domain primitives (no strings/ints crudos)"
+      - "Repository interfaces en domain, implementaciones en infra"
+      - "Controllers THIN: parse request → call use case → return response"
+    block_on_fail: true
+    auto_approve: false
+    violations:
+      store_at: .opencode/governance/violations/{change}.yaml
+
+  # ── Gate 4: Contracts Intact ──────────────────────────────────────────
+  contracts_intact:
+    phase: apply
+    evaluator: orchestrator
+    criteria:
+      - "No breaking changes a contratos existentes (sin spec delta)"
+      - "Interface signatures sin cambios (salvo spec explícito)"
+      - "Prisma migrations backward-compatible"
+      - "No columnas/tablas removidas sin migration plan"
+      - "Niveles pedagógicos SIN cross-contamination de endpoints"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 5: Verify Passed ─────────────────────────────────────────────
+  verify_passed:
+    phase: verify
+    evaluator: sdd-verify (sub-agent)
+    criteria:
+      - "Todos los spec scenarios tienen tests correspondientes"
+      - "Tests pasan (0 failures)"
+      - "TypeScript compila limpio (0 errors)"
+      - "Coverage >= 80% en domain y application"
+      - "No console.error o debugger en production code"
+      - "Apply-progress muestra todas las tareas completadas"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 6: No Critical Risks ─────────────────────────────────────────
+  no_critical_risks:
+    phase: production-review
+    evaluator: production-reviewer (sub-agent)
+    criteria:
+      - "No vulnerabilidades de seguridad (OWASP Top 10)"
+      - "No hardcoded secrets o credenciales"
+      - "Rollback plan validado"
+      - "Migration testeada (si aplica)"
+      - "Observability: logs y errores manejados"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 7: Pedagogical Level Check ───────────────────────────────────
+  pedagogical_level_check:
+    phase: design
+    evaluator: orchestrator
+    criteria:
+      - "El cambio afecta al nivel pedagógico correcto"
+      - "No hay leak de lógica entre niveles (ej: inicial no usa notas numéricas)"
+      - "El Level VO se usa como discriminador, no strings"
+      - "La UI muestra correctamente el panel del nivel activo"
+    block_on_fail: true
+    auto_approve: false
+
+  # ── Gate 8: Production Review ─────────────────────────────────────────
+  production_review:
+    phase: production-review
+    evaluator: production-reviewer (sub-agent)
+    criteria:
+      - "Deployment readiness confirmado"
+      - "Variables de entorno documentadas"
+      - "Health check endpoint funcional"
+      - "Graceful shutdown manejado"
+    block_on_fail: false
+    auto_approve: true
+
+# =============================================================================
+# Gate Evaluation Protocol
+# =============================================================================
+#
+# Flow:
+#   1. Phase completes → sub-agent returns envelope
+#   2. Orchestrator checks gates.yaml for gates bound to this phase
+#   3. For each gate:
+#      a. If auto_approve: mark passed
+#      b. If evaluator is orchestrator: evaluate inline
+#      c. If evaluator is sub-agent: delegate
+#   4. All gates pass → advance to next phase
+#   5. Any gate fails → STOP, log blocker, report to user
+#   6. Persist gate results to .opencode/state/{change-id}/approvals/
+
+violations:
+  storage: .opencode/governance/violations/
+  format: yaml
+  tracking:
+    - violation_id
+    - gate
+    - severity (critical|high|medium|low)
+    - file_path
+    - description
+    - recommendation
+    - status (open|accepted|fixed|wont_fix)

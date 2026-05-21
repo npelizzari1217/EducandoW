@@ -1,0 +1,123 @@
+# =============================================================================
+# Knowledge Graph — Module Registry
+# =============================================================================
+# Updated by graph-manager agent after significant changes.
+
+modules:
+
+  # ── Domain Package ────────────────────────────────────────────────────
+  - name: domain-shared
+    path: packages/domain/src/shared
+    type: domain
+    exports: [Id, Email, Result, ok, err, DomainError, NotFoundError, ValidationError, DomainEvent, EventBus]
+    bounded_context: shared-kernel
+
+  - name: domain-institution
+    path: packages/domain/src/institution
+    type: domain
+    exports: [Institution, Level, LevelType]
+    bounded_context: shared-kernel
+    depends_on: [domain-shared]
+
+  - name: domain-personnel
+    path: packages/domain/src/personnel
+    type: domain
+    exports: [Student, Teacher, Dni]
+    bounded_context: shared-kernel
+    depends_on: [domain-shared]
+
+  - name: domain-enrollment
+    path: packages/domain/src/enrollment
+    type: domain
+    exports: [Enrollment]
+    bounded_context: shared-kernel
+    depends_on: [domain-shared, domain-institution, domain-personnel]
+
+  - name: domain-auth
+    path: packages/domain/src/auth
+    type: domain
+    exports: [User, Password, UserRepository, RefreshTokenRepository, UserRegistered]
+    bounded_context: auth
+    depends_on: [domain-shared]
+
+  # ── API Application Layer ─────────────────────────────────────────────
+  - name: app-auth
+    path: api/src/application/auth
+    type: application
+    exports: [RegisterUserUseCase, LoginUseCase]
+    bounded_context: auth
+    depends_on: [domain-auth, domain-shared]
+
+  - name: app-nivel-inicial
+    path: api/src/application/nivel-inicial
+    type: application
+    exports: [SalasUseCases, InformesUseCases, PlanificacionUseCases]
+    bounded_context: nivel-inicial
+
+  - name: app-nivel-primario
+    path: api/src/application/nivel-primario
+    type: application
+    exports: [GradosUseCases, CalificacionesUseCases, AsistenciaUseCases]
+    bounded_context: nivel-primario
+
+  - name: app-nivel-secundario
+    path: api/src/application/nivel-secundario
+    type: application
+    exports: [CursosUseCases, CalificacionesUseCases, MesasUseCases, RegimenUseCases]
+    bounded_context: nivel-secundario
+
+  - name: app-nivel-terciario
+    path: api/src/application/nivel-terciario
+    type: application
+    exports: [CarrerasUseCases, CalificacionesUseCases, ActasUseCases, TitulosUseCases]
+    bounded_context: nivel-terciario
+
+  # ── API Infrastructure ────────────────────────────────────────────────
+  - name: infra-persistence
+    path: api/src/infrastructure/persistence
+    type: infrastructure
+    exports: [PrismaService]
+    bounded_context: shared-infrastructure
+
+  - name: infra-auth
+    path: api/src/infrastructure/auth
+    type: infrastructure
+    exports: [AuthGuard, JwtAuthPort, BcryptPasswordHasher, CurrentUser]
+    bounded_context: auth
+
+  # ── API Presentation ──────────────────────────────────────────────────
+  - name: pres-auth
+    path: api/src/presentation/auth
+    type: presentation
+    exports: [AuthController, AuthModule]
+    bounded_context: auth
+
+  - name: pres-nivel-inicial
+    path: api/src/presentation/nivel-inicial
+    type: presentation
+    exports: [NivelInicialController, NivelInicialModule]
+    bounded_context: nivel-inicial
+
+  - name: pres-nivel-primario
+    path: api/src/presentation/nivel-primario
+    type: presentation
+    exports: [NivelPrimarioController, NivelPrimarioModule]
+    bounded_context: nivel-primario
+
+  - name: pres-nivel-secundario
+    path: api/src/presentation/nivel-secundario
+    type: presentation
+    exports: [NivelSecundarioController, NivelSecundarioModule]
+    bounded_context: nivel-secundario
+
+  - name: pres-nivel-terciario
+    path: api/src/presentation/nivel-terciario
+    type: presentation
+    exports: [NivelTerciarioController, NivelTerciarioModule]
+    bounded_context: nivel-terciario
+
+  - name: pres-shared
+    path: api/src/presentation/shared
+    type: presentation
+    exports: [AppExceptionFilter, ResponseInterceptor]
+    bounded_context: shared-kernel

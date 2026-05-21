@@ -1,0 +1,73 @@
+# =============================================================================
+# SDD Enterprise Config — EducandoW
+# =============================================================================
+# Source of truth: filesystem (.git versioned) + Engram (cognitive engine).
+# Engram is NOT the primary store. Every artifact exists in both places.
+
+project:
+  name: educandow
+  repository: npelizzari1217/EducandoW
+  type: monorepo
+  domain: administracion-pedagogica
+
+stack:
+  profile: nestjs-enterprise
+  secondary: [react-spa, expo-mobile]
+  language: typescript
+  runtime: node
+  package_manager: pnpm
+  monorepo_tool: pnpm-workspace
+  database: postgresql
+  orm: prisma
+
+architecture:
+  pattern: clean-architecture
+  layers: [domain, application, infrastructure, presentation]
+  packages:
+    domain: packages/domain
+    api: api
+    web: web
+    mobile: mobile
+
+persistence:
+  mode: hybrid
+  source_of_truth: filesystem
+  engram_project: educandow
+
+workflows:
+  sdd_pipeline:
+    phases:
+      - explore
+      - propose
+      - spec
+      - design
+      - tasks
+      - apply-plan
+      - apply
+      - verify
+      - production-review
+      - archive
+    parallel_groups:
+      - [spec, design]
+
+governance:
+  hard_gates:
+    - spec_approved
+    - design_approved
+    - architecture_guardian
+    - verify_passed
+    - contracts_intact
+    - no_critical_risks
+  soft_gates:
+    - production_review
+    - pedagogical_level_check
+
+compaction:
+  auto: true
+  tail_turns: 3
+  state_protection: true
+
+recovery:
+  primary: filesystem
+  secondary: engram
+  strategy: hybrid-fallback

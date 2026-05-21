@@ -1,0 +1,217 @@
+# =============================================================================
+# Knowledge Graph — Bounded Contexts (Domain Boundaries)
+# =============================================================================
+# EducandoW: Administración Pedagógica para 4 niveles educativos.
+# Cada nivel pedagógico es un bounded context con su propio ubiquitous language.
+# El shared-kernel contiene lo transversal (institución, personas, auth).
+# Cross-context communication via well-defined contracts only.
+
+bounded_contexts:
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # SHARED KERNEL — Transversal a todos los niveles
+  # ═══════════════════════════════════════════════════════════════════════
+  shared-kernel:
+    description: "Entidades y VOs compartidos por todos los niveles pedagógicos"
+    owns:
+      entities: [Institution, Student, Teacher, User]
+      value_objects: [Id, Email, Dni, Level, LevelType]
+      errors: [DomainError, NotFoundError, ValidationError]
+      shared: [Result, EventBus, DomainEvent]
+    contracts:
+      - name: institution-management
+        provides: [CRUD Institution, niveles que ofrece]
+      - name: person-management
+        provides: [CRUD Student, CRUD Teacher, búsqueda por DNI]
+      - name: enrollment
+        provides: [inscripción de alumno en nivel/año/división]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # AUTH — Identidad, autenticación, autorización
+  # ═══════════════════════════════════════════════════════════════════════
+  auth:
+    description: "Identidad de usuario, login, JWT, roles, permisos"
+    owns:
+      entities: [User]
+      value_objects: [Password, UserIdentity]
+      ports: [AuthPort, PasswordHasher, UserRepository, RefreshTokenRepository]
+      events: [UserRegistered]
+    contracts:
+      - name: auth-login
+        provides: [POST /v1/auth/login, POST /v1/auth/register, POST /v1/auth/refresh]
+        consumed_by: [web-frontend, mobile-app]
+      - name: auth-me
+        provides: [GET /v1/auth/me — datos del usuario actual + nivel asignado]
+        consumed_by: [web-frontend, mobile-app]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # NIVEL INICIAL — Jardín de infantes / Preescolar
+  # ═══════════════════════════════════════════════════════════════════════
+  nivel-inicial:
+    description: "Pedagogía de nivel inicial: áreas de desarrollo, aprendizaje basado en juego, evaluación cualitativa"
+    owns:
+      entities: [Sala, DocenteInicial, AlumnoInicial, PeriodoAdaptacion, InformeEvolutivo]
+      value_objects: [AreaDesarrollo, Juego, ActividadLudica, Observacion]
+      aggregates: [LegajoInicial, PlanificacionSemanal]
+    contracts:
+      - name: salas-gestion
+        provides: [CRUD de salas (3, 4, 5 años), asignación docente]
+      - name: informes-evolutivos
+        provides: [registro de observaciones por área de desarrollo, informe trimestral]
+      - name: planificacion-inicial
+        provides: [planificación semanal por sala, secuencias didácticas, unidades]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # NIVEL PRIMARIO — Educación Primaria (1° a 6°/7° grado)
+  # ═══════════════════════════════════════════════════════════════════════
+  nivel-primario:
+    description: "Pedagogía de nivel primario: materias, grados, evaluación numérica/conceptual, boletín"
+    owns:
+      entities: [Grado, MateriaPrimario, DocentePrimario, AlumnoPrimario, CalificacionPrimario]
+      value_objects: [NotaNumerica, NotaConceptual, Trimestre, BoletínPrimario]
+      aggregates: [LegajoPrimario, PlanificacionAnual, RegistroAsistencia]
+    contracts:
+      - name: grados-gestion
+        provides: [CRUD grados (1° a 6°), asignación docente por materia]
+      - name: calificaciones-primario
+        provides: [carga de notas por trimestre, promedio, boletín]
+      - name: planificacion-primario
+        provides: [planificación anual por grado/materia, proyectos áulicos]
+      - name: asistencia-primario
+        provides: [registro diario de asistencia, cómputo de inasistencias]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # NIVEL SECUNDARIO — Educación Secundaria (1° a 5°/6° año)
+  # ═══════════════════════════════════════════════════════════════════════
+  nivel-secundario:
+    description: "Pedagogía de nivel secundario: materias con orientación, previas, mesas de examen, régimen académico"
+    owns:
+      entities: [Curso, MateriaSecundario, DocenteSecundario, AlumnoSecundario, MesaExamen, Previas, Orientacion]
+      value_objects: [NotaSecundario, CondicionAcademica, TrimestreSecundario, BoletinSecundario]
+      aggregates: [LegajoSecundario, RegimenAcademico, PlanEstudios]
+    contracts:
+      - name: cursos-gestion
+        provides: [CRUD cursos por año y división, asignación docente por materia]
+      - name: calificaciones-secundario
+        provides: [carga de notas trimestrales, previas, mesas de examen, promedio final]
+      - name: regimen-academico
+        provides: [configuración de condiciones de promoción, equivalencias, pase]
+      - name: plan-estudios
+        provides: [definición de orientaciones, materias por año, correlatividades]
+      - name: asistencia-secundario
+        provides: [registro por materia/hora, cómputo de inasistencias, reincorporaciones]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # NIVEL TERCIARIO — Educación Superior / Terciario
+  # ═══════════════════════════════════════════════════════════════════════
+  nivel-terciario:
+    description: "Pedagogía de nivel superior: carreras, materias cuatrimestrales, correlatividades, régimen de promoción, actas de examen"
+    owns:
+      entities: [Carrera, MateriaTerciario, DocenteTerciario, AlumnoTerciario, MesaExamen, ActaExamen, Finales]
+      value_objects: [NotaTerciario, CondicionAcademicaTerciario, Cuatrimestre, Certificado, Titulo]
+      aggregates: [LegajoTerciario, PlanCarrera, RegimenPromocion]
+    contracts:
+      - name: carreras-gestion
+        provides: [CRUD carreras, plan de estudios, correlatividades]
+      - name: calificaciones-terciario
+        provides: [carga de notas por cuatrimestre, finales, actas de examen, promedio]
+      - name: regimen-promocion
+        provides: [definición de régimen (promocional/regular/libre), condiciones por carrera]
+      - name: inscripcion-materias
+        provides: [inscripción a cursado cuatrimestral, validación de correlatividades]
+      - name: titulos-certificados
+        provides: [emisión de títulos, certificados de materia aprobada, analíticos]
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # FRONTEND & MOBILE
+  # ═══════════════════════════════════════════════════════════════════════
+  web-frontend:
+    description: "React SPA — panel institucional + gestión pedagógica por nivel"
+    owns: [login, dashboard, gestion-institucional, panel-nivel, alumnos, docentes, calificaciones, reportes]
+    contracts:
+      - name: auth-flow
+        consumes: [POST /v1/auth/login, POST /v1/auth/refresh, GET /v1/auth/me]
+      - name: nivel-selector
+        consumes: [GET /v1/institution/levels — determina qué panel de nivel mostrar]
+
+  mobile-app:
+    description: "Expo React Native — funciones esenciales para docentes y directivos"
+    owns: [auth, asistencia, calificaciones-basicas, notificaciones]
+    contracts:
+      - name: auth-flow
+        consumes: [POST /v1/auth/login, POST /v1/auth/refresh]
+      - name: mobile-features
+        consumes: [asistencia diaria, carga rápida de notas]
+
+# =============================================================================
+# Context Mapping — Integration Patterns
+# =============================================================================
+context_mappings:
+  # ── Shared Kernel ─────────────────────────────────────────────────────
+  - from: nivel-inicial
+    to: shared-kernel
+    pattern: shared-kernel
+    description: "Nivel Inicial usa Institution, Student, Teacher del shared kernel"
+
+  - from: nivel-primario
+    to: shared-kernel
+    pattern: shared-kernel
+    description: "Nivel Primario usa Institution, Student, Teacher del shared kernel"
+
+  - from: nivel-secundario
+    to: shared-kernel
+    pattern: shared-kernel
+    description: "Nivel Secundario usa Institution, Student, Teacher del shared kernel"
+
+  - from: nivel-terciario
+    to: shared-kernel
+    pattern: shared-kernel
+    description: "Nivel Terciario usa Institution, Student, Teacher del shared kernel"
+
+  # ── Auth como servicio ────────────────────────────────────────────────
+  - from: nivel-inicial
+    to: auth
+    pattern: conformist
+    description: "Cada nivel consume User y roles de auth sin modificarlos"
+
+  - from: nivel-primario
+    to: auth
+    pattern: conformist
+
+  - from: nivel-secundario
+    to: auth
+    pattern: conformist
+
+  - from: nivel-terciario
+    to: auth
+    pattern: conformist
+
+  # ── Frontend → API ────────────────────────────────────────────────────
+  - from: web-frontend
+    to: auth
+    pattern: open-host-service
+    description: "Web consume auth REST API"
+
+  - from: web-frontend
+    to: shared-kernel
+    pattern: open-host-service
+    description: "Web consume institution + personnel REST API"
+
+  - from: mobile-app
+    to: auth
+    pattern: open-host-service
+    description: "Mobile consume auth REST API"
+
+  # ── Anti-Corruption Layer (niveles NO se hablan entre sí) ─────────────
+  - from: nivel-inicial
+    to: nivel-primario
+    pattern: separate-ways
+    description: "Niveles NO se comunican directamente. La gestión pedagógica es independiente."
+
+  - from: nivel-primario
+    to: nivel-secundario
+    pattern: separate-ways
+
+  - from: nivel-secundario
+    to: nivel-terciario
+    pattern: separate-ways

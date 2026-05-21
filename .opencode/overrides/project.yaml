@@ -1,0 +1,59 @@
+# =============================================================================
+# Project Overrides — EducandoW
+# =============================================================================
+
+prompts:
+  sdd_phases:
+    detail_level: standard
+    language: es
+
+  code_generation:
+    style: clean-architecture-nestjs
+    no_comments: true
+    prefer_types_over_interfaces: false
+
+policies:
+  commit:
+    style: conventional
+    allow_amend: false
+    sign_off: false
+
+  testing:
+    strict_tdd: true
+    required_for: [domain, application]
+    optional_for: [presentation, infrastructure]
+    framework: vitest
+    coverage_threshold: 80
+
+  security:
+    env_files: deny_read
+    secrets:
+      - JWT_SECRET
+      - DATABASE_URL
+      - BCRYPT_ROUNDS
+
+conventions:
+  file_naming:
+    use_cases: "{verb}-{noun}.use-case.ts"
+    dto: "{context}.dto.ts"
+    entities: "{entity-name}.ts"
+    value_objects: "{vo-name}.ts"
+
+  nestjs:
+    token_injection: required
+    controller_prefix: domain-name
+
+  pedagogical:
+    level_discrimination: "Level VO, never raw string"
+    separate_contexts: "Niveles pedagógicos no comparten lógica"
+    level_routing: "/v1/{nivel}/* (inicial, primario, secundario, terciario)"
+
+workflows:
+  sdd_pipeline:
+    skip_phases:
+      - none
+    require_apply_plan: true
+
+  deploy:
+    manual_only: true
+    target: local-development

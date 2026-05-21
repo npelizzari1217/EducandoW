@@ -1,0 +1,110 @@
+# =============================================================================
+# Knowledge Graph — Inter-Module Dependencies
+# =============================================================================
+# Arrow FROM dependent TO dependency.
+# Rule: domain NEVER depends on application or infrastructure.
+
+dependencies:
+
+  # ── Shared Kernel (self-contained) ────────────────────────────────────
+  - from: domain-shared
+    to: []
+    rule: "Shared kernel: self-contained. Zero external deps."
+
+  - from: domain-institution
+    to: [domain-shared]
+    rule: "Institution uses Id, Level VO"
+
+  - from: domain-personnel
+    to: [domain-shared]
+    rule: "Student/Teacher use Id, Email, Dni"
+
+  - from: domain-enrollment
+    to: [domain-shared, domain-institution, domain-personnel]
+    rule: "Enrollment references Institution, Student via Id"
+
+  - from: domain-auth
+    to: [domain-shared]
+    rule: "Auth domain uses shared VOs (Email, Password)"
+
+  # ── Application depends on domain only ────────────────────────────────
+  - from: app-auth
+    to: [domain-auth, domain-shared]
+    rule: "Auth use cases orchestrate auth domain entities"
+
+  - from: app-nivel-inicial
+    to: [domain-shared, domain-personnel, domain-enrollment]
+    rule: "Uses shared entities + nivel-inicial domain (in api/src/application)"
+
+  - from: app-nivel-primario
+    to: [domain-shared, domain-personnel, domain-enrollment]
+    rule: "Uses shared entities + nivel-primario domain"
+
+  - from: app-nivel-secundario
+    to: [domain-shared, domain-personnel, domain-enrollment]
+    rule: "Uses shared entities + nivel-secundario domain"
+
+  - from: app-nivel-terciario
+    to: [domain-shared, domain-personnel, domain-enrollment]
+    rule: "Uses shared entities + nivel-terciario domain"
+
+  # ── Infrastructure implements domain ports ────────────────────────────
+  - from: infra-persistence
+    to: [domain-shared, domain-auth, domain-institution, domain-personnel, domain-enrollment]
+    rule: "Prisma repos implement domain repository interfaces"
+
+  - from: infra-auth
+    to: [domain-auth, app-auth, domain-shared]
+    rule: "JWT/bcrypt implement auth ports"
+
+  # ── Presentation wires use cases ──────────────────────────────────────
+  - from: pres-auth
+    to: [app-auth, infra-auth]
+    rule: "AuthController delegates to auth use cases"
+
+  - from: pres-nivel-inicial
+    to: [app-nivel-inicial]
+    rule: "NivelInicialController delegates to nivel-inicial use cases"
+
+  - from: pres-nivel-primario
+    to: [app-nivel-primario]
+
+  - from: pres-nivel-secundario
+    to: [app-nivel-secundario]
+
+  - from: pres-nivel-terciario
+    to: [app-nivel-terciario]
+
+# =============================================================================
+# Architecture Violation Rules (checked by architecture-guardian)
+# =============================================================================
+violation_rules:
+  - rule: domain_no_infra_deps
+    description: "Domain layer must not import from infrastructure or presentation"
+    check: "No import from 'api/src/infrastructure' or 'api/src/presentation' in packages/domain"
+    severity: critical
+
+  - rule: domain_no_nestjs
+    description: "Domain must not import @nestjs/* decorators"
+    check: "packages/domain/package.json has zero @nestjs dependencies"
+    severity: critical
+
+  - rule: app_no_infra_imports
+    description: "Application must not import from infrastructure directly (use ports)"
+    check: "No import from 'api/src/infrastructure' in api/src/application (except @Inject decorators)"
+    severity: critical
+
+  - rule: no_circular
+    description: "No circular dependencies between modules"
+    check: "Graph analysis: no cycles in dependency graph"
+    severity: critical
+
+  - rule: levels_separate
+    description: "Pedagogical level modules must not cross-import"
+    check: "No import from 'nivel-inicial' in 'nivel-primario' and vice versa"
+    severity: critical
+
+  - rule: no_string_level
+    description: "Level must be the Level VO, never a raw string"
+    check: "No level comparisons with === 'INICIAL' outside domain VO"
+    severity: high

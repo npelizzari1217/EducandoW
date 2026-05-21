@@ -1,0 +1,126 @@
+# =============================================================================
+# Feature Map — Capabilities by Bounded Context
+# =============================================================================
+
+features:
+
+  auth:
+    - name: "Registro de usuarios"
+      level: ALL
+      status: scaffold
+
+    - name: "Login con JWT + refresh token"
+      level: ALL
+      status: scaffold
+
+    - name: "Recuperación de contraseña"
+      level: ALL
+      status: planned
+
+  institucion:
+    - name: "ABM Institución"
+      level: ALL
+      status: scaffold
+
+    - name: "Configuración de niveles activos por institución"
+      level: ALL
+      status: planned
+
+    - name: "Multi-tenancy institucional"
+      level: ALL
+      status: planned
+
+  alumnos:
+    - name: "ABM Alumnos"
+      level: ALL
+      status: scaffold
+
+    - name: "Búsqueda por DNI, nombre, apellido"
+      level: ALL
+      status: planned
+
+    - name: "Ficha completa del alumno"
+      level: ALL
+      status: planned
+
+  docentes:
+    - name: "ABM Docentes"
+      level: ALL
+      status: scaffold
+
+    - name: "Asignación de materias/salas por nivel"
+      level: ALL
+      status: planned
+
+  nivel-inicial:
+    - name: "Gestión de salas (3, 4, 5 años)"
+      level: INICIAL
+      status: planned
+
+    - name: "Informes evolutivos por área de desarrollo"
+      level: INICIAL
+      status: planned
+
+    - name: "Planificación semanal"
+      level: INICIAL
+      status: planned
+
+  nivel-primario:
+    - name: "Gestión de grados (1° a 6°)"
+      level: PRIMARIO
+      status: planned
+
+    - name: "Carga de calificaciones trimestrales"
+      level: PRIMARIO
+      status: planned
+
+    - name: "Emisión de boletines"
+      level: PRIMARIO
+      status: planned
+
+    - name: "Registro de asistencia"
+      level: PRIMARIO
+      status: planned
+
+  nivel-secundario:
+    - name: "Gestión de cursos por año y división"
+      level: SECUNDARIO
+      status: planned
+
+    - name: "Carga de calificaciones y previas"
+      level: SECUNDARIO
+      status: planned
+
+    - name: "Mesas de examen"
+      level: SECUNDARIO
+      status: planned
+
+    - name: "Régimen académico y promoción"
+      level: SECUNDARIO
+      status: planned
+
+  nivel-terciario:
+    - name: "Gestión de carreras y plan de estudios"
+      level: TERCIARIO
+      status: planned
+
+    - name: "Inscripción a materias con correlatividades"
+      level: TERCIARIO
+      status: planned
+
+    - name: "Carga de notas y actas de examen"
+      level: TERCIARIO
+      status: planned
+
+    - name: "Emisión de títulos y certificados"
+      level: TERCIARIO
+      status: planned
+
+  reportes:
+    - name: "Boletines por nivel"
+      level: ALL
+      status: planned
+
+    - name: "Estadísticas institucionales"
+      level: ALL
+      status: planned

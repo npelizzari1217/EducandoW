@@ -1,0 +1,194 @@
+# =============================================================================
+# Knowledge Graph — API Contracts
+# =============================================================================
+# Define external-facing API contracts. Changes require spec deltas.
+# Architecture guardian validates during apply-plan.
+
+contracts:
+
+  # ── Auth ──────────────────────────────────────────────────────────────
+  - id: auth-register
+    method: POST
+    path: /v1/auth/register
+    request: { email: string, password: string, name: string, role?: string }
+    response: { id, email, name, role, createdAt }
+    breaking_changes: [removing fields, changing response shape]
+
+  - id: auth-login
+    method: POST
+    path: /v1/auth/login
+    request: { email: string, password: string }
+    response: { accessToken: string, user: { id, email, name, role, institutionId?, level? } }
+    cookies_set: [refreshToken (httpOnly, path=/v1/auth/refresh)]
+
+  - id: auth-me
+    method: GET
+    path: /v1/auth/me
+    auth: Bearer token
+    response: { id, email, name, role, institutionId, level, permissions }
+
+  - id: auth-refresh
+    method: POST
+    path: /v1/auth/refresh
+    response: { accessToken: string, user: { id, email, name, role } }
+
+  # ── Institution (Shared Kernel) ───────────────────────────────────────
+  - id: institution-crud
+    method: [GET, POST, PATCH]
+    path: /v1/institutions[/:id]
+    auth: Bearer token
+    response: { id, name, levels, address, phone, email }
+    breaking_changes: [changing levels enum values]
+
+  - id: institution-levels
+    method: GET
+    path: /v1/institutions/:id/levels
+    auth: Bearer token
+    response: [{ level, active, academicYear }]
+
+  # ── Personnel (Shared Kernel) ─────────────────────────────────────────
+  - id: student-crud
+    method: [GET, POST, PATCH]
+    path: /v1/students[/:id]
+    auth: Bearer token
+    params: { search?, level?, grade?, page?, pageSize? }
+    response: { id, firstName, lastName, dni, email?, birthDate?, guardianName?, guardianPhone? }
+
+  - id: student-search
+    method: GET
+    path: /v1/students/search
+    auth: Bearer token
+    params: { q (nombre, apellido o DNI), level? }
+    response: [{ id, firstName, lastName, dni, level }]
+
+  - id: teacher-crud
+    method: [GET, POST, PATCH]
+    path: /v1/teachers[/:id]
+    auth: Bearer token
+    response: { id, firstName, lastName, dni, email, phone?, title?, institutionId }
+
+  # ── Enrollment (Shared Kernel) ────────────────────────────────────────
+  - id: enrollment-crud
+    method: [GET, POST, PATCH]
+    path: /v1/enrollments[/:id]
+    auth: Bearer token
+    params: { studentId?, institutionId?, level?, academicYear?, status? }
+    response: { id, studentId, institutionId, level, academicYear, grade?, division?, status }
+
+  # ── Nivel Inicial ─────────────────────────────────────────────────────
+  - id: salas-crud
+    method: [GET, POST, PATCH]
+    path: /v1/inicial/salas[/:id]
+    auth: Bearer token
+    response: { id, name, ageGroup (3|4|5), teacherId, institutionId, academicYear }
+
+  - id: informes-evolutivos
+    method: [GET, POST]
+    path: /v1/inicial/informes[/:id]
+    auth: Bearer token
+    request: { studentId, salaId, periodo, areasDesarrollo: [{ area, observacion, valoracion }] }
+    response: { id, studentId, periodo, areasDesarrollo, fecha }
+
+  - id: planificacion-inicial
+    method: [GET, POST]
+    path: /v1/inicial/planificaciones[/:id]
+    auth: Bearer token
+    response: { id, salaId, semana, secuencias: [{ nombre, area, actividades, recursos }] }
+
+  # ── Nivel Primario ────────────────────────────────────────────────────
+  - id: grados-crud
+    method: [GET, POST, PATCH]
+    path: /v1/primario/grados[/:id]
+    auth: Bearer token
+    response: { id, grade (1..6), division, academicYear, teacherAssignments: [{ materiaId, teacherId }] }
+
+  - id: calificaciones-primario
+    method: [GET, POST]
+    path: /v1/primario/calificaciones
+    auth: Bearer token
+    request: { studentId, gradoId, materiaId, trimestre, notaNumerica, notaConceptual? }
+    response: { id, studentId, materiaId, trimestre, notaNumerica, notaConceptual }
+
+  - id: boletin-primario
+    method: GET
+    path: /v1/primario/boletines/:studentId
+    auth: Bearer token
+    params: { academicYear }
+    response: { student, grado, materias: [{ nombre, notas: [{ trimestre, nota }], promedio }] }
+
+  - id: asistencia-primario
+    method: [GET, POST]
+    path: /v1/primario/asistencia
+    auth: Bearer token
+    request: { date, gradoId, records: [{ studentId, present (bool), justification? }] }
+    response: { date, total, presentes, ausentes, tarde }
+
+  # ── Nivel Secundario ──────────────────────────────────────────────────
+  - id: cursos-crud
+    method: [GET, POST, PATCH]
+    path: /v1/secundario/cursos[/:id]
+    auth: Bearer token
+    response: { id, year (1..6), division, orientacionId, academicYear, teacherAssignments }
+
+  - id: calificaciones-secundario
+    method: [GET, POST]
+    path: /v1/secundario/calificaciones
+    auth: Bearer token
+    request: { studentId, cursoId, materiaId, trimestre, nota }
+    response: { id, studentId, materiaId, trimestre, nota, condicion }
+
+  - id: mesas-examen
+    method: [GET, POST]
+    path: /v1/secundario/mesas[/:id]
+    auth: Bearer token
+    response: { id, materiaId, fecha, turno, presidenteId, vocales: [teacherId], inscriptos: [studentId] }
+
+  - id: regimen-academico
+    method: GET
+    path: /v1/secundario/regimen
+    auth: Bearer token
+    response: { condiciones: [{ materiaId, promocionDirecta, requiereExamenFinal }] }
+
+  # ── Nivel Terciario ───────────────────────────────────────────────────
+  - id: carreras-crud
+    method: [GET, POST, PATCH]
+    path: /v1/terciario/carreras[/:id]
+    auth: Bearer token
+    response: { id, name, planEstudios: [{ materiaId, cuatrimestre, correlatividades }] }
+
+  - id: calificaciones-terciario
+    method: [GET, POST]
+    path: /v1/terciario/calificaciones
+    auth: Bearer token
+    request: { studentId, materiaId, cuatrimestre, notaCursada, notaFinal?, condicionFinal }
+    response: { id, studentId, materiaId, cuatrimestre, notaCursada, notaFinal, condicionFinal }
+
+  - id: actas-examen
+    method: [GET, POST]
+    path: /v1/terciario/actas[/:id]
+    auth: Bearer token
+    response: { id, materiaId, fecha, mesaId, libro, folio, calificaciones: [{ studentId, nota, condicion }] }
+
+  - id: inscripcion-materias
+    method: POST
+    path: /v1/terciario/inscripciones
+    auth: Bearer token
+    request: { studentId, cuatrimestre, materias: [materiaId] }
+    response: { id, studentId, cuatrimestre, materias, validada (bool), errores? }
+
+  - id: titulos
+    method: [GET, POST]
+    path: /v1/terciario/titulos[/:id]
+    auth: Bearer token
+    response: { id, studentId, carreraId, fechaEgreso, estado (en-tramite|emitido|entregado) }
+
+# =============================================================================
+# Contract Validation Rules
+# =============================================================================
+validation:
+  - "Cualquier cambio en request/response requiere spec delta"
+  - "Remover un campo es BREAKING → necesita plan de migración"
+  - "Agregar campo opcional es backward-compatible"
+  - "Cambiar método de auth requiere security review completo"
+  - "Agregar/quitar nivel pedagógico requiere migration plan en todos los bounded contexts"
+  - "Los niveles NO comparten endpoints pedagógicos (ej: /v1/inicial/salas ≠ /v1/primario/grados)"
