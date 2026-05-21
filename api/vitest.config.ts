@@ -1,0 +1,28 @@
+import { defineConfig } from 'vitest/config';
+import path from 'path';
+
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    root: './src',
+    include: ['**/__tests__/**/*.test.ts', '**/*.test.ts', '**/*.spec.ts'],
+    exclude: ['node_modules', 'dist'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      exclude: ['node_modules', 'dist', '**/__tests__/**'],
+    },
+    server: {
+      deps: {
+        inline: ['@educandow/domain'],
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@educandow/domain': path.resolve(__dirname, '../packages/domain/src'),
+    },
+  },
+});
