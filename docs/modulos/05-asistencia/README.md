@@ -46,17 +46,31 @@ attendances:
 | R50 | printable_code = lo impreso ("-", "A", "½") |
 | R51 | X = días inexistentes (30 feb, 29 feb no bisiesto) |
 
-## Tareas atómicas
+## Pipeline SDD completo
 
-| # | Tarea | Agente |
+| Fase | Sub-agente | Estado |
 |---|---|---|
-| 1 | Crear entidades: AttendanceCode | sdd-apply |
-| 2 | Actualizar Attendance (subject_id, cycle_id, status_code FK) | sdd-apply |
-| 3 | Repositorios + Prisma | sdd-apply |
-| 4 | Use cases: CRUD códigos, tomar asistencia, totales | sdd-apply |
-| 5 | Controller + DTOs + módulo | sdd-apply |
-| 6 | Precarga de códigos del sistema (seed) | sdd-apply |
-| 7 | Tests | sdd-apply |
+| 1. EXPLORE | `sdd-explore` | 🔲 |
+| 2. PROPOSE | `sdd-propose` | 🔲 |
+| 3. SPEC | `sdd-spec` | 🔲 |
+| 4. DESIGN | `sdd-design` | 🔲 |
+| 5. TASKS | `sdd-tasks` | 🔲 |
+| 6. APPLY-PLAN | `sdd-apply-plan` | 🔲 |
+| 7. APPLY | `sdd-apply` (múltiples) | 🔲 |
+| 8. VERIFY | `sdd-verify` | 🔲 |
+| 9. ARCHIVE | `sdd-archive` | 🔲 |
+
+## Tareas atómicas (salida de TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Crear entidad: AttendanceCode | domain |
+| 2 | Actualizar Attendance (subject_id FK?, cycle_id FK, status_code FK) | domain+infra |
+| 3 | Repositorios + Prisma | infra |
+| 4 | Use cases: CRUD códigos, tomar asistencia, totales mensuales/ciclo | application |
+| 5 | Controller + DTOs + módulo | presentation |
+| 6 | Precarga de códigos del sistema (seed: P, SAB, DOM, X) | infra |
+| 7 | Tests unitarios + e2e | test |
 
 ## Contratos de API
 

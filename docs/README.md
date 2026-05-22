@@ -75,34 +75,29 @@
 4. El módulo tiene su propio orquestador que divide en tareas
 
 ### Para un Orquestador de Módulo (ej: `modulos/02-plan-estudios/README.md`)
-```markdown
-# Módulo: Plan de Estudios
 
-## Contexto
-- Tablas que maneja: study_plans, study_plan_courses, study_plan_subjects, correlatives
-- Reglas que aplican: R16-R22
-- Depende de: subjects (tabla ya existente)
+Cada módulo sigue el **pipeline SDD completo** de 9 fases con sub-agentes especializados:
 
-## Tareas atómicas (para agentes SDD)
-1. [ ] Crear entidades del dominio (StudyPlan, StudyPlanCourse, StudyPlanSubject, Correlative)
-2. [ ] Crear interfaces de repositorio
-3. [ ] Implementar repositorios Prisma
-4. [ ] Crear use cases (CreateStudyPlan, ListStudyPlans, AddSubject, etc.)
-5. [ ] Crear controller + DTOs + módulo
-6. [ ] Escribir tests unitarios
-
-## Contratos de API
-POST   /v1/study-plans
-GET    /v1/study-plans?level=SECUNDARIO
-POST   /v1/study-plans/:id/subjects
-...
+```
+EXPLORE → PROPOSE → SPEC → DESIGN → TASKS → APPLY-PLAN → APPLY → VERIFY → ARCHIVE
+(sdd-x)   (sdd-x)   (sdd-x) (sdd-x)   (sdd-x)  (sdd-x)     (sdd-x)  (sdd-x)   (sdd-x)
 ```
 
-### Para un Agente SDD (recibe UNA tarea)
-- Recibe: "Crear entidades del dominio para StudyPlan"
-- Contexto mínimo: el diseño de la entidad, las reglas que aplican
-- No necesita conocer el DER completo
-- Entrega: archivos implementados + tests
+Cada fase es ejecutada por un sub-agente que recibe solo el contexto necesario.
+El orquestador del módulo coordina, valida salidas y decide cuándo avanzar.
+
+### Para un Agente SDD (recibe UNA fase)
+
+Ejemplo de delegación para la fase APPLY:
+```
+Orquestador: "Implementar tarea 3 del módulo 02: repositorios Prisma para StudyPlan"
+→ Delega a sdd-apply con:
+  - El diseño de la entidad (del design.md del módulo)
+  - Las reglas que aplican (R16-R22)
+  - Los archivos esperados de salida
+→ sdd-apply implementa y devuelve código + tests
+→ Orquestador valida y pasa a la siguiente tarea
+```
 
 ---
 

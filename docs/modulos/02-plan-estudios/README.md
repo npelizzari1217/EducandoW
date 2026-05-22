@@ -42,17 +42,50 @@ correlatives:
 | R21 | Correlativas se validan al inscribir |
 | R22 | CURSADA = aprobó cursada, FINAL = aprobó final |
 
-## Tareas atómicas
+## Pipeline SDD completo
 
-| # | Tarea | Agente | Contexto |
-|---|---|---|---|
-| 1 | Crear entidades dominio: StudyPlan, StudyPlanCourse, StudyPlanSubject, Correlative | sdd-apply | Solo estas 4 entidades |
-| 2 | Crear interfaces de repositorio en domain | sdd-apply | 4 interfaces |
-| 3 | Implementar repositorios Prisma | sdd-apply | 4 implementaciones |
-| 4 | Crear use cases: CRUD StudyPlan, CRUD Subject | sdd-apply | Create, List, Get, Delete |
-| 5 | Crear controller + DTOs + módulo | sdd-apply | Zod validation, RBAC |
-| 6 | Tests unitarios de dominio | sdd-apply | 4 entidades |
-| 7 | Tests e2e de API | sdd-apply | Endpoints CRUD |
+> Cada fase es ejecutada por su **sub-agente especializado**.
+> El orquestador del módulo coordina el flujo y valida cada salida.
+
+| Fase | Sub-agente | Entrada | Salida | Estado |
+|---|---|---|---|---|
+| **1. EXPLORE** | `sdd-explore` | Este README | Documento de exploración | 🔲 |
+| **2. PROPOSE** | `sdd-propose` | Exploración | Propuesta de cambio | 🔲 |
+| **3. SPEC** | `sdd-spec` | Propuesta | Especificaciones (Given/When/Then) | 🔲 |
+| **4. DESIGN** | `sdd-design` | Especificaciones | Diseño técnico detallado | 🔲 |
+| **5. TASKS** | `sdd-tasks` | Diseño | Lista de tareas atómicas | 🔲 |
+| **6. APPLY-PLAN** | `sdd-apply-plan` | Tareas | Plan de implementación | 🔲 |
+| **7. APPLY** | `sdd-apply` | Plan | Código implementado (6-8 tareas) | 🔲 |
+| **8. VERIFY** | `sdd-verify` | Código + Specs | Tests pasando, coverage ≥80% | 🔲 |
+| **9. ARCHIVE** | `sdd-archive` | Todo verificado | Specs sincronizadas, cambio cerrado | 🔲 |
+
+### Para el orquestador del módulo
+
+```bash
+# Flujo completo para este módulo:
+1. Delegar a sdd-explore  → entiende el contexto del módulo
+2. Delegar a sdd-propose  → crea propuesta formal
+3. Delegar a sdd-spec     → escribe Given/When/Then
+4. Delegar a sdd-design   → diseña la solución técnica
+5. Delegar a sdd-tasks    → descompone en tareas atómicas
+6. Delegar a sdd-apply-plan → analiza impacto y orden
+7. Delegar a sdd-apply    → implementa cada tarea (pueden ser múltiples delegaciones)
+8. Delegar a sdd-verify   → corre tests, verifica cobertura
+9. Delegar a sdd-archive  → sincroniza specs, cierra el cambio
+```
+
+### Tareas atómicas (salida esperada de la fase TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Crear entidades dominio: StudyPlan, StudyPlanCourse, StudyPlanSubject, Correlative | domain |
+| 2 | Crear interfaces de repositorio | domain |
+| 3 | Implementar repositorios Prisma | infra |
+| 4 | Crear use cases: CRUD StudyPlan, asignar materias, validar correlativas | application |
+| 5 | Crear controller + DTOs zod + módulo NestJS | presentation |
+| 6 | Precarga de datos de ejemplo (seed) | infra |
+| 7 | Tests unitarios de entidades | test |
+| 8 | Tests e2e de endpoints | test |
 
 ## Contratos de API
 

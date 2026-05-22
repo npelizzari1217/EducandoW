@@ -46,16 +46,30 @@ student_grades (SNAPSHOT inmutable):
 | R30 | SNAPSHOT: copia datos de GradeScale al guardar |
 | R31 | GradeScale = template, StudentGrade = histórico |
 
-## Tareas atómicas
+## Pipeline SDD completo
 
-| # | Tarea | Agente |
+| Fase | Sub-agente | Estado |
 |---|---|---|
-| 1 | Crear entidades: GradeScale, GradingPeriodType, SubjectGradingConfig, StudentGrade | sdd-apply |
-| 2 | Repositorios + Prisma | sdd-apply |
-| 3 | Use cases: CRUD escalas, CRUD períodos, calificar alumno | sdd-apply |
-| 4 | Controller + DTOs + módulo | sdd-apply |
-| 5 | Precarga de escalas por nivel (seed) | sdd-apply |
-| 6 | Tests | sdd-apply |
+| 1. EXPLORE | `sdd-explore` | 🔲 |
+| 2. PROPOSE | `sdd-propose` | 🔲 |
+| 3. SPEC | `sdd-spec` | 🔲 |
+| 4. DESIGN | `sdd-design` | 🔲 |
+| 5. TASKS | `sdd-tasks` | 🔲 |
+| 6. APPLY-PLAN | `sdd-apply-plan` | 🔲 |
+| 7. APPLY | `sdd-apply` (múltiples) | 🔲 |
+| 8. VERIFY | `sdd-verify` | 🔲 |
+| 9. ARCHIVE | `sdd-archive` | 🔲 |
+
+## Tareas atómicas (salida de TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Crear entidades: GradeScale, GradingPeriodType, SubjectGradingConfig, StudentGrade | domain |
+| 2 | Repositorios + Prisma | infra |
+| 3 | Use cases: CRUD escalas, CRUD períodos, calificar alumno (con snapshot) | application |
+| 4 | Controller + DTOs + módulo | presentation |
+| 5 | Precarga de escalas por nivel (seed data) | infra |
+| 6 | Tests unitarios + e2e | test |
 
 ## Contratos de API
 

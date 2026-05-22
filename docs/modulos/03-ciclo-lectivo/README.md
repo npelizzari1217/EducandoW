@@ -38,16 +38,30 @@ academic_cycle_study_plans:  ← JOIN N:M
 | R38 | Progresión alumno: curso X ciclo 2024 → curso Y ciclo 2025 |
 | R39 | Enrollment tiene cycle_id FK |
 
-## Tareas atómicas
+## Pipeline SDD completo
 
-| # | Tarea | Agente |
+| Fase | Sub-agente | Estado |
 |---|---|---|
-| 1 | Crear entidades: AcademicCycle, AcademicCyclePeriod | sdd-apply |
-| 2 | Repositorios + Prisma | sdd-apply |
-| 3 | Use cases: CRUD ciclo, CRUD períodos, vincular plan | sdd-apply |
-| 4 | Controller + DTOs + módulo | sdd-apply |
-| 5 | Actualizar Enrollment (agregar cycle_id FK) | sdd-apply |
-| 6 | Tests | sdd-apply |
+| 1. EXPLORE | `sdd-explore` | 🔲 |
+| 2. PROPOSE | `sdd-propose` | 🔲 |
+| 3. SPEC | `sdd-spec` | 🔲 |
+| 4. DESIGN | `sdd-design` | 🔲 |
+| 5. TASKS | `sdd-tasks` | 🔲 |
+| 6. APPLY-PLAN | `sdd-apply-plan` | 🔲 |
+| 7. APPLY | `sdd-apply` (múltiples) | 🔲 |
+| 8. VERIFY | `sdd-verify` | 🔲 |
+| 9. ARCHIVE | `sdd-archive` | 🔲 |
+
+## Tareas atómicas (salida de TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Crear entidades: AcademicCycle, AcademicCyclePeriod | domain |
+| 2 | Repositorios + Prisma | infra |
+| 3 | Use cases: CRUD ciclo, CRUD períodos, vincular plan | application |
+| 4 | Controller + DTOs + módulo | presentation |
+| 5 | Actualizar Enrollment (agregar cycle_id FK) | infra |
+| 6 | Tests unitarios + e2e | test |
 
 ## Contratos de API
 

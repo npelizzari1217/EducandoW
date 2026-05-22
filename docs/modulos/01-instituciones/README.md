@@ -22,15 +22,30 @@ institutions:
   db_name, created_at, updated_at
 ```
 
-## Tareas atómicas
+## Pipeline SDD completo
 
-| # | Tarea | Agente | Estado |
-|---|---|---|---|
-| 1 | Actualizar schema Prisma con los 25 campos | sdd-apply | 🔲 |
-| 2 | Crear endpoint `GET /v1/institutions/me` | sdd-apply | 🔲 |
-| 3 | Crear `InstitutionContext` en frontend | sdd-apply | 🔲 |
-| 4 | Implementar tema dinámico (colores desde institución) | sdd-apply | 🔲 |
-| 5 | Tests del módulo | sdd-apply | 🔲 |
+| Fase | Sub-agente | Estado |
+|---|---|---|
+| 1. EXPLORE | `sdd-explore` | 🔲 |
+| 2. PROPOSE | `sdd-propose` | 🔲 |
+| 3. SPEC | `sdd-spec` | 🔲 |
+| 4. DESIGN | `sdd-design` | 🔲 |
+| 5. TASKS | `sdd-tasks` | 🔲 |
+| 6. APPLY-PLAN | `sdd-apply-plan` | 🔲 |
+| 7. APPLY | `sdd-apply` (múltiples delegaciones) | 🔲 |
+| 8. VERIFY | `sdd-verify` | 🔲 |
+| 9. ARCHIVE | `sdd-archive` | 🔲 |
+
+## Tareas atómicas (salida de TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Actualizar schema Prisma master DB con 25 campos | infra |
+| 2 | Actualizar entidad Institution en domain | domain |
+| 3 | Crear endpoint `GET /v1/institutions/me` | presentation |
+| 4 | Crear `InstitutionContext` en frontend (React context) | frontend |
+| 5 | Implementar tema dinámico (CSS vars desde institución) | frontend |
+| 6 | Tests unitarios + e2e | test |
 
 ## Contratos de API
 

@@ -20,12 +20,27 @@
 - Actas formales con libro y folio
 - Emisión de títulos
 
-## Tareas
+## Pipeline SDD completo
 
-| # | Tarea | Agente |
+| Fase | Sub-agente | Estado |
 |---|---|---|
-| 1 | Diseñar DER detallado del nivel | orquestador |
-| 2 | Implementar entidades + repos | sdd-apply |
-| 3 | Implementar use cases | sdd-apply |
-| 4 | Implementar controller + DTOs | sdd-apply |
-| 5 | Tests | sdd-apply |
+| 1. EXPLORE | `sdd-explore` | 🔲 |
+| 2. PROPOSE | `sdd-propose` | 🔲 |
+| 3. SPEC | `sdd-spec` | 🔲 |
+| 4. DESIGN | `sdd-design` | 🔲 |
+| 5. TASKS | `sdd-tasks` | 🔲 |
+| 6. APPLY-PLAN | `sdd-apply-plan` | 🔲 |
+| 7. APPLY | `sdd-apply` (múltiples) | 🔲 |
+| 8. VERIFY | `sdd-verify` | 🔲 |
+| 9. ARCHIVE | `sdd-archive` | 🔲 |
+
+## Tareas atómicas (salida estimada de TASKS)
+
+| # | Tarea | Tipo |
+|---|---|---|
+| 1 | Diseñar DER detallado del nivel (inscripciones, actas, títulos) | design |
+| 2 | Crear entidades: InscripcionMateria, ActaExamen, ActaExamenNota, Titulo | domain |
+| 3 | Repositorios + Prisma | infra |
+| 4 | Use cases: inscribir con validación de correlativas, actas, emitir título | application |
+| 5 | Controller + DTOs + módulo | presentation |
+| 6 | Tests unitarios + e2e | test |
