@@ -606,24 +606,22 @@ Una materia puede configurar qué tipo de período usa.
 │ id (UUID)               │
 │ student_id FK           │
 │ subject_id FK           │
+│ cycle_id FK             │  ← NUEVO: a qué ciclo lectivo pertenece
 │ period_type_id FK       │  ← qué tipo de período
 │ period_number           │  INT (1, 2, 3, 4)
 │                         │
 │ ── SNAPSHOT de la escala (copiado al guardar) ──
-│ grade_value             │  STRING — "8", "DESTACADO" (copiado de GradeScale.value)
-│ grade_label             │  STRING — "Muy Bueno (8)" (copiado de GradeScale.label)
-│ min_numeric             │  FLOAT? — rango copiado
-│ max_numeric             │  FLOAT? — rango copiado
+│ grade_value             │  STRING — "8", "DESTACADO"
+│ grade_label             │  STRING — "Muy Bueno (8)"
 │ is_approved             │  BOOL — copiado al momento de calificar
-│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO — copiado
-│                         │
-│ numeric_value           │  FLOAT? — valor para cálculos de promedio
-│ qualitative_value       │  STRING? — observación del docente
+│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO
+│ numeric_value           │  FLOAT? — para cálculos
+│ qualitative_value       │  STRING?
 │ evaluated_at            │  TIMESTAMP
 │ evaluated_by            │  FK → User
 │ notes                   │  TEXT?
 │                         │
-│ @@unique([student_id, subject_id, period_type_id, period_number])
+│ @@unique([student_id, subject_id, cycle_id, period_type_id, period_number])
 └─────────────────────────┘
 
 ⚠️  IMPORTANTE: grade_value, grade_label, min_numeric, max_numeric,
