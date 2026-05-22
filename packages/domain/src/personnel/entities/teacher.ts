@@ -10,6 +10,7 @@ export interface TeacherProps {
   email: Email;
   phone?: string;
   title?: string;
+  institutionId: string;
 }
 
 export class Teacher {
@@ -49,6 +50,10 @@ export class Teacher {
 
   get title(): string | undefined {
     return this.props.title;
+  }
+
+  get institutionId(): string {
+    return this.props.institutionId;
   }
 
   get fullName(): string {

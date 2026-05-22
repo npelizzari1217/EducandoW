@@ -1,4 +1,4 @@
-import { Result } from '@educandow/domain';
+import { ok, Result } from '@educandow/domain';
 import { Query } from '../commands/command';
 
 export interface ListadoAlumno {
@@ -50,17 +50,17 @@ export class ListarAlumnosQuery implements Query<ListarAlumnosInput, ListadoAlum
       take: input.pageSize ?? 20,
     });
 
-    const result = alumnos.map((a) => ({
-      id: a.id,
-      nombre: a.firstName,
-      apellido: a.lastName,
-      dni: a.dni,
-      nivel: a.enrollments[0]?.level ?? '',
-      grado: a.enrollments[0]?.grade ?? undefined,
-      division: a.enrollments[0]?.division ?? undefined,
-      estado: a.enrollments[0]?.status ?? 'SIN_INSCRIPCION',
+    const result = alumnos.map((a: Record<string, unknown>) => ({
+      id: a.id as string,
+      nombre: a.firstName as string,
+      apellido: a.lastName as string,
+      dni: a.dni as string,
+      nivel: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.level as string ?? '',
+      grado: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.grade as string | undefined,
+      division: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.division as string | undefined,
+      estado: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.status as string ?? 'SIN_INSCRIPCION',
     }));
 
-    return { isOk: () => true, isErr: () => false, unwrap: () => result } as Result<ListadoAlumno[], Error>;
+    return ok(result);
   }
 }

@@ -21,8 +21,7 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "paths": {
-      "@/*": ["src/*"],
-      "@educandow/domain": ["../packages/domain/src"]
+      "@/*": ["src/*"]
     }
   },
   "include": ["src/**/*", "prisma/**/*"]

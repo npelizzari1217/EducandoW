@@ -12,6 +12,7 @@ out/
 
 # Turborepo
 .turbo/
+*.tsbuildinfo
 
 # Variables de Entorno y secretos
 .env

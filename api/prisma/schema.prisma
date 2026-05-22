@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "./generated"
 }
 
 datasource db {
@@ -21,7 +20,8 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  institution Institution? @relation(fields: [institutionId], references: [id])
+  institution   Institution?   @relation(fields: [institutionId], references: [id])
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -30,6 +30,7 @@ model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
+  role      String   @default("TEACHER")
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -52,6 +53,8 @@ model Institution {
   enrollments Enrollment[]
   students    Student[]
   teachers    Teacher[]
+  subjects    Subject[]
+  courseSections CourseSection[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -74,6 +77,8 @@ model Student {
 
   institution Institution @relation(fields: [institutionId], references: [id])
   enrollments Enrollment[]
+  grades      Grade[]
+  attendances Attendance[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -91,7 +96,8 @@ model Teacher {
   title         String?
   institutionId String
 
-  institution Institution @relation(fields: [institutionId], references: [id])
+  institution         Institution          @relation(fields: [institutionId], references: [id])
+  subjectAssignments  SubjectAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -116,4 +122,90 @@ model Enrollment {
   institution Institution @relation(fields: [institutionId], references: [id])
 
   @@map("enrollments")
+}
+
+// ── Pedagogical ────────────────────────────────────────────
+
+model Subject {
+  id            String @id @default(uuid())
+  name          String
+  level         String // INICIAL | PRIMARIO | SECUNDARIO | TERCIARIO
+  institutionId String
+
+  institution      Institution        @relation(fields: [institutionId], references: [id])
+  grades           Grade[]
+  subjectAssignments SubjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subjects")
+}
+
+model CourseSection {
+  id            String @id @default(uuid())
+  name          String // e.g. "3° A"
+  grade         String?
+  division      String?
+  level         String
+  academicYear  String
+  institutionId String
+
+  institution      Institution         @relation(fields: [institutionId], references: [id])
+  grades           Grade[]
+  attendances      Attendance[]
+  subjectAssignments SubjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("course_sections")
+}
+
+model SubjectAssignment {
+  id              String @id @default(uuid())
+  subjectId       String
+  teacherId       String
+  courseSectionId String
+
+  subject       Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher       Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("subject_assignments")
+}
+
+model Grade {
+  id              String   @id @default(uuid())
+  studentId       String
+  subjectId       String
+  courseSectionId String
+  period          String   // "1T", "2T", "3T", "FINAL", "DIC"
+  numericValue    Float?
+  qualitativeValue String? // "Destacado", "Logrado", etc.
+  status          String?  // "APROBADO", "PREVIA", "LIBRE", "PROMOCION"
+  evaluatedAt     DateTime @default(now())
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject       Subject       @relation(fields: [subjectId], references: [id])
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id])
+
+  @@map("grades")
+}
+
+model Attendance {
+  id              String   @id @default(uuid())
+  studentId       String
+  courseSectionId String
+  date            DateTime
+  status          String   @default("PRESENT") // PRESENT | ABSENT | LATE | JUSTIFIED
+  note            String?
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id])
+
+  @@unique([studentId, courseSectionId, date])
+  @@map("attendances")
 }

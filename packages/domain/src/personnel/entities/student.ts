@@ -11,6 +11,7 @@ export interface StudentProps {
   birthDate?: Date;
   guardianName?: string;
   guardianPhone?: string;
+  institutionId: string;
 }
 
 export class Student {
@@ -54,6 +55,10 @@ export class Student {
 
   get guardianPhone(): string | undefined {
     return this.props.guardianPhone;
+  }
+
+  get institutionId(): string {
+    return this.props.institutionId;
   }
 
   get fullName(): string {

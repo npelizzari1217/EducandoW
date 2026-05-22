@@ -14,7 +14,7 @@ export class JwtAuthPort {
   ) {}
 
   sign(payload: JwtPayload): string {
-    return jwt.sign(payload, this.secret, { expiresIn: this.expiresIn });
+    return jwt.sign(payload as object, this.secret, { expiresIn: this.expiresIn } as jwt.SignOptions);
   }
 
   verify(token: string): JwtPayload {

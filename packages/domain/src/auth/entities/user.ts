@@ -1,6 +1,5 @@
 import { Id } from '../../shared/value-objects/id';
 import { Email } from '../../shared/value-objects/email';
-import { Password } from '../value-objects/password';
 
 export type UserRole = 'ADMIN' | 'MANAGER' | 'TEACHER';
 
