@@ -21,7 +21,7 @@ export class InstitutionController {
   ) {}
 
   @Post()
-  @Roles('ADMIN')
+  @Roles('ROOT')
   async create(@Body(new ZodValidationPipe(CreateInstitutionSchema)) body: CreateInstitutionDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -53,7 +53,7 @@ export class InstitutionController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);

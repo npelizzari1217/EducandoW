@@ -13,7 +13,7 @@ export const RegisterSchema = z.object({
   email: emailField,
   password: z.string().min(6, 'Mínimo 6 caracteres').max(128),
   name: nameField,
-  role: z.enum(['ADMIN', 'MANAGER', 'TEACHER']).optional().default('TEACHER'),
+  role: z.enum(['ROOT', 'ADMIN', 'MANAGER', 'TEACHER']).optional().default('TEACHER'),
   institutionId: uuidField.optional(),
 });
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
