@@ -422,7 +422,137 @@ Con este modelo unificado, las tablas específicas por nivel se simplifican:
 | **Secundario** | `cursos` + `calificaciones_secundario` + `mesas_examen` + `regimen_academico` | `cursos` referencia a `StudyPlan`, `regimen_academico` se simplifica |
 | **Terciario** | `carreras` + `materias_carrera` + `correlatividades` + `inscripciones_materia` + `actas_examen` + `titulos` | `carreras` → `StudyPlan`, `materias_carrera` → `StudyPlanSubject`, correlatividades ya existen |
 
-### 1.3 Nuevas tablas por nivel pedagógico
+### 1.3 Sistema de Calificaciones — Escalas y Períodos por Nivel
+
+Cada nivel pedagógico tiene su propia **escala de calificación** (valores permitidos)
+y sus propios **períodos de evaluación** (bimestral, cuatrimestral, etc.).
+Una materia puede configurar qué tipo de período usa.
+
+#### Tablas
+
+```
+┌─────────────────────────┐
+│     GradeScale          │  Escala de calificación (valores permitidos por nivel)
+│─────────────────────────│
+│ id (UUID)               │
+│ level                   │  INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO
+│ value                   │  Valor: "1"..."10", "DESTACADO", "LOGRADO", "AUSENTE"
+│ label                   │  Etiqueta: "Excelente", "Muy Bueno", "Insuficiente"
+│ min_numeric             │  FLOAT? (rango numérico mínimo, ej: 9)
+│ max_numeric             │  FLOAT? (rango numérico máximo, ej: 10)
+│ is_approved             │  BOOL — ¿esta nota aprueba?
+│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO
+│ order                   │  INT (orden de menor a mayor)
+│ requires_recovery       │  BOOL (¿requiere recuperatorio?)
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│   GradingPeriodType     │  Tipos de período de evaluación
+│─────────────────────────│
+│ id (UUID)               │
+│ level                   │  INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO
+│ code                    │  "BIMESTRAL"|"CUATRIMESTRAL"|"TRIMESTRAL"|
+│                         │  "CURSADA"|"FINAL"|"FIRMA_TP"|"DICIEMBRE"|"FEBRERO"
+│ label                   │  "1er Bimestre", "1er Cuatrimestre", "Examen Final"
+│ periods_count           │  INT (cantidad de períodos: 4 bim, 2 cuat, 1 final)
+│ order                   │  INT
+└────────┬────────────────┘
+         │
+         │ 1:N (una materia elige su tipo de período)
+         ▼
+┌─────────────────────────┐
+│  SubjectGradingConfig   │  Configuración de evaluación de una materia
+│─────────────────────────│
+│ id (UUID)               │
+│ subject_id FK           │  ← materia base
+│ period_type_id FK       │  ← tipo de período (bimestral, cuatrimestral, etc.)
+│ grade_scale_level       │  ← nivel de la escala a usar (hereda del level de la materia)
+└─────────────────────────┘
+
+┌─────────────────────────┐
+│    StudentGrade         │  Calificación concreta de un alumno
+│─────────────────────────│
+│ id (UUID)               │
+│ student_id FK           │
+│ subject_id FK           │
+│ period_type_id FK       │  ← qué tipo de período
+│ period_number           │  INT (1, 2, 3, 4 — número de bimestre/cuatrimestre)
+│ grade_value             │  STRING — valor de la escala ("8", "DESTACADO", etc.)
+│ numeric_value           │  FLOAT? — valor numérico para cálculos
+│ qualitative_value       │  STRING? — valoración cualitativa
+│ is_approved             │  BOOL — heredado de la escala
+│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO
+│ evaluated_at            │  TIMESTAMP
+│ evaluated_by            │  FK → User (docente que evaluó)
+│ notes                   │  TEXT?
+│
+│ @@unique([student_id, subject_id, period_type_id, period_number])
+└─────────────────────────┘
+```
+
+#### Ejemplos de escalas precargadas por nivel
+
+**INICIAL** — Cualitativa (sin números)
+```
+GradeScale:
+  { level: INICIAL, value: "DESTACADO",  label: "Destacado",    is_approved: true,  status_tag: "APROBADO" }
+  { level: INICIAL, value: "LOGRADO",    label: "Logrado",      is_approved: true,  status_tag: "APROBADO" }
+  { level: INICIAL, value: "EN_PROCESO", label: "En Proceso",   is_approved: false, status_tag: "EN_PROCESO" }
+  { level: INICIAL, value: "NO_LOGRADO", label: "No Logrado",   is_approved: false, status_tag: "DESAPROBADO" }
+```
+
+**PRIMARIO** — Numérica 1 a 10
+```
+GradeScale:
+  { level: PRIMARIO, value: "10", label: "Excelente (10)",    min: 10,  max: 10,  is_approved: true }
+  { level: PRIMARIO, value: "9",  label: "Muy Bueno (9)",     min: 9,   max: 9,   is_approved: true }
+  { level: PRIMARIO, value: "8",  label: "Muy Bueno (8)",     min: 8,   max: 8,   is_approved: true }
+  { level: PRIMARIO, value: "7",  label: "Bueno (7)",         min: 7,   max: 7,   is_approved: true }
+  { level: PRIMARIO, value: "6",  label: "Bueno (6)",         min: 6,   max: 6,   is_approved: true }
+  { level: PRIMARIO, value: "5",  label: "Regular (5)",       min: 5,   max: 5,   is_approved: false }
+  { level: PRIMARIO, value: "4",  label: "Regular (4)",       min: 4,   max: 4,   is_approved: false }
+  { level: PRIMARIO, value: "3",  label: "Insuficiente (3)",  min: 3,   max: 3,   is_approved: false }
+  { level: PRIMARIO, value: "2",  label: "Insuficiente (2)",  min: 2,   max: 2,   is_approved: false }
+  { level: PRIMARIO, value: "1",  label: "Insuficiente (1)",  min: 1,   max: 1,   is_approved: false }
+```
+
+**SECUNDARIO** — Numérica 1 a 10 (igual que primario pero con otros períodos)
+```
+GradeScale: (misma escala 1-10 que Primario)
+
+GradingPeriodType:
+  { level: SECUNDARIO, code: "BIMESTRAL",     label: "Bimestral",     periods: 4 }
+  { level: SECUNDARIO, code: "CUATRIMESTRAL", label: "Cuatrimestral", periods: 2 }
+  { level: SECUNDARIO, code: "DICIEMBRE",     label: "Diciembre",     periods: 1 }
+  { level: SECUNDARIO, code: "FEBRERO",       label: "Febrero",       periods: 1 }
+```
+
+**TERCIARIO** — Numérica + condiciones especiales
+```
+GradeScale:
+  { level: TERCIARIO, value: "10", label: "Sobresaliente",  min: 10, max: 10, is_approved: true }
+  ... (1 a 10 igual que arriba)
+  { level: TERCIARIO, value: "AUSENTE", label: "Ausente", is_approved: false }
+
+GradingPeriodType:
+  { level: TERCIARIO, code: "CURSADA",  label: "Nota de Cursada",  periods: 1 }
+  { level: TERCIARIO, code: "FINAL",    label: "Examen Final",     periods: 1 }
+  { level: TERCIARIO, code: "FIRMA_TP", label: "Firma de TP",      periods: 1 }
+```
+
+#### Reglas de calificación
+
+| # | Regla |
+|---|---|
+| **R23** | Cada nivel tiene su propia `GradeScale`. Los valores son precargados y administrables. |
+| **R24** | Una materia elige su tipo de período (`SubjectGradingConfig`): bimestral, cuatrimestral, cursada, final, etc. |
+| **R25** | `StudentGrade` registra la nota concreta, heredando `is_approved` y `status_tag` de la escala. |
+| **R26** | El `status_tag` determina visualización: APROBADO (verde), DESAPROBADO (rojo), EN_PROCESO (amarillo). |
+| **R27** | `is_approved = false` + `requires_recovery = true` → habilita instancia de recuperatorio. |
+| **R28** | La evolución del alumno se ve consultando `StudentGrade` por `student_id` ordenado por `period_number`. |
+| **R29** | Terciario tiene 3 instancias: CURSADA, FINAL y FIRMA_TP. Se aprueban por separado. |
+
+### 1.4 Nuevas tablas por nivel pedagógico
 
 #### 🧒 NIVEL INICIAL (3 tablas nuevas)
 
@@ -569,7 +699,7 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
             nro_registro: STRING
 ```
 
-### 1.4 Resumen de tablas
+### 1.5 Resumen de tablas
 
 | # | Tabla | Contexto | Estado |
 |---|---|---|---|
@@ -588,25 +718,29 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
 | **13** | **`study_plan_courses`** | **Plan de Estudios** | 🆕 |
 | **14** | **`study_plan_subjects`** | **Plan de Estudios** | 🆕 |
 | **15** | **`correlatives`** | **Plan de Estudios** | 🆕 |
-| **16** | **`salas`** | **Inicial** | 🆕 |
-| **17** | **`sala_enrollments`** | **Inicial** | 🆕 |
-| **18** | **`informes_evolutivos`** | **Inicial** | 🆕 |
-| **19** | **`areas_desarrollo`** | **Inicial** | 🆕 |
-| **20** | **`planificaciones`** | **Inicial** | 🆕 |
-| **21** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
-| **22** | **`grados`** | **Primario** | 🆕 |
-| **23** | **`calificaciones_primario`** | **Primario** | 🆕 |
-| **24** | **`cursos`** | **Secundario** | 🆕 |
-| **25** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
-| **26** | **`mesas_examen`** | **Secundario** | 🆕 |
-| **27** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
-| **28** | **`regimen_academico`** | **Secundario** | 🆕 |
-| **29** | **`inscripciones_materia`** | **Terciario** | 🆕 |
-| **30** | **`actas_examen`** | **Terciario** | 🆕 |
-| **31** | **`acta_examen_notas`** | **Terciario** | 🆕 |
-| **32** | **`titulos`** | **Terciario** | 🆕 |
+| **16** | **`grade_scales`** | **Calificaciones** | 🆕 |
+| **17** | **`grading_period_types`** | **Calificaciones** | 🆕 |
+| **18** | **`subject_grading_configs`** | **Calificaciones** | 🆕 |
+| **19** | **`student_grades`** | **Calificaciones** | 🆕 |
+| **20** | **`salas`** | **Inicial** | 🆕 |
+| **21** | **`sala_enrollments`** | **Inicial** | 🆕 |
+| **22** | **`informes_evolutivos`** | **Inicial** | 🆕 |
+| **23** | **`areas_desarrollo`** | **Inicial** | 🆕 |
+| **24** | **`planificaciones`** | **Inicial** | 🆕 |
+| **25** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
+| **26** | **`grados`** | **Primario** | 🆕 |
+| **27** | **`calificaciones_primario`** | **Primario** | 🆕 |
+| **28** | **`cursos`** | **Secundario** | 🆕 |
+| **29** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
+| **30** | **`mesas_examen`** | **Secundario** | 🆕 |
+| **31** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
+| **32** | **`regimen_academico`** | **Secundario** | 🆕 |
+| **33** | **`inscripciones_materia`** | **Terciario** | 🆕 |
+| **34** | **`actas_examen`** | **Terciario** | 🆕 |
+| **35** | **`acta_examen_notas`** | **Terciario** | 🆕 |
+| **36** | **`titulos`** | **Terciario** | 🆕 |
 
-**Total: 11 existentes + 21 nuevas = 32 tablas**
+**Total: 11 existentes + 25 nuevas = 36 tablas**
 
 > Nota: `carreras`, `materias_carrera` y `correlatividades` (Terciario) fueron reemplazadas
 > por el modelo unificado `study_plans` + `study_plan_subjects` + `correlatives`.
