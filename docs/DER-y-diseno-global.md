@@ -18,17 +18,56 @@ Un usuario pertenece a UNA institución. La institución es el primer filtro de 
 │                 MASTER DATABASE                       │
 │                 educandow_master                      │
 │                                                       │
-│  ┌──────────┐    ┌──────────────┐                    │
-│  │  users   │───<│ institutions │                    │
-│  │id,email, │    │id,nombre,    │                    │
-│  │password, │    │db_name,      │                    │
-│  │name,role,│    │db_host,      │                    │
-│  │instit.   │    │created_at    │                    │
-│  │   _id FK │    └──────┬───────┘                    │
-│  └──────────┘           │                            │
-│                         │ db_name: string             │
-│                         │ ej: "educandow_1002"        │
-└─────────────────────────┼────────────────────────────┘
+│  ┌──────────┐    ┌──────────────────────────────┐    │
+│  │  users   │───<│        institutions           │    │
+│  │id,email, │    │                              │    │
+│  │password, │    │ id: UUID                      │    │
+│  │name,role,│    │ name: STRING                  │    │
+│  │instit.   │    │ address: STRING?              │    │
+│  │   _id FK │    │ city: STRING?                 │    │
+│  └──────────┘    │ postal_code: STRING?          │    │
+│                  │ country: STRING?              │    │
+│                  │ ministry_reg: STRING?   (1)   │    │
+│                  │ cue: STRING? UNIQUE    (2)    │    │
+│                  │ phone: STRING?                │    │
+│                  │ website: STRING?              │    │
+│                  │ contact_email: STRING?        │    │
+│                  │                               │    │
+│                  │ ── SMTP ──                    │    │
+│                  │ smtp_host: STRING?            │    │
+│                  │ smtp_user: STRING?            │    │
+│                  │ smtp_pass: STRING? (enc) (3)  │    │
+│                  │ smtp_encryption: STRING? (4)  │    │
+│                  │ smtp_port: INT?               │    │
+│                  │ sends_email: BOOL             │    │
+│                  │                               │    │
+│                  │ ── Branding ──                │    │
+│                  │ logo_url: STRING?      (5)    │    │
+│                  │ header_color: STRING?  (6)    │    │
+│                  │ header_text_color: STRING?    │    │
+│                  │ body_text_color: STRING?      │    │
+│                  │                               │    │
+│                  │ ── Config ──                  │    │
+│                  │ active: BOOL           (7)    │    │
+│                  │ socket_host: STRING?   (8)    │    │
+│                  │ socket_port: INT?             │    │
+│                  │                               │    │
+│                  │ db_name: STRING        (9)    │    │
+│                  │ created_at: TIMESTAMP         │    │
+│                  │ updated_at: TIMESTAMP         │    │
+│                  └──────────────────────────────┘    │
+│                                                       │
+│  (1) N° inscripción Ministerio de Educación           │
+│  (2) Código Único Escolar (alfanumérico, único)       │
+│  (3) Encriptado en reposo (bcrypt o AES)             │
+│  (4) "TLS" | "SSL" | "NONE"                          │
+│  (5) URL de la imagen (S3 / local storage)           │
+│  (6) Hex color: "#1a56db"                            │
+│  (7) Soft-delete: institución activa/inactiva         │
+│  (8) Para notificaciones real-time (WebSocket)        │
+│  (9) Nombre de la tenant DB: "educandow_1002"        │
+│                                                       │
+└──────────────────────────────────────────────────────┘
                           │
           ┌───────────────┼───────────────┐
           ▼               ▼               ▼
