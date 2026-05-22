@@ -470,24 +470,35 @@ Una materia puede configurar qué tipo de período usa.
 └─────────────────────────┘
 
 ┌─────────────────────────┐
-│    StudentGrade         │  Calificación concreta de un alumno
+│    StudentGrade         │  Calificación concreta — SNAPSHOT INMUTABLE
 │─────────────────────────│
 │ id (UUID)               │
 │ student_id FK           │
 │ subject_id FK           │
 │ period_type_id FK       │  ← qué tipo de período
-│ period_number           │  INT (1, 2, 3, 4 — número de bimestre/cuatrimestre)
-│ grade_value             │  STRING — valor de la escala ("8", "DESTACADO", etc.)
-│ numeric_value           │  FLOAT? — valor numérico para cálculos
-│ qualitative_value       │  STRING? — valoración cualitativa
-│ is_approved             │  BOOL — heredado de la escala
-│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO
+│ period_number           │  INT (1, 2, 3, 4)
+│                         │
+│ ── SNAPSHOT de la escala (copiado al guardar) ──
+│ grade_value             │  STRING — "8", "DESTACADO" (copiado de GradeScale.value)
+│ grade_label             │  STRING — "Muy Bueno (8)" (copiado de GradeScale.label)
+│ min_numeric             │  FLOAT? — rango copiado
+│ max_numeric             │  FLOAT? — rango copiado
+│ is_approved             │  BOOL — copiado al momento de calificar
+│ status_tag              │  APROBADO|DESAPROBADO|EN_PROCESO — copiado
+│                         │
+│ numeric_value           │  FLOAT? — valor para cálculos de promedio
+│ qualitative_value       │  STRING? — observación del docente
 │ evaluated_at            │  TIMESTAMP
-│ evaluated_by            │  FK → User (docente que evaluó)
+│ evaluated_by            │  FK → User
 │ notes                   │  TEXT?
-│
+│                         │
 │ @@unique([student_id, subject_id, period_type_id, period_number])
 └─────────────────────────┘
+
+⚠️  IMPORTANTE: grade_value, grade_label, min_numeric, max_numeric,
+    is_approved y status_tag se COPIAN de GradeScale al momento de
+    guardar la calificación. NO son FK a GradeScale.
+    Si mañana se modifica la escala, las notas ya emitidas NO cambian.
 ```
 
 #### Ejemplos de escalas precargadas por nivel
@@ -551,6 +562,8 @@ GradingPeriodType:
 | **R27** | `is_approved = false` + `requires_recovery = true` → habilita instancia de recuperatorio. |
 | **R28** | La evolución del alumno se ve consultando `StudentGrade` por `student_id` ordenado por `period_number`. |
 | **R29** | Terciario tiene 3 instancias: CURSADA, FINAL y FIRMA_TP. Se aprueban por separado. |
+| **R30** | **Snapshot inmutable**: Al guardar una calificación, se COPIAN `grade_value`, `grade_label`, `is_approved` y `status_tag` desde `GradeScale` al registro `StudentGrade`. Si la escala cambia después, las notas históricas no se alteran. |
+| **R31** | `GradeScale` es un template editable por administradores. `StudentGrade` es el registro histórico inmodificable (salvo corrección explícita con auditoría). |
 
 ### 1.4 Nuevas tablas por nivel pedagógico
 
