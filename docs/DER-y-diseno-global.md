@@ -422,7 +422,109 @@ Con este modelo unificado, las tablas específicas por nivel se simplifican:
 | **Secundario** | `cursos` + `calificaciones_secundario` + `mesas_examen` + `regimen_academico` | `cursos` referencia a `StudyPlan`, `regimen_academico` se simplifica |
 | **Terciario** | `carreras` + `materias_carrera` + `correlatividades` + `inscripciones_materia` + `actas_examen` + `titulos` | `carreras` → `StudyPlan`, `materias_carrera` → `StudyPlanSubject`, correlatividades ya existen |
 
-### 1.3 Sistema de Calificaciones — Escalas y Períodos por Nivel
+### 1.3 Ciclo Lectivo — El eje temporal del sistema
+
+Cada ciclo lectivo abarca un año académico con fechas de inicio y cierre.
+Se divide en bimestres/cuatrimestres con fechas concretas.
+Un ciclo puede contener **varios planes de estudio** que conviven,
+y un plan puede estar presente en **varios ciclos** (relación N:M).
+
+```
+┌──────────────────────────────────────────────────────┐
+│              Ciclo 2026 (SECUNDARIO)                  │
+│  Inicio: 02/03/2026  —  Cierre: 15/12/2026           │
+│                                                       │
+│  ┌─────────────────────────────────────────────┐     │
+│  │ 1er Bimestre: 02/03 → 02/05                │     │
+│  │ 2do Bimestre: 05/05 → 04/07                │     │
+│  │ 3er Bimestre: 28/07 → 26/09                │     │
+│  │ 4to Bimestre: 29/09 → 15/12                │     │
+│  └─────────────────────────────────────────────┘     │
+│                                                       │
+│  Planes de estudio vigentes:                          │
+│  ├── "Plan 2026 Nuevo"  (HIERARCHICAL)               │
+│  └── "Plan 2018"        (HIERARCHICAL)               │
+│                                                       │
+│  "Plan 2018" también estuvo en: 2023, 2024, 2025      │
+└──────────────────────────────────────────────────────┘
+```
+
+#### Tablas
+
+```
+┌─────────────────────────┐
+│   AcademicCycle         │  Ciclo lectivo
+│─────────────────────────│
+│ id (UUID)               │
+│ name                    │  "2026"
+│ level                   │  INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO
+│ start_date              │  DATE
+│ end_date                │  DATE
+│ active                  │  BOOL
+│ created_at              │
+│ updated_at              │
+└────────┬────────────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────────────┐
+│  AcademicCyclePeriod    │  Período concreto dentro del ciclo
+│─────────────────────────│
+│ id (UUID)               │
+│ cycle_id FK             │
+│ period_type_id FK       │  ← FK a GradingPeriodType (BIMESTRAL, CUATRIMESTRAL)
+│ period_number           │  INT (1, 2, 3, 4)
+│ start_date              │  DATE  ← fecha real de inicio
+│ end_date                │  DATE  ← fecha real de cierre
+│ @@unique([cycle_id, period_type_id, period_number])
+└─────────────────────────┘
+
+         ┌─────────────────────────┐
+         │ AcademicCycleStudyPlan  │  JOIN N:M
+         │─────────────────────────│
+         │ id (UUID)               │
+         │ cycle_id FK             │
+         │ study_plan_id FK        │
+         │ @@unique([cycle_id, study_plan_id])
+         └─────────────────────────┘
+                  │                    │
+          ┌───────┘                    └───────┐
+          ▼                                    ▼
+   AcademicCycle                          StudyPlan
+   (2023, 2024, 2025, 2026...)           ("Plan 2018", "Plan 2026 Nuevo")
+```
+
+#### Ejemplo de datos
+
+```
+AcademicCycle:
+  { id: C1, name: "2025", level: "SECUNDARIO", start: 2025-03-01, end: 2025-12-15 }
+  { id: C2, name: "2026", level: "SECUNDARIO", start: 2026-03-02, end: 2026-12-15 }
+
+AcademicCyclePeriod:
+  { cycle: C2, period_type: "BIMESTRAL", number: 1, start: 2026-03-02, end: 2026-05-02 }
+  { cycle: C2, period_type: "BIMESTRAL", number: 2, start: 2026-05-05, end: 2026-07-04 }
+  { cycle: C2, period_type: "BIMESTRAL", number: 3, start: 2026-07-28, end: 2026-09-26 }
+  { cycle: C2, period_type: "BIMESTRAL", number: 4, start: 2026-09-29, end: 2026-12-15 }
+
+AcademicCycleStudyPlan:
+  { cycle: C2, study_plan: "Plan 2026 Nuevo" }
+  { cycle: C2, study_plan: "Plan 2018" }
+  { cycle: C1, study_plan: "Plan 2018" }    ← Plan 2018 ya estaba en 2025
+```
+
+#### Reglas del ciclo lectivo
+
+| # | Regla |
+|---|---|
+| **R32** | Un ciclo lectivo pertenece a UN nivel educativo y tiene fechas de inicio y cierre. |
+| **R33** | Los períodos del ciclo (bimestres, cuatrimestres) tienen fechas reales. Son configurables por institución. |
+| **R34** | Relación N:M entre `AcademicCycle` y `StudyPlan`: un ciclo tiene varios planes, un plan está en varios ciclos. |
+| **R35** | Al calificar a un alumno, se valida que la fecha esté dentro del período correspondiente del ciclo activo. |
+| **R36** | Los ciclos son anuales. Un nuevo año = un nuevo ciclo. Los planes de estudio pueden trascender ciclos. |
+| **R37** | Al consultar el boletín de un alumno, se filtra por `cycle_id` para obtener solo las notas de ese año. |
+
+### 1.4 Sistema de Calificaciones — Escalas y Períodos por Nivel
 
 Cada nivel pedagógico tiene su propia **escala de calificación** (valores permitidos)
 y sus propios **períodos de evaluación** (bimestral, cuatrimestral, etc.).
@@ -565,7 +667,7 @@ GradingPeriodType:
 | **R30** | **Snapshot inmutable**: Al guardar una calificación, se COPIAN `grade_value`, `grade_label`, `is_approved` y `status_tag` desde `GradeScale` al registro `StudentGrade`. Si la escala cambia después, las notas históricas no se alteran. |
 | **R31** | `GradeScale` es un template editable por administradores. `StudentGrade` es el registro histórico inmodificable (salvo corrección explícita con auditoría). |
 
-### 1.4 Nuevas tablas por nivel pedagógico
+### 1.5 Nuevas tablas por nivel pedagógico
 
 #### 🧒 NIVEL INICIAL (3 tablas nuevas)
 
@@ -712,7 +814,7 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
             nro_registro: STRING
 ```
 
-### 1.5 Resumen de tablas
+### 1.6 Resumen de tablas
 
 | # | Tabla | Contexto | Estado |
 |---|---|---|---|
@@ -731,29 +833,32 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
 | **13** | **`study_plan_courses`** | **Plan de Estudios** | 🆕 |
 | **14** | **`study_plan_subjects`** | **Plan de Estudios** | 🆕 |
 | **15** | **`correlatives`** | **Plan de Estudios** | 🆕 |
-| **16** | **`grade_scales`** | **Calificaciones** | 🆕 |
-| **17** | **`grading_period_types`** | **Calificaciones** | 🆕 |
-| **18** | **`subject_grading_configs`** | **Calificaciones** | 🆕 |
-| **19** | **`student_grades`** | **Calificaciones** | 🆕 |
-| **20** | **`salas`** | **Inicial** | 🆕 |
-| **21** | **`sala_enrollments`** | **Inicial** | 🆕 |
-| **22** | **`informes_evolutivos`** | **Inicial** | 🆕 |
-| **23** | **`areas_desarrollo`** | **Inicial** | 🆕 |
-| **24** | **`planificaciones`** | **Inicial** | 🆕 |
-| **25** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
-| **26** | **`grados`** | **Primario** | 🆕 |
-| **27** | **`calificaciones_primario`** | **Primario** | 🆕 |
-| **28** | **`cursos`** | **Secundario** | 🆕 |
-| **29** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
-| **30** | **`mesas_examen`** | **Secundario** | 🆕 |
-| **31** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
-| **32** | **`regimen_academico`** | **Secundario** | 🆕 |
-| **33** | **`inscripciones_materia`** | **Terciario** | 🆕 |
-| **34** | **`actas_examen`** | **Terciario** | 🆕 |
-| **35** | **`acta_examen_notas`** | **Terciario** | 🆕 |
-| **36** | **`titulos`** | **Terciario** | 🆕 |
+| **16** | **`academic_cycles`** | **Ciclo Lectivo** | 🆕 |
+| **17** | **`academic_cycle_periods`** | **Ciclo Lectivo** | 🆕 |
+| **18** | **`academic_cycle_study_plans`** | **Ciclo Lectivo** | 🆕 |
+| **19** | **`grade_scales`** | **Calificaciones** | 🆕 |
+| **20** | **`grading_period_types`** | **Calificaciones** | 🆕 |
+| **21** | **`subject_grading_configs`** | **Calificaciones** | 🆕 |
+| **22** | **`student_grades`** | **Calificaciones** | 🆕 |
+| **23** | **`salas`** | **Inicial** | 🆕 |
+| **24** | **`sala_enrollments`** | **Inicial** | 🆕 |
+| **25** | **`informes_evolutivos`** | **Inicial** | 🆕 |
+| **26** | **`areas_desarrollo`** | **Inicial** | 🆕 |
+| **27** | **`planificaciones`** | **Inicial** | 🆕 |
+| **28** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
+| **29** | **`grados`** | **Primario** | 🆕 |
+| **30** | **`calificaciones_primario`** | **Primario** | 🆕 |
+| **31** | **`cursos`** | **Secundario** | 🆕 |
+| **32** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
+| **33** | **`mesas_examen`** | **Secundario** | 🆕 |
+| **34** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
+| **35** | **`regimen_academico`** | **Secundario** | 🆕 |
+| **36** | **`inscripciones_materia`** | **Terciario** | 🆕 |
+| **37** | **`actas_examen`** | **Terciario** | 🆕 |
+| **38** | **`acta_examen_notas`** | **Terciario** | 🆕 |
+| **39** | **`titulos`** | **Terciario** | 🆕 |
 
-**Total: 11 existentes + 25 nuevas = 36 tablas**
+**Total: 11 existentes + 28 nuevas = 39 tablas**
 
 > Nota: `carreras`, `materias_carrera` y `correlatividades` (Terciario) fueron reemplazadas
 > por el modelo unificado `study_plans` + `study_plan_subjects` + `correlatives`.
