@@ -9,7 +9,7 @@ import {
 import type { RefreshTokenRepository } from '@educandow/domain';
 import { PasswordHasher } from '../ports/password-hasher';
 import { LoginDTO } from '../dtos/login.dto';
-import { JwtAuthPort } from '../../../infrastructure/auth/jwt-auth-port';
+import type { AuthPort } from '../ports/auth-port';
 import crypto from 'crypto';
 
 export interface LoginResult {
@@ -29,7 +29,7 @@ export class LoginUseCase {
   constructor(
     private readonly userRepo: UserRepository,
     private readonly passwordHasher: PasswordHasher,
-    private readonly authPort: JwtAuthPort,
+    private readonly authPort: AuthPort,
     private readonly refreshTokenRepo: RefreshTokenRepository,
   ) {}
 

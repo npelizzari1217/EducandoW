@@ -1,4 +1,5 @@
 import * as jwt from 'jsonwebtoken';
+import type { AuthPort } from '../../application/auth/ports/auth-port';
 
 export interface JwtPayload {
   sub: string;
@@ -7,7 +8,7 @@ export interface JwtPayload {
   level?: string;
 }
 
-export class JwtAuthPort {
+export class JwtAuthPort implements AuthPort {
   constructor(
     private readonly secret: string,
     private readonly expiresIn: string,

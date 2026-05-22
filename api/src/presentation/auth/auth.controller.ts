@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
@@ -21,6 +22,7 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 
 const REFRESH_COOKIE = 'refreshToken';
 const REFRESH_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -100,6 +102,12 @@ export class AuthController {
         user: authResponse.user,
       },
     };
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  async me(@CurrentUser() user: { userId: string; role: string; institutionId?: string; level?: string }) {
+    return { data: user };
   }
 
   @Post('refresh')

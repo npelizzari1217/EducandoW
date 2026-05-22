@@ -43,6 +43,15 @@ export class InstitutionController {
     return { data: { id: inst.id.get(), name: inst.name, address: inst.address, phone: inst.phone, email: inst.email, levels: inst.levels.map((l: { toString(): string }) => l.toString()) } };
   }
 
+  @Get(':id/levels')
+  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  async getLevels(@Param('id') id: string) {
+    const inst = await this.getUC.execute(id);
+    if (!inst) return { data: [] };
+    const currentYear = new Date().getFullYear().toString();
+    return { data: inst.levels.map((l: { toString(): string }) => ({ level: l.toString(), active: true, academicYear: currentYear })) };
+  }
+
   @Delete(':id')
   @Roles('ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)

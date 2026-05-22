@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
+  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject,
 } from '@nestjs/common';
+import type { StudentRepository } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -18,6 +19,7 @@ export class StudentController {
     private readonly listUC: ListStudentsUseCase,
     private readonly getUC: GetStudentUseCase,
     private readonly deleteUC: DeleteStudentUseCase,
+    @Inject('StudentRepository') private readonly studentRepo: StudentRepository,
   ) {}
 
   @Post()
@@ -27,6 +29,14 @@ export class StudentController {
     if (result.isErr()) throw result.unwrapErr();
     const s = result.unwrap();
     return { data: { id: s.id.get(), firstName: s.firstName, lastName: s.lastName, dni: s.dni.get() } };
+  }
+
+  @Get('search')
+  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  async search(@Query('q') q: string, @Query('institutionId') institutionId: string) {
+    if (!q) return { data: [] };
+    const students = await this.studentRepo.search(institutionId, q);
+    return { data: students.map((s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string }) => ({ id: s.id.get(), firstName: s.firstName, lastName: s.lastName, dni: s.dni.get(), fullName: s.fullName })) };
   }
 
   @Get()

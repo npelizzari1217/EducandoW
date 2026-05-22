@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result } from '@educandow/domain';
 import type { RefreshTokenRepository } from '@educandow/domain';
-import { JwtAuthPort } from '../../../infrastructure/auth/jwt-auth-port';
+import type { AuthPort } from '../ports/auth-port';
 import { InvalidCredentialsError } from '@educandow/domain';
 import crypto from 'crypto';
 
@@ -14,7 +14,7 @@ export interface RefreshTokenResult {
 export class RefreshTokenUseCase {
   constructor(
     private readonly refreshTokenRepo: RefreshTokenRepository,
-    private readonly jwtAuthPort: JwtAuthPort,
+    private readonly jwtAuthPort: AuthPort,
   ) {}
 
   async execute(token: string): Promise<Result<RefreshTokenResult, InvalidCredentialsError>> {
