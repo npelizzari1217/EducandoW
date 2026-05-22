@@ -274,7 +274,155 @@ LOGIN → JWT { ..., institutionId, dbName }
        └── (NIVELES ESPECÍFICOS ABAJO)
 ```
 
-### 1.2 Nuevas tablas por nivel pedagógico
+### 1.2 Plan de Estudios — El corazón académico
+
+Una institución puede tener **múltiples planes de estudio por nivel educativo** que conviven.
+Cada plan puede estructurarse de dos formas, y ambos tipos coexisten en las mismas tablas.
+
+#### Los dos tipos de estructura
+
+```
+TIPO A: JERÁRQUICO (Cursos → Materias)     TIPO B: PLANO (Materias directas)
+─────────────────────────────────────       ───────────────────────────────
+Plan: "Bachiller en Economía"               Plan: "Profesorado de Matemática"
+ │                                            │
+ ├── Curso: "1er Año"                         ├── Materia: Análisis I (año 1, 1C)
+ │    ├── Matemática I                        ├── Materia: Álgebra I (año 1, 1C)
+ │    ├── Lengua I                            ├── Materia: Geometría I (año 1, 2C)
+ │    └── Cs. Naturales I                     ├── Materia: Análisis II (año 2, 1C)
+ │                                            ├── Materia: Física I (año 2, 1C)
+ ├── Curso: "2do Año"                         │
+ │    ├── Matemática II                       │  (sin cursos, materias directas
+ │    ├── Lengua II                            │   con año y cuatrimestre)
+ │    └── Cs. Naturales II                    │
+ │                                            │
+ └── Curso: "3er Año"
+      └── ...
+```
+
+#### Tablas
+
+```
+┌─────────────────────┐
+│     StudyPlan       │  Plan de estudio
+│─────────────────────│
+│ id (UUID)           │
+│ name                │  "Bachiller en Economía"
+│ level               │  INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO
+│ structure_type      │  "HIERARCHICAL" | "FLAT"
+│ academic_year       │  "2025" (año de vigencia)
+│ resolution          │  STRING? (n° resolución ministerial)
+│ active              │  BOOL
+│ created_at          │
+│ updated_at          │
+└────────┬────────────┘
+         │
+         │ 1:N
+         ▼
+┌─────────────────────┐
+│  StudyPlanCourse    │  Curso dentro del plan (solo HIERARCHICAL)
+│─────────────────────│
+│ id (UUID)           │
+│ study_plan_id FK    │
+│ name                │  "1er Año", "2do Año"
+│ grade               │  INT? (1..6 para primaria/secundaria)
+│ order               │  INT (orden 1, 2, 3...)
+└────────┬────────────┘
+         │
+         │ 1:N (nullable: si FLAT, course_id = NULL)
+         ▼
+┌─────────────────────┐
+│  StudyPlanSubject   │  Materia del plan (corazón del sistema)
+│─────────────────────│
+│ id (UUID)           │
+│ study_plan_id FK    │  ← a qué plan pertenece
+│ course_id FK? NULL  │  ← NULL si es FLAT, FK si es HIERARCHICAL
+│ subject_id FK       │  ← FK a tabla Subject (materia base)
+│ year                │  INT (año dentro de la carrera: 1, 2, 3...)
+│ term                │  "1C"|"2C"|"ANUAL" (cuatrimestre o anual)
+│ hours_per_week      │  INT (carga horaria semanal)
+│ total_hours         │  INT (carga horaria total)
+│ regimen             │  "PROMOCIONAL"|"REGULAR"|"LIBRE"
+│ order               │  INT (orden dentro del curso o plan)
+│ created_at          │
+└────────┬────────────┘
+         │
+         │ 1:N (una materia requiere otra aprobada)
+         ▼
+┌─────────────────────┐
+│   Correlative       │  Correlatividad
+│─────────────────────│
+│ id (UUID)           │
+│ subject_id FK       │  ← materia que TIENE la correlativa
+│ required_id FK      │  ← materia que DEBE estar aprobada
+│ requirement_type    │  "CURSADA"|"FINAL" (requiere cursada o final aprobado)
+└─────────────────────┘
+```
+
+#### Ejemplos de datos
+
+**Plan HIERARCHICAL — "Bachiller en Economía" (Secundario)**
+
+```
+StudyPlan: { id: 1, name: "Bachiller en Economía", level: "SECUNDARIO",
+             structure_type: "HIERARCHICAL" }
+
+StudyPlanCourse: { id: 10, study_plan_id: 1, name: "1er Año", order: 1 }
+StudyPlanCourse: { id: 11, study_plan_id: 1, name: "2do Año", order: 2 }
+StudyPlanCourse: { id: 12, study_plan_id: 1, name: "3er Año", order: 3 }
+
+StudyPlanSubject:
+  { study_plan_id: 1, course_id: 10, subject_id: MAT1, year: 1, term: "ANUAL" }
+  { study_plan_id: 1, course_id: 10, subject_id: LEN1, year: 1, term: "ANUAL" }
+  { study_plan_id: 1, course_id: 11, subject_id: MAT2, year: 2, term: "ANUAL" }
+  ...
+```
+
+**Plan FLAT — "Profesorado de Matemática" (Terciario)**
+
+```
+StudyPlan: { id: 2, name: "Profesorado de Matemática", level: "TERCIARIO",
+             structure_type: "FLAT" }
+
+-- Sin cursos --
+
+StudyPlanSubject:
+  { study_plan_id: 2, course_id: NULL, subject_id: ANAL1, year: 1, term: "1C" }
+  { study_plan_id: 2, course_id: NULL, subject_id: ALG1,   year: 1, term: "1C" }
+  { study_plan_id: 2, course_id: NULL, subject_id: GEOM1,  year: 1, term: "2C" }
+  { study_plan_id: 2, course_id: NULL, subject_id: ANAL2,  year: 2, term: "1C" }
+  { study_plan_id: 2, course_id: NULL, subject_id: FIS1,   year: 2, term: "1C" }
+  ...
+
+Correlative:
+  { subject_id: ANAL2, required_id: ANAL1, requirement_type: "CURSADA" }
+  { subject_id: FIS1,  required_id: ANAL1, requirement_type: "FINAL" }
+```
+
+#### Reglas del Plan de Estudios
+
+| # | Regla |
+|---|---|
+| **R16** | Un plan de estudio pertenece a UN nivel educativo y tiene UN tipo de estructura |
+| **R17** | `structure_type = HIERARCHICAL` → las materias se agrupan en cursos. `course_id` es obligatorio |
+| **R18** | `structure_type = FLAT` → las materias son independientes. `course_id` es NULL. Se ordenan por `year` + `term` |
+| **R19** | Las materias base (`Subject`) se crean primero, luego se referencian desde `StudyPlanSubject` |
+| **R20** | Una misma `Subject` puede aparecer en múltiples planes de estudio |
+| **R21** | Las correlatividades se validan al momento de inscribir a un alumno en una materia |
+| **R22** | Si `requirement_type = CURSADA`, alcanza con tener la cursada aprobada. Si es `FINAL`, necesita el final aprobado |
+
+#### Impacto en el DER de niveles
+
+Con este modelo unificado, las tablas específicas por nivel se simplifican:
+
+| Nivel | Antes (diseño viejo) | Ahora (con StudyPlan) |
+|---|---|---|
+| **Inicial** | Sin plan de estudios (no aplica) | Sin cambios |
+| **Primario** | `grados` + `calificaciones_primario` | `grados` referencia a `StudyPlan` |
+| **Secundario** | `cursos` + `calificaciones_secundario` + `mesas_examen` + `regimen_academico` | `cursos` referencia a `StudyPlan`, `regimen_academico` se simplifica |
+| **Terciario** | `carreras` + `materias_carrera` + `correlatividades` + `inscripciones_materia` + `actas_examen` + `titulos` | `carreras` → `StudyPlan`, `materias_carrera` → `StudyPlanSubject`, correlatividades ya existen |
+
+### 1.3 Nuevas tablas por nivel pedagógico
 
 #### 🧒 NIVEL INICIAL (3 tablas nuevas)
 
@@ -421,7 +569,7 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
             nro_registro: STRING
 ```
 
-### 1.3 Resumen de tablas
+### 1.4 Resumen de tablas
 
 | # | Tabla | Contexto | Estado |
 |---|---|---|---|
@@ -436,28 +584,33 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
 | 9 | `subject_assignments` | Pedagógico | ✅ Existe |
 | 10 | `grades` | Pedagógico | ✅ Existe |
 | 11 | `attendances` | Pedagógico | ✅ Existe |
-| **12** | **`salas`** | **Inicial** | 🆕 |
-| **13** | **`sala_enrollments`** | **Inicial** | 🆕 |
-| **14** | **`informes_evolutivos`** | **Inicial** | 🆕 |
-| **15** | **`areas_desarrollo`** | **Inicial** | 🆕 |
-| **16** | **`planificaciones`** | **Inicial** | 🆕 |
-| **17** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
-| **18** | **`grados`** | **Primario** | 🆕 |
-| **19** | **`calificaciones_primario`** | **Primario** | 🆕 |
-| **20** | **`cursos`** | **Secundario** | 🆕 |
-| **21** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
-| **22** | **`mesas_examen`** | **Secundario** | 🆕 |
-| **23** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
-| **24** | **`regimen_academico`** | **Secundario** | 🆕 |
-| **25** | **`carreras`** | **Terciario** | 🆕 |
-| **26** | **`materias_carrera`** | **Terciario** | 🆕 |
-| **27** | **`correlatividades`** | **Terciario** | 🆕 |
-| **28** | **`inscripciones_materia`** | **Terciario** | 🆕 |
-| **29** | **`actas_examen`** | **Terciario** | 🆕 |
-| **30** | **`acta_examen_notas`** | **Terciario** | 🆕 |
-| **31** | **`titulos`** | **Terciario** | 🆕 |
+| **12** | **`study_plans`** | **Plan de Estudios** | 🆕 |
+| **13** | **`study_plan_courses`** | **Plan de Estudios** | 🆕 |
+| **14** | **`study_plan_subjects`** | **Plan de Estudios** | 🆕 |
+| **15** | **`correlatives`** | **Plan de Estudios** | 🆕 |
+| **16** | **`salas`** | **Inicial** | 🆕 |
+| **17** | **`sala_enrollments`** | **Inicial** | 🆕 |
+| **18** | **`informes_evolutivos`** | **Inicial** | 🆕 |
+| **19** | **`areas_desarrollo`** | **Inicial** | 🆕 |
+| **20** | **`planificaciones`** | **Inicial** | 🆕 |
+| **21** | **`secuencias_didacticas`** | **Inicial** | 🆕 |
+| **22** | **`grados`** | **Primario** | 🆕 |
+| **23** | **`calificaciones_primario`** | **Primario** | 🆕 |
+| **24** | **`cursos`** | **Secundario** | 🆕 |
+| **25** | **`calificaciones_secundario`** | **Secundario** | 🆕 |
+| **26** | **`mesas_examen`** | **Secundario** | 🆕 |
+| **27** | **`mesa_examen_inscripciones`** | **Secundario** | 🆕 |
+| **28** | **`regimen_academico`** | **Secundario** | 🆕 |
+| **29** | **`inscripciones_materia`** | **Terciario** | 🆕 |
+| **30** | **`actas_examen`** | **Terciario** | 🆕 |
+| **31** | **`acta_examen_notas`** | **Terciario** | 🆕 |
+| **32** | **`titulos`** | **Terciario** | 🆕 |
 
-**Total: 11 existentes + 20 nuevas = 31 tablas**
+**Total: 11 existentes + 21 nuevas = 32 tablas**
+
+> Nota: `carreras`, `materias_carrera` y `correlatividades` (Terciario) fueron reemplazadas
+> por el modelo unificado `study_plans` + `study_plan_subjects` + `correlatives`.
+> El mismo modelo sirve para Secundario y Primario cuando tengan planes de estudio.
 
 ---
 
