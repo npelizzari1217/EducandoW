@@ -9,6 +9,7 @@ import { BcryptPasswordHasher } from '../../infrastructure/auth/bcrypt-password-
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaUserRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-user.repository';
 import { PrismaRefreshTokenRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-refresh-token.repository';
+import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { UserRegisteredHandler } from '../../infrastructure/event-bus/handlers/user-registered.handler';
@@ -27,9 +28,15 @@ const env = loadEnvConfig();
     },
     {
       provide: LoginUseCase,
-      useFactory: (repo, hasher, authPort, refreshRepo) =>
-        new LoginUseCase(repo, hasher, authPort, refreshRepo),
-      inject: ['UserRepository', 'PasswordHasher', 'AuthPort', 'RefreshTokenRepository'],
+      useFactory: (repo, instRepo, hasher, authPort, refreshRepo) =>
+        new LoginUseCase(repo, instRepo, hasher, authPort, refreshRepo),
+      inject: [
+        'UserRepository',
+        'InstitutionRepository',
+        'PasswordHasher',
+        'AuthPort',
+        'RefreshTokenRepository',
+      ],
     },
     {
       provide: RefreshTokenUseCase,
@@ -80,6 +87,15 @@ const env = loadEnvConfig();
       provide: 'RefreshTokenRepository',
       useExisting: PrismaRefreshTokenRepository,
     },
+    {
+      provide: PrismaInstitutionRepository,
+      useFactory: (prisma) => new PrismaInstitutionRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: 'InstitutionRepository',
+      useExisting: PrismaInstitutionRepository,
+    },
     // ── Event Handlers ─────────────────────────────────────────────────
     UserRegisteredHandler,
   ],
@@ -91,6 +107,8 @@ const env = loadEnvConfig();
     PrismaUserRepository,
     'UserRepository',
     'RefreshTokenRepository',
+    'InstitutionRepository',
+    PrismaInstitutionRepository,
     PrismaService,
   ],
 })

@@ -4,19 +4,13 @@ import { StudentController } from './student.controller';
 import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
 } from '../../application/student/use-cases/student.use-cases';
-import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaStudentRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-student.repository';
 
 @Module({
   imports: [AuthModule],
   controllers: [StudentController],
   providers: [
-    PrismaService,
-    {
-      provide: PrismaStudentRepository,
-      useFactory: (prisma) => new PrismaStudentRepository(prisma),
-      inject: [PrismaService],
-    },
+    PrismaStudentRepository,
     { provide: 'StudentRepository', useExisting: PrismaStudentRepository },
     { provide: CreateStudentUseCase, useFactory: (r) => new CreateStudentUseCase(r), inject: ['StudentRepository'] },
     { provide: ListStudentsUseCase, useFactory: (r) => new ListStudentsUseCase(r), inject: ['StudentRepository'] },

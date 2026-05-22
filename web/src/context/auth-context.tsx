@@ -24,6 +24,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('user', JSON.stringify(u));
       setAccessToken(token);
       setUser(u);
+      // Notify other contexts (e.g. InstitutionContext) that login succeeded
+      window.dispatchEvent(new CustomEvent('auth:login'));
     } finally { setIsLoading(false); }
   }, []);
 
@@ -40,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('user');
     setAccessToken(null);
     setUser(null);
+    // Notify other contexts that logout happened
+    window.dispatchEvent(new CustomEvent('auth:logout'));
   }, []);
 
   return <AuthContext.Provider value={{ user, accessToken, isLoading, login, register, logout }}>{children}</AuthContext.Provider>;

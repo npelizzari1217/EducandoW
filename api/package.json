@@ -9,9 +9,14 @@
     "start:prod": "node dist/src/main",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate --schema=prisma/schema_master.prisma && prisma generate --schema=prisma/schema_tenant.prisma",
+    "prisma:generate:master": "prisma generate --schema=prisma/schema_master.prisma",
+    "prisma:generate:tenant": "prisma generate --schema=prisma/schema_tenant.prisma",
+    "prisma:migrate:master": "prisma migrate dev --schema=prisma/schema_master.prisma",
+    "prisma:migrate:tenant": "prisma migrate dev --schema=prisma/schema_tenant.prisma",
+    "prisma:migrate": "pnpm prisma:migrate:master",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "tenant:create": "ts-node scripts/create-tenant-db.ts",
     "lint": "tsc --noEmit && eslint ."
   },
   "dependencies": {

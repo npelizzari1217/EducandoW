@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/error-boundary';
 import { AuthProvider } from './context/auth-context';
+import { InstitutionProvider } from './context/institution-context';
+import { ThemeApplier } from './components/theme/theme-applier';
 import { ProtectedRoute } from './components/layout/protected-route';
 import { DashboardLayout } from './components/layout/dashboard-layout';
 import LoginPage from './pages/auth/login';
@@ -16,23 +18,26 @@ function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/institutions" element={<ProtectedRoute roles={['ADMIN']}><InstitutionsPage /></ProtectedRoute>} />
-            <Route path="/students" element={<StudentsPage />} />
-            <Route path="/teachers" element={<TeachersPage />} />
-            <Route path="/enrollments" element={<EnrollmentsPage />} />
-            <Route path="/subjects" element={<SubjectsPage />} />
-            <Route path="/course-sections" element={<CourseSectionsPage />} />
-            <Route path="/subject-assignments" element={<SubjectAssignmentsPage />} />
-            <Route path="/grades" element={<GradesPage />} />
-            <Route path="/attendance" element={<AttendancePage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <InstitutionProvider>
+          <ThemeApplier />
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/institutions" element={<ProtectedRoute roles={['ADMIN']}><InstitutionsPage /></ProtectedRoute>} />
+              <Route path="/students" element={<StudentsPage />} />
+              <Route path="/teachers" element={<TeachersPage />} />
+              <Route path="/enrollments" element={<EnrollmentsPage />} />
+              <Route path="/subjects" element={<SubjectsPage />} />
+              <Route path="/course-sections" element={<CourseSectionsPage />} />
+              <Route path="/subject-assignments" element={<SubjectAssignmentsPage />} />
+              <Route path="/grades" element={<GradesPage />} />
+              <Route path="/attendance" element={<AttendancePage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </InstitutionProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

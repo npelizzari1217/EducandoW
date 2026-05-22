@@ -6,4 +6,8 @@ export interface InstitutionRepository {
   save(institution: Institution): Promise<void>;
   delete(id: string): Promise<void>;
   existsByName(name: string): Promise<boolean>;
+  findByCue(cue: string): Promise<Institution | null>;
+  softDelete(id: string): Promise<void>;
+  update(institution: Institution): Promise<void>;
+  findByDbName(dbName: string): Promise<Institution | null>;
 }

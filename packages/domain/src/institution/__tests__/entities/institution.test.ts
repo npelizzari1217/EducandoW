@@ -33,11 +33,11 @@ describe('Institution', () => {
       levels: [Level.reconstruct(LevelType.INICIAL)],
       address: 'Calle 123',
       phone: '1234',
-      email: 'mail@test.com',
+      contactEmail: 'mail@test.com',
     });
     expect(inst.name).toBe('Colegio');
     expect(inst.address).toBe('Calle 123');
     expect(inst.phone).toBe('1234');
-    expect(inst.email).toBe('mail@test.com');
+    expect(inst.contactEmail).toBe('mail@test.com');
   });
 });

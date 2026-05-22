@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { InstitutionController } from './institution.controller';
 import {
-  CreateInstitutionUseCase, ListInstitutionsUseCase, GetInstitutionUseCase, DeleteInstitutionUseCase,
+  CreateInstitutionUseCase, ListInstitutionsUseCase, GetInstitutionUseCase,
+  DeleteInstitutionUseCase, GetMeUseCase, UpdateInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
@@ -36,6 +37,16 @@ import { PrismaInstitutionRepository } from '../../infrastructure/persistence/pr
     {
       provide: DeleteInstitutionUseCase,
       useFactory: (r) => new DeleteInstitutionUseCase(r),
+      inject: ['InstitutionRepository'],
+    },
+    {
+      provide: GetMeUseCase,
+      useFactory: (r) => new GetMeUseCase(r),
+      inject: ['InstitutionRepository'],
+    },
+    {
+      provide: UpdateInstitutionUseCase,
+      useFactory: (r) => new UpdateInstitutionUseCase(r),
       inject: ['InstitutionRepository'],
     },
   ],

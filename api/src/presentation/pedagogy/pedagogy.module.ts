@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyController } from './pedagogy.controller';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
-import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaSubjectRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject.repository';
 import { PrismaCourseSectionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-course-section.repository';
 import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
@@ -16,8 +15,7 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
   imports: [AuthModule],
   controllers: [PedagogyController],
   providers: [
-    PrismaService,
-    ...repos.map((Repo, i) => ({ provide: Repo, useFactory: (p: PrismaService) => new Repo(p), inject: [PrismaService] })),
+    ...repos,
     ...tokens.map((t, i) => ({ provide: t, useExisting: repos[i] })),
     { provide: UC.CreateSubjectUC, useFactory: (r: PrismaSubjectRepo) => new UC.CreateSubjectUC(r), inject: ['SubjectRepository'] },
     { provide: UC.ListSubjectsUC, useFactory: (r: PrismaSubjectRepo) => new UC.ListSubjectsUC(r), inject: ['SubjectRepository'] },

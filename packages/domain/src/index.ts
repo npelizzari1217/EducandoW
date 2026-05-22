@@ -13,7 +13,8 @@ export { Email } from './shared/value-objects/email';
 
 // Institution
 export { Institution } from './institution/entities';
-export { Level, LevelType } from './institution/value-objects';
+export { Level, LevelType, HexColor, Cue, LogoUrl, EncryptedSmtpPass, SmtpConfig } from './institution/value-objects';
+export type { SmtpEncryption, SmtpConfigProps } from './institution/value-objects';
 export type { InstitutionRepository } from './institution/repositories/institution-repository';
 
 // Personnel
