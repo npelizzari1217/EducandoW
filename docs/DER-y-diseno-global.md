@@ -6,6 +6,161 @@
 
 ---
 
+## 0. ARQUITECTURA SaaS MULTI-TENANT
+
+### 0.1 Modelo: Database-per-Tenant
+
+Cada institución educativa tiene su **propia base de datos PostgreSQL**.
+Un usuario pertenece a UNA institución. La institución es el primer filtro de TODO.
+
+```
+┌──────────────────────────────────────────────────────┐
+│                 MASTER DATABASE                       │
+│                 educandow_master                      │
+│                                                       │
+│  ┌──────────┐    ┌──────────────┐                    │
+│  │  users   │───<│ institutions │                    │
+│  │id,email, │    │id,nombre,    │                    │
+│  │password, │    │db_name,      │                    │
+│  │name,role,│    │db_host,      │                    │
+│  │instit.   │    │created_at    │                    │
+│  │   _id FK │    └──────┬───────┘                    │
+│  └──────────┘           │                            │
+│                         │ db_name: string             │
+│                         │ ej: "educandow_1002"        │
+└─────────────────────────┼────────────────────────────┘
+                          │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ TENANT DB    │ │ TENANT DB    │ │ TENANT DB    │
+│educandow_1002│ │educandow_1003│ │educandow_1004│
+│              │ │              │ │              │
+│ students     │ │ students     │ │ students     │
+│ teachers     │ │ teachers     │ │ teachers     │
+│ subjects     │ │ subjects     │ │ subjects     │
+│ courses      │ │ courses      │ │ courses      │
+│ grades       │ │ grades       │ │ grades       │
+│ attendance   │ │ attendance   │ │ attendance   │
+│ ... (todo)   │ │ ... (todo)   │ │ ... (todo)   │
+│              │ │              │ │              │
+│ SIN columna  │ │ SIN columna  │ │ SIN columna  │
+│ institutionId│ │ institutionId│ │ institutionId│
+└──────────────┘ └──────────────┘ └──────────────┘
+```
+
+### 0.2 Flujo de conexión
+
+```
+1. LOGIN
+   usuario: pepito@ciclanus.edu.ar
+   password: ********
+          │
+          ▼
+2. MASTER DB: valida credenciales
+   ┌─────────────────────────────────┐
+   │ SELECT * FROM users             │
+   │ WHERE email = '...'            │
+   │ JOIN institutions ON ...        │
+   │ → user.institution_id = 1002    │
+   │ → institution.db_name =         │
+   │   "educandow_1002"             │
+   └─────────────────────────────────┘
+          │
+          ▼
+3. JWT PAYLOAD incluye:
+   {
+     sub: "user-uuid",
+     role: "ADMIN",
+     institutionId: "1002",
+     dbName: "educandow_1002"
+   }
+          │
+          ▼
+4. CADA REQUEST:
+   Middleware extrae dbName del JWT
+   → PrismaService resuelve conexión a:
+     postgresql://.../educandow_1002
+   → TODAS las queries van contra el tenant DB
+```
+
+### 0.3 Reglas de arquitectura SaaS
+
+| # | Regla | Descripción |
+|---|---|---|
+| **R1** | **Master DB solo auth** | La base `educandow_master` solo contiene `users`, `institutions` y `refresh_tokens`. NUNCA datos pedagógicos ni de personal. |
+| **R2** | **Tenant DB = 1 institución** | Cada institución tiene su propia base: `educandow_{institutionId}`. Contiene TODOS sus datos (alumnos, docentes, materias, notas, etc). |
+| **R3** | **Sin `institutionId` en tenant** | Las tablas dentro de un tenant DB NO necesitan columna `institutionId`. La base en sí misma es el filtro. |
+| **R4** | **JWT transporta el tenant** | El token JWT incluye `dbName` (nombre de la base). El middleware de conexión lo usa para rutear al DB correcto. |
+| **R5** | **Usuario = 1 institución** | Un usuario pertenece a UNA sola institución. Si necesita trabajar en otra, necesita otro usuario. |
+| **R6** | **Usuario = N niveles** | Dentro de SU institución, un usuario puede operar en múltiples niveles pedagógicos (Inicial, Primario, etc). |
+| **R7** | **PrismaService dinámico** | `PrismaService` no se conecta en el constructor. Se resuelve por request usando el `dbName` del JWT. Usa un `Map<dbName, PrismaClient>` como caché de conexiones. |
+| **R8** | **Migrations por tenant** | Al crear una institución nueva, se crea su DB y se corren las migrations. Al actualizar el schema, se migran TODAS las tenant DBs. |
+| **R9** | **Health check global** | El health check consulta la master DB. Los endpoints de tenant requieren JWT válido. |
+| **R10** | **Registro de institución** | Crear una institución = crear DB + correr migrations + crear usuario admin inicial. |
+
+### 0.4 Estructura de bases de datos
+
+```
+PostgreSQL Cluster
+│
+├── educandow_master          ← única, shared
+│   ├── users
+│   ├── institutions          ← tiene db_name, db_host
+│   └── refresh_tokens
+│
+├── educandow_1002            ← tenant: "Colegio San Martín"
+│   ├── students
+│   ├── teachers
+│   ├── enrollments
+│   ├── subjects
+│   ├── course_sections
+│   ├── subject_assignments
+│   ├── grades
+│   ├── attendances
+│   ├── salas                  ← Inicial
+│   ├── informes_evolutivos
+│   ├── areas_desarrollo
+│   ├── planificaciones
+│   ├── secuencias_didacticas
+│   ├── grados                 ← Primario
+│   ├── calificaciones_primario
+│   ├── cursos                 ← Secundario
+│   ├── calificaciones_secundario
+│   ├── mesas_examen
+│   ├── mesa_examen_inscripciones
+│   ├── regimen_academico
+│   ├── carreras               ← Terciario
+│   ├── materias_carrera
+│   ├── correlatividades
+│   ├── inscripciones_materia
+│   ├── actas_examen
+│   ├── acta_examen_notas
+│   └── titulos
+│
+├── educandow_1003            ← tenant: "Instituto Belgrano"
+│   └── (mismas tablas)
+│
+└── educandow_1004            ← tenant: "Escuela Técnica N°5"
+    └── (mismas tablas)
+```
+
+### 0.5 Impacto en el código actual
+
+| Componente | Cambio requerido |
+|---|---|
+| `PrismaService` | Pasa de `extends PrismaClient` a un factory que resuelve cliente por tenant |
+| `PrismaUserRepository` | Va a la master DB (siempre misma conexión) |
+| `JwtAuthPort` | Agrega `institutionId` y `dbName` al payload |
+| `AuthController /me` | Ya devuelve el JWT payload con institutionId |
+| `app.module.ts` | Registrar middleware/interceptor de tenant |
+| `schema.prisma` | Separar en dos: `schema_master.prisma` y `schema_tenant.prisma` |
+| `docker-compose.yml` | Solo una instancia de PostgreSQL, múltiples DBs dentro |
+| TODOS los repos | Quitar `institutionId` de las queries (el filtro lo da la DB) |
+| TODAS las entidades | Quitar `institutionId` de las props (no necesario en tenant) |
+
+---
+
 ## 1. DER — Diagrama Entidad-Relación Completo
 
 ### 1.1 Tablas existentes (Kernel compartido)
