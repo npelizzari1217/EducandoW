@@ -2,11 +2,15 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { RegisterUserUseCase } from '../../application/auth/use-cases/register-user.use-case';
 import { LoginUseCase } from '../../application/auth/use-cases/login.use-case';
+import { RefreshTokenUseCase } from '../../application/auth/use-cases/refresh-token.use-case';
+import { LogoutUseCase } from '../../application/auth/use-cases/logout.use-case';
 import { JwtAuthPort } from '../../infrastructure/auth/jwt-auth-port';
 import { BcryptPasswordHasher } from '../../infrastructure/auth/bcrypt-password-hasher';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaUserRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-user.repository';
+import { PrismaRefreshTokenRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-refresh-token.repository';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { UserRegisteredHandler } from '../../infrastructure/event-bus/handlers/user-registered.handler';
 import { loadEnvConfig } from '../../infrastructure/config/env.config';
 
@@ -23,8 +27,19 @@ const env = loadEnvConfig();
     },
     {
       provide: LoginUseCase,
-      useFactory: (repo, hasher, authPort) => new LoginUseCase(repo, hasher, authPort),
-      inject: ['UserRepository', 'PasswordHasher', 'AuthPort'],
+      useFactory: (repo, hasher, authPort, refreshRepo) =>
+        new LoginUseCase(repo, hasher, authPort, refreshRepo),
+      inject: ['UserRepository', 'PasswordHasher', 'AuthPort', 'RefreshTokenRepository'],
+    },
+    {
+      provide: RefreshTokenUseCase,
+      useFactory: (refreshRepo, authPort) => new RefreshTokenUseCase(refreshRepo, authPort),
+      inject: ['RefreshTokenRepository', 'AuthPort'],
+    },
+    {
+      provide: LogoutUseCase,
+      useFactory: (refreshRepo) => new LogoutUseCase(refreshRepo),
+      inject: ['RefreshTokenRepository'],
     },
     // ── Auth Infrastructure ────────────────────────────────────────────
     {
@@ -44,6 +59,7 @@ const env = loadEnvConfig();
       useExisting: BcryptPasswordHasher,
     },
     AuthGuard,
+    RolesGuard,
     // ── Persistence ────────────────────────────────────────────────────
     PrismaService,
     {
@@ -55,9 +71,27 @@ const env = loadEnvConfig();
       provide: 'UserRepository',
       useExisting: PrismaUserRepository,
     },
+    {
+      provide: PrismaRefreshTokenRepository,
+      useFactory: (prisma) => new PrismaRefreshTokenRepository(prisma),
+      inject: [PrismaService],
+    },
+    {
+      provide: 'RefreshTokenRepository',
+      useExisting: PrismaRefreshTokenRepository,
+    },
     // ── Event Handlers ─────────────────────────────────────────────────
     UserRegisteredHandler,
   ],
-  exports: [AuthGuard, JwtAuthPort, 'AuthPort', PrismaUserRepository, 'UserRepository', PrismaService],
+  exports: [
+    AuthGuard,
+    RolesGuard,
+    JwtAuthPort,
+    'AuthPort',
+    PrismaUserRepository,
+    'UserRepository',
+    'RefreshTokenRepository',
+    PrismaService,
+  ],
 })
 export class AuthModule {}

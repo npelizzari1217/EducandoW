@@ -1,23 +1,38 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_INTERCEPTOR, APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthModule } from './presentation/auth/auth.module';
 import { EventBusModule } from './infrastructure/event-bus/event-bus.module';
+import { InstitutionModule } from './presentation/institution/institution.module';
+import { StudentModule } from './presentation/student/student.module';
+import { TeacherModule } from './presentation/teacher/teacher.module';
+import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
+import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
 import { ResponseInterceptor } from './presentation/shared/interceptors/response.interceptor';
 
 @Module({
-  imports: [AuthModule, EventBusModule],
+  imports: [
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 100,
+      },
+    ]),
+    AuthModule,
+    EventBusModule,
+    InstitutionModule,
+    StudentModule,
+    TeacherModule,
+    EnrollmentModule,
+    PedagogyModule,
+  ],
   controllers: [HealthController],
   providers: [
-    {
-      provide: APP_FILTER,
-      useClass: AppExceptionFilter,
-    },
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: ResponseInterceptor,
-    },
+    { provide: APP_FILTER, useClass: AppExceptionFilter },
+    { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}
