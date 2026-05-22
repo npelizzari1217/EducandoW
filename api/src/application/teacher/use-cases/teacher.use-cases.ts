@@ -1,0 +1,68 @@
+import { Injectable } from '@nestjs/common';
+import { ok, err, Result, ValidationError, TeacherRepository, Teacher, Dni, Email } from '@educandow/domain';
+
+export interface CreateTeacherInput {
+  firstName: string;
+  lastName: string;
+  dni: string;
+  email: string;
+  phone?: string;
+  title?: string;
+  institutionId: string;
+}
+
+@Injectable()
+export class CreateTeacherUseCase {
+  constructor(private readonly repo: TeacherRepository) {}
+
+  async execute(input: CreateTeacherInput): Promise<Result<Teacher, ValidationError>> {
+    const dniResult = Dni.create(input.dni);
+    if (dniResult.isErr()) return err(dniResult.unwrapErr());
+
+    const emailResult = Email.create(input.email);
+    if (emailResult.isErr()) return err(emailResult.unwrapErr());
+
+    const existing = await this.repo.findByDni(input.dni);
+    if (existing) return err(new ValidationError('Ya existe un docente con ese DNI'));
+
+    const teacher = Teacher.create({
+      firstName: input.firstName,
+      lastName: input.lastName,
+      dni: dniResult.unwrap(),
+      email: emailResult.unwrap(),
+      phone: input.phone,
+      title: input.title,
+      institutionId: input.institutionId,
+    });
+
+    await this.repo.save(teacher);
+    return ok(teacher);
+  }
+}
+
+@Injectable()
+export class ListTeachersUseCase {
+  constructor(private readonly repo: TeacherRepository) {}
+
+  async execute(institutionId: string): Promise<Teacher[]> {
+    return this.repo.findByInstitution(institutionId);
+  }
+}
+
+@Injectable()
+export class GetTeacherUseCase {
+  constructor(private readonly repo: TeacherRepository) {}
+
+  async execute(id: string): Promise<Teacher | null> {
+    return this.repo.findById(id);
+  }
+}
+
+@Injectable()
+export class DeleteTeacherUseCase {
+  constructor(private readonly repo: TeacherRepository) {}
+
+  async execute(id: string): Promise<void> {
+    await this.repo.delete(id);
+  }
+}
