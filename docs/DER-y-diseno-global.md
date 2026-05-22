@@ -39,33 +39,39 @@ Un usuario pertenece a UNA institución. La institución es el primer filtro de 
 │                  │ smtp_pass: STRING? (enc) (3)  │    │
 │                  │ smtp_encryption: STRING? (4)  │    │
 │                  │ smtp_port: INT?               │    │
-│                  │ sends_email: BOOL             │    │
+│                  │ ── Notificaciones ──          │    │
+│                  │ send_email: BOOL       (5)    │    │
+│                  │ send_messages: BOOL    (6)    │    │
 │                  │                               │    │
 │                  │ ── Branding ──                │    │
-│                  │ logo_url: STRING?      (5)    │    │
-│                  │ header_color: STRING?  (6)    │    │
+│                  │ logo_url: STRING?      (7)    │    │
+│                  │ header_color: STRING?  (8)    │    │
 │                  │ header_text_color: STRING?    │    │
 │                  │ body_text_color: STRING?      │    │
 │                  │                               │    │
 │                  │ ── Config ──                  │    │
-│                  │ active: BOOL           (7)    │    │
-│                  │ socket_host: STRING?   (8)    │    │
+│                  │ active: BOOL           (9)    │    │
+│                  │ socket_host: STRING?   (10)   │    │
 │                  │ socket_port: INT?             │    │
 │                  │                               │    │
-│                  │ db_name: STRING        (9)    │    │
+│                  │ db_name: STRING        (11)   │    │
 │                  │ created_at: TIMESTAMP         │    │
 │                  │ updated_at: TIMESTAMP         │    │
 │                  └──────────────────────────────┘    │
 │                                                       │
 │  (1) N° inscripción Ministerio de Educación           │
 │  (2) Código Único Escolar (alfanumérico, único)       │
-│  (3) Encriptado en reposo (bcrypt o AES)             │
+│  (3) Encriptado en reposo (AES-256)                   │
 │  (4) "TLS" | "SSL" | "NONE"                          │
-│  (5) URL de la imagen (S3 / local storage)           │
-│  (6) Hex color: "#1a56db"                            │
-│  (7) Soft-delete: institución activa/inactiva         │
-│  (8) Para notificaciones real-time (WebSocket)        │
-│  (9) Nombre de la tenant DB: "educandow_1002"        │
+│  (5) Activa/desactiva envío de emails a nivel         │
+│      institución (si está en OFF, no se envía nada)   │
+│  (6) Activa/desactiva mensajería WebSocket a nivel    │
+│      institución (si está en OFF, no hay socket)      │
+│  (7) URL de la imagen (S3 / local storage)            │
+│  (8) Hex color: "#1a56db"                             │
+│  (9) Soft-delete: institución activa/inactiva          │
+│  (10) Para notificaciones real-time (WebSocket)        │
+│  (11) Nombre de la tenant DB: "educandow_1002"         │
 │                                                       │
 └──────────────────────────────────────────────────────┘
                           │
