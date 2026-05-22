@@ -1,7 +1,7 @@
 import { Id } from '../../shared/value-objects/id';
 import { Email } from '../../shared/value-objects/email';
 
-export type UserRole = 'ADMIN' | 'MANAGER' | 'TEACHER';
+export type UserRole = 'ROOT' | 'ADMIN' | 'MANAGER' | 'TEACHER';
 
 export interface UserProps {
   id: Id;

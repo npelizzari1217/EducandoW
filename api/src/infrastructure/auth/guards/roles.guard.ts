@@ -31,6 +31,11 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
+    // ROOT has universal access — bypass all role checks
+    if (user.role === 'ROOT') {
+      return true;
+    }
+
     return requiredRoles.includes(user.role);
   }
 }
