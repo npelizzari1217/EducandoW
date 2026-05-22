@@ -1,28 +1,86 @@
 import { Id } from '../../shared/value-objects/id';
 import { Level, LevelType } from '../value-objects/level';
+import { HexColor } from '../value-objects/hex-color';
+import { Cue } from '../value-objects/cue';
 
 export interface InstitutionProps {
   id: Id;
   name: string;
-  levels: Level[];
+  cue?: Cue;
+  ministryReg?: string;
   address?: string;
+  city?: string;
+  postalCode?: string;
+  country?: string;
   phone?: string;
-  email?: string;
+  website?: string;
+  contactEmail?: string;
+  logoUrl?: string;
+  headerColor?: HexColor;
+  headerTextColor?: HexColor;
+  bodyTextColor?: HexColor;
+  smtpHost?: string;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpEncryption?: string;
+  smtpPort?: number;
+  sendEmail?: boolean;
+  sendMessages?: boolean;
+  socketHost?: string;
+  socketPort?: number;
+  active?: boolean;
+  dbName?: string;
+  levels: Level[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export class Institution {
   private constructor(private readonly props: InstitutionProps) {}
 
-  static create(props: Omit<InstitutionProps, 'id'>): Institution {
+  static create(props: Omit<InstitutionProps, 'id' | 'dbName' | 'createdAt' | 'updatedAt'> &
+    Partial<Pick<InstitutionProps, 'dbName' | 'createdAt' | 'updatedAt'>>): Institution {
+    const id = Id.create();
+    const now = new Date();
     return new Institution({
       ...props,
-      id: Id.create(),
+      id,
+      name: props.name,
+      levels: props.levels,
+      country: props.country ?? 'AR',
+      active: props.active ?? true,
+      sendEmail: props.sendEmail ?? false,
+      sendMessages: props.sendMessages ?? false,
+      cue: props.cue,
+      ministryReg: props.ministryReg,
+      address: props.address,
+      city: props.city,
+      postalCode: props.postalCode,
+      phone: props.phone,
+      website: props.website,
+      contactEmail: props.contactEmail,
+      logoUrl: props.logoUrl,
+      headerColor: props.headerColor,
+      headerTextColor: props.headerTextColor,
+      bodyTextColor: props.bodyTextColor,
+      smtpHost: props.smtpHost,
+      smtpUser: props.smtpUser,
+      smtpPass: props.smtpPass,
+      smtpEncryption: props.smtpEncryption,
+      smtpPort: props.smtpPort,
+      socketHost: props.socketHost,
+      socketPort: props.socketPort,
+      dbName: props.dbName ?? `educandow_${id.get()}`,
+      createdAt: now,
+      updatedAt: now,
     });
   }
 
   static reconstruct(props: InstitutionProps): Institution {
     return new Institution(props);
   }
+
+  // ── Identity ───────────────────────────────────────────
 
   get id(): Id {
     return this.props.id;
@@ -32,20 +90,126 @@ export class Institution {
     return this.props.name;
   }
 
-  get levels(): Level[] {
-    return [...this.props.levels];
+  get cue(): Cue | undefined {
+    return this.props.cue;
   }
+
+  get ministryReg(): string | undefined {
+    return this.props.ministryReg;
+  }
+
+  // ── Contact ────────────────────────────────────────────
 
   get address(): string | undefined {
     return this.props.address;
+  }
+
+  get city(): string | undefined {
+    return this.props.city;
+  }
+
+  get postalCode(): string | undefined {
+    return this.props.postalCode;
+  }
+
+  get country(): string | undefined {
+    return this.props.country;
   }
 
   get phone(): string | undefined {
     return this.props.phone;
   }
 
-  get email(): string | undefined {
-    return this.props.email;
+  get website(): string | undefined {
+    return this.props.website;
+  }
+
+  get contactEmail(): string | undefined {
+    return this.props.contactEmail;
+  }
+
+  // ── Branding ───────────────────────────────────────────
+
+  get logoUrl(): string | undefined {
+    return this.props.logoUrl;
+  }
+
+  get headerColor(): HexColor | undefined {
+    return this.props.headerColor;
+  }
+
+  get headerTextColor(): HexColor | undefined {
+    return this.props.headerTextColor;
+  }
+
+  get bodyTextColor(): HexColor | undefined {
+    return this.props.bodyTextColor;
+  }
+
+  // ── SMTP ───────────────────────────────────────────────
+
+  get smtpHost(): string | undefined {
+    return this.props.smtpHost;
+  }
+
+  get smtpUser(): string | undefined {
+    return this.props.smtpUser;
+  }
+
+  get smtpPass(): string | undefined {
+    return this.props.smtpPass;
+  }
+
+  get smtpEncryption(): string | undefined {
+    return this.props.smtpEncryption;
+  }
+
+  get smtpPort(): number | undefined {
+    return this.props.smtpPort;
+  }
+
+  // ── Notification flags ─────────────────────────────────
+
+  get sendEmail(): boolean | undefined {
+    return this.props.sendEmail;
+  }
+
+  get sendMessages(): boolean | undefined {
+    return this.props.sendMessages;
+  }
+
+  // ── Socket ─────────────────────────────────────────────
+
+  get socketHost(): string | undefined {
+    return this.props.socketHost;
+  }
+
+  get socketPort(): number | undefined {
+    return this.props.socketPort;
+  }
+
+  // ── Config ─────────────────────────────────────────────
+
+  get active(): boolean | undefined {
+    return this.props.active;
+  }
+
+  get dbName(): string | undefined {
+    return this.props.dbName;
+  }
+
+  get createdAt(): Date | undefined {
+    return this.props.createdAt;
+  }
+
+  get updatedAt(): Date | undefined {
+    return this.props.updatedAt;
+  }
+
+  // ── Levels ─────────────────────────────────────────────
+
+  get levels(): Level[] {
+    return [...this.props.levels];
   }
 
   hasLevel(level: LevelType): boolean {

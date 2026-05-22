@@ -6,6 +6,7 @@ export interface JwtPayload {
   role: string;
   institutionId?: string;
   level?: string;
+  dbName?: string | null;
 }
 
 export class JwtAuthPort implements AuthPort {

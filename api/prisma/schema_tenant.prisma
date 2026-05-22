@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../node_modules/@prisma/tenant-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Personnel ──────────────────────────────────────────────
+// NOTE: No institutionId — tenant DB is dedicated to one institution
+
+model Student {
+  id            String   @id @default(uuid())
+  firstName     String
+  lastName      String
+  dni           String   @unique
+  email         String?
+  birthDate     DateTime?
+  guardianName  String?
+  guardianPhone String?
+
+  enrollments Enrollment[]
+  grades      Grade[]
+  attendances Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("students")
+}
+
+model Teacher {
+  id            String   @id @default(uuid())
+  firstName     String
+  lastName      String
+  dni           String   @unique
+  email         String
+  phone         String?
+  title         String?
+
+  subjectAssignments SubjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("teachers")
+}
+
+// ── Enrollment ─────────────────────────────────────────────
+
+model Enrollment {
+  id           String   @id @default(uuid())
+  studentId    String
+  level        String
+  academicYear String
+  grade        String?
+  division     String?
+  status       String   @default("ACTIVE")
+  enrolledAt   DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("enrollments")
+}
+
+// ── Pedagogical ────────────────────────────────────────────
+
+model Subject {
+  id    String @id @default(uuid())
+  name  String
+  level String
+
+  grades              Grade[]
+  subjectAssignments  SubjectAssignment[]
+  attendances         Attendance[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("subjects")
+}
+
+model CourseSection {
+  id           String @id @default(uuid())
+  name         String
+  grade        String?
+  division     String?
+  level        String
+  academicYear String
+
+  grades              Grade[]
+  attendances         Attendance[]
+  subjectAssignments  SubjectAssignment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("course_sections")
+}
+
+model SubjectAssignment {
+  id              String @id @default(uuid())
+  subjectId       String
+  teacherId       String
+  courseSectionId String
+
+  subject       Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  teacher       Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@map("subject_assignments")
+}
+
+model Grade {
+  id               String   @id @default(uuid())
+  studentId        String
+  subjectId        String
+  courseSectionId  String
+  period           String
+  numericValue     Float?
+  qualitativeValue String?
+  status           String?
+  evaluatedAt      DateTime @default(now())
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subject       Subject       @relation(fields: [subjectId], references: [id])
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id])
+
+  @@map("grades")
+}
+
+model Attendance {
+  id              String   @id @default(uuid())
+  studentId       String
+  courseSectionId String
+  subjectId       String?
+  date            DateTime
+  status          String   @default("PRESENT")
+  note            String?
+
+  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id])
+  subject       Subject?      @relation(fields: [subjectId], references: [id])
+
+  @@unique([studentId, courseSectionId, subjectId, date])
+  @@map("attendances")
+}

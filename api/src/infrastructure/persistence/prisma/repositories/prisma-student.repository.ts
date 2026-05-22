@@ -1,33 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { StudentRepository, Student, Id, Dni, Email } from '@educandow/domain';
-import { PrismaService } from '../prisma.service';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
+import { TenantContext } from '../../../auth/tenant.context';
 
 @Injectable()
 export class PrismaStudentRepository implements StudentRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private get client(): TenantPrismaClient {
+    const c = TenantContext.getClient();
+    if (!c) throw new Error('TenantContext: no tenant client available for this request');
+    return c;
+  }
 
   async findById(id: string): Promise<Student | null> {
-    const record = await this.prisma.student.findUnique({ where: { id } });
+    const record = await this.client.student.findUnique({ where: { id } });
     return record ? this.toDomain(record) : null;
   }
 
-  async findByInstitution(institutionId: string): Promise<Student[]> {
-    const records = await this.prisma.student.findMany({
-      where: { institutionId },
+  async findByInstitution(_institutionId: string): Promise<Student[]> {
+    const records = await this.client.student.findMany({
       orderBy: { lastName: 'asc' },
     });
     return records.map((r) => this.toDomain(r));
   }
 
   async findByDni(dni: string): Promise<Student | null> {
-    const record = await this.prisma.student.findUnique({ where: { dni } });
+    const record = await this.client.student.findUnique({ where: { dni } });
     return record ? this.toDomain(record) : null;
   }
 
-  async search(institutionId: string, query: string): Promise<Student[]> {
-    const records = await this.prisma.student.findMany({
+  async search(_institutionId: string, query: string): Promise<Student[]> {
+    const records = await this.client.student.findMany({
       where: {
-        institutionId,
         OR: [
           { firstName: { contains: query, mode: 'insensitive' } },
           { lastName: { contains: query, mode: 'insensitive' } },
@@ -41,7 +44,7 @@ export class PrismaStudentRepository implements StudentRepository {
   }
 
   async save(student: Student): Promise<void> {
-    await this.prisma.student.upsert({
+    await this.client.student.upsert({
       where: { id: student.id.get() },
       create: {
         id: student.id.get(),
@@ -52,7 +55,6 @@ export class PrismaStudentRepository implements StudentRepository {
         birthDate: student.birthDate,
         guardianName: student.guardianName,
         guardianPhone: student.guardianPhone,
-        institutionId: student.institutionId ?? '',
       },
       update: {
         firstName: student.firstName,
@@ -62,13 +64,12 @@ export class PrismaStudentRepository implements StudentRepository {
         birthDate: student.birthDate,
         guardianName: student.guardianName,
         guardianPhone: student.guardianPhone,
-        institutionId: student.institutionId ?? '',
       },
     });
   }
 
   async delete(id: string): Promise<void> {
-    await this.prisma.student.delete({ where: { id } }).catch(() => {});
+    await this.client.student.delete({ where: { id } }).catch(() => {});
   }
 
   private toDomain(record: Record<string, unknown>): Student {
@@ -81,7 +82,7 @@ export class PrismaStudentRepository implements StudentRepository {
       birthDate: record.birthDate ? new Date(record.birthDate as string) : undefined,
       guardianName: record.guardianName as string | undefined,
       guardianPhone: record.guardianPhone as string | undefined,
-      institutionId: record.institutionId as string,
+      institutionId: TenantContext.getInstitutionId() ?? '',
     });
   }
 }

@@ -8,26 +8,31 @@ import {
   ok,
   err,
 } from '@educandow/domain';
+import type { PrismaClient as MasterPrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class PrismaUserRepository implements UserRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly client: MasterPrismaClient;
+
+  constructor(prismaService: PrismaService) {
+    this.client = prismaService.getMasterClient();
+  }
 
   async existsByEmail(email: Email): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({ where: { email: email.get() } });
+    const user = await this.client.user.findUnique({ where: { email: email.get() } });
     return !!user;
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const record = await this.prisma.user.findUnique({ where: { email } });
+    const record = await this.client.user.findUnique({ where: { email } });
     if (!record) return null;
 
     return this.toDomain(record);
   }
 
   async findById(id: string): Promise<User | null> {
-    const record = await this.prisma.user.findUnique({ where: { id } });
+    const record = await this.client.user.findUnique({ where: { id } });
     if (!record) return null;
 
     return this.toDomain(record);
@@ -35,7 +40,7 @@ export class PrismaUserRepository implements UserRepository {
 
   async save(user: User): Promise<Result<User, Error>> {
     try {
-      const record = await this.prisma.user.upsert({
+      const record = await this.client.user.upsert({
         where: { id: user.id.get() },
         update: {
           email: user.email.get(),

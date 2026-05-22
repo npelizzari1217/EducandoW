@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("MASTER_DATABASE_URL")
+}
+
+// ── Institution (25 fields) ───────────────────────────────
+
+model Institution {
+  id                String   @id @default(uuid())
+  name              String
+  cue               String?  @unique
+  ministryReg       String?
+  address           String?
+  city              String?
+  postalCode        String?  @map("postal_code")
+  country           String?  @default("AR")
+  phone             String?
+  website           String?
+  contactEmail      String?  @map("contact_email")
+  logoUrl           String?  @map("logo_url")
+  headerColor       String?  @map("header_color")
+  headerTextColor   String?  @map("header_text_color")
+  bodyTextColor     String?  @map("body_text_color")
+  smtpHost          String?  @map("smtp_host")
+  smtpUser          String?  @map("smtp_user")
+  smtpPass          String?  @map("smtp_pass")
+  smtpEncryption    String?  @map("smtp_encryption")
+  smtpPort          Int?     @map("smtp_port")
+  sendEmail         Boolean  @default(false) @map("send_email")
+  sendMessages      Boolean  @default(false) @map("send_messages")
+  socketHost        String?  @map("socket_host")
+  socketPort        Int?     @map("socket_port")
+  active            Boolean  @default(true)
+  dbName            String   @unique @map("db_name")
+  levels            String[]
+
+  users         User[]
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("institutions")
+}
+
+// ── Auth ───────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          String   @default("ADMIN")
+  institutionId String?
+  level         String?
+
+  institution   Institution?   @relation(fields: [institutionId], references: [id])
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id            String   @id @default(uuid())
+  token         String   @unique
+  userId        String
+  role          String   @default("TEACHER")
+  institutionId String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution? @relation(fields: [institutionId], references: [id])
+
+  @@map("refresh_tokens")
+}

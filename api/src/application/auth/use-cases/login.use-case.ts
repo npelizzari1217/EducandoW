@@ -2,6 +2,8 @@ import {
   Email,
   UserRepository,
   InvalidCredentialsError,
+  InstitutionRepository,
+  ValidationError,
   Result,
   ok,
   err,
@@ -22,12 +24,14 @@ export interface LoginResult {
     role: string;
     institutionId?: string;
     level?: string;
+    dbName?: string | null;
   };
 }
 
 export class LoginUseCase {
   constructor(
     private readonly userRepo: UserRepository,
+    private readonly institutionRepo: InstitutionRepository,
     private readonly passwordHasher: PasswordHasher,
     private readonly authPort: AuthPort,
     private readonly refreshTokenRepo: RefreshTokenRepository,
@@ -46,11 +50,25 @@ export class LoginUseCase {
 
     const userId = user.id.get();
 
+    // Resolve dbName and check institution active status
+    let dbName: string | null = null;
+    if (user.institutionId) {
+      const institution = await this.institutionRepo.findById(user.institutionId);
+      if (!institution) {
+        return err(new ValidationError('Institución no encontrada'));
+      }
+      if (institution.active === false) {
+        return err(new ValidationError('La institución se encuentra inactiva'));
+      }
+      dbName = institution.dbName ?? `educandow_${user.institutionId}`;
+    }
+
     const accessToken = this.authPort.sign({
       sub: userId,
       role: user.role,
       institutionId: user.institutionId,
       level: user.level,
+      dbName,
     });
 
     // Generate and store refresh token (cleanup old sessions first)
@@ -70,6 +88,7 @@ export class LoginUseCase {
         role: user.role,
         institutionId: user.institutionId,
         level: user.level,
+        dbName,
       },
     });
   }

@@ -1,33 +1,36 @@
 import { Injectable } from '@nestjs/common';
 import { TeacherRepository, Teacher, Id, Dni, Email } from '@educandow/domain';
-import { PrismaService } from '../prisma.service';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
+import { TenantContext } from '../../../auth/tenant.context';
 
 @Injectable()
 export class PrismaTeacherRepository implements TeacherRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private get client(): TenantPrismaClient {
+    const c = TenantContext.getClient();
+    if (!c) throw new Error('TenantContext: no tenant client available for this request');
+    return c;
+  }
 
   async findById(id: string): Promise<Teacher | null> {
-    const record = await this.prisma.teacher.findUnique({ where: { id } });
+    const record = await this.client.teacher.findUnique({ where: { id } });
     return record ? this.toDomain(record) : null;
   }
 
-  async findByInstitution(institutionId: string): Promise<Teacher[]> {
-    const records = await this.prisma.teacher.findMany({
-      where: { institutionId },
+  async findByInstitution(_institutionId: string): Promise<Teacher[]> {
+    const records = await this.client.teacher.findMany({
       orderBy: { lastName: 'asc' },
     });
     return records.map((r) => this.toDomain(r));
   }
 
   async findByDni(dni: string): Promise<Teacher | null> {
-    const record = await this.prisma.teacher.findUnique({ where: { dni } });
+    const record = await this.client.teacher.findUnique({ where: { dni } });
     return record ? this.toDomain(record) : null;
   }
 
-  async search(institutionId: string, query: string): Promise<Teacher[]> {
-    const records = await this.prisma.teacher.findMany({
+  async search(_institutionId: string, query: string): Promise<Teacher[]> {
+    const records = await this.client.teacher.findMany({
       where: {
-        institutionId,
         OR: [
           { firstName: { contains: query, mode: 'insensitive' } },
           { lastName: { contains: query, mode: 'insensitive' } },
@@ -41,7 +44,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
   }
 
   async save(teacher: Teacher): Promise<void> {
-    await this.prisma.teacher.upsert({
+    await this.client.teacher.upsert({
       where: { id: teacher.id.get() },
       create: {
         id: teacher.id.get(),
@@ -51,7 +54,6 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
-        institutionId: teacher.institutionId ?? '',
       },
       update: {
         firstName: teacher.firstName,
@@ -60,13 +62,12 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
-        institutionId: teacher.institutionId ?? '',
       },
     });
   }
 
   async delete(id: string): Promise<void> {
-    await this.prisma.teacher.delete({ where: { id } }).catch(() => {});
+    await this.client.teacher.delete({ where: { id } }).catch(() => {});
   }
 
   private toDomain(record: Record<string, unknown>): Teacher {
@@ -78,7 +79,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
       email: Email.reconstruct(record.email as string),
       phone: record.phone as string | undefined,
       title: record.title as string | undefined,
-      institutionId: record.institutionId as string,
+      institutionId: TenantContext.getInstitutionId() ?? '',
     });
   }
 }

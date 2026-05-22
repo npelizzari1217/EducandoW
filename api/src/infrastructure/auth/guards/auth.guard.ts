@@ -2,6 +2,14 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from
 import { Request } from 'express';
 import { JwtAuthPort } from '../jwt-auth-port';
 
+export interface AuthenticatedUser {
+  userId: string;
+  role: string;
+  institutionId?: string;
+  level?: string;
+  dbName?: string | null;
+}
+
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private readonly jwtAuth: JwtAuthPort) {}
@@ -23,7 +31,8 @@ export class AuthGuard implements CanActivate {
         role: payload.role,
         institutionId: payload.institutionId,
         level: payload.level,
-      };
+        dbName: payload.dbName ?? null,
+      } satisfies AuthenticatedUser;
       return true;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
