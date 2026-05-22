@@ -190,7 +190,47 @@ PostgreSQL Cluster
     └── (mismas tablas)
 ```
 
-### 0.5 Impacto en el código actual
+### 0.5 Configuración de institución en sesión
+
+Los datos de `institutions` son **configuración global del sistema** para la sesión activa.
+Al hacer login, el frontend carga la configuración completa de la institución y la mantiene
+viva durante toda la sesión. Cada institución configura sus propias características.
+
+```
+LOGIN → JWT { ..., institutionId, dbName }
+           │
+           ▼
+   GET /v1/institutions/me   ← endpoint nuevo
+   (usa el institutionId del JWT)
+           │
+           ▼
+   FRONTEND: InstitutionContext
+   ┌─────────────────────────────┐
+   │ name, logo_url              │ → Sidebar brand
+   │ header_color, text_colors   │ → Tema de la UI
+   │ send_email, smtp_*          │ → ¿Mostrar sección email?
+   │ send_messages, socket_*     │ → ¿Iniciar WebSocket?
+   │ active                      │ → ¿Institución bloqueada?
+   │ levels[]                    │ → ¿Qué niveles mostrar?
+   └─────────────────────────────┘
+           │
+           ▼
+   Toda la UI se adapta a la institución:
+   - Colores de cabecera y texto
+   - Logo en sidebar y documentos
+   - Menú filtrado por niveles activos
+   - WebSocket solo si send_messages = true
+```
+
+| # | Regla | Descripción |
+|---|---|---|
+| **R11** | **Institución en sesión** | Al iniciar sesión, el frontend obtiene la configuración de la institución (`GET /v1/institutions/me`) y la almacena en un contexto global (`InstitutionContext`). |
+| **R12** | **Tema dinámico** | Los colores (`header_color`, `header_text_color`, `body_text_color`) se aplican como CSS variables al montar la sesión. |
+| **R13** | **Features condicionales** | `send_email = false` → oculta funcionalidad de email. `send_messages = false` → no inicia conexión WebSocket. |
+| **R14** | **Niveles activos** | El menú de navegación solo muestra los niveles que la institución tiene habilitados (`levels[]`). |
+| **R15** | **Bloqueo por inactividad** | Si `active = false`, la sesión se rechaza aunque las credenciales sean válidas. |
+
+### 0.6 Impacto en el código actual
 
 | Componente | Cambio requerido |
 |---|---|
@@ -203,6 +243,8 @@ PostgreSQL Cluster
 | `docker-compose.yml` | Solo una instancia de PostgreSQL, múltiples DBs dentro |
 | TODOS los repos | Quitar `institutionId` de las queries (el filtro lo da la DB) |
 | TODAS las entidades | Quitar `institutionId` de las props (no necesario en tenant) |
+| `InstitutionContext` (NUEVO) | Contexto React que carga config de institución al login. Expone colores, logo, features flags |
+| `GET /v1/institutions/me` (NUEVO) | Endpoint que devuelve la config completa de la institución del JWT |
 
 ---
 
