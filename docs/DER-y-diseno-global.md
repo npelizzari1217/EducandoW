@@ -915,7 +915,8 @@ course_sections (RAÍZ)
 ── ASIGNACIONES (N:1 con múltiples padres) ──────
 subject_assignments ← subjects + teachers + course_sections
 enrollments         ← students + course_sections + academic_cycles
-attendances         ← students + course_sections
+attendances         ← students + course_sections + academic_cycles
+  │  statuses: PRESENT | ABSENT | LATE | EARLY_DEPARTURE | JUSTIFIED
 
 ── PLAN DE ESTUDIOS ──────────────────────────────
 study_plans (RAÍZ)
@@ -975,6 +976,87 @@ TERCIARIO:
 | **HIJO N:1 (varios padres)** | enrollments, subject_assignments, student_grades, attendances, study_plan_subjects, correlatives, subject_grading_configs, informes_evolutivos, planificaciones, regimen_academico, inscripciones_materia, titulos |
 | **JOIN N:M** | academic_cycle_study_plans, sala_enrollments, mesa_examen_inscripciones |
 | **SNAPSHOT (copia)** | student_grades copia de grade_scales (no FK) |
+
+### 1.8 Informe del alumno — Materias por curso + Asistencias por ciclo
+
+```
+INFORME ACADÉMICO — Alumno: Juan Pérez
+
+═══════════════════════════════════════════════════════
+CICLO 2022 — 1er Año
+───────────────────────────────────────────────────────
+Asistencias:   Presentes: 178   Tardes: 5   Ausentes: 12   Salidas ant.: 3
+
+MATERIAS:
+  Matemática 1    1B: 8 ✓   2B: 7 ✓   → PROMEDIO: 7.5  APROBADA
+  Lengua 1        1B: 4 ✗   2B: 5 ✗   DIC: 6 ✓         APROBADA (previa)
+  Geografía 1     1B: 3 ✗   2B: 4 ✗   FEB: 8 ✓         APROBADA (previa)
+  ... (7 más)
+
+═══════════════════════════════════════════════════════
+CICLO 2023 — 2do Año
+───────────────────────────────────────────────────────
+Asistencias:   Presentes: 185   Tardes: 2   Ausentes: 8   Salidas ant.: 1
+
+MATERIAS:
+  Matemática 2    1B: 9 ✓   2B: 8 ✓   → APROBADA
+  Lengua 2        1B: 7 ✓   2B: 8 ✓   → APROBADA
+  ... (todas aprobadas)
+
+═══════════════════════════════════════════════════════
+CICLO 2025 — 4to Año
+───────────────────────────────────────────────────────
+Asistencias:   Presentes: 43   Ausentes: 67   → QUEDÓ LIBRE
+Estado: INACTIVO por inasistencias
+```
+
+#### Consulta SQL que genera este informe
+
+```sql
+-- 1. Asistencias por ciclo
+SELECT ac.name AS ciclo,
+       COUNT(*) FILTER (WHERE a.status = 'PRESENT') AS presentes,
+       COUNT(*) FILTER (WHERE a.status = 'ABSENT') AS ausentes,
+       COUNT(*) FILTER (WHERE a.status = 'LATE') AS tardes,
+       COUNT(*) FILTER (WHERE a.status = 'EARLY_DEPARTURE') AS salidas_anticipadas
+FROM attendances a
+JOIN academic_cycles ac ON a.cycle_id = ac.id
+WHERE a.student_id = :studentId
+GROUP BY ac.name
+ORDER BY ac.name;
+
+-- 2. Materias por curso (agrupadas por ciclo y curso)
+SELECT ac.name AS ciclo,
+       spc.name AS curso,
+       s.name AS materia,
+       pt.code AS periodo, sg.period_number,
+       sg.grade_value AS nota,
+       sg.is_approved AS aprobada,
+       sg.status_tag,
+       sg.evaluated_at AS fecha
+FROM student_grades sg
+JOIN academic_cycles ac ON sg.cycle_id = ac.id
+JOIN subjects s ON sg.subject_id = s.id
+JOIN grading_period_types pt ON sg.period_type_id = pt.id
+JOIN study_plan_subjects sps ON sps.subject_id = sg.subject_id
+LEFT JOIN study_plan_courses spc ON sps.course_id = spc.id
+WHERE sg.student_id = :studentId
+ORDER BY ac.name, spc.order, s.name, sg.evaluated_at;
+
+-- 3. Estado de inscripción por ciclo
+SELECT ac.name AS ciclo, e.status, cs.name AS curso
+FROM enrollments e
+JOIN academic_cycles ac ON e.cycle_id = ac.id
+JOIN course_sections cs ON e.course_section_id = cs.id
+WHERE e.student_id = :studentId
+ORDER BY ac.name;
+```
+
+| # | Nueva regla |
+|---|---|
+| **R40** | `attendances` tiene `cycle_id` FK → AcademicCycle. Permite contar asistencias por ciclo. |
+| **R41** | `AttendanceStatus` incluye `EARLY_DEPARTURE` (salida anticipada). |
+| **R42** | Las materias se agrupan por curso usando `study_plan_subjects → study_plan_courses`. En planes FLAT (sin cursos), se agrupan por `year`. |
 
 ---
 
