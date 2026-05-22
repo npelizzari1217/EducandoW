@@ -893,6 +893,91 @@ Boletín: se genera desde Grade + Attendance (Template Method ya implementado)
 > por el modelo unificado `study_plans` + `study_plan_subjects` + `correlatives`.
 > El mismo modelo sirve para Secundario y Primario cuando tengan planes de estudio.
 
+### 1.7 Jerarquía completa — Padres e Hijos
+
+```
+MASTER DATABASE (educandow_master)
+═══════════════════════════════════════════════════
+institutions (RAÍZ)
+ └── users (hijo 1:N)
+      └── refresh_tokens (hijo 1:N)
+
+═══════════════════════════════════════════════════
+TENANT DATABASE (educandow_{id})
+═══════════════════════════════════════════════════
+
+── PERSONAS ──────────────────────────────────────
+students (RAÍZ)
+teachers (RAÍZ)
+
+── MATERIAS Y CURSOS ─────────────────────────────
+subjects (RAÍZ)
+course_sections (RAÍZ)
+
+── ASIGNACIONES (N:1 con múltiples padres) ──────
+subject_assignments ← subjects + teachers + course_sections
+enrollments         ← students + course_sections + academic_cycles
+attendances         ← students + course_sections
+
+── PLAN DE ESTUDIOS ──────────────────────────────
+study_plans (RAÍZ)
+ ├── study_plan_courses (hijo 1:N)
+ │    └── study_plan_subjects (hijo opcional si HIERARCHICAL)
+ ├── study_plan_subjects (hijo directo de study_plans + subjects)
+ │    └── correlatives (hijo — autorreferencia: subject → required)
+ └── academic_cycle_study_plans (N:M con academic_cycles)
+
+── CICLO LECTIVO ─────────────────────────────────
+academic_cycles (RAÍZ)
+ ├── academic_cycle_periods (hijo 1:N)
+ │    └── → grading_period_types (lookup, no FK restrictiva)
+ ├── academic_cycle_study_plans (N:M con study_plans)
+ └── → enrollments (el enrollment se ata al ciclo)
+
+── CALIFICACIONES ────────────────────────────────
+grade_scales (CATÁLOGO por nivel)
+grading_period_types (CATÁLOGO por nivel)
+subject_grading_configs ← subjects + grading_period_types
+student_grades ← students + subjects + grading_period_types
+                 ⚠️ SNAPSHOT de grade_scales (copia, no FK)
+
+── TABLAS DE NIVEL (pendientes diseño detallado) ─
+
+INICIAL:
+  salas (RAÍZ o extiende course_sections)
+   ├── sala_enrollments (N:M: students + salas)
+   ├── informes_evolutivos ← students + salas
+   │    └── areas_desarrollo (hijo 1:N)
+   └── planificaciones ← salas
+        └── secuencias_didacticas (hijo 1:N)
+
+PRIMARIO:
+  grados (extiende course_sections)
+   └── calificaciones_primario (usa student_grades)
+
+SECUNDARIO:
+  cursos (extiende course_sections)
+   ├── calificaciones_secundario (usa student_grades)
+   ├── mesas_examen (RAÍZ)
+   │    └── mesa_examen_inscripciones (N:M)
+   └── regimen_academico ← cursos + subjects
+
+TERCIARIO:
+  inscripciones_materia ← students + study_plan_subjects
+  actas_examen (RAÍZ)
+   └── acta_examen_notas (hijo 1:N)
+  titulos ← students + study_plans
+```
+
+| Tipo de relación | Tablas |
+|---|---|
+| **RAÍZ (independiente)** | institutions, students, teachers, subjects, course_sections, study_plans, academic_cycles |
+| **CATÁLOGO (lookup)** | grade_scales, grading_period_types |
+| **HIJO 1:N** | users, refresh_tokens, study_plan_courses, academic_cycle_periods, areas_desarrollo, secuencias_didacticas, acta_examen_notas |
+| **HIJO N:1 (varios padres)** | enrollments, subject_assignments, student_grades, attendances, study_plan_subjects, correlatives, subject_grading_configs, informes_evolutivos, planificaciones, regimen_academico, inscripciones_materia, titulos |
+| **JOIN N:M** | academic_cycle_study_plans, sala_enrollments, mesa_examen_inscripciones |
+| **SNAPSHOT (copia)** | student_grades copia de grade_scales (no FK) |
+
 ---
 
 ## 2. Diseño E → P → S por Nivel Pedagógico
