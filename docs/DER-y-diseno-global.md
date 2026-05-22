@@ -915,8 +915,10 @@ course_sections (RAÍZ)
 ── ASIGNACIONES (N:1 con múltiples padres) ──────
 subject_assignments ← subjects + teachers + course_sections
 enrollments         ← students + course_sections + academic_cycles
-attendances         ← students + course_sections + academic_cycles
+attendances         ← students + course_sections + academic_cycles + subjects?
+  │  subject_id NULL = por curso | valor = por materia
   │  statuses: PRESENT | ABSENT | LATE | EARLY_DEPARTURE | JUSTIFIED
+  │  Flujo: registro DIARIO → agrupación MENSUAL → total por CICLO
 
 ── PLAN DE ESTUDIOS ──────────────────────────────
 study_plans (RAÍZ)
@@ -1013,8 +1015,9 @@ Estado: INACTIVO por inasistencias
 #### Consulta SQL que genera este informe
 
 ```sql
--- 1. Asistencias por ciclo
+-- 1. Asistencias MENSUALES por ciclo (agrupado de registros diarios)
 SELECT ac.name AS ciclo,
+       TO_CHAR(a.date, 'YYYY-MM') AS mes,
        COUNT(*) FILTER (WHERE a.status = 'PRESENT') AS presentes,
        COUNT(*) FILTER (WHERE a.status = 'ABSENT') AS ausentes,
        COUNT(*) FILTER (WHERE a.status = 'LATE') AS tardes,
@@ -1022,8 +1025,27 @@ SELECT ac.name AS ciclo,
 FROM attendances a
 JOIN academic_cycles ac ON a.cycle_id = ac.id
 WHERE a.student_id = :studentId
-GROUP BY ac.name
-ORDER BY ac.name;
+GROUP BY ac.name, TO_CHAR(a.date, 'YYYY-MM')
+ORDER BY ac.name, mes;
+
+-- 2. Totales POR CICLO (suma de todos los meses)
+SELECT ac.name AS ciclo,
+       COUNT(*) FILTER (WHERE a.status = 'PRESENT') AS presentes,
+       COUNT(*) FILTER (WHERE a.status = 'ABSENT') AS ausentes,
+       COUNT(*) FILTER (WHERE a.status = 'LATE') AS tardes,
+       COUNT(*) FILTER (WHERE a.status = 'EARLY_DEPARTURE') AS salidas_anticipadas,
+       COUNT(*) AS total_clases
+FROM attendances a
+JOIN academic_cycles ac ON a.cycle_id = ac.id
+WHERE a.student_id = :studentId
+GROUP BY ac.name;
+
+-- 3. Asistencia DIARIA por materia (para secundario/terciario)
+SELECT a.date, s.name AS materia, a.status
+FROM attendances a
+LEFT JOIN subjects s ON a.subject_id = s.id
+WHERE a.student_id = :studentId AND a.cycle_id = :cycleId
+ORDER BY a.date, s.name;
 
 -- 2. Materias por curso (agrupadas por ciclo y curso)
 SELECT ac.name AS ciclo,
@@ -1057,6 +1079,10 @@ ORDER BY ac.name;
 | **R40** | `attendances` tiene `cycle_id` FK → AcademicCycle. Permite contar asistencias por ciclo. |
 | **R41** | `AttendanceStatus` incluye `EARLY_DEPARTURE` (salida anticipada). |
 | **R42** | Las materias se agrupan por curso usando `study_plan_subjects → study_plan_courses`. En planes FLAT (sin cursos), se agrupan por `year`. |
+| **R43** | La asistencia se registra por DÍA. Un registro = un alumno en una fecha, en un curso (y opcionalmente una materia). |
+| **R44** | `subject_id` en `attendances`: si es NULL → asistencia por curso (primario). Si tiene valor → asistencia por materia (secundario/terciario). |
+| **R45** | Totales mensuales se calculan agrupando por `DATE_TRUNC('month', date)`. Totales por ciclo se calculan agrupando por `cycle_id`. |
+| **R46** | El cálculo de "quedó libre" se hace comparando el total de ausentes del ciclo contra el límite configurado por institución. |
 
 ---
 
