@@ -523,6 +523,35 @@ AcademicCycleStudyPlan:
 | **R35** | Al calificar a un alumno, se valida que la fecha esté dentro del período correspondiente del ciclo activo. |
 | **R36** | Los ciclos son anuales. Un nuevo año = un nuevo ciclo. Los planes de estudio pueden trascender ciclos. |
 | **R37** | Al consultar el boletín de un alumno, se filtra por `cycle_id` para obtener solo las notas de ese año. |
+| **R38** | La inscripción de un alumno se vincula al `AcademicCycle`. Progresión: "1er Año" ciclo 2024 → "2do Año" ciclo 2025 → "3er Año" ciclo 2026. |
+| **R39** | `Enrollment` debe tener FK a `academic_cycles`. Se agrega `cycle_id`. Unique: `[student_id, course_section_id, cycle_id]`. |
+
+#### Progresión del alumno a través de ciclos
+
+```
+Student: "Juan Pérez"
+
+Enrollment: { course: "1er Año", cycle: 2024 }
+Enrollment: { course: "2do Año", cycle: 2025 }
+Enrollment: { course: "3er Año", cycle: 2026 }   ← actual
+
+GET /students/:id/history
+→ [{ cycle: 2024, course: "1er Año" },
+   { cycle: 2025, course: "2do Año" },
+   { cycle: 2026, course: "3er Año" }]
+```
+
+#### Enrollment actualizado
+
+```
+Enrollment:
+  id, student_id FK, course_section_id FK,
+  cycle_id FK → AcademicCycle,    ← NUEVO
+  level, grade, division,
+  status (ACTIVE|INACTIVE|GRADUATED|TRANSFERRED),
+  enrolled_at
+  @@unique([student_id, course_section_id, cycle_id])
+```
 
 ### 1.4 Sistema de Calificaciones — Escalas y Períodos por Nivel
 
