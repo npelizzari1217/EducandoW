@@ -917,8 +917,8 @@ subject_assignments ← subjects + teachers + course_sections
 enrollments         ← students + course_sections + academic_cycles
 attendances         ← students + course_sections + academic_cycles + subjects?
   │  subject_id NULL = por curso | valor = por materia
-  │  statuses: PRESENT | ABSENT | LATE | EARLY_DEPARTURE | JUSTIFIED
-  │  Flujo: registro DIARIO → agrupación MENSUAL → total por CICLO
+  │  status_code FK → attendance_codes
+  │  Flujo: DIARIO → MENSUAL → CICLO
 
 ── PLAN DE ESTUDIOS ──────────────────────────────
 study_plans (RAÍZ)
@@ -1083,6 +1083,71 @@ ORDER BY ac.name;
 | **R44** | `subject_id` en `attendances`: si es NULL → asistencia por curso (primario). Si tiene valor → asistencia por materia (secundario/terciario). |
 | **R45** | Totales mensuales se calculan agrupando por `DATE_TRUNC('month', date)`. Totales por ciclo se calculan agrupando por `cycle_id`. |
 | **R46** | El cálculo de "quedó libre" se hace comparando el total de ausentes del ciclo contra el límite configurado por institución. |
+| **R47** | `attendance_codes` es un catálogo configurable por nivel. El usuario puede crear sus propios códigos (ej: "FJ" = Feriado Judicial). |
+| **R48** | Los códigos de sistema (`P`, `SAB`, `DOM`, `X`) NO se pueden modificar ni eliminar (`is_system = true`). |
+| **R49** | Cada código tiene `absence_value` (cuánto suma a la inasistencia): Presente=0, Ausente=1, Tarde=0.5, Salida Ant.=0.25. |
+| **R50** | `printable_code` es lo que se imprime en el boletín: "-" (presente), "A" (ausente), "½" (tarde), "¼" (salida ant.). |
+| **R51** | El código `X` marca días inexistentes (30 de febrero, 29 de febrero en año no bisiesto). No suma ni resta. |
+
+#### Tabla de códigos de asistencia
+
+```
+┌─────────────────────────┐
+│   attendance_codes      │  Catálogo configurable por nivel
+│─────────────────────────│
+│ id (UUID)               │
+│ level                   │  INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO
+│ code                    │  "P", "A", "T", "SA", "SAB", "DOM", "X", "FJ"...
+│ description             │  "Presente", "Ausente", "Tarde", "Feriado Judicial"
+│ base_status             │  PRESENT|ABSENT|LATE|EARLY_DEPARTURE|JUSTIFIED|NON_SCHOOL
+│ printable_code          │  "-", "A", "½", "¼", "", "FJ"
+│ absence_value           │  DECIMAL(2,1) — 0, 0.5, 1
+│ is_system               │  BOOL — true = protegido (no se borra ni edita código)
+│ active                  │  BOOL
+│ order                   │  INT
+│ @@unique([level, code])
+└─────────────────────────┘
+
+PRECARGA DEL SISTEMA (por nivel):
+┌──────┬──────────────┬─────────────┬──────────┬───────────────┬────────┐
+│ code │ description  │ base_status │ imprimib │ absence_value │ system │
+├──────┼──────────────┼─────────────┼──────────┼───────────────┼────────┤
+│ P    │ Presente     │ PRESENT     │ -        │ 0             │ true   │
+│ A    │ Ausente      │ ABSENT      │ A        │ 1             │ false  │
+│ T    │ Tarde        │ LATE        │ ½        │ 0.5           │ false  │
+│ SA   │ Salida Ant.  │ EARLY_DEP   │ ¼        │ 0.25          │ false  │
+│ J    │ Justificado  │ JUSTIFIED   │ J        │ 0             │ false  │
+│ SAB  │ Sábado       │ NON_SCHOOL  │          │ 0             │ true   │
+│ DOM  │ Domingo      │ NON_SCHOOL  │          │ 0             │ true   │
+│ X    │ No existente │ NON_SCHOOL  │          │ 0             │ true   │
+└──────┴──────────────┴─────────────┴──────────┴───────────────┴────────┘
+
+CÓDIGOS QUE PUEDE AGREGAR EL USUARIO (ejemplos):
+┌──────┬──────────────┬─────────────┬──────────┬───────────────┬────────┐
+│ FJ   │ Feriado Jud. │ NON_SCHOOL  │ FJ       │ 0             │ false  │
+│ S    │ Suspendido   │ NON_SCHOOL  │ S        │ 0             │ false  │
+│ RI   │ Retiro Inst. │ EARLY_DEP   │ RI       │ 0.25          │ false  │
+└──────┴──────────────┴─────────────┴──────────┴───────────────┴────────┘
+```
+
+#### Cálculo de inasistencias
+
+```sql
+-- Total de inasistencias de un alumno en un ciclo
+SELECT SUM(ac.absence_value) AS total_inasistencias
+FROM attendances a
+JOIN attendance_codes ac ON a.status_code = ac.id
+WHERE a.student_id = :studentId
+  AND a.cycle_id = :cycleId;
+```
+
+```
+Ejemplo: Juan Pérez — Marzo 2026
+  22 P  × 0    = 0
+   1 T  × 0.5  = 0.5
+   1 SA × 0.25 = 0.25
+   Total inasistencias: 0.75 (menos de 1 falta)
+```
 
 ---
 
