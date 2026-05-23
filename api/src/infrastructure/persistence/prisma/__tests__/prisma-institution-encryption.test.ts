@@ -53,7 +53,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
     const inst = Institution.create({
       name: 'Test School',
       smtpPass: 'my-plain-password',
-      levels: [Level.reconstruct('INICIAL')],
+      levels: [Level.create('INICIAL').unwrap()],
     });
 
     await repository.save(inst);
@@ -127,7 +127,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
     const inst = Institution.create({
       name: 'Roundtrip School',
       smtpPass: originalPassword,
-      levels: [Level.reconstruct('INICIAL')],
+      levels: [Level.create('INICIAL').unwrap()],
     });
 
     await repository.save(inst);
@@ -145,7 +145,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
     const { Institution, Level } = await import('@educandow/domain');
     const inst = Institution.create({
       name: 'No SMTP School',
-      levels: [Level.reconstruct('INICIAL')],
+      levels: [Level.create('INICIAL').unwrap()],
     });
 
     await repository.save(inst);

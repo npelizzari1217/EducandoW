@@ -6,7 +6,7 @@ export interface AuthenticatedUser {
   userId: string;
   role: string;
   institutionId?: string;
-  level?: string;
+  level?: number;
   dbName?: string | null;
 }
 

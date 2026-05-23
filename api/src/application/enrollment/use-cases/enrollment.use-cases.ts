@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, LevelType } from '@educandow/domain';
+import { ok, err, Result, ValidationError, EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level } from '@educandow/domain';
 
 export interface CreateEnrollmentInput {
   studentId: string;
@@ -24,7 +24,7 @@ export class CreateEnrollmentUseCase {
     const enrollment = Enrollment.create({
       studentId: Id.reconstruct(input.studentId),
       institutionId: Id.reconstruct(input.institutionId),
-      level: Level.reconstruct(input.level as LevelType),
+      level: Level.create(input.level).unwrap(),
       academicYear: input.academicYear,
       grade: input.grade,
       division: input.division,

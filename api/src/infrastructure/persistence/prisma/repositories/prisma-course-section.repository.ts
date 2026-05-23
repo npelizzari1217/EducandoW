@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CourseSectionRepository, CourseSection, Id } from '@educandow/domain';
+import { CourseSectionRepository, CourseSection, Id, Level, LevelType } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, CourseSection as PrismaCourseSection } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -21,9 +21,9 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
     return rs.map((r) => this.toDomain(r));
   }
 
-  async findByLevel(_iid: string, l: string, ay: string): Promise<CourseSection[]> {
+  async findByLevel(_iid: string, l: LevelType, ay: string): Promise<CourseSection[]> {
     const rs = await this.client.courseSection.findMany({
-      where: { level: l, academicYear: ay },
+      where: { level: l as number, academicYear: ay },
       orderBy: { name: 'asc' },
     });
     return rs.map((r) => this.toDomain(r));
@@ -37,14 +37,14 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
         name: s.name,
         grade: s.grade,
         division: s.division,
-        level: s.level,
+        level: s.level.toCode(),
         academicYear: s.academicYear,
       },
       update: {
         name: s.name,
         grade: s.grade,
         division: s.division,
-        level: s.level,
+        level: s.level.toCode(),
         academicYear: s.academicYear,
       },
     });
@@ -60,7 +60,7 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
       name: r.name,
       grade: r.grade ?? undefined,
       division: r.division ?? undefined,
-      level: r.level,
+      level: Level.create(r.level).unwrap(),
       academicYear: r.academicYear,
       institutionId: TenantContext.getInstitutionId() ?? '',
     });

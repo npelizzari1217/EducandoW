@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
+import { Level, LevelType } from '../../../institution/value-objects/level';
 
 // Test entities from pedagogy context
 import { Subject } from '../../../pedagogy/entities/subject';
@@ -10,16 +11,27 @@ import { Attendance } from '../../../pedagogy/entities/attendance';
 
 describe('Subject', () => {
   it('creates with name, level, institutionId', () => {
-    const s = Subject.create({ name: 'Matemática', level: 'SECUNDARIO', institutionId: 'inst-1' });
+    const s = Subject.create({
+      name: 'Matemática',
+      level: Level.reconstruct(LevelType.SECUNDARIO),
+      institutionId: 'inst-1',
+    });
     expect(s.name).toBe('Matemática');
-    expect(s.level).toBe('SECUNDARIO');
+    expect(s.level.get()).toBe(LevelType.SECUNDARIO);
     expect(s.institutionId).toBe('inst-1');
   });
 });
 
 describe('CourseSection', () => {
   it('creates with academic year and optional grade/division', () => {
-    const c = CourseSection.create({ name: '3° A', grade: '3°', division: 'A', level: 'PRIMARIO', academicYear: '2025', institutionId: 'inst-1' });
+    const c = CourseSection.create({
+      name: '3° A',
+      grade: '3°',
+      division: 'A',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      academicYear: '2025',
+      institutionId: 'inst-1',
+    });
     expect(c.name).toBe('3° A');
     expect(c.academicYear).toBe('2025');
     expect(c.grade).toBe('3°');

@@ -106,5 +106,5 @@ violation_rules:
 
   - rule: no_string_level
     description: "Level must be the Level VO, never a raw string"
-    check: "No level comparisons with === 'INICIAL' outside domain VO"
+    check: "Level comparisons use VO methods (equals, belongsToLevel, hasModality), not raw number/string checks"
     severity: high

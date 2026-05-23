@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { User } from '../../entities/user';
 import { Id } from '../../../shared/value-objects/id';
 import { Email } from '../../../shared/value-objects/email';
+import { Level, LevelType } from '../../../institution/value-objects/level';
 
 describe('User', () => {
   const validProps = {
@@ -40,18 +41,25 @@ describe('User', () => {
 
   it('assignLevel sets the level', () => {
     const user = User.create(validProps);
-    user.assignLevel('SECUNDARIO');
-    expect(user.level).toBe('SECUNDARIO');
+    user.assignLevel(Level.reconstruct(LevelType.SECUNDARIO));
+    expect(user.level?.get()).toBe(LevelType.SECUNDARIO);
   });
 
   it('reconstruct preserves all props', () => {
     const id = Id.create();
     const createdAt = new Date('2024-01-01');
     const updatedAt = new Date('2024-06-01');
-    const user = User.reconstruct({ ...validProps, id, institutionId: 'inst-1', level: 'PRIMARIO', createdAt, updatedAt });
+    const user = User.reconstruct({
+      ...validProps,
+      id,
+      institutionId: 'inst-1',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      createdAt,
+      updatedAt,
+    });
     expect(user.id.get()).toBe(id.get());
     expect(user.institutionId).toBe('inst-1');
-    expect(user.level).toBe('PRIMARIO');
+    expect(user.level?.get()).toBe(LevelType.PRIMARIO);
     expect(user.createdAt).toEqual(createdAt);
     expect(user.updatedAt).toEqual(updatedAt);
   });

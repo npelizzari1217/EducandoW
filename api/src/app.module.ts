@@ -9,6 +9,7 @@ import { TeacherModule } from './presentation/teacher/teacher.module';
 import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
 import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
+import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
 import { ResponseInterceptor } from './presentation/shared/interceptors/response.interceptor';
 import { TenantMiddleware } from './infrastructure/auth/tenant.middleware';
@@ -30,7 +31,7 @@ import { PrismaService } from './infrastructure/persistence/prisma/prisma.servic
     EnrollmentModule,
     PedagogyModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, CatalogController],
   providers: [
     { provide: APP_FILTER, useClass: AppExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },

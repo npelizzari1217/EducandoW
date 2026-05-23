@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  InstitutionRepository, Institution, Id, Level, LevelType, HexColor, Cue,
+  InstitutionRepository, Institution, Id, Level, HexColor, Cue,
 } from '@educandow/domain';
 import type { PrismaClient as MasterPrismaClient, Institution as PrismaInstitution } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
@@ -124,7 +124,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketPort: record.socketPort ?? undefined,
       active: record.active,
       dbName: record.dbName,
-      levels: (record.levels as string[] ?? []).map((l) => Level.reconstruct(l as LevelType)),
+      levels: (record.levels ?? []).map((l) => Level.create(l).unwrap()),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
@@ -158,7 +158,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketPort: institution.socketPort,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
-      levels: institution.levels.map((l) => l.toString()),
+      levels: institution.levels.map((l) => l.toCode()),
     };
   }
 
@@ -189,7 +189,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketPort: institution.socketPort,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
-      levels: institution.levels.map((l) => l.toString()),
+      levels: institution.levels.map((l) => l.toCode()),
     };
   }
 }

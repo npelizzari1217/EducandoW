@@ -1,21 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError } from '@educandow/domain';
+import { ok, err, Result, ValidationError, Level, LevelType } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, GradeRepository, AttendanceRepository } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Grade, Attendance } from '@educandow/domain';
 
 // ── Subject ──────────────────────────────────────────
 @Injectable()
-export class CreateSubjectUC { constructor(private r: SubjectRepository) {} async execute(input: { name: string; level: string; institutionId: string }) { const s = Subject.create(input); await this.r.save(s); return ok(s); } }
+export class CreateSubjectUC { constructor(private r: SubjectRepository) {} async execute(input: { name: string; level: string; institutionId: string }) { const s = Subject.create({ ...input, level: Level.create(input.level).unwrap() }); await this.r.save(s); return ok(s); } }
 @Injectable()
-export class ListSubjectsUC { constructor(private r: SubjectRepository) {} async execute(institutionId: string, level?: string) { return level ? this.r.findByLevel(institutionId, level) : this.r.findByInstitution(institutionId); } }
+export class ListSubjectsUC { constructor(private r: SubjectRepository) {} async execute(institutionId: string, level?: string) { return level ? this.r.findByLevel(institutionId, Level.create(level).unwrap().get()) : this.r.findByInstitution(institutionId); } }
 @Injectable()
 export class DeleteSubjectUC { constructor(private r: SubjectRepository) {} async execute(id: string) { await this.r.delete(id); } }
 
 // ── CourseSection ────────────────────────────────────
 @Injectable()
-export class CreateCourseSectionUC { constructor(private r: CourseSectionRepository) {} async execute(input: { name: string; grade?: string; division?: string; level: string; academicYear: string; institutionId: string }) { const s = CourseSection.create(input); await this.r.save(s); return ok(s); } }
+export class CreateCourseSectionUC { constructor(private r: CourseSectionRepository) {} async execute(input: { name: string; grade?: string; division?: string; level: string; academicYear: string; institutionId: string }) { const s = CourseSection.create({ ...input, level: Level.create(input.level).unwrap() }); await this.r.save(s); return ok(s); } }
 @Injectable()
-export class ListCourseSectionsUC { constructor(private r: CourseSectionRepository) {} async execute(institutionId: string, level: string, academicYear: string) { return this.r.findByLevel(institutionId, level, academicYear); } }
+export class ListCourseSectionsUC { constructor(private r: CourseSectionRepository) {} async execute(institutionId: string, level: string, academicYear: string) { return this.r.findByLevel(institutionId, Level.create(level).unwrap().get(), academicYear); } }
 @Injectable()
 export class DeleteCourseSectionUC { constructor(private r: CourseSectionRepository) {} async execute(id: string) { await this.r.delete(id); } }
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError, InstitutionRepository,
-  Institution, Level, LevelType, HexColor, Cue, SmtpConfig, Id,
+  Institution, Level, HexColor, Cue, SmtpConfig, Id,
 } from '@educandow/domain';
 
 export interface CreateInstitutionInput {
@@ -90,7 +90,10 @@ export class CreateInstitutionUseCase {
       if (smtpResult.isErr()) return err(smtpResult.unwrapErr());
     }
 
-    const levels = input.levels.map((l) => Level.reconstruct(l as LevelType));
+    const levelsResult = input.levels.map((l) => Level.create(l));
+    const firstLevelError = levelsResult.find((r) => r.isErr());
+    if (firstLevelError) return err(firstLevelError.unwrapErr());
+    const levels = levelsResult.map((r) => r.unwrap());
 
     // Parse optional HexColor fields
     const headerColor = input.header_color
@@ -270,7 +273,10 @@ export class UpdateInstitutionUseCase {
       if (!input.levels || input.levels.length === 0) {
         return err(new ValidationError('Debe especificar al menos un nivel educativo'));
       }
-      levels = input.levels.map((l: string) => Level.reconstruct(l as LevelType));
+      const levelsResult = input.levels.map((l) => Level.create(l));
+      const firstLevelError = levelsResult.find((r) => r.isErr());
+      if (firstLevelError) return err(firstLevelError.unwrapErr());
+      levels = levelsResult.map((r) => r.unwrap());
     }
 
     // Reconstruct with merged properties

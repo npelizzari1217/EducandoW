@@ -10,16 +10,23 @@ import { BoletínTerciario } from './boletin-terciario.template';
  * Mismo pattern que EvaluacionStrategyFactory.
  */
 export class BoletínTemplateFactory {
-  private static templates: Record<LevelType, BoletínTemplate> = {
+  private static templates: Partial<Record<LevelType, BoletínTemplate>> = {
     [LevelType.INICIAL]: new BoletínInicial(),
     [LevelType.PRIMARIO]: new BoletínPrimario(),
     [LevelType.SECUNDARIO]: new BoletínSecundario(),
     [LevelType.TERCIARIO]: new BoletínTerciario(),
   };
 
+  /** Fallback: usa el template del nivel base (ej: TALLERES_PRIMARIO → PRIMARIO) */
+  private static baseLevel(level: LevelType): LevelType {
+    const base = Math.floor(level / 10) * 10;
+    return base as LevelType;
+  }
+
   static getTemplate(level: LevelType): BoletínTemplate {
-    const template = BoletínTemplateFactory.templates[level];
-    if (!template) throw new Error(`No hay template de boletín para nivel: ${level}`);
+    const template = BoletínTemplateFactory.templates[level]
+      ?? BoletínTemplateFactory.templates[BoletínTemplateFactory.baseLevel(level)];
+    if (!template) throw new Error(`No hay template de boletín para nivel: ${LevelType[level] ?? level}`);
     return template;
   }
 

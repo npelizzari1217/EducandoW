@@ -14,7 +14,7 @@ gates:
       - "Happy paths Y edge cases cubiertos"
       - "Delta specs referencian correctamente specs existentes"
       - "No leaks de implementación en specs"
-      - "El nivel pedagógico afectado está explícito (INICIAL|PRIMARIO|SECUNDARIO|TERCIARIO|ALL)"
+      - "El nivel pedagógico + modalidad afectados están explícitos (ej: PRIMARIO, TALLERES_SECUNDARIO, BILINGÜISMO_INICIAL, o ALL)"
     block_on_fail: true
     auto_approve: false
 

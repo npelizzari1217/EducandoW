@@ -4,6 +4,6 @@ export interface UserProfileDTO {
   name: string;
   role: string;
   institutionId?: string;
-  level?: string;
+  level?: number;
   createdAt: string;
 }

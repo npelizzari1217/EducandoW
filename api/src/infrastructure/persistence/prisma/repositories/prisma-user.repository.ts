@@ -4,6 +4,7 @@ import {
   UserRepository,
   Email,
   Id,
+  Level,
   Result,
   ok,
   err,
@@ -48,7 +49,7 @@ export class PrismaUserRepository implements UserRepository {
           password: user.hashedPassword,
           role: user.role,
           institutionId: user.institutionId ?? null,
-          level: user.level ?? null,
+          level: user.level?.toCode() ?? null,
         },
         create: {
           id: user.id.get(),
@@ -57,7 +58,7 @@ export class PrismaUserRepository implements UserRepository {
           password: user.hashedPassword,
           role: user.role,
           institutionId: user.institutionId ?? null,
-          level: user.level ?? null,
+          level: user.level?.toCode() ?? null,
         },
       });
 
@@ -75,7 +76,7 @@ export class PrismaUserRepository implements UserRepository {
       hashedPassword: record.password,
       role: record.role,
       institutionId: record.institutionId ?? undefined,
-      level: record.level ?? undefined,
+      level: record.level != null ? Level.create(record.level).unwrap() : undefined,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });

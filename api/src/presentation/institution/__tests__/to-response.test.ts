@@ -30,7 +30,7 @@ function toResponse(inst: Institution) {
     socket_port: inst.socketPort ?? null,
     active: inst.active ?? true,
     db_name: inst.dbName ?? null,
-    levels: inst.levels.map((l) => l.toString()),
+    levels: inst.levels.map((l) => l.toCode()),
     created_at: inst.createdAt?.toISOString() ?? null,
     updated_at: inst.updatedAt?.toISOString() ?? null,
   };

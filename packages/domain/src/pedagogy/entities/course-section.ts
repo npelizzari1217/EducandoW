@@ -1,11 +1,12 @@
 import { Id } from '../../shared/value-objects/id';
+import { Level, LevelType } from '../../institution/value-objects/level';
 
 export interface CourseSectionProps {
   id: Id;
   name: string;
   grade?: string;
   division?: string;
-  level: string;
+  level: Level;
   academicYear: string;
   institutionId: string;
 }
@@ -25,7 +26,9 @@ export class CourseSection {
   get name(): string { return this.props.name; }
   get grade(): string | undefined { return this.props.grade; }
   get division(): string | undefined { return this.props.division; }
-  get level(): string { return this.props.level; }
+  get level(): Level { return this.props.level; }
+  /** Código del nivel como LevelType para queries. */
+  get levelCode(): LevelType { return this.props.level.get(); }
   get academicYear(): string { return this.props.academicYear; }
   get institutionId(): string { return this.props.institutionId; }
 }

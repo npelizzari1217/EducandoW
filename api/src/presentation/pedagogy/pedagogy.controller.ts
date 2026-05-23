@@ -20,20 +20,20 @@ export class PedagogyController {
 
   // ── Subjects ───────────────────────────────────────
   @Post('subjects') @Roles('ADMIN','MANAGER')
-  async postSubject(@Body(new ZodValidationPipe(DTO.CreateSubjectSchema)) b: DTO.CreateSubjectDTO) { const r = await this.createSubjUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level } }; }
+  async postSubject(@Body(new ZodValidationPipe(DTO.CreateSubjectSchema)) b: DTO.CreateSubjectDTO) { const r = await this.createSubjUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level.toCode() } }; }
 
   @Get('subjects') @Roles('ADMIN','MANAGER','TEACHER')
-  async getSubjects(@Query('institutionId') iid: string, @Query('level') l?: string) { const subjects = await this.listSubjUC.execute(iid, l); return { data: subjects.map((s: { id: { get(): string }; name: string; level: string }) => ({ id: s.id.get(), name: s.name, level: s.level })) }; }
+  async getSubjects(@Query('institutionId') iid: string, @Query('level') l?: string) { const subjects = await this.listSubjUC.execute(iid, l); return { data: subjects.map((s) => ({ id: s.id.get(), name: s.name, level: s.level.toCode() })) }; }
 
   @Delete('subjects/:id') @Roles('ADMIN') @HttpCode(HttpStatus.NO_CONTENT)
   async deleteSubject(@Param('id') id: string) { await this.deleteSubjUC.execute(id); }
 
   // ── Course Sections ────────────────────────────────
   @Post('course-sections') @Roles('ADMIN','MANAGER')
-  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level, academicYear: s.academicYear } }; }
+  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level.toCode(), academicYear: s.academicYear } }; }
 
   @Get('course-sections') @Roles('ADMIN','MANAGER','TEACHER')
-  async getSections(@Query('institutionId') iid: string, @Query('level') l: string, @Query('academicYear') ay: string) { const sections = await this.listSecUC.execute(iid, l, ay); return { data: sections.map((s: { id: { get(): string }; name: string; grade?: string; division?: string; level: string; academicYear: string }) => ({ id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level, academicYear: s.academicYear })) }; }
+  async getSections(@Query('institutionId') iid: string, @Query('level') l: string, @Query('academicYear') ay: string) { const sections = await this.listSecUC.execute(iid, l, ay); return { data: sections.map((s) => ({ id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear })) }; }
 
   @Delete('course-sections/:id') @Roles('ADMIN') @HttpCode(HttpStatus.NO_CONTENT)
   async deleteSection(@Param('id') id: string) { await this.deleteSecUC.execute(id); }

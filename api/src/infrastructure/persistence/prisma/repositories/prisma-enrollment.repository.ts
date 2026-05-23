@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, LevelType } from '@educandow/domain';
+import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, Enrollment as PrismaEnrollment } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -44,7 +44,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       create: {
         id: enrollment.id.get(),
         studentId: enrollment.studentId.get(),
-        level: enrollment.level.toString(),
+        level: enrollment.level.toCode(),
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
@@ -53,7 +53,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       },
       update: {
         studentId: enrollment.studentId.get(),
-        level: enrollment.level.toString(),
+        level: enrollment.level.toCode(),
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
@@ -72,7 +72,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       id: Id.reconstruct(record.id),
       studentId: Id.reconstruct(record.studentId),
       institutionId: Id.reconstruct(institutionId || '00000000-0000-0000-0000-000000000000'),
-      level: Level.reconstruct(record.level as LevelType),
+      level: Level.create(record.level).unwrap(),
       academicYear: record.academicYear,
       grade: record.grade ?? undefined,
       division: record.division ?? undefined,

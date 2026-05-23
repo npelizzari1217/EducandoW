@@ -43,6 +43,8 @@
 |---|---|---|
 | [DER Completo](./DER-y-diseno-global.md) | 40 tablas, 51 reglas, jerarquía, SQL | Al iniciar el proyecto |
 | [Arquitectura SaaS](./DER-y-diseno-global.md#0-arquitectura-saas-multi-tenant) | Multi-tenant, master/tenant DB | Al diseñar infraestructura |
+| [Arquitectura Frontend](./arquitectura-frontend-global.md) | Stack, flujo de datos, niveles, routing, theming | Al trabajar en el frontend |
+| [Frontend Rules](./front-rules.md) | **Reglas obligatorias** para todo ABM/CRUD. Usar como input de sub-agentes | Al generar pantallas nuevas |
 
 ### Módulos Transversales (afectan a todos los niveles)
 
@@ -63,6 +65,8 @@
 | [11 — Primario](./modulos/11-nivel-primario/README.md) | `modulos/11-nivel-primario/` | grados, calificaciones_primario | 🔲 Sin diseñar |
 | [12 — Secundario](./modulos/12-nivel-secundario/README.md) | `modulos/12-nivel-secundario/` | cursos, calificaciones_secundario, mesas_examen... | 🔲 Sin diseñar |
 | [13 — Terciario](./modulos/13-nivel-terciario/README.md) | `modulos/13-nivel-terciario/` | inscripciones_materia, actas_examen, titulos | 🔲 Sin diseñar |
+>
+> **Nota**: Cada nivel se descompone en modalidades (Común, Talleres, Bilingüismo) mediante el código compuesto `LevelType = nivel × 10 + modalidad`. Las reglas de evaluación varían según (nivel, modalidad), implementadas con Strategy Pattern. Ver `packages/domain/src/institution/value-objects/level.ts`.
 
 ---
 

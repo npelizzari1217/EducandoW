@@ -24,9 +24,15 @@ export class EvaluacionStrategyFactory {
     ]);
   }
 
+  /** Fallback al nivel base (ej: TALLERES_PRIMARIO → PRIMARIO) */
   getStrategy(level: LevelType): EvaluacionStrategy {
-    const strategy = this.strategies.get(level);
-    if (!strategy) throw new Error(`No hay estrategia de evaluación para nivel: ${level}`);
+    // Direct match
+    if (this.strategies.has(level)) return this.strategies.get(level)!;
+
+    // Fallback: base level (strip modality)
+    const base = (Math.floor(level / 10) * 10) as LevelType;
+    const strategy = this.strategies.get(base);
+    if (!strategy) throw new Error(`No hay estrategia de evaluación para nivel: ${LevelType[level] ?? level}`);
     return strategy;
   }
 }

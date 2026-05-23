@@ -1,5 +1,6 @@
 import { Id } from '../../shared/value-objects/id';
 import { Email } from '../../shared/value-objects/email';
+import { Level } from '../../institution/value-objects/level';
 
 export type UserRole = 'ROOT' | 'ADMIN' | 'MANAGER' | 'TEACHER';
 
@@ -10,7 +11,7 @@ export interface UserProps {
   hashedPassword: string;
   role: UserRole;
   institutionId?: string;
-  level?: string;
+  level?: Level;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,7 +38,7 @@ export class User {
   get hashedPassword(): string { return this.props.hashedPassword; }
   get role(): UserRole { return this.props.role; }
   get institutionId(): string | undefined { return this.props.institutionId; }
-  get level(): string | undefined { return this.props.level; }
+  get level(): Level | undefined { return this.props.level; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 
@@ -51,7 +52,7 @@ export class User {
     this.props.updatedAt = new Date();
   }
 
-  assignLevel(level: string): void {
+  assignLevel(level: Level): void {
     this.props.level = level;
     this.props.updatedAt = new Date();
   }
