@@ -1,4 +1,5 @@
 import { Id } from '../../shared/value-objects/id';
+import { EducationalLevelCode } from '../../shared/value-objects/educational-level';
 import { Level, LevelType } from '../value-objects/level';
 import { HexColor } from '../value-objects/hex-color';
 import { Cue } from '../value-objects/cue';
@@ -212,8 +213,14 @@ export class Institution {
     return [...this.props.levels];
   }
 
+  /** ¿Tiene exactamente este código de nivel (ej: LevelType.INICIAL = 10)? */
   hasLevel(level: LevelType): boolean {
     return this.props.levels.some((l) => l.get() === level);
+  }
+
+  /** ¿Tiene algún nivel que pertenezca a este nivel base (ignorando modalidad)? */
+  hasEducationalLevel(levelCode: EducationalLevelCode): boolean {
+    return this.props.levels.some((l) => l.belongsToLevel(levelCode));
   }
 
   addLevel(level: Level): void {

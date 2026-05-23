@@ -15,7 +15,7 @@ bounded_contexts:
     description: "Entidades y VOs compartidos por todos los niveles pedagógicos"
     owns:
       entities: [Institution, Student, Teacher, User]
-      value_objects: [Id, Email, Dni, Level, LevelType]
+      value_objects: [Id, Email, Dni, Level, LevelType, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode]
       errors: [DomainError, NotFoundError, ValidationError]
       shared: [Result, EventBus, DomainEvent]
     contracts:

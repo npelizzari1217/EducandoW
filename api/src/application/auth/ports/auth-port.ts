@@ -7,14 +7,14 @@ export interface AuthPort {
     sub: string;
     role: string;
     institutionId?: string;
-    level?: string;
+    level?: number;
     dbName?: string | null;
   }): string;
   verify(token: string): {
     sub: string;
     role: string;
     institutionId?: string;
-    level?: string;
+    level?: number;
     dbName?: string | null;
   };
 }

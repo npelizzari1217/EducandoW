@@ -27,7 +27,7 @@ export interface InstitutionConfig {
   socket_port: number | null;
   active: boolean;
   db_name: string | null;
-  levels: string[];
+  levels: number[];
   created_at: string | null;
   updated_at: string | null;
 }

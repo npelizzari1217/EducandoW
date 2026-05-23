@@ -9,6 +9,16 @@ const codeField = z.string().min(1).max(50).transform(upper);
 const emailField = z.string().email('Email inválido');
 const uuidField = z.string().uuid('ID inválido');
 
+const ALLOWED_LEVELS: [string, ...string[]] = [
+  'INICIAL', 'TALLERES_INICIAL', 'BILINGÜISMO_INICIAL',
+  'PRIMARIO', 'TALLERES_PRIMARIO', 'BILINGÜISMO_PRIMARIO',
+  'SECUNDARIO', 'TALLERES_SECUNDARIO', 'BILINGÜISMO_SECUNDARIO',
+  'TERCIARIO',
+  'ADMINISTRACION', 'TODOS',
+];
+const levelField = z.enum(ALLOWED_LEVELS);
+const levelsField = z.array(levelField).min(1, 'Al menos un nivel');
+
 export const RegisterSchema = z.object({
   email: emailField,
   password: z.string().min(6, 'Mínimo 6 caracteres').max(128),
@@ -29,7 +39,7 @@ export const CreateInstitutionSchema = z.object({
   address: z.string().max(300).optional(),
   phone: z.string().max(50).optional(),
   email: emailField.optional().or(z.literal('')),
-  levels: z.array(z.enum(['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'])).min(1, 'Al menos un nivel'),
+  levels: levelsField,
 });
 export type CreateInstitutionDTO = z.infer<typeof CreateInstitutionSchema>;
 
@@ -59,7 +69,7 @@ export type CreateTeacherDTO = z.infer<typeof CreateTeacherSchema>;
 export const CreateEnrollmentSchema = z.object({
   studentId: uuidField,
   institutionId: uuidField,
-  level: z.enum(['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO']),
+  level: levelField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   grade: codeField.optional(),
   division: codeField.optional(),
@@ -68,7 +78,7 @@ export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 
 export const CreateSubjectSchema = z.object({
   name: nameField,
-  level: z.enum(['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO']),
+  level: levelField,
   institutionId: uuidField,
 });
 export type CreateSubjectDTO = z.infer<typeof CreateSubjectSchema>;
@@ -77,7 +87,7 @@ export const CreateCourseSectionSchema = z.object({
   name: z.string().min(1).max(100),
   grade: codeField.optional(),
   division: codeField.optional(),
-  level: z.enum(['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO']),
+  level: levelField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   institutionId: uuidField,
 });

@@ -23,7 +23,7 @@ export interface LoginResult {
     name: string;
     role: string;
     institutionId?: string;
-    level?: string;
+    level?: number;
     dbName?: string | null;
   };
 }
@@ -67,7 +67,7 @@ export class LoginUseCase {
       sub: userId,
       role: user.role,
       institutionId: user.institutionId,
-      level: user.level,
+      level: user.level?.toCode(),
       dbName,
     });
 
@@ -87,7 +87,7 @@ export class LoginUseCase {
         name: user.name,
         role: user.role,
         institutionId: user.institutionId,
-        level: user.level,
+      level: user.level?.toCode(),
         dbName,
       },
     });

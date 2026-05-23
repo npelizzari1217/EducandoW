@@ -36,7 +36,7 @@ model Institution {
   socketPort        Int?     @map("socket_port")
   active            Boolean  @default(true)
   dbName            String   @unique @map("db_name")
-  levels            String[]
+  levels            Int[]
 
   users         User[]
   refreshTokens RefreshToken[]
@@ -56,7 +56,7 @@ model User {
   name          String
   role          String   @default("ADMIN")
   institutionId String?
-  level         String?
+  level         Int?
 
   institution   Institution?   @relation(fields: [institutionId], references: [id])
   refreshTokens RefreshToken[]

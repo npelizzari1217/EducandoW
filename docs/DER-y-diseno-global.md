@@ -1,8 +1,34 @@
 # EducandoW — DER y Diseño Global del Sistema
 
-> **Principio**: Cada nivel pedagógico es un **bounded context independiente**.
+> **Principio**: Cada par (nivel, modalidad) es un **bounded context independiente**.
 > No comparten lógica de evaluación, no comparten estructuras de cursos/salas,
 > y cada uno tiene sus propias reglas de promoción y acreditación.
+
+### Esquema de Niveles y Modalidades (Composite Code)
+
+Los niveles se codifican con un **número compuesto**: `LevelType = nivel × 10 + modalidad`.
+
+| Código | Nombre | Nivel Base | Modalidad |
+|--------|--------|-----------|-----------|
+| 10 | Inicial | Inicial (1) | Común (0) |
+| 11 | Talleres de Inicial | Inicial (1) | Talleres (1) |
+| 12 | Bilingüismo Inicial | Inicial (1) | Bilingüismo (2) |
+| 20 | Primario | Primario (2) | Común (0) |
+| 21 | Talleres de Primario | Primario (2) | Talleres (1) |
+| 22 | Bilingüismo Primario | Primario (2) | Bilingüismo (2) |
+| 30 | Secundario | Secundario (3) | Común (0) |
+| 31 | Talleres de Secundario | Secundario (3) | Talleres (1) |
+| 32 | Bilingüismo Secundario | Secundario (3) | Bilingüismo (2) |
+| 40 | Terciario | Terciario (4) | Común (0) |
+| 90 | Administración | — | — |
+| 99 | Todos | — | — |
+
+**Consultas por rango:**
+- `WHERE level BETWEEN 20 AND 29` → todo Primario (cualquier modalidad)
+- `WHERE level % 10 = 1` → todo Talleres (cualquier nivel)
+- `Level.forLevel(EducationalLevelCode.PRIMARIO)` → [20, 21, 22] desde dominio
+
+Las reglas de evaluación varían según (nivel, modalidad): Primario-Común califica de 1° a 6° con adjetivación, 7° con nota; Secundario es numérico; Bilingüismo usa rúbricas propias; Talleres solo comentarios/informes como Inicial.
 
 ---
 

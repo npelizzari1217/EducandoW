@@ -60,7 +60,13 @@ export const CreateInstitutionFullSchema = z.object({
 
   // Niveles
   levels: z
-    .array(z.enum(['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO']))
+    .array(z.enum([
+      'INICIAL', 'TALLERES_INICIAL', 'BILINGÜISMO_INICIAL',
+      'PRIMARIO', 'TALLERES_PRIMARIO', 'BILINGÜISMO_PRIMARIO',
+      'SECUNDARIO', 'TALLERES_SECUNDARIO', 'BILINGÜISMO_SECUNDARIO',
+      'TERCIARIO',
+      'ADMINISTRACION', 'TODOS',
+    ]))
     .min(1, 'Al menos un nivel requerido'),
 });
 

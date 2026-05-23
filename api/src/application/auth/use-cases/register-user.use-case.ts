@@ -60,7 +60,7 @@ export class RegisterUserUseCase {
       name: saved.name,
       role: saved.role,
       institutionId: saved.institutionId,
-      level: saved.level,
+      level: saved.level?.toCode(),
       createdAt: saved.createdAt.toISOString(),
     });
   }

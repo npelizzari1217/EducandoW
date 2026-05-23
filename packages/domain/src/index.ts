@@ -10,10 +10,13 @@ export type { EventBus, EventHandler } from './shared/event-bus';
 // Shared Value Objects
 export { Id } from './shared/value-objects/id';
 export { Email } from './shared/value-objects/email';
+export { EducationalLevel, EducationalLevelCode } from './shared/value-objects/educational-level';
+export { EducationalModality, EducationalModalityCode } from './shared/value-objects/educational-modality';
 
 // Institution
 export { Institution } from './institution/entities';
-export { Level, LevelType, HexColor, Cue, LogoUrl, EncryptedSmtpPass, SmtpConfig } from './institution/value-objects';
+export { Level, LevelType, LEVEL_CATALOG, LEVEL_LABELS, LEVEL_NAMES, HexColor, Cue, LogoUrl, EncryptedSmtpPass, SmtpConfig } from './institution/value-objects';
+export type { LevelCatalogEntry } from './institution/value-objects';
 export type { SmtpEncryption, SmtpConfigProps } from './institution/value-objects';
 export type { InstitutionRepository } from './institution/repositories/institution-repository';
 
