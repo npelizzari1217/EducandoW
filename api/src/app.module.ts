@@ -8,6 +8,8 @@ import { StudentModule } from './presentation/student/student.module';
 import { TeacherModule } from './presentation/teacher/teacher.module';
 import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
 import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
+import { ModulesModule } from './presentation/modules/modules.module';
+import { UsersModule } from './presentation/users/users.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -30,6 +32,8 @@ import { PrismaService } from './infrastructure/persistence/prisma/prisma.servic
     TeacherModule,
     EnrollmentModule,
     PedagogyModule,
+    ModulesModule,
+    UsersModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [

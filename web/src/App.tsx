@@ -13,6 +13,9 @@ import StudentsPage from './pages/dashboard/students';
 import TeachersPage from './pages/dashboard/teachers';
 import EnrollmentsPage from './pages/dashboard/enrollments';
 import { SubjectsPage, CourseSectionsPage, SubjectAssignmentsPage, GradesPage, AttendancePage } from './pages/dashboard/pedagogy-pages';
+import ModulesPage from './pages/dashboard/modules';
+import UsersPage from './pages/dashboard/users';
+import LegajosPage from './pages/dashboard/legajos';
 
 function App() {
   return (
@@ -34,6 +37,9 @@ function App() {
               <Route path="/subject-assignments" element={<SubjectAssignmentsPage />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
+              <Route path="/modules" element={<ProtectedRoute roles={['ROOT']}><ModulesPage /></ProtectedRoute>} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/legajos" element={<LegajosPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

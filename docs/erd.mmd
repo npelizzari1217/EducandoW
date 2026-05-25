@@ -1,0 +1,382 @@
+erDiagram
+    %% ============ MASTER DB ============
+
+    Institution ||--o{ InstitutionLevel : "has levels"
+    Institution ||--o{ User : "has users"
+    Institution ||--o{ RefreshToken : "has tokens"
+
+    User ||--o{ RefreshToken : "owns"
+    User ||--o{ UserRole : "assigned roles"
+    User ||--o{ UserModule : "module overrides"
+
+    Role ||--o{ UserRole : "granted to"
+    Role ||--o{ RoleModule : "module permissions"
+
+    Module ||--o{ RoleModule : "access control"
+    Module ||--o{ UserModule : "access control"
+    ModuleAction ||--o{ RoleModule : "referenced actions"
+    ModuleAction ||--o{ UserModule : "referenced actions"
+
+    %% ============ TENANT DB ============
+
+    Student ||--o{ Enrollment : "matriculas"
+    Student ||--o{ Nota : "calificaciones"
+    Student ||--o{ NotaTrimestral : "trimestrales"
+    Student ||--o{ Attendance : "asistencias"
+
+    Teacher ||--o{ SubjectAssignment : "asignaciones"
+
+    AcademicCycle ||--o{ Enrollment : "ciclo lectivo"
+    AcademicCycle ||--o{ Attendance : "ciclo asistencia"
+
+    CourseSection ||--o{ SubjectAssignment : "curso-asignacion"
+    CourseSection ||--o{ Attendance : "asistencia-curso"
+
+    Subject ||--o{ SubjectAssignment : "materia-asignada"
+    Subject ||--o{ Attendance : "asistencia-materia"
+
+    SubjectAssignment ||--o{ Evaluacion : "evaluaciones"
+    SubjectAssignment ||--o{ NotaTrimestral : "trimestrales"
+
+    GradeScale ||--o{ GradeScaleValue : "escala-valores"
+
+    Evaluacion ||--o{ Nota : "notas-eval"
+
+    GradeScaleValue ||--o{ Nota : "referencia-escala"
+
+    PeriodoEvaluacion ||--o{ NotaTrimestral : "periodo"
+
+    AttendanceStatus ||--o{ Attendance : "estado-asistencia"
+
+    %% ============ TABLES ============
+
+    Institution {
+        uuid id PK
+        string name
+        string cue UK
+        string ministryReg
+        string address
+        string city
+        string postal_code
+        string country
+        string phone
+        string website
+        string contact_email
+        string logo_url
+        string header_color
+        string header_text_color
+        string body_text_color
+        string smtp_host
+        string smtp_user
+        string smtp_pass
+        string smtp_encryption
+        int smtp_port
+        boolean send_email
+        boolean send_messages
+        string socket_host
+        int socket_port
+        boolean active
+        datetime deleted_at
+        string db_name UK
+        datetime created_at
+        datetime updated_at
+    }
+
+    InstitutionLevel {
+        uuid id PK
+        uuid institutionId FK
+        int level
+        int modality
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    User {
+        uuid id PK
+        string email UK
+        string password
+        string name
+        uuid institutionId FK
+        int level
+        int modality
+        int failedAttempts
+        datetime lockedUntil
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    RefreshToken {
+        uuid id PK
+        string token UK
+        uuid userId FK
+        uuid institutionId FK
+        datetime expiresAt
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Role {
+        uuid id PK
+        string name UK
+        string description
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    UserRole {
+        uuid id PK
+        uuid userId FK
+        uuid roleId FK
+    }
+
+    Module {
+        uuid id PK
+        string code UK
+        string name
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    ModuleAction {
+        uuid id PK
+        string code UK
+        string name
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    RoleModule {
+        uuid id PK
+        uuid roleId FK
+        uuid moduleId FK
+        string_array actions
+    }
+
+    UserModule {
+        uuid id PK
+        uuid userId FK
+        uuid moduleId FK
+        string_array actions
+    }
+
+    Student {
+        uuid id PK
+        string firstName
+        string lastName
+        string dni UK
+        string email
+        datetime birthDate
+        string guardianName
+        string guardianPhone
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Teacher {
+        uuid id PK
+        string firstName
+        string lastName
+        string dni UK
+        string email
+        string phone
+        string title
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    AcademicCycle {
+        uuid id PK
+        string name
+        int level
+        int modality
+        datetime start_date
+        datetime end_date
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Enrollment {
+        uuid id PK
+        uuid studentId FK
+        uuid cycleId FK
+        int level
+        int modality
+        string academicYear
+        string grade
+        string division
+        string status
+        datetime enrolledAt
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Subject {
+        uuid id PK
+        string name
+        int level
+        int modality
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    CourseSection {
+        uuid id PK
+        string name
+        string grade
+        string division
+        int level
+        int modality
+        string academicYear
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    SubjectAssignment {
+        uuid id PK
+        uuid subjectId FK
+        uuid teacherId FK
+        uuid courseSectionId FK
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    GradeScale {
+        uuid id PK
+        string name
+        int level
+        int modality
+        float minValue
+        float maxValue
+        boolean isConceptual
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    GradeScaleValue {
+        uuid id PK
+        uuid scaleId FK
+        string code
+        string label
+        float numericValue
+        boolean isApproved
+        int sortOrder
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Evaluacion {
+        uuid id PK
+        uuid assignmentId FK
+        string title
+        string description
+        datetime evaluationDate
+        float weight
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Nota {
+        uuid id PK
+        uuid evaluationId FK
+        uuid studentId FK
+        uuid gradeScaleValueId FK
+        float numericValue
+        string qualitativeValue
+        string comments
+        datetime registeredAt
+        string gradeCode
+        string gradeLabel
+        boolean isApproved
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    PeriodoEvaluacion {
+        uuid id PK
+        string academicYear
+        string name
+        datetime startDate
+        datetime endDate
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    NotaTrimestral {
+        uuid id PK
+        uuid studentId FK
+        uuid assignmentId FK
+        uuid periodId FK
+        float finalGrade
+        float attendancePct
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    AttendanceStatus {
+        uuid id PK
+        string code UK
+        string description
+        float absenceValue
+        boolean isPresent
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }
+
+    Attendance {
+        uuid id PK
+        uuid studentId FK
+        uuid courseSectionId FK
+        uuid subjectId FK
+        uuid cycleId FK
+        datetime date
+        uuid statusId FK
+        string note
+        string statusCode
+        string statusDescription
+        float absenceValue
+        boolean isPresent
+        boolean active
+        datetime deleted_at
+        datetime created_at
+        datetime updated_at
+    }

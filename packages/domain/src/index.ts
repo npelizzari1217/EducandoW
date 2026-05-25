@@ -48,3 +48,4 @@ export type { UserRepository } from './auth/repositories/user-repository';
 export type { RefreshTokenRepository, RefreshTokenData } from './auth/repositories/refresh-token-repository';
 export { UserRegistered } from './auth/events/user-registered';
 export { UserNotFoundError, EmailAlreadyExistsError, InvalidCredentialsError } from './auth/errors/user.errors';
+export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser } from './auth/role-hierarchy';
