@@ -42,6 +42,10 @@ function toResponse(inst: Institution) {
     active: inst.active ?? true,
     db_name: inst.dbName ?? null,
     levels: inst.levels.map((l) => l.toCode()),
+    institution_levels: inst.institutionLevels.map((il) => ({
+      level: il.level,
+      modality: il.modality,
+    })),
     created_at: inst.createdAt?.toISOString() ?? null,
     updated_at: inst.updatedAt?.toISOString() ?? null,
   };
@@ -60,7 +64,7 @@ export class InstitutionController {
   ) {}
 
   @Post()
-  @Roles('ROOT')
+  @Roles('ADMIN')
   async create(@Body(new ZodValidationPipe(CreateInstitutionSchema)) body: CreateInstitutionDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -71,6 +75,9 @@ export class InstitutionController {
   async me(@Req() req: Request) {
     const user = (req as any).user;
     const institutionId = user?.institutionId ?? null;
+    if (!institutionId) {
+      return { data: null, reason: 'no_institution' };
+    }
     const result = await this.getMeUC.execute(institutionId);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toResponse(result.unwrap()) };
@@ -101,7 +108,7 @@ export class InstitutionController {
   }
 
   @Patch(':id')
-  @Roles('ROOT')
+  @Roles('ADMIN')
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateInstitutionSchema)) body: UpdateInstitutionDTO,
@@ -112,7 +119,7 @@ export class InstitutionController {
   }
 
   @Delete(':id')
-  @Roles('ROOT')
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     const result = await this.deleteUC.execute(id);

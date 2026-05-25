@@ -12,6 +12,9 @@ const mockPrismaInstitution = {
 
 const mockClient = {
   institution: mockPrismaInstitution,
+  institutionLevel: {
+    deleteMany: vi.fn(),
+  },
 };
 
 const mockPrismaService = {
@@ -49,11 +52,12 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
       return { ...args.create, id: 'inst-1' };
     });
 
-    const { Institution, Level } = await import('@educandow/domain');
+    const { Institution } = await import('@educandow/domain');
+    const { EducationalLevelCode, EducationalModalityCode } = await import('@educandow/domain');
     const inst = Institution.create({
       name: 'Test School',
       smtpPass: 'my-plain-password',
-      levels: [Level.create('INICIAL').unwrap()],
+      institutionLevels: [{ level: EducationalLevelCode.INICIAL, modality: EducationalModalityCode.COMUN }],
     });
 
     await repository.save(inst);
@@ -64,7 +68,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
   });
 
   it('decrypts smtp_pass when reading from DB', async () => {
-    const { Institution, Level, Id, HexColor, Cue } = await import('@educandow/domain');
+    const { Institution } = await import('@educandow/domain');
 
     // First encrypt manually to get a known ciphertext
     const { EncryptionService } = await import('../../../crypto/encryption.service');
@@ -98,7 +102,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
       socketPort: null,
       active: true,
       dbName: 'educandow_inst-2',
-      levels: ['INICIAL'],
+      levels: [{ level: 1, modality: 0 }],
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -113,21 +117,23 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
   it('decrypted smtpPass matches original after save → read roundtrip', async () => {
     const originalPassword = 'roundtrip-secret-456';
 
-    // Capture what gets saved
+    // Capture what gets saved (flatten the Prisma nested write)
     let savedRecord: any;
     mockPrismaInstitution.upsert.mockImplementation(async (args: any) => {
-      savedRecord = { ...args.create, id: args.create.id ?? 'inst-3', levels: args.create.levels };
+      const flatLevels = args.create.levels?.create ?? [];
+      savedRecord = { ...args.create, id: args.create.id ?? 'inst-3', levels: flatLevels };
       return savedRecord;
     });
 
     // Mock findUnique to return the saved record
     mockPrismaInstitution.findUnique.mockImplementation(async () => savedRecord);
 
-    const { Institution, Level } = await import('@educandow/domain');
+    const { Institution } = await import('@educandow/domain');
+    const { EducationalLevelCode, EducationalModalityCode } = await import('@educandow/domain');
     const inst = Institution.create({
       name: 'Roundtrip School',
       smtpPass: originalPassword,
-      levels: [Level.create('INICIAL').unwrap()],
+      institutionLevels: [{ level: EducationalLevelCode.INICIAL, modality: EducationalModalityCode.COMUN }],
     });
 
     await repository.save(inst);
@@ -142,10 +148,11 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
       return { ...args.create, id: 'inst-4' };
     });
 
-    const { Institution, Level } = await import('@educandow/domain');
+    const { Institution } = await import('@educandow/domain');
+    const { EducationalLevelCode, EducationalModalityCode } = await import('@educandow/domain');
     const inst = Institution.create({
       name: 'No SMTP School',
-      levels: [Level.create('INICIAL').unwrap()],
+      institutionLevels: [{ level: EducationalLevelCode.INICIAL, modality: EducationalModalityCode.COMUN }],
     });
 
     await repository.save(inst);

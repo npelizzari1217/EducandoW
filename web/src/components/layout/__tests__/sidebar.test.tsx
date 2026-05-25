@@ -47,10 +47,12 @@ vi.mock('../../../context/institution-context', () => ({
   }),
 }));
 
+const noop = () => {};
+
 function renderSidebar() {
   return render(
     <MemoryRouter>
-      <Sidebar />
+      <Sidebar isOpen={true} onToggle={noop} />
     </MemoryRouter>,
   );
 }

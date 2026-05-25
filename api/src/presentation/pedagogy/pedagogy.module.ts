@@ -5,11 +5,14 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import { PrismaSubjectRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject.repository';
 import { PrismaCourseSectionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-course-section.repository';
 import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
-import { PrismaGradeRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-grade.repository';
+import { PrismaEvaluacionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-evaluacion.repository';
+import { PrismaNotaRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-nota.repository';
+import { PrismaPeriodoEvaluacionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-periodo-evaluacion.repository';
+import { PrismaNotaTrimestralRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-nota-trimestral.repository';
 import { PrismaAttendanceRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance.repository';
 
-const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignmentRepo, PrismaGradeRepo, PrismaAttendanceRepo];
-const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'GradeRepository', 'AttendanceRepository'];
+const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignmentRepo, PrismaEvaluacionRepo, PrismaNotaRepo, PrismaPeriodoEvaluacionRepo, PrismaNotaTrimestralRepo, PrismaAttendanceRepo];
+const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'EvaluacionRepository', 'NotaRepository', 'PeriodoEvaluacionRepository', 'NotaTrimestralRepository', 'AttendanceRepository'];
 
 @Module({
   imports: [AuthModule],
@@ -26,9 +29,18 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: UC.CreateSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.CreateSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.ListSubjectAssignmentsUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.ListSubjectAssignmentsUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.DeleteSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.DeleteSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
-    { provide: UC.CreateGradeUC, useFactory: (r: PrismaGradeRepo) => new UC.CreateGradeUC(r), inject: ['GradeRepository'] },
-    { provide: UC.ListGradesUC, useFactory: (r: PrismaGradeRepo) => new UC.ListGradesUC(r), inject: ['GradeRepository'] },
-    { provide: UC.DeleteGradeUC, useFactory: (r: PrismaGradeRepo) => new UC.DeleteGradeUC(r), inject: ['GradeRepository'] },
+    { provide: UC.CreateEvaluacionUC, useFactory: (r: PrismaEvaluacionRepo) => new UC.CreateEvaluacionUC(r), inject: ['EvaluacionRepository'] },
+    { provide: UC.ListEvaluacionesUC, useFactory: (r: PrismaEvaluacionRepo) => new UC.ListEvaluacionesUC(r), inject: ['EvaluacionRepository'] },
+    { provide: UC.DeleteEvaluacionUC, useFactory: (r: PrismaEvaluacionRepo) => new UC.DeleteEvaluacionUC(r), inject: ['EvaluacionRepository'] },
+    { provide: UC.CreateNotaUC, useFactory: (r: PrismaNotaRepo) => new UC.CreateNotaUC(r), inject: ['NotaRepository'] },
+    { provide: UC.ListNotasUC, useFactory: (r: PrismaNotaRepo) => new UC.ListNotasUC(r), inject: ['NotaRepository'] },
+    { provide: UC.DeleteNotaUC, useFactory: (r: PrismaNotaRepo) => new UC.DeleteNotaUC(r), inject: ['NotaRepository'] },
+    { provide: UC.CreatePeriodoUC, useFactory: (r: PrismaPeriodoEvaluacionRepo) => new UC.CreatePeriodoUC(r), inject: ['PeriodoEvaluacionRepository'] },
+    { provide: UC.ListPeriodosUC, useFactory: (r: PrismaPeriodoEvaluacionRepo) => new UC.ListPeriodosUC(r), inject: ['PeriodoEvaluacionRepository'] },
+    { provide: UC.DeletePeriodoUC, useFactory: (r: PrismaPeriodoEvaluacionRepo) => new UC.DeletePeriodoUC(r), inject: ['PeriodoEvaluacionRepository'] },
+    { provide: UC.CreateNotaTrimestralUC, useFactory: (r: PrismaNotaTrimestralRepo) => new UC.CreateNotaTrimestralUC(r), inject: ['NotaTrimestralRepository'] },
+    { provide: UC.ListNotasTrimestralesUC, useFactory: (r: PrismaNotaTrimestralRepo) => new UC.ListNotasTrimestralesUC(r), inject: ['NotaTrimestralRepository'] },
+    { provide: UC.DeleteNotaTrimestralUC, useFactory: (r: PrismaNotaTrimestralRepo) => new UC.DeleteNotaTrimestralUC(r), inject: ['NotaTrimestralRepository'] },
     { provide: UC.CreateAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.CreateAttendanceUC(r), inject: ['AttendanceRepository'] },
     { provide: UC.ListAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.ListAttendanceUC(r), inject: ['AttendanceRepository'] },
     { provide: UC.DeleteAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.DeleteAttendanceUC(r), inject: ['AttendanceRepository'] },

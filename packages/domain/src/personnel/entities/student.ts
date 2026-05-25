@@ -12,13 +12,15 @@ export interface StudentProps {
   guardianName?: string;
   guardianPhone?: string;
   institutionId: string;
+  active?: boolean;
+  deletedAt?: Date;
 }
 
 export class Student {
   private constructor(private props: StudentProps) {}
 
-  static create(props: Omit<StudentProps, 'id'>): Student {
-    return new Student({ ...props, id: Id.create() });
+  static create(props: Omit<StudentProps, 'id' | 'active' | 'deletedAt'>): Student {
+    return new Student({ ...props, id: Id.create(), active: true });
   }
 
   static reconstruct(props: StudentProps): Student {
@@ -61,7 +63,20 @@ export class Student {
     return this.props.institutionId;
   }
 
+  get active(): boolean {
+    return this.props.active ?? true;
+  }
+
+  get deletedAt(): Date | undefined {
+    return this.props.deletedAt;
+  }
+
   get fullName(): string {
     return `${this.props.lastName}, ${this.props.firstName}`;
+  }
+
+  softDelete(): void {
+    this.props.active = false;
+    this.props.deletedAt = new Date();
   }
 }

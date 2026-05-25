@@ -17,13 +17,17 @@ const ALLOWED_LEVELS: [string, ...string[]] = [
   'ADMINISTRACION', 'TODOS',
 ];
 const levelField = z.enum(ALLOWED_LEVELS);
+const modalityField = z
+  .enum(['COMUN', 'TALLERES', 'BILINGÜISMO', 'TODOS'])
+  .optional()
+  .default('COMUN');
 const levelsField = z.array(levelField).min(1, 'Al menos un nivel');
 
 export const RegisterSchema = z.object({
   email: emailField,
   password: z.string().min(6, 'Mínimo 6 caracteres').max(128),
   name: nameField,
-  role: z.enum(['ROOT', 'ADMIN', 'MANAGER', 'TEACHER']).optional().default('TEACHER'),
+  role: z.enum(['ROOT', 'ADMIN', 'MANAGER', 'TEACHER', 'TUTOR', 'STUDENT']).optional().default('TEACHER'),
   institutionId: uuidField.optional(),
 });
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
@@ -70,6 +74,7 @@ export const CreateEnrollmentSchema = z.object({
   studentId: uuidField,
   institutionId: uuidField,
   level: levelField,
+  modality: modalityField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   grade: codeField.optional(),
   division: codeField.optional(),
@@ -79,6 +84,7 @@ export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 export const CreateSubjectSchema = z.object({
   name: nameField,
   level: levelField,
+  modality: modalityField,
   institutionId: uuidField,
 });
 export type CreateSubjectDTO = z.infer<typeof CreateSubjectSchema>;
@@ -88,6 +94,7 @@ export const CreateCourseSectionSchema = z.object({
   grade: codeField.optional(),
   division: codeField.optional(),
   level: levelField,
+  modality: modalityField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   institutionId: uuidField,
 });
@@ -100,22 +107,47 @@ export const CreateSubjectAssignmentSchema = z.object({
 });
 export type CreateSubjectAssignmentDTO = z.infer<typeof CreateSubjectAssignmentSchema>;
 
-export const CreateGradeSchema = z.object({
+export const CreateEvaluacionSchema = z.object({
+  assignmentId: uuidField,
+  title: nameField,
+  description: z.string().max(500).optional(),
+  evaluationDate: z.string(),
+  weight: z.number().min(0).max(10).optional().default(1),
+});
+export type CreateEvaluacionDTO = z.infer<typeof CreateEvaluacionSchema>;
+
+export const CreateNotaSchema = z.object({
+  evaluationId: uuidField,
   studentId: uuidField,
-  subjectId: uuidField,
-  courseSectionId: uuidField,
-  period: codeField,
   numericValue: z.number().optional(),
   qualitativeValue: z.string().max(100).optional(),
-  status: codeField.optional(),
+  comments: z.string().max(500).optional(),
+  gradeScaleValueId: uuidField.optional(),
 });
-export type CreateGradeDTO = z.infer<typeof CreateGradeSchema>;
+export type CreateNotaDTO = z.infer<typeof CreateNotaSchema>;
+
+export const CreatePeriodoSchema = z.object({
+  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
+  name: nameField,
+  startDate: z.string(),
+  endDate: z.string(),
+});
+export type CreatePeriodoDTO = z.infer<typeof CreatePeriodoSchema>;
+
+export const CreateNotaTrimestralSchema = z.object({
+  studentId: uuidField,
+  assignmentId: uuidField,
+  periodId: uuidField,
+  finalGrade: z.number(),
+  attendancePct: z.number().min(0).max(100).optional(),
+});
+export type CreateNotaTrimestralDTO = z.infer<typeof CreateNotaTrimestralSchema>;
 
 export const CreateAttendanceSchema = z.object({
   studentId: uuidField,
   courseSectionId: uuidField,
   date: z.string(),
-  status: z.enum(['PRESENT', 'ABSENT', 'LATE', 'JUSTIFIED']),
+  status: z.enum(['PRE', 'AUS', 'TAR', 'JUS', 'RET']),
   note: z.string().max(300).optional(),
 });
 export type CreateAttendanceDTO = z.infer<typeof CreateAttendanceSchema>;

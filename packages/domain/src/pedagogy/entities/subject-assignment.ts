@@ -5,13 +5,15 @@ export interface SubjectAssignmentProps {
   subjectId: string;
   teacherId: string;
   courseSectionId: string;
+  active?: boolean;
+  deletedAt?: Date;
 }
 
 export class SubjectAssignment {
   private constructor(private props: SubjectAssignmentProps) {}
 
-  static create(props: Omit<SubjectAssignmentProps, 'id'>): SubjectAssignment {
-    return new SubjectAssignment({ ...props, id: Id.create() });
+  static create(props: Omit<SubjectAssignmentProps, 'id' | 'active' | 'deletedAt'>): SubjectAssignment {
+    return new SubjectAssignment({ ...props, id: Id.create(), active: true });
   }
 
   static reconstruct(props: SubjectAssignmentProps): SubjectAssignment {
@@ -22,4 +24,11 @@ export class SubjectAssignment {
   get subjectId(): string { return this.props.subjectId; }
   get teacherId(): string { return this.props.teacherId; }
   get courseSectionId(): string { return this.props.courseSectionId; }
+  get active(): boolean { return this.props.active ?? true; }
+  get deletedAt(): Date | undefined { return this.props.deletedAt; }
+
+  softDelete(): void {
+    this.props.active = false;
+    this.props.deletedAt = new Date();
+  }
 }

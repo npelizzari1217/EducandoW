@@ -4,7 +4,8 @@ import { JwtAuthPort } from '../jwt-auth-port';
 
 export interface AuthenticatedUser {
   userId: string;
-  role: string;
+  roles: string[];
+  modules?: { moduleCode: string; actions: string[] }[];
   institutionId?: string;
   level?: number;
   dbName?: string | null;
@@ -28,7 +29,8 @@ export class AuthGuard implements CanActivate {
       const payload = this.jwtAuth.verify(token);
       (request as any).user = {
         userId: payload.sub,
-        role: payload.role,
+        roles: payload.roles,
+        modules: payload.modules ?? [],
         institutionId: payload.institutionId,
         level: payload.level,
         dbName: payload.dbName ?? null,

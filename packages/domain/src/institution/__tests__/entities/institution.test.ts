@@ -1,36 +1,53 @@
 import { describe, it, expect } from 'vitest';
-import { Institution } from '../../entities/institution';
-import { Level, LevelType } from '../../value-objects/level';
+import { Institution, type InstitutionLevelEntry } from '../../entities/institution';
+import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
+
+const IL = (level: EducationalLevelCode, modality: EducationalModalityCode = EducationalModalityCode.COMUN): InstitutionLevelEntry => ({ level, modality });
 
 describe('Institution', () => {
   it('creates an institution with generated id', () => {
     const inst = Institution.create({
       name: 'Escuela 123',
-      levels: [Level.reconstruct(LevelType.INICIAL), Level.reconstruct(LevelType.PRIMARIO)],
+      institutionLevels: [IL(EducationalLevelCode.INICIAL), IL(EducationalLevelCode.PRIMARIO)],
     });
     expect(inst.id).toBeDefined();
     expect(inst.name).toBe('Escuela 123');
     expect(inst.levels).toHaveLength(2);
+    expect(inst.institutionLevels).toHaveLength(2);
   });
 
-  it('hasLevel checks if level exists', () => {
-    const inst = Institution.create({ name: 'Test', levels: [Level.reconstruct(LevelType.SECUNDARIO)] });
-    expect(inst.hasLevel(LevelType.SECUNDARIO)).toBe(true);
-    expect(inst.hasLevel(LevelType.INICIAL)).toBe(false);
+  it('hasLevel checks if level+modality pair exists', () => {
+    const inst = Institution.create({
+      name: 'Test',
+      institutionLevels: [IL(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN)],
+    });
+    expect(inst.hasLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN)).toBe(true);
+    expect(inst.hasLevel(EducationalLevelCode.INICIAL, EducationalModalityCode.COMUN)).toBe(false);
+    expect(inst.hasLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.TALLERES)).toBe(false);
   });
 
-  it('addLevel appends a new level', () => {
-    const inst = Institution.create({ name: 'Test', levels: [] });
-    inst.addLevel(Level.reconstruct(LevelType.TERCIARIO));
-    expect(inst.levels).toHaveLength(1);
-    expect(inst.hasLevel(LevelType.TERCIARIO)).toBe(true);
+  it('hasEducationalLevel checks base level (ignores modality)', () => {
+    const inst = Institution.create({
+      name: 'Test',
+      institutionLevels: [IL(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.TALLERES)],
+    });
+    expect(inst.hasEducationalLevel(EducationalLevelCode.SECUNDARIO)).toBe(true);
+    expect(inst.hasEducationalLevel(EducationalLevelCode.INICIAL)).toBe(false);
+  });
+
+  it('addLevel appends a new level+modality pair', () => {
+    const inst = Institution.create({ name: 'Test', institutionLevels: [] });
+    inst.addLevel(EducationalLevelCode.TERCIARIO, EducationalModalityCode.COMUN);
+    expect(inst.institutionLevels).toHaveLength(1);
+    expect(inst.hasLevel(EducationalLevelCode.TERCIARIO, EducationalModalityCode.COMUN)).toBe(true);
   });
 
   it('reconstruct restores full props', () => {
     const inst = Institution.reconstruct({
       id: { get: () => 'id-1' } as any,
       name: 'Colegio',
-      levels: [Level.reconstruct(LevelType.INICIAL)],
+      institutionLevels: [IL(EducationalLevelCode.INICIAL)],
       address: 'Calle 123',
       phone: '1234',
       contactEmail: 'mail@test.com',
@@ -39,5 +56,18 @@ describe('Institution', () => {
     expect(inst.address).toBe('Calle 123');
     expect(inst.phone).toBe('1234');
     expect(inst.contactEmail).toBe('mail@test.com');
+  });
+
+  it('levels getter computes composite codes', () => {
+    const inst = Institution.create({
+      name: 'Test',
+      institutionLevels: [
+        IL(EducationalLevelCode.PRIMARIO, EducationalModalityCode.COMUN),
+        IL(EducationalLevelCode.PRIMARIO, EducationalModalityCode.TALLERES),
+        IL(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.BILINGÜISMO),
+      ],
+    });
+    const codes = inst.levels.map((l) => l.toCode());
+    expect(codes).toEqual([20, 21, 32]);
   });
 });

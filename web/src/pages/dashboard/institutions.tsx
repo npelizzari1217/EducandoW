@@ -6,6 +6,13 @@ import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { PEDAGOGICAL_LEVELS, LEVEL_LABELS } from '@/constants/levels';
+import type { LevelOption } from '@/constants/levels';
+
+interface InstitutionLevelEntry {
+  level: number;
+  modality: number;
+}
 
 interface InstitutionRow {
   id: string;
@@ -14,7 +21,8 @@ interface InstitutionRow {
   city: string | null;
   country: string | null;
   active: boolean;
-  levels: string[];
+  levels: number[];
+  institution_levels?: InstitutionLevelEntry[];
 }
 
 interface InstitutionForm {
@@ -41,7 +49,42 @@ interface InstitutionForm {
   send_messages: boolean;
   socket_host: string;
   socket_port: string;
-  levels: string[];
+  // Track selected level options by their index in PEDAGOGICAL_LEVELS
+  selectedLevels: Set<number>; // indexes into PEDAGOGICAL_LEVELS
+}
+
+type FieldErrors = Partial<Record<keyof InstitutionForm, string>>;
+
+// ── Conversión niveles ──
+
+/** Convert PEDAGOGICAL_LEVELS indices → institution_levels payload */
+function indicesToInstitutionLevels(indices: Set<number>): InstitutionLevelEntry[] {
+  return Array.from(indices).map((i) => {
+    const opt = PEDAGOGICAL_LEVELS[i];
+    return { level: opt.levelCode, modality: opt.modalityCode };
+  });
+}
+
+/** Find PEDAGOGICAL_LEVELS indices from institution_levels (new format) */
+function institutionLevelsToIndices(levels: InstitutionLevelEntry[]): Set<number> {
+  const indices = new Set<number>();
+  for (const il of levels) {
+    const idx = PEDAGOGICAL_LEVELS.findIndex(
+      (opt) => opt.levelCode === il.level && opt.modalityCode === il.modality,
+    );
+    if (idx !== -1) indices.add(idx);
+  }
+  return indices;
+}
+
+/** Convert legacy number[] codes → PEDAGOGICAL_LEVELS indices */
+function codesToIndices(codes: number[]): Set<number> {
+  const indices = new Set<number>();
+  for (const c of codes) {
+    const idx = PEDAGOGICAL_LEVELS.findIndex((opt) => opt.code === c);
+    if (idx !== -1) indices.add(idx);
+  }
+  return indices;
 }
 
 const EMPTY_FORM: InstitutionForm = {
@@ -68,15 +111,13 @@ const EMPTY_FORM: InstitutionForm = {
   send_messages: false,
   socket_host: '',
   socket_port: '',
-  levels: ['INICIAL'],
+  selectedLevels: new Set<number>([0]), // Default: INICIAL (index 0)
 };
 
-const LEVELS = ['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'] as const;
 const SMTP_ENCRYPTIONS = ['', 'TLS', 'SSL', 'NONE'] as const;
-
 const HEX_REGEX = /^#[0-9a-fA-F]{6}$/;
 
-function SectionHeader({ title, expanded, onToggle, children }: { title: string; expanded: boolean; onToggle: () => void; children?: React.ReactNode }) {
+function SectionHeader({ title, expanded, onToggle }: { title: string; expanded: boolean; onToggle: () => void }) {
   return (
     <div style={{ borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-md)' }}>
       <button
@@ -105,6 +146,7 @@ export default function InstitutionsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Collapsible section state
   const [sections, setSections] = useState({
@@ -118,35 +160,43 @@ export default function InstitutionsPage() {
   const toggleSection = (key: keyof typeof sections) =>
     setSections((s) => ({ ...s, [key]: !s[key] }));
 
-  const toggleLevel = (l: string) =>
-    setForm((f) => ({
-      ...f,
-      levels: f.levels.includes(l) ? f.levels.filter((x) => x !== l) : [...f.levels, l],
-    }));
+  const toggleLevel = (optIndex: number) =>
+    setForm((f) => {
+      const next = new Set(f.selectedLevels);
+      if (next.has(optIndex)) {
+        next.delete(optIndex);
+      } else {
+        next.add(optIndex);
+      }
+      return { ...f, selectedLevels: next };
+    });
 
-  const update = (field: keyof InstitutionForm, value: string | boolean) =>
+  const update = (field: keyof InstitutionForm, value: string | boolean) => {
     setForm((f) => ({ ...f, [field]: value }));
+    if (fieldErrors[field]) setFieldErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+  };
 
-  const validateForm = useCallback((): string | null => {
-    if (!form.name.trim()) return 'El nombre es obligatorio';
-    if (form.levels.length === 0) return 'Debe seleccionar al menos un nivel';
-    if (form.header_color && !HEX_REGEX.test(form.header_color)) return 'header_color debe ser hex válido (#RRGGBB)';
-    if (form.header_text_color && !HEX_REGEX.test(form.header_text_color)) return 'header_text_color debe ser hex válido (#RRGGBB)';
-    if (form.body_text_color && !HEX_REGEX.test(form.body_text_color)) return 'body_text_color debe ser hex válido (#RRGGBB)';
-    if (form.smtp_port && (isNaN(Number(form.smtp_port)) || Number(form.smtp_port) < 1 || Number(form.smtp_port) > 65535)) return 'smtp_port debe ser entre 1 y 65535';
-    if (form.socket_port && (isNaN(Number(form.socket_port)) || Number(form.socket_port) < 1 || Number(form.socket_port) > 65535)) return 'socket_port debe ser entre 1 y 65535';
-    return null;
+  const validateForm = useCallback((): boolean => {
+    const errs: FieldErrors = {};
+    if (!form.name.trim()) errs.name = 'El nombre es obligatorio';
+    if (form.selectedLevels.size === 0) errs.selectedLevels = 'Seleccioná al menos un nivel';
+    if (form.header_color && !HEX_REGEX.test(form.header_color)) errs.header_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.header_text_color && !HEX_REGEX.test(form.header_text_color)) errs.header_text_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.body_text_color && !HEX_REGEX.test(form.body_text_color)) errs.body_text_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.smtp_port && (isNaN(Number(form.smtp_port)) || Number(form.smtp_port) < 1 || Number(form.smtp_port) > 65535)) errs.smtp_port = 'Debe ser entre 1 y 65535';
+    if (form.socket_port && (isNaN(Number(form.socket_port)) || Number(form.socket_port) < 1 || Number(form.socket_port) > 65535)) errs.socket_port = 'Debe ser entre 1 y 65535';
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
   }, [form]);
 
   const buildPayload = useCallback(() => {
     const p: Record<string, unknown> = {
       name: form.name.trim(),
-      levels: form.levels,
+      institution_levels: indicesToInstitutionLevels(form.selectedLevels),
       country: form.country || 'AR',
       send_email: form.send_email,
       send_messages: form.send_messages,
     };
-    // Optional string fields — only include if non-empty
     const optionalStrings: (keyof InstitutionForm)[] = [
       'cue', 'ministry_reg', 'address', 'city', 'postal_code',
       'phone', 'website', 'contact_email', 'logo_url',
@@ -158,27 +208,35 @@ export default function InstitutionsPage() {
       const v = form[key];
       if (typeof v === 'string' && v.trim()) p[key] = v.trim();
     }
-    // Numeric fields
     if (form.smtp_port.trim()) p['smtp_port'] = Number(form.smtp_port);
     if (form.socket_port.trim()) p['socket_port'] = Number(form.socket_port);
     return p;
   }, [form]);
 
   const handleCreate = async () => {
-    const err = validateForm();
-    if (err) { setCreateError(err); return; }
+    if (!validateForm()) return;
     const ok = await create(buildPayload());
-    if (ok) { setShowForm(false); setForm(EMPTY_FORM); reload(); }
+    if (ok) { setShowForm(false); setForm(EMPTY_FORM); setFieldErrors({}); reload(); }
   };
 
   const handleEdit = async (row: InstitutionRow) => {
-    // Load full institution data and open form for editing
     setEditingId(row.id);
     setSaveError('');
+    setFieldErrors({});
     try {
       const { data: res } = await apiClient.get(`/institutions/${row.id}`);
       const inst = res.data;
       if (inst) {
+        // Use new institution_levels if present, else fallback to legacy levels
+        let selectedIndices: Set<number>;
+        if (inst.institution_levels?.length) {
+          selectedIndices = institutionLevelsToIndices(inst.institution_levels);
+        } else if (inst.levels?.length) {
+          selectedIndices = codesToIndices(inst.levels);
+        } else {
+          selectedIndices = new Set<number>();
+        }
+
         setForm({
           name: inst.name ?? '',
           cue: inst.cue ?? '',
@@ -203,7 +261,7 @@ export default function InstitutionsPage() {
           send_messages: inst.send_messages ?? false,
           socket_host: inst.socket_host ?? '',
           socket_port: inst.socket_port != null ? String(inst.socket_port) : '',
-          levels: inst.levels ?? ['INICIAL'],
+          selectedLevels: selectedIndices,
         });
         setShowForm(true);
         setSections({ identificacion: true, contacto: true, branding: true, smtp: true, notificaciones: true });
@@ -215,16 +273,26 @@ export default function InstitutionsPage() {
 
   const handleSave = async () => {
     if (!editingId) return;
-    const err = validateForm();
-    if (err) { setSaveError(err); return; }
+    if (!validateForm()) return;
     setSaving(true); setSaveError('');
     try {
       await apiClient.patch(`/institutions/${editingId}`, buildPayload());
-      setShowForm(false); setForm(EMPTY_FORM); setEditingId(null);
+      setShowForm(false); setForm(EMPTY_FORM); setEditingId(null); setFieldErrors({});
       reload();
     } catch (e: any) {
       setSaveError(e?.response?.data?.message ?? 'Error al guardar');
     } finally { setSaving(false); }
+  };
+
+  const errorMessage = createError || saveError;
+
+  const clearForm = () => {
+    setShowForm(false);
+    setForm(EMPTY_FORM);
+    setEditingId(null);
+    setSaveError('');
+    setCreateError('');
+    setFieldErrors({});
   };
 
   return (
@@ -235,7 +303,7 @@ export default function InstitutionsPage() {
           <p className="page-subtitle">Gestioná las instituciones educativas</p>
         </div>
         {user?.role === 'ADMIN' && (
-          <Button onClick={() => { setShowForm(!showForm); if (!showForm) { setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); } }}>
+          <Button onClick={() => { if (showForm) { clearForm(); } else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); } }}>
             {showForm ? 'Cancelar' : 'Nueva institución'}
           </Button>
         )}
@@ -243,9 +311,16 @@ export default function InstitutionsPage() {
 
       {showForm && (
         <Card title={editingId ? 'Editar institución' : 'Nueva institución'} className="mt-md">
-          {(createError || saveError) && (
-            <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
-              {createError || saveError}
+          {errorMessage && (
+            <div style={{
+              background: 'var(--color-danger-light)',
+              color: 'var(--color-danger)',
+              padding: 'var(--space-sm)',
+              borderRadius: 'var(--radius-md)',
+              marginBottom: 'var(--space-md)',
+              fontSize: 'var(--text-sm)',
+            }}>
+              {errorMessage}
             </div>
           )}
 
@@ -253,7 +328,7 @@ export default function InstitutionsPage() {
           <SectionHeader title="Identificación" expanded={sections.identificacion} onToggle={() => toggleSection('identificacion')} />
           {sections.identificacion && (
             <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
-              <Input label="Nombre *" value={form.name} onChange={(e) => update('name', e.target.value)} required />
+              <Input label="Nombre *" value={form.name} onChange={(e) => update('name', e.target.value)} required error={fieldErrors.name} />
               <Input label="CUE" value={form.cue} onChange={(e) => update('cue', e.target.value)} placeholder="Código Único Escolar" />
               <Input label="N° Registro Ministerio" value={form.ministry_reg} onChange={(e) => update('ministry_reg', e.target.value)} />
             </div>
@@ -289,6 +364,7 @@ export default function InstitutionsPage() {
                     <input type="color" value={form.header_color || '#000000'} onChange={(e) => update('header_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
                     <input className="input" value={form.header_color} onChange={(e) => update('header_color', e.target.value)} placeholder="#1a56db" style={{ flex: 1 }} />
                   </div>
+                  {fieldErrors.header_color && <span className="field-error">{fieldErrors.header_color}</span>}
                 </div>
                 <div className="field">
                   <label className="field-label">Color Texto Header</label>
@@ -296,6 +372,7 @@ export default function InstitutionsPage() {
                     <input type="color" value={form.header_text_color || '#ffffff'} onChange={(e) => update('header_text_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
                     <input className="input" value={form.header_text_color} onChange={(e) => update('header_text_color', e.target.value)} placeholder="#ffffff" style={{ flex: 1 }} />
                   </div>
+                  {fieldErrors.header_text_color && <span className="field-error">{fieldErrors.header_text_color}</span>}
                 </div>
                 <div className="field">
                   <label className="field-label">Color Texto</label>
@@ -303,6 +380,7 @@ export default function InstitutionsPage() {
                     <input type="color" value={form.body_text_color || '#333333'} onChange={(e) => update('body_text_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
                     <input className="input" value={form.body_text_color} onChange={(e) => update('body_text_color', e.target.value)} placeholder="#333333" style={{ flex: 1 }} />
                   </div>
+                  {fieldErrors.body_text_color && <span className="field-error">{fieldErrors.body_text_color}</span>}
                 </div>
               </div>
             </div>
@@ -314,7 +392,7 @@ export default function InstitutionsPage() {
             <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-md)' }}>
                 <Input label="Host SMTP" value={form.smtp_host} onChange={(e) => update('smtp_host', e.target.value)} placeholder="smtp.gmail.com" />
-                <Input label="Puerto SMTP" value={form.smtp_port} onChange={(e) => update('smtp_port', e.target.value)} placeholder="587" type="number" />
+                <Input label="Puerto SMTP" value={form.smtp_port} onChange={(e) => update('smtp_port', e.target.value)} placeholder="587" type="number" error={fieldErrors.smtp_port} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
                 <Input label="Usuario SMTP" value={form.smtp_user} onChange={(e) => update('smtp_user', e.target.value)} />
@@ -351,7 +429,7 @@ export default function InstitutionsPage() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 'var(--space-md)' }}>
                 <Input label="Host WebSocket" value={form.socket_host} onChange={(e) => update('socket_host', e.target.value)} />
-                <Input label="Puerto WebSocket" value={form.socket_port} onChange={(e) => update('socket_port', e.target.value)} type="number" />
+                <Input label="Puerto WebSocket" value={form.socket_port} onChange={(e) => update('socket_port', e.target.value)} type="number" error={fieldErrors.socket_port} />
               </div>
             </div>
           )}
@@ -362,12 +440,13 @@ export default function InstitutionsPage() {
           </div>
           <div className="field">
             <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
-              {LEVELS.map((l) => (
-                <label key={l} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.levels.includes(l)} onChange={() => toggleLevel(l)} />{l}
+              {PEDAGOGICAL_LEVELS.map((opt: LevelOption, idx: number) => (
+                <label key={opt.code} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={form.selectedLevels.has(idx)} onChange={() => toggleLevel(idx)} />{opt.label}
                 </label>
               ))}
             </div>
+            {fieldErrors.selectedLevels && <span className="field-error">{fieldErrors.selectedLevels}</span>}
           </div>
 
           <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)' }}>
@@ -386,7 +465,14 @@ export default function InstitutionsPage() {
             { key: 'name', header: 'Nombre' },
             { key: 'cue', header: 'CUE', render: (i: Record<string, unknown>) => (i.cue as string) ?? '—' },
             { key: 'country', header: 'País', render: (i: Record<string, unknown>) => (i.country as string) ?? '—' },
-            { key: 'levels', header: 'Niveles', render: (i: Record<string, unknown>) => String((i.levels as string[])?.join(', ') ?? '—') },
+            {
+              key: 'levels',
+              header: 'Niveles',
+              render: (i: Record<string, unknown>) => {
+                const levels = i.levels as number[];
+                return levels?.length ? levels.map((c) => LEVEL_LABELS[c] ?? c).join(', ') : '—';
+              },
+            },
             {
               key: 'actions',
               header: '',

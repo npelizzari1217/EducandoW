@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level } from '@educandow/domain';
+import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, Enrollment as PrismaEnrollment } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -44,7 +44,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       create: {
         id: enrollment.id.get(),
         studentId: enrollment.studentId.get(),
-        level: enrollment.level.toCode(),
+        level: enrollment.level.levelCode,
+        modality: enrollment.level.modalityCode,
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
@@ -53,7 +54,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       },
       update: {
         studentId: enrollment.studentId.get(),
-        level: enrollment.level.toCode(),
+        level: enrollment.level.levelCode,
+        modality: enrollment.level.modalityCode,
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
@@ -68,16 +70,22 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
 
   private toDomain(record: PrismaEnrollment): Enrollment {
     const institutionId = TenantContext.getInstitutionId() ?? '';
+    const modality = (record as any).modality ?? EducationalModalityCode.COMUN;
     return Enrollment.reconstruct({
       id: Id.reconstruct(record.id),
       studentId: Id.reconstruct(record.studentId),
       institutionId: Id.reconstruct(institutionId || '00000000-0000-0000-0000-000000000000'),
-      level: Level.create(record.level).unwrap(),
+      level: Level.fromParts(
+        record.level as EducationalLevelCode,
+        modality as EducationalModalityCode,
+      ),
       academicYear: record.academicYear,
       grade: record.grade ?? undefined,
       division: record.division ?? undefined,
       status: record.status as EnrollmentStatus,
       enrolledAt: record.enrolledAt,
+      active: (record as any).active ?? true,
+      deletedAt: (record as any).deletedAt ?? undefined,
     });
   }
 }

@@ -1,5 +1,8 @@
 export { User } from './entities/user';
-export type { UserRole } from './entities/user';
+export type { UserRole, ModuleAccess } from './entities/user';
+export { Role } from './entities/role';
+export { Module } from './entities/module';
+export { ModuleAction } from './entities/module-action';
 export { Password } from './value-objects/password';
 export type { UserRepository } from './repositories/user-repository';
 export type { RefreshTokenRepository, RefreshTokenData } from './repositories/refresh-token-repository';

@@ -83,6 +83,8 @@ export class PrismaStudentRepository implements StudentRepository {
       guardianName: record.guardianName as string | undefined,
       guardianPhone: record.guardianPhone as string | undefined,
       institutionId: TenantContext.getInstitutionId() ?? '',
+      active: (record.active as boolean) ?? true,
+      deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
     });
   }
 }

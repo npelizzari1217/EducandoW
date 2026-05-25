@@ -5,14 +5,16 @@
 export interface AuthPort {
   sign(payload: {
     sub: string;
-    role: string;
+    roles: string[];
+    modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
     level?: number;
     dbName?: string | null;
   }): string;
   verify(token: string): {
     sub: string;
-    role: string;
+    roles: string[];
+    modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
     level?: number;
     dbName?: string | null;
