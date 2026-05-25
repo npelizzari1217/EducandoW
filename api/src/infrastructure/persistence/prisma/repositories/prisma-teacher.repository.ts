@@ -80,6 +80,8 @@ export class PrismaTeacherRepository implements TeacherRepository {
       phone: record.phone as string | undefined,
       title: record.title as string | undefined,
       institutionId: TenantContext.getInstitutionId() ?? '',
+      active: (record.active as boolean) ?? true,
+      deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
     });
   }
 }

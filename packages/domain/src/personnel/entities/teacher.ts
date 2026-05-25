@@ -11,13 +11,15 @@ export interface TeacherProps {
   phone?: string;
   title?: string;
   institutionId: string;
+  active?: boolean;
+  deletedAt?: Date;
 }
 
 export class Teacher {
   private constructor(private props: TeacherProps) {}
 
-  static create(props: Omit<TeacherProps, 'id'>): Teacher {
-    return new Teacher({ ...props, id: Id.create() });
+  static create(props: Omit<TeacherProps, 'id' | 'active' | 'deletedAt'>): Teacher {
+    return new Teacher({ ...props, id: Id.create(), active: true });
   }
 
   static reconstruct(props: TeacherProps): Teacher {
@@ -56,7 +58,20 @@ export class Teacher {
     return this.props.institutionId;
   }
 
+  get active(): boolean {
+    return this.props.active ?? true;
+  }
+
+  get deletedAt(): Date | undefined {
+    return this.props.deletedAt;
+  }
+
   get fullName(): string {
     return `${this.props.lastName}, ${this.props.firstName}`;
+  }
+
+  softDelete(): void {
+    this.props.active = false;
+    this.props.deletedAt = new Date();
   }
 }

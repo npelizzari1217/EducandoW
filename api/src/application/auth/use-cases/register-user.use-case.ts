@@ -38,20 +38,20 @@ export class RegisterUserUseCase {
     const user = User.create({
       email,
       name: dto.name.trim(),
-      hashedPassword: '',
-      role: (dto.role as any) ?? 'ADMIN',
+      passwordHash: '',
+      roles: dto.roles ?? (dto.role ? [dto.role] : ['TEACHER']),
       institutionId: dto.institutionId,
     });
 
     const hashed = await this.passwordHasher.hash(plainPassword.get());
-    user.setHashedPassword(hashed);
+    user.setPasswordHash(hashed);
 
     const saveResult = await this.userRepo.save(user);
     if (saveResult.isErr()) return err(saveResult.unwrapErr());
     const saved = saveResult.unwrap();
 
     this.eventBus.publish(
-      new UserRegistered(saved.id, saved.email, saved.name, saved.role),
+      new UserRegistered(saved.id, saved.email, saved.name, saved.roles),
     );
 
     return ok({
@@ -59,8 +59,11 @@ export class RegisterUserUseCase {
       email: saved.email.get(),
       name: saved.name,
       role: saved.role,
+      roles: saved.roles,
+      modules: saved.modules,
       institutionId: saved.institutionId,
-      level: saved.level?.toCode(),
+      level: saved.level,
+      modality: saved.modality,
       createdAt: saved.createdAt.toISOString(),
     });
   }

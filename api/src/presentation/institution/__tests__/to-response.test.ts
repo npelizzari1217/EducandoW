@@ -45,7 +45,7 @@ describe('toResponse (controller response mapper)', () => {
       smtpPass: 'super-secret-password',
       smtpEncryption: 'TLS',
       smtpPort: 587,
-      levels: [],
+      institutionLevels: [],
     });
 
     const response = toResponse(inst);
@@ -86,7 +86,7 @@ describe('toResponse (controller response mapper)', () => {
       sendMessages: true,
       socketHost: 'ws.example.com',
       socketPort: 9090,
-      levels: [],
+      institutionLevels: [],
     });
 
     const response = toResponse(inst);
@@ -121,7 +121,7 @@ describe('toResponse (controller response mapper)', () => {
   it('maps null values for optional fields correctly', () => {
     const inst = Institution.create({
       name: 'Minimal School',
-      levels: [],
+      institutionLevels: [],
     });
 
     const response = toResponse(inst);

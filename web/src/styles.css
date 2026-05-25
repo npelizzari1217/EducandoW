@@ -1,11 +1,48 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+@import './styles/design-system.css';
+
+/* ── Page enter animation ───────────────────────── */
+.main-content > * {
+  animation: pageEnter var(--transition-slow) ease-out;
 }
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
-  background: #f5f5f5;
-  color: #111;
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Selection ──────────────────────────────────── */
+::selection {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+/* ── Scrollbar (Webkit) ─────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-light);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-bg);
 }

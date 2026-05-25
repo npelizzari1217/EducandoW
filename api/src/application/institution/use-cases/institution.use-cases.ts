@@ -2,7 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError, InstitutionRepository,
   Institution, Level, HexColor, Cue, SmtpConfig, Id,
+  EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
+
+export interface InstitutionLevelInput {
+  level: string;
+  modality?: string;
+}
 
 export interface CreateInstitutionInput {
   name: string;
@@ -28,7 +34,9 @@ export interface CreateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
-  levels: string[];
+  institution_levels?: InstitutionLevelInput[];
+  // Legacy — still accepted for backward compat
+  levels?: string[];
 }
 
 export interface UpdateInstitutionInput {
@@ -55,7 +63,14 @@ export interface UpdateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
+  institution_levels?: InstitutionLevelInput[];
+  // Legacy
   levels?: string[];
+}
+
+function parseLevelName(name: string): Level | null {
+  const r = Level.create(name);
+  return r.isOk() ? r.unwrap() : null;
 }
 
 @Injectable()
@@ -66,7 +81,9 @@ export class CreateInstitutionUseCase {
     const alreadyExists = await this.repo.existsByName(input.name);
     if (alreadyExists) return err(new ValidationError('Ya existe una institución con ese nombre'));
 
-    if (!input.levels || input.levels.length === 0) {
+    // Parse levels from new format (institution_levels) or legacy (levels strings)
+    const institutionLevels = parseInstitutionLevels(input);
+    if (institutionLevels.length === 0) {
       return err(new ValidationError('Debe especificar al menos un nivel educativo'));
     }
 
@@ -89,11 +106,6 @@ export class CreateInstitutionUseCase {
       });
       if (smtpResult.isErr()) return err(smtpResult.unwrapErr());
     }
-
-    const levelsResult = input.levels.map((l) => Level.create(l));
-    const firstLevelError = levelsResult.find((r) => r.isErr());
-    if (firstLevelError) return err(firstLevelError.unwrapErr());
-    const levels = levelsResult.map((r) => r.unwrap());
 
     // Parse optional HexColor fields
     const headerColor = input.header_color
@@ -145,7 +157,7 @@ export class CreateInstitutionUseCase {
       sendMessages: input.send_messages,
       socketHost: input.socket_host,
       socketPort: input.socket_port,
-      levels,
+      institutionLevels,
     });
 
     await this.repo.save(institution);
@@ -267,16 +279,14 @@ export class UpdateInstitutionUseCase {
       }
     }
 
-    // Parse levels if provided
-    let levels = existing.levels;
-    if (input.levels !== undefined) {
-      if (!input.levels || input.levels.length === 0) {
+    // Parse levels from new format or legacy
+    let institutionLevels = existing.institutionLevels;
+    if (input.institution_levels !== undefined || input.levels !== undefined) {
+      const parsed = parseInstitutionLevels(input);
+      if (parsed.length === 0) {
         return err(new ValidationError('Debe especificar al menos un nivel educativo'));
       }
-      const levelsResult = input.levels.map((l) => Level.create(l));
-      const firstLevelError = levelsResult.find((r) => r.isErr());
-      if (firstLevelError) return err(firstLevelError.unwrapErr());
-      levels = levelsResult.map((r) => r.unwrap());
+      institutionLevels = parsed;
     }
 
     // Reconstruct with merged properties
@@ -307,7 +317,7 @@ export class UpdateInstitutionUseCase {
       socketPort: input.socket_port !== undefined ? input.socket_port : existing.socketPort,
       active: existing.active,
       dbName: existing.dbName,
-      levels,
+      institutionLevels,
       createdAt: existing.createdAt,
       updatedAt: new Date(),
     });
@@ -315,4 +325,62 @@ export class UpdateInstitutionUseCase {
     await this.repo.update(updated);
     return ok(updated);
   }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+
+function parseInstitutionLevels(
+  input: CreateInstitutionInput | UpdateInstitutionInput,
+): { level: EducationalLevelCode; modality: EducationalModalityCode }[] {
+  // New format: institution_levels: [{level, modality?}]
+  if (input.institution_levels && input.institution_levels.length > 0) {
+    return input.institution_levels.map((il) => {
+      const lvl = parseLevelCode(il.level);
+      const mod = parseModalityCode(il.modality ?? 'COMUN');
+      return { level: lvl, modality: mod };
+    });
+  }
+
+  // Legacy format: levels: ["INICIAL", "PRIMARIO"]
+  if (input.levels && input.levels.length > 0) {
+    return input.levels.map((name) => {
+      const parsed = parseLevelName(name);
+      if (!parsed) {
+        throw new ValidationError(`Invalid level name: "${name}"`);
+      }
+      return { level: parsed.levelCode, modality: parsed.modalityCode };
+    });
+  }
+
+  return [];
+}
+
+function parseLevelCode(value: string): EducationalLevelCode {
+  const n = parseInt(value, 10);
+  if (!isNaN(n) && n >= 1 && n <= 9) return n as EducationalLevelCode;
+  // Try name
+  const upper = value.toUpperCase().trim();
+  const codes: Record<string, EducationalLevelCode> = {
+    INICIAL: EducationalLevelCode.INICIAL,
+    PRIMARIO: EducationalLevelCode.PRIMARIO,
+    SECUNDARIO: EducationalLevelCode.SECUNDARIO,
+    TERCIARIO: EducationalLevelCode.TERCIARIO,
+    ADMINISTRACION: EducationalLevelCode.ADMINISTRACION,
+  };
+  if (codes[upper]) return codes[upper];
+  throw new ValidationError(`Invalid level code: "${value}"`);
+}
+
+function parseModalityCode(value: string): EducationalModalityCode {
+  const n = parseInt(value, 10);
+  if (!isNaN(n) && n >= 0 && n <= 9) return n as EducationalModalityCode;
+  const upper = value.toUpperCase().trim();
+  const codes: Record<string, EducationalModalityCode> = {
+    COMUN: EducationalModalityCode.COMUN,
+    TALLERES: EducationalModalityCode.TALLERES,
+    BILINGÜISMO: EducationalModalityCode.BILINGÜISMO,
+    TODOS: EducationalModalityCode.TODOS,
+  };
+  if (codes[upper]) return codes[upper];
+  return EducationalModalityCode.COMUN;
 }

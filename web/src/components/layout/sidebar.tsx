@@ -26,7 +26,12 @@ const navItems: NavItem[] = [
   { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
   const { config } = useInstitution();
   const navigate = useNavigate();
@@ -47,29 +52,58 @@ export function Sidebar() {
   const handleLogout = async () => { await logout(); navigate('/login'); };
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
+    <aside
+      className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}
+      data-sidebar-open={isOpen}
+    >
+      <button
+        className="sidebar-close"
+        onClick={onToggle}
+        aria-label="Cerrar menú"
+      >
+        ✕
+      </button>
+
+      <div className="sidebar-brand" title="EducandoW">
         <span className="sidebar-logo">📚</span>
         <span className="sidebar-title">EducandoW</span>
       </div>
-      <div className="sidebar-user">
+
+      <div className="sidebar-user" title={user?.name}>
         <div className="sidebar-avatar">{user?.name?.charAt(0).toUpperCase()}</div>
-        <div>
+        <div className="sidebar-user-info">
           <div className="sidebar-user-name">{user?.name}</div>
           <div className="sidebar-user-role">{user?.role}</div>
         </div>
       </div>
+
       <nav className="sidebar-nav">
         {filteredItems.map(item => (
-          <NavLink key={item.path} to={item.path} className={({ isActive }) => `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`} end={item.path === '/'}>
-            {item.label}
+          <NavLink
+            key={item.path}
+            to={item.path}
+            className={({ isActive }) =>
+              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
+            }
+            title={item.label}
+            end={item.path === '/'}
+          >
+            <span className="sidebar-link-icon">{item.label.charAt(0)}</span>
+            <span className="sidebar-link-text">{item.label}</span>
           </NavLink>
         ))}
         {!hasLevels && (
-          <div className="sidebar-placeholder">No hay niveles configurados</div>
+          <div className="sidebar-placeholder">
+            <span className="sidebar-placeholder-icon">⚠</span>
+            <span className="sidebar-placeholder-text">No hay niveles configurados</span>
+          </div>
         )}
       </nav>
-      <button className="sidebar-logout" onClick={handleLogout}>Cerrar sesión</button>
+
+      <button className="sidebar-logout" onClick={handleLogout} title="Cerrar sesión">
+        <span className="sidebar-logout-icon">⏻</span>
+        <span className="sidebar-logout-text">Cerrar sesión</span>
+      </button>
     </aside>
   );
 }

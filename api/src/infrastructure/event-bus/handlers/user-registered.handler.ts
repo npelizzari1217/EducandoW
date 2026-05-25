@@ -11,7 +11,7 @@ export class UserRegisteredHandler implements OnModuleInit {
 
   async handle(event: UserRegistered): Promise<void> {
     console.log(
-      `[UserRegistered] Bienvenido ${event.name} (${event.email.get()}) — rol: ${event.role}`,
+      `[UserRegistered] Bienvenido ${event.name} (${event.email.get()}) — roles: ${event.roles.join(', ')}`,
     );
     // En producción: enviar email de bienvenida, crear preferencias por defecto, etc.
   }

@@ -516,3 +516,561 @@ Archivos a generar:
 - web/src/pages/dashboard/[entity]/__tests__/[entity]-list.test.tsx
 - web/src/pages/dashboard/[entity]/__tests__/[entity]-form.test.tsx
 ```
+
+---
+
+## 17. Pantallas no CRUD (Login, Register, Dashboard Home, 404, Perfil)
+
+Las pantallas que **no** siguen el patrón ABM estándar tienen reglas propias. Esta sección cubre los cinco tipos de pantalla no CRUD del sistema.
+
+### 17.1 Layout por tipo de pantalla
+
+Cada tipo de pantalla usa un wrapper distinto. NUNCA mezclar layouts — si una pantalla no está en esta tabla, usá `DashboardLayout`.
+
+| Pantalla | Wrapper | Sidebar visible | Ancho máximo |
+|----------|---------|:---:|--------------|
+| Login | Ninguno (página standalone) | No | 420px (card centrado) |
+| Register | Ninguno (página standalone) | No | 420px (card centrado) |
+| Dashboard Home | `DashboardLayout` | Sí | Full width |
+| 404 | Ninguno (página standalone) | No | 520px (contenido centrado) |
+| Perfil / Configuración | `DashboardLayout` | Sí | 800px (contenido centrado dentro del layout) |
+
+### 17.2 Login y Register
+
+Ambas pantallas comparten estructura base y solo difieren en la cantidad de campos.
+
+**Estructura obligatoria**:
+
+```tsx
+// Login — pages/auth/login.tsx
+<div className="auth-page">
+  <div className="auth-card">
+    <img src="/logo.svg" alt="EducandoW" className="auth-logo" />
+    <h1 className="auth-title">Iniciar sesión</h1>
+
+    <form onSubmit={handleSubmit} className="auth-form">
+      <Input name="email" label="Email" type="email" error={errors.email} ... />
+      <Input name="password" label="Contraseña" type={showPassword ? 'text' : 'password'} error={errors.password} ... />
+      <button type="button" className="password-toggle" onClick={togglePassword} aria-label="Mostrar contraseña">
+        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+      </button>
+
+      {serverError && (
+        <div className="auth-error">
+          <span className="auth-error-icon">⚠️</span>
+          <span>{serverError}</span>
+        </div>
+      )}
+
+      <Button variant="primary" type="submit" loading={loading} className="auth-submit">
+        Ingresar
+      </Button>
+    </form>
+
+    <p className="auth-switch">
+      ¿No tenés cuenta? <Link to="/register">Registrate</Link>
+    </p>
+  </div>
+
+  {loading && <div className="auth-loading-overlay"><Spinner /></div>}
+</div>
+```
+
+**Reglas**:
+
+- **Redirect si ya está autenticado**: al montar el componente, si `useAuth().user` no es `null`, redirigir a `/dashboard` con `<Navigate to="/dashboard" />`.
+- **Password toggle**: botón con ícono de ojo (👁️ / 👁️‍🗨️) posicionado dentro del campo de contraseña, a la derecha. Sin borde, fondo transparente, `var(--color-text-muted)`. No usar librerías externas para esto.
+- **Errores**: usar el bloque `auth-error` con tokens de diseño (ver §1.2). Fondo: `var(--color-danger)` con opacidad 8%. Borde: `1px solid var(--color-danger)`. NUNCA estilos inline.
+- **Loading state**: overlay semitransparente sobre el card (`background: rgba(255,255,255,0.7)`) con un spinner centrado. El botón muestra el estado `loading` del componente `Button` (ver §1.3).
+- **Link de switcheo**: entre Login y Register, siempre al pie del formulario. Texto: "¿No tenés cuenta? Registrate" / "¿Ya tenés cuenta? Iniciá sesión".
+
+**Register — campos adicionales**:
+
+La pantalla de Register agrega los campos `nombre`, `apellido`, `confirmPassword` antes del email. La validación de `confirmPassword` debe chequear que coincida con `password` en el cliente antes de enviar.
+
+```css
+/* pages/auth/auth.css */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: var(--space-md);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2xl);
+  position: relative;  /* para el loading overlay */
+}
+
+.auth-logo {
+  display: block;
+  margin: 0 auto var(--space-xl);
+  height: 48px;
+}
+
+.auth-title {
+  text-align: center;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  margin-bottom: var(--space-xl);
+  color: var(--color-text);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.auth-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.auth-submit {
+  margin-top: var(--space-sm);
+  width: 100%;
+}
+
+.auth-switch {
+  text-align: center;
+  margin-top: var(--space-lg);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.auth-switch a {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.auth-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.password-toggle {
+  position: absolute;
+  right: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-xs);
+}
+```
+
+### 17.3 Dashboard Home
+
+Es la pantalla que ve el usuario apenas inicia sesión. Su contenido varía según el `role`.
+
+**Estructura**:
+
+```tsx
+// pages/dashboard/home/home.tsx
+<DashboardLayout>
+  <header className="page-header">
+    <div>
+      <h1 className="page-title">👋 ¡Hola{user?.nombre ? `, ${user.nombre}` : ''}!</h1>
+      <p className="page-subtitle">{greetingByRole(role)}</p>
+    </div>
+  </header>
+
+  {loading ? (
+    <HomeSkeleton />
+  ) : (
+    <>
+      {/* Grid de KPIs — 3 o 4 cards numéricos */}
+      <section className="stats-grid">
+        {kpis.map(kpi => (
+          <Card key={kpi.label} className="stat-card">
+            <span className="stat-icon">{kpi.icon}</span>
+            <span className="stat-value">{kpi.value}</span>
+            <span className="stat-label">{kpi.label}</span>
+          </Card>
+        ))}
+      </section>
+
+      {/* Acciones rápidas */}
+      <section className="quick-actions">
+        <h2 className="section-title">Acciones rápidas</h2>
+        <div className="quick-actions-grid">
+          {quickActions.map(action => (
+            <Button key={action.label} variant="ghost" onClick={action.onClick}>
+              <span className="action-icon">{action.icon}</span>
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      {/* Contenido variable por rol */}
+      {role === 'admin' && <AdminDashboard extras={...} />}
+      {role === 'docente' && <DocenteDashboard extras={...} />}
+      {role === 'preceptor' && <PreceptorDashboard extras={...} />}
+    </>
+  )}
+</DashboardLayout>
+```
+
+**Reglas**:
+
+- **KPIs**: 3 o 4 cards en grid (`grid-template-columns: repeat(auto-fit, minmax(200px, 1fr))`). Cada card muestra: ícono grande (2rem), valor numérico (2rem, bold), y label descriptivo (`var(--text-sm)`, `var(--color-text-muted)`). Los KPIs típicos son: alumnos activos, docentes, materias, inscripciones del ciclo actual.
+- **Acciones rápidas**: botones grandes tipo menú (no botones primarios). Uno por acción frecuente: "Inscribir alumno", "Cargar asistencia", "Ver calendario", "Generar boletín". Usar `Button variant="ghost"` con ícono a la izquierda.
+- **Contenido por rol**: cada rol ve KPIs y acciones distintas. El `role` viene de `useAuth()` (ver §1.4). Si el contenido del rol es extenso, extraerlo a un componente separado (`admin-home.tsx`, `docente-home.tsx`).
+- **Skeleton**: mientras los KPIs cargan, mostrar 4 cards fantasma con `skeleton-pulse` (ver §6.1). No usar spinner.
+- **API**: los datos del home vienen de `GET /v1/dashboard/summary`. La respuesta incluye `kpis` y `quickActions` ya filtrados por rol y por institución (§1.4).
+
+```css
+/* pages/dashboard/home/home.css */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+.stat-card {
+  text-align: center;
+  padding: var(--space-lg);
+}
+
+.stat-icon { font-size: 2rem; display: block; margin-bottom: var(--space-sm); }
+.stat-value { font-size: 2rem; font-weight: 700; color: var(--color-text); display: block; }
+.stat-label { font-size: var(--text-sm); color: var(--color-text-muted); }
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-sm);
+}
+
+.quick-actions-grid .action-icon {
+  margin-right: var(--space-sm);
+}
+```
+
+### 17.4 Página 404
+
+Pantalla standalone para rutas no encontradas. No usa `DashboardLayout` ni hace llamadas a la API.
+
+**Estructura**:
+
+```tsx
+// pages/not-found/not-found.tsx
+<div className="not-found-page">
+  <div className="not-found-content">
+    <span className="not-found-code">404</span>
+    <h1 className="not-found-title">Página no encontrada</h1>
+    <p className="not-found-message">
+      La página que estás buscando no existe o fue movida.
+    </p>
+    <Button variant="primary" onClick={() => navigate('/dashboard')}>
+      Volver al inicio
+    </Button>
+  </div>
+</div>
+```
+
+**Reglas**:
+
+- **Código de error**: `font-size: 6rem`, `font-weight: 800`, color `var(--color-text-muted)` con opacidad adicional (30%). Letra grande y tenue, como fondo decorativo.
+- **Mensaje**: texto claro y en español. Nada de "404 Not Found" en inglés. El mensaje debe orientar al usuario: "La página que estás buscando no existe o fue movida."
+- **Botón**: "Volver al inicio" navega a `/dashboard` si está autenticado, o a `/login` si no.
+- **No llamar a la API**: esta pantalla no hace fetch. Si el backend devuelve 404 para un recurso (ej: alumno inexistente), eso se maneja en la pantalla correspondiente con un empty/error state (ver §6.2 y §6.3), NO redirigiendo a esta página.
+- **Centrado absoluto**: la página ocupa `100vh`, contenido centrado con flexbox.
+
+```css
+/* pages/not-found/not-found.css */
+.not-found-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+  padding: var(--space-md);
+}
+
+.not-found-content {
+  text-align: center;
+  max-width: 520px;
+}
+
+.not-found-code {
+  font-size: 6rem;
+  font-weight: 800;
+  color: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  display: block;
+  line-height: 1;
+  margin-bottom: var(--space-md);
+}
+
+.not-found-title {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-sm);
+}
+
+.not-found-message {
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-xl);
+  font-size: var(--text-base);
+}
+```
+
+### 17.5 Perfil / Configuración
+
+Pantalla de gestión de cuenta del usuario. Usa `DashboardLayout` con contenido centrado a 800px. La configuración se divide en pestañas (tabs), cada una con su propio endpoint de guardado.
+
+**Estructura**:
+
+```tsx
+// pages/dashboard/profile/profile.tsx
+<DashboardLayout>
+  <header className="page-header">
+    <h1 className="page-title">Mi perfil</h1>
+  </header>
+
+  <div className="profile-container">
+    {/* Tabs de navegación */}
+    <nav className="profile-tabs" role="tablist">
+      {tabs.map(tab => (
+        <button
+          key={tab.id}
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          className={`profile-tab ${activeTab === tab.id ? 'active' : ''}`}
+          onClick={() => setActiveTab(tab.id)}
+        >
+          {tab.icon} {tab.label}
+        </button>
+      ))}
+    </nav>
+
+    {/* Contenido de cada tab */}
+    <div className="profile-content" role="tabpanel">
+      {activeTab === 'personal' && (
+        <ProfilePersonalTab
+          data={profile}
+          onChange={handleChange}
+          errors={errors}
+          saving={savingPersonal}
+          onSave={() => saveSection('personal')}
+        />
+      )}
+      {activeTab === 'security' && (
+        <ProfileSecurityTab
+          saving={savingSecurity}
+          onSave={(data) => saveSection('security', data)}
+        />
+      )}
+      {activeTab === 'appearance' && (
+        <ProfileAppearanceTab
+          preferences={preferences}
+          saving={savingAppearance}
+          onSave={(data) => saveSection('appearance', data)}
+        />
+      )}
+    </div>
+
+    {/* Danger zone — siempre visible al final */}
+    <section className="danger-zone">
+      <h2 className="danger-zone-title">Zona de peligro</h2>
+      <p className="danger-zone-description">
+        Estas acciones son irreversibles. Procedé con cuidado.
+      </p>
+      <Button variant="danger" onClick={() => setShowDeleteConfirm(true)}>
+        Eliminar mi cuenta
+      </Button>
+    </section>
+  </div>
+
+  {showDeleteConfirm && (
+    <ConfirmDialog
+      open={showDeleteConfirm}
+      title="Eliminar cuenta"
+      message="¿Estás seguro? Esta acción no se puede deshacer. Perderás todos tus datos permanentemente."
+      onConfirm={handleDeleteAccount}
+      onCancel={() => setShowDeleteConfirm(false)}
+    />
+  )}
+</DashboardLayout>
+```
+
+**Reglas**:
+
+- **Tres tabs fijos**:
+  1. **Datos personales** (`personal`): nombre, apellido, email (solo lectura si viene de SSO), teléfono, foto de perfil.
+  2. **Seguridad** (`security`): cambio de contraseña (contraseña actual + nueva + confirmación).
+  3. **Apariencia** (`appearance`): tema (claro/oscuro), tamaño de fuente, densidad de la UI.
+
+- **Avatar upload en tab Personal**: input `type="file"` oculto, disparado por un botón o clickeando la imagen actual. Mostrar preview circular antes de guardar. Máximo 2MB, formatos JPG/PNG. Validar en cliente antes de enviar. Usar `URL.createObjectURL()` para la preview.
+
+```tsx
+// Preview de avatar antes de guardar
+<div className="avatar-upload">
+  <img
+    src={avatarPreview || profile.avatarUrl || '/default-avatar.png'}
+    alt="Foto de perfil"
+    className="avatar-preview"
+    onClick={() => fileInputRef.current?.click()}
+  />
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept="image/jpeg,image/png"
+    hidden
+    onChange={handleAvatarChange}
+  />
+  <Button variant="ghost" size="sm" onClick={() => fileInputRef.current?.click()}>
+    Cambiar foto
+  </Button>
+</div>
+```
+
+- **Guardado por sección**: cada tab tiene su propio botón "Guardar" y estado `saving`. No hay un botón global. Esto permite endpoints independientes (`PATCH /v1/profile/personal`, `PUT /v1/profile/password`, `PATCH /v1/profile/preferences`). Si falla una sección, las otras no se ven afectadas.
+- **Danger zone**: siempre al final del contenido, visible en todos los tabs. Fondo con borde `var(--color-danger)` (opacidad 15%), padding generoso. El botón de eliminación abre un `ConfirmDialog` (ver §9) que pide al usuario escribir "ELIMINAR" como confirmación adicional.
+- **Toast**: cada save exitoso muestra toast de éxito (ver §10). Cada error muestra toast de error con el mensaje del servidor.
+- **Accesibilidad**: los tabs usan `role="tablist"`, `role="tab"` y `role="tabpanel"` con `aria-selected`. Ver §13 para reglas completas de accesibilidad.
+
+```css
+/* pages/dashboard/profile/profile.css */
+.profile-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-xl);
+}
+
+.profile-tab {
+  padding: var(--space-sm) var(--space-lg);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.profile-tab:hover {
+  color: var(--color-text);
+}
+
+.profile-tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.avatar-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.avatar-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--color-border);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.avatar-preview:hover {
+  border-color: var(--color-primary);
+}
+
+.danger-zone {
+  margin-top: var(--space-2xl);
+  padding: var(--space-xl);
+  border: 2px solid color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-danger) 5%, transparent);
+}
+
+.danger-zone-title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-danger);
+  margin-bottom: var(--space-sm);
+}
+
+.danger-zone-description {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-md);
+}
+```
+
+### 17.6 Archivos esperados
+
+Cada pantalla no CRUD sigue su propia estructura de archivos. Esto es lo que debe generar un sub-agente para cada tipo:
+
+```
+web/src/pages/
+├── auth/
+│   ├── login.tsx              # Pantalla de login (§17.2)
+│   ├── register.tsx           # Pantalla de registro (§17.2)
+│   ├── auth.css               # Estilos compartidos de auth
+│   └── __tests__/
+│       ├── login.test.tsx
+│       └── register.test.tsx
+├── dashboard/
+│   ├── home/
+│   │   ├── home.tsx           # Dashboard Home (§17.3)
+│   │   ├── home.css
+│   │   ├── home-skeleton.tsx  # Componente de skeleton loading
+│   │   └── __tests__/
+│   │       └── home.test.tsx
+│   └── profile/
+│       ├── profile.tsx              # Contenedor de tabs (§17.5)
+│       ├── profile.css
+│       ├── profile-personal-tab.tsx # Tab: datos personales + avatar
+│       ├── profile-security-tab.tsx # Tab: cambio de contraseña
+│       ├── profile-appearance-tab.tsx # Tab: tema y preferencias
+│       ├── profile-types.ts         # Tipos: ProfileData, Preferences, etc.
+│       ├── profile-api.ts           # Endpoints: personal, password, preferences
+│       └── __tests__/
+│           ├── profile.test.tsx
+│           └── profile-security.test.tsx
+└── not-found/
+    ├── not-found.tsx          # Página 404 (§17.4)
+    ├── not-found.css
+    └── __tests__/
+        └── not-found.test.tsx
+```
+
+**Regla**: cada pantalla que haga llamadas a la API DEBE tener su propio archivo `*-api.ts` (ej: `profile-api.ts`, no un archivo genérico `auth-api.ts`). La ruta 404 es la única excepción porque no consume endpoints.

@@ -1,5 +1,2 @@
-import { z } from 'zod';
-import { CreateInstitutionFullSchema } from './create-institution-full.dto';
-
-export const UpdateInstitutionSchema = CreateInstitutionFullSchema.partial();
-export type UpdateInstitutionDTO = z.infer<typeof UpdateInstitutionSchema>;
+// Re-export from full DTO
+export { UpdateInstitutionSchema, type UpdateInstitutionDTO } from './create-institution-full.dto';

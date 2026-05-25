@@ -3,7 +3,8 @@ import type { AuthPort } from '../../application/auth/ports/auth-port';
 
 export interface JwtPayload {
   sub: string;
-  role: string;
+  roles: string[];
+  modules?: { moduleCode: string; actions: string[] }[];
   institutionId?: string;
   level?: number;
   dbName?: string | null;

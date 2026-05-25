@@ -35,11 +35,12 @@ model Institution {
   socketHost        String?  @map("socket_host")
   socketPort        Int?     @map("socket_port")
   active            Boolean  @default(true)
+  deletedAt         DateTime? @map("deleted_at")
   dbName            String   @unique @map("db_name")
-  levels            Int[]
 
-  users         User[]
-  refreshTokens RefreshToken[]
+  levels         InstitutionLevel[]
+  users          User[]
+  refreshTokens  RefreshToken[]
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -47,19 +48,43 @@ model Institution {
   @@map("institutions")
 }
 
+model InstitutionLevel {
+  id            String @id @default(uuid())
+  institutionId String
+  level         Int    // EducationalLevelCode (1-4, 9)
+  modality      Int    // EducationalModalityCode (0-2, 9)
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  active    Boolean   @default(true)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([institutionId, level, modality])
+  @@map("institution_levels")
+}
+
 // ── Auth ───────────────────────────────────────────────────
 
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
-  password      String
+  passwordHash  String   @map("password")
   name          String
-  role          String   @default("ADMIN")
   institutionId String?
   level         Int?
+  modality      Int?
+
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  active         Boolean   @default(true)
+  deletedAt      DateTime?
 
   institution   Institution?   @relation(fields: [institutionId], references: [id])
   refreshTokens RefreshToken[]
+  userRoles     UserRole[]
+  userModules   UserModule[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -71,13 +96,99 @@ model RefreshToken {
   id            String   @id @default(uuid())
   token         String   @unique
   userId        String
-  role          String   @default("TEACHER")
   institutionId String?
   expiresAt     DateTime
-  createdAt     DateTime @default(now())
+
+  active    Boolean   @default(true)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   institution Institution? @relation(fields: [institutionId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+// ── RBAC — Module-based permissions ─────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  active      Boolean  @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles   UserRole[]
+  roleModules RoleModule[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Module {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roleModules RoleModule[]
+  userModules UserModule[]
+
+  @@map("modules")
+}
+
+model ModuleAction {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("module_actions")
+}
+
+model RoleModule {
+  id       String   @id @default(uuid())
+  roleId   String
+  moduleId String
+  actions  String[]
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduleId])
+  @@map("role_modules")
+}
+
+model UserModule {
+  id       String   @id @default(uuid())
+  userId   String
+  moduleId String
+  actions  String[]
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@map("user_modules")
 }

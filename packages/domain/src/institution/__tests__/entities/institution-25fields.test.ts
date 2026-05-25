@@ -1,19 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { Institution } from '../../entities/institution';
-import { Level, LevelType } from '../../value-objects/level';
+import { Institution, type InstitutionLevelEntry } from '../../entities/institution';
 import { HexColor } from '../../value-objects/hex-color';
 import { Cue } from '../../value-objects/cue';
+import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
+
+const IL = (level: EducationalLevelCode, modality: EducationalModalityCode = EducationalModalityCode.COMUN): InstitutionLevelEntry => ({ level, modality });
 
 describe('Institution (25 fields)', () => {
   it('create() applies correct defaults', () => {
     const inst = Institution.create({
       name: 'Escuela 123',
-      levels: [Level.reconstruct(LevelType.INICIAL), Level.reconstruct(LevelType.PRIMARIO)],
+      institutionLevels: [
+        { level: EducationalLevelCode.INICIAL, modality: EducationalModalityCode.COMUN },
+        { level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN },
+      ],
     });
 
     expect(inst.id).toBeDefined();
     expect(inst.name).toBe('Escuela 123');
     expect(inst.levels).toHaveLength(2);
+    expect(inst.institutionLevels).toHaveLength(2);
 
     // Defaults
     expect(inst.active).toBe(true);
@@ -56,7 +63,7 @@ describe('Institution (25 fields)', () => {
 
     const inst = Institution.create({
       name: 'Instituto Tech',
-      levels: [Level.reconstruct(LevelType.TERCIARIO)],
+      institutionLevels: [IL(EducationalLevelCode.TERCIARIO)],
       country: 'UY',
       active: false,
       sendEmail: true,
@@ -110,10 +117,10 @@ describe('Institution (25 fields)', () => {
       socketPort: 8080,
       active: true,
       dbName: 'educandow_inst-1',
-      levels: [
-        Level.reconstruct(LevelType.INICIAL),
-        Level.reconstruct(LevelType.PRIMARIO),
-        Level.reconstruct(LevelType.SECUNDARIO),
+      institutionLevels: [
+        IL(EducationalLevelCode.INICIAL),
+        IL(EducationalLevelCode.PRIMARIO),
+        IL(EducationalLevelCode.SECUNDARIO),
       ],
       createdAt: now,
       updatedAt: now,
@@ -163,40 +170,42 @@ describe('Institution (25 fields)', () => {
 
     // Levels
     expect(inst.levels).toHaveLength(3);
-    expect(inst.hasLevel(LevelType.INICIAL)).toBe(true);
-    expect(inst.hasLevel(LevelType.PRIMARIO)).toBe(true);
-    expect(inst.hasLevel(LevelType.SECUNDARIO)).toBe(true);
+    expect(inst.institutionLevels).toHaveLength(3);
+    expect(inst.hasLevel(EducationalLevelCode.INICIAL, EducationalModalityCode.COMUN)).toBe(true);
+    expect(inst.hasLevel(EducationalLevelCode.PRIMARIO, EducationalModalityCode.COMUN)).toBe(true);
+    expect(inst.hasLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN)).toBe(true);
   });
 
-  it('hasLevel() checks if level exists', () => {
+  it('hasLevel() checks if level+modality pair exists', () => {
     const inst = Institution.create({
       name: 'Test',
-      levels: [Level.reconstruct(LevelType.SECUNDARIO)],
+      institutionLevels: [IL(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN)],
     });
-    expect(inst.hasLevel(LevelType.SECUNDARIO)).toBe(true);
-    expect(inst.hasLevel(LevelType.INICIAL)).toBe(false);
+    expect(inst.hasLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN)).toBe(true);
+    expect(inst.hasLevel(EducationalLevelCode.INICIAL, EducationalModalityCode.COMUN)).toBe(false);
+    expect(inst.hasLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.TALLERES)).toBe(false);
   });
 
-  it('addLevel() appends a new level if not present', () => {
-    const inst = Institution.create({ name: 'Test', levels: [] });
-    inst.addLevel(Level.reconstruct(LevelType.TERCIARIO));
-    expect(inst.levels).toHaveLength(1);
-    expect(inst.hasLevel(LevelType.TERCIARIO)).toBe(true);
+  it('addLevel() appends a new level+modality if not present', () => {
+    const inst = Institution.create({ name: 'Test', institutionLevels: [] });
+    inst.addLevel(EducationalLevelCode.TERCIARIO, EducationalModalityCode.COMUN);
+    expect(inst.institutionLevels).toHaveLength(1);
+    expect(inst.hasLevel(EducationalLevelCode.TERCIARIO, EducationalModalityCode.COMUN)).toBe(true);
   });
 
-  it('addLevel() does not duplicate an existing level', () => {
+  it('addLevel() does not duplicate an existing pair', () => {
     const inst = Institution.create({
       name: 'Test',
-      levels: [Level.reconstruct(LevelType.PRIMARIO)],
+      institutionLevels: [IL(EducationalLevelCode.PRIMARIO, EducationalModalityCode.COMUN)],
     });
-    inst.addLevel(Level.reconstruct(LevelType.PRIMARIO));
-    expect(inst.levels).toHaveLength(1);
+    inst.addLevel(EducationalLevelCode.PRIMARIO, EducationalModalityCode.COMUN);
+    expect(inst.institutionLevels).toHaveLength(1);
   });
 
   it('dbName auto-generates with correct format', () => {
     const inst = Institution.create({
       name: 'Test',
-      levels: [Level.reconstruct(LevelType.INICIAL)],
+      institutionLevels: [IL(EducationalLevelCode.INICIAL)],
     });
     const expectedDbName = `educandow_${inst.id.get()}`;
     expect(inst.dbName).toBe(expectedDbName);

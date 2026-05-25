@@ -1,10 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import {
   InstitutionRepository, Institution, Id, Level, HexColor, Cue,
+  EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
-import type { PrismaClient as MasterPrismaClient, Institution as PrismaInstitution } from '@prisma/client';
+import type {
+  PrismaClient as MasterPrismaClient,
+  Institution as PrismaInstitution,
+  InstitutionLevel as PrismaInstitutionLevel,
+} from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { EncryptionService } from '../../../crypto/encryption.service';
+
+interface PrismaInstitutionWithLevels extends PrismaInstitution {
+  levels?: PrismaInstitutionLevel[];
+}
 
 @Injectable()
 export class PrismaInstitutionRepository implements InstitutionRepository {
@@ -25,54 +34,100 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
   private encryptSmtpPass(plaintext: string | undefined): string | null {
     if (plaintext === undefined || plaintext === null) return null;
     const key = this.getEncryptionKey();
-    if (!key) return plaintext; // no encryption key configured — store as-is (dev only)
+    if (!key) return plaintext;
     return EncryptionService.encrypt(plaintext, key);
   }
 
   private decryptSmtpPass(ciphertext: string | undefined | null): string | undefined {
     if (ciphertext === undefined || ciphertext === null) return undefined;
     const key = this.getEncryptionKey();
-    if (!key) return ciphertext; // no encryption key — stored as plaintext
+    if (!key) return ciphertext;
     try {
       return EncryptionService.decrypt(ciphertext, key);
     } catch {
-      // If decryption fails, return the raw value (might be legacy plaintext)
       return ciphertext;
     }
   }
 
   async findById(id: string): Promise<Institution | null> {
-    const record = await this.client.institution.findUnique({ where: { id } });
+    const record = await this.client.institution.findUnique({
+      where: { id },
+      include: { levels: true },
+    });
     return record ? this.toDomain(record) : null;
   }
 
   async findAll(): Promise<Institution[]> {
-    const records = await this.client.institution.findMany({ orderBy: { name: 'asc' } });
+    const records = await this.client.institution.findMany({
+      orderBy: { name: 'asc' },
+      include: { levels: true },
+    });
     return records.map((r) => this.toDomain(r));
   }
 
   async findByCue(cue: string): Promise<Institution | null> {
-    const record = await this.client.institution.findUnique({ where: { cue } });
+    const record = await this.client.institution.findUnique({
+      where: { cue },
+      include: { levels: true },
+    });
     return record ? this.toDomain(record) : null;
   }
 
   async findByDbName(dbName: string): Promise<Institution | null> {
-    const record = await this.client.institution.findUnique({ where: { dbName } });
+    const record = await this.client.institution.findUnique({
+      where: { dbName },
+      include: { levels: true },
+    });
     return record ? this.toDomain(record) : null;
   }
 
   async save(institution: Institution): Promise<void> {
+    // Delete existing levels, then recreate
+    await this.client.institutionLevel.deleteMany({
+      where: { institutionId: institution.id.get() },
+    });
+
     await this.client.institution.upsert({
       where: { id: institution.id.get() },
-      create: this.toPrismaCreate(institution),
-      update: this.toPrismaUpdate(institution),
+      create: {
+        ...this.toPrismaCreate(institution),
+        levels: {
+          create: institution.institutionLevels.map((l) => ({
+            level: l.level,
+            modality: l.modality,
+          })),
+        },
+      },
+      update: {
+        ...this.toPrismaUpdate(institution),
+        levels: {
+          deleteMany: {},
+          create: institution.institutionLevels.map((l) => ({
+            level: l.level,
+            modality: l.modality,
+          })),
+        },
+      },
     });
   }
 
   async update(institution: Institution): Promise<void> {
+    // Delete existing levels, then recreate
+    await this.client.institutionLevel.deleteMany({
+      where: { institutionId: institution.id.get() },
+    });
+
     await this.client.institution.update({
       where: { id: institution.id.get() },
-      data: this.toPrismaUpdate(institution),
+      data: {
+        ...this.toPrismaUpdate(institution),
+        levels: {
+          create: institution.institutionLevels.map((l) => ({
+            level: l.level,
+            modality: l.modality,
+          })),
+        },
+      },
     });
   }
 
@@ -96,7 +151,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
 
   // ── Mappers ─────────────────────────────────────────────
 
-  private toDomain(record: PrismaInstitution): Institution {
+  private toDomain(record: PrismaInstitutionWithLevels): Institution {
     return Institution.reconstruct({
       id: Id.reconstruct(record.id),
       name: record.name,
@@ -123,8 +178,12 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketHost: record.socketHost ?? undefined,
       socketPort: record.socketPort ?? undefined,
       active: record.active,
+      deletedAt: record.deletedAt ?? undefined,
       dbName: record.dbName,
-      levels: (record.levels ?? []).map((l) => Level.create(l).unwrap()),
+      institutionLevels: (record.levels ?? []).map((l: PrismaInstitutionLevel) => ({
+        level: l.level as EducationalLevelCode,
+        modality: l.modality as EducationalModalityCode,
+      })),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     });
@@ -158,7 +217,6 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketPort: institution.socketPort,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
-      levels: institution.levels.map((l) => l.toCode()),
     };
   }
 
@@ -189,7 +247,6 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       socketPort: institution.socketPort,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
-      levels: institution.levels.map((l) => l.toCode()),
     };
   }
 }

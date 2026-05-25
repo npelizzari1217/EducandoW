@@ -40,8 +40,8 @@ const env = loadEnvConfig();
     },
     {
       provide: RefreshTokenUseCase,
-      useFactory: (refreshRepo, authPort) => new RefreshTokenUseCase(refreshRepo, authPort),
-      inject: ['RefreshTokenRepository', 'AuthPort'],
+      useFactory: (refreshRepo, userRepo, authPort) => new RefreshTokenUseCase(refreshRepo, userRepo, authPort),
+      inject: ['RefreshTokenRepository', 'UserRepository', 'AuthPort'],
     },
     {
       provide: LogoutUseCase,

@@ -179,6 +179,16 @@ export class Level {
 
   // ── Descomposición ──────────────────────────────────────────
 
+  /** Código del nivel base (1–4, 9). */
+  get levelCode(): EducationalLevelCode {
+    return this.educationalLevel.code;
+  }
+
+  /** Código de la modalidad (0–2, 9). */
+  get modalityCode(): EducationalModalityCode {
+    return this.modality.code;
+  }
+
   /** Nivel educativo base (Inicial=1, Primario=2, etc). */
   get educationalLevel(): EducationalLevel {
     return EducationalLevel.fromLevelCode(this.toCode());

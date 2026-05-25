@@ -86,9 +86,18 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const { data } = await apiClient.get('/institutions/me');
-      setConfig(data.data as InstitutionConfig);
+      if (data.data) {
+        setConfig(data.data as InstitutionConfig);
+      } else {
+        // No institution assigned — use defaults silently
+        setConfig(DEFAULT_CONFIG);
+      }
     } catch (e: any) {
-      setError(e?.response?.data?.message ?? 'Error al cargar configuración institucional');
+      // NestJS error format: { error: { status, message } }
+      const message = e?.response?.data?.error?.message
+        ?? e?.response?.data?.message
+        ?? 'Error al cargar configuración institucional';
+      setError(message);
       // Fallback to defaults — don't crash
       setConfig(DEFAULT_CONFIG);
     } finally {

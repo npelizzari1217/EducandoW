@@ -22,6 +22,8 @@ export interface LoginResult {
     email: string;
     name: string;
     role: string;
+    roles: string[];
+    modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
     level?: number;
     dbName?: string | null;
@@ -45,7 +47,7 @@ export class LoginUseCase {
     const user = await this.userRepo.findByEmail(email.get());
     if (!user) return err(new InvalidCredentialsError());
 
-    const valid = await this.passwordHasher.compare(dto.password, user.hashedPassword);
+    const valid = await this.passwordHasher.compare(dto.password, user.passwordHash);
     if (!valid) return err(new InvalidCredentialsError());
 
     const userId = user.id.get();
@@ -65,9 +67,10 @@ export class LoginUseCase {
 
     const accessToken = this.authPort.sign({
       sub: userId,
-      role: user.role,
+      roles: user.roles,
+      modules: user.modules,
       institutionId: user.institutionId,
-      level: user.level?.toCode(),
+      level: user.level,
       dbName,
     });
 
@@ -76,7 +79,7 @@ export class LoginUseCase {
     const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await this.refreshTokenRepo.deleteAllForUser(userId);
-    await this.refreshTokenRepo.create(userId, user.role, refreshToken, refreshExpiresAt);
+    await this.refreshTokenRepo.create(userId, refreshToken, refreshExpiresAt);
 
     return ok({
       accessToken,
@@ -86,8 +89,10 @@ export class LoginUseCase {
         email: user.email.get(),
         name: user.name,
         role: user.role,
+        roles: user.roles,
+        modules: user.modules,
         institutionId: user.institutionId,
-      level: user.level?.toCode(),
+        level: user.level,
         dbName,
       },
     });

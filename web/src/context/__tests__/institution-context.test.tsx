@@ -102,6 +102,42 @@ describe('InstitutionContext', () => {
     expect(result.current.error).toBeTruthy();
   });
 
+  it('falls back to defaults when API returns null data (no institution assigned)', async () => {
+    localStorage.setItem('accessToken', 'fake-token');
+    (apiClient.get as any).mockResolvedValue({ data: { data: null, reason: 'no_institution' } });
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Should fall back to defaults without error
+    expect(result.current.config.name).toBe('');
+    expect(result.current.config.levels).toEqual([]);
+    expect(result.current.config.send_email).toBe(false);
+    expect(result.current.error).toBeNull();
+  });
+
+  it('extracts error message from NestJS error format { error: { message } }', async () => {
+    localStorage.setItem('accessToken', 'fake-token');
+    const axiosError = new Error('Request failed') as any;
+    axiosError.response = {
+      status: 404,
+      data: { error: { status: 404, message: 'Institution with id xyz not found' } },
+    };
+    (apiClient.get as any).mockRejectedValue(axiosError);
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.error).toBe('Institution with id xyz not found');
+    expect(result.current.config.name).toBe('');
+  });
+
   it('does not crash when token is absent (no fetch)', async () => {
     (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
 

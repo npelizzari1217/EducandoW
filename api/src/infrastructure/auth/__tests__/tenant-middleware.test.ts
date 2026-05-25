@@ -121,7 +121,7 @@ describe('TenantMiddleware', () => {
     it('throws 403 when JWT has no dbName', async () => {
       const req = mockReq('/students', 'GET', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-1',
         dbName: null,
       });
@@ -147,7 +147,7 @@ describe('TenantMiddleware', () => {
 
       const req = mockReq('/students', 'GET', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-1',
         dbName: 'educandow_inactive',
       });
@@ -162,7 +162,7 @@ describe('TenantMiddleware', () => {
 
       const req = mockReq('/students', 'GET', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-1',
         dbName: 'educandow_missing',
       });
@@ -183,7 +183,7 @@ describe('TenantMiddleware', () => {
 
       const req = mockReq('/students', 'GET', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-active',
         dbName: 'educandow_active',
       });
@@ -209,7 +209,7 @@ describe('TenantMiddleware', () => {
 
       const req = mockReq('/teachers', 'GET', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-1',
         dbName: 'educandow_dead',
       });
@@ -231,7 +231,7 @@ describe('TenantMiddleware', () => {
 
       const req = mockReq('/students', 'POST', {
         userId: 'u1',
-        role: 'ADMIN',
+        roles: ['ADMIN'],
         institutionId: 'inst-post',
         dbName: 'educandow_post',
       });

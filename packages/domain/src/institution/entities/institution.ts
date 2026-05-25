@@ -1,8 +1,14 @@
 import { Id } from '../../shared/value-objects/id';
 import { EducationalLevelCode } from '../../shared/value-objects/educational-level';
-import { Level, LevelType } from '../value-objects/level';
+import { EducationalModalityCode } from '../../shared/value-objects/educational-modality';
+import { Level } from '../value-objects/level';
 import { HexColor } from '../value-objects/hex-color';
 import { Cue } from '../value-objects/cue';
+
+export interface InstitutionLevelEntry {
+  level: EducationalLevelCode;
+  modality: EducationalModalityCode;
+}
 
 export interface InstitutionProps {
   id: Id;
@@ -30,8 +36,9 @@ export interface InstitutionProps {
   socketHost?: string;
   socketPort?: number;
   active?: boolean;
+  deletedAt?: Date;
   dbName?: string;
-  levels: Level[];
+  institutionLevels: InstitutionLevelEntry[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -47,7 +54,7 @@ export class Institution {
       ...props,
       id,
       name: props.name,
-      levels: props.levels,
+      institutionLevels: props.institutionLevels,
       country: props.country ?? 'AR',
       active: props.active ?? true,
       sendEmail: props.sendEmail ?? false,
@@ -195,6 +202,10 @@ export class Institution {
     return this.props.active;
   }
 
+  get deletedAt(): Date | undefined {
+    return this.props.deletedAt;
+  }
+
   get dbName(): string | undefined {
     return this.props.dbName;
   }
@@ -209,23 +220,38 @@ export class Institution {
 
   // ── Levels ─────────────────────────────────────────────
 
-  get levels(): Level[] {
-    return [...this.props.levels];
+  get institutionLevels(): InstitutionLevelEntry[] {
+    return [...this.props.institutionLevels];
   }
 
-  /** ¿Tiene exactamente este código de nivel (ej: LevelType.INICIAL = 10)? */
-  hasLevel(level: LevelType): boolean {
-    return this.props.levels.some((l) => l.get() === level);
+  /** Convenience: returns Level array (computed from level+modality). */
+  get levels(): Level[] {
+    return this.props.institutionLevels.map((e) =>
+      Level.fromParts(e.level, e.modality),
+    );
+  }
+
+  /** ¿Tiene exactamente este nivel (levelCode + modalityCode)? */
+  hasLevel(levelCode: EducationalLevelCode, modalityCode: EducationalModalityCode): boolean {
+    return this.props.institutionLevels.some(
+      (l) => l.level === levelCode && l.modality === modalityCode,
+    );
   }
 
   /** ¿Tiene algún nivel que pertenezca a este nivel base (ignorando modalidad)? */
   hasEducationalLevel(levelCode: EducationalLevelCode): boolean {
-    return this.props.levels.some((l) => l.belongsToLevel(levelCode));
+    return this.props.institutionLevels.some((l) => l.level === levelCode);
   }
 
-  addLevel(level: Level): void {
-    if (!this.hasLevel(level.get())) {
-      this.props.levels.push(level);
+  addLevel(levelCode: EducationalLevelCode, modalityCode: EducationalModalityCode): void {
+    if (!this.hasLevel(levelCode, modalityCode)) {
+      this.props.institutionLevels.push({ level: levelCode, modality: modalityCode });
     }
+  }
+
+  softDelete(): void {
+    this.props.active = false;
+    this.props.deletedAt = new Date();
+    this.props.updatedAt = new Date();
   }
 }

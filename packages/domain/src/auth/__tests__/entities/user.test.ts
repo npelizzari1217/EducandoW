@@ -2,14 +2,19 @@ import { describe, it, expect } from 'vitest';
 import { User } from '../../entities/user';
 import { Id } from '../../../shared/value-objects/id';
 import { Email } from '../../../shared/value-objects/email';
-import { Level, LevelType } from '../../../institution/value-objects/level';
+import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
 
 describe('User', () => {
   const validProps = {
     email: Email.reconstruct('test@test.com'),
     name: 'Test User',
-    hashedPassword: 'hashed123',
-    role: 'TEACHER' as const,
+    passwordHash: 'hashed123',
+    roles: ['TEACHER'],
+    modules: [
+      { moduleCode: 'GRADES', actions: ['CREATE', 'READ'] },
+      { moduleCode: 'ATTENDANCE', actions: ['CREATE', 'READ'] },
+    ],
   };
 
   it('creates a user with generated id', () => {
@@ -18,7 +23,57 @@ describe('User', () => {
     expect(user.id.get()).toBeTruthy();
     expect(user.email.get()).toBe('test@test.com');
     expect(user.name).toBe('Test User');
+    expect(user.roles).toEqual(['TEACHER']);
     expect(user.role).toBe('TEACHER');
+    expect(user.active).toBe(true);
+    expect(user.failedAttempts).toBe(0);
+    expect(user.isLocked).toBe(false);
+  });
+
+  it('creates a user with backward-compat role param', () => {
+    const user = User.create({
+      email: Email.reconstruct('test2@test.com'),
+      name: 'Test User 2',
+      passwordHash: 'hashed',
+      role: 'ADMIN',
+    });
+    expect(user.roles).toEqual(['ADMIN']);
+    expect(user.role).toBe('ADMIN');
+  });
+
+  it('hasRole checks role membership', () => {
+    const user = User.create(validProps);
+    expect(user.hasRole('TEACHER')).toBe(true);
+    expect(user.hasRole('ADMIN')).toBe(false);
+  });
+
+  it('hasPermission checks module+action pairs', () => {
+    const user = User.create(validProps);
+    expect(user.hasPermission('GRADES', 'CREATE')).toBe(true);
+    expect(user.hasPermission('GRADES', 'READ')).toBe(true);
+    expect(user.hasPermission('USERS', 'CREATE')).toBe(false);
+    expect(user.hasPermission('ATTENDANCE', 'READ')).toBe(true);
+  });
+
+  it('hasPermission legacy single-string format', () => {
+    const user = User.create(validProps);
+    expect(user.hasPermission('GRADES_CREATE')).toBe(true);
+    expect(user.hasPermission('GRADES_READ')).toBe(true);
+    expect(user.hasPermission('ATTENDANCE_CREATE')).toBe(true);
+    expect(user.hasPermission('USERS_CREATE')).toBe(false);
+    expect(user.hasPermission('ANY_PERMISSION')).toBe(false);
+  });
+
+  it('ROOT role grants all permissions', () => {
+    const user = User.create({
+      email: Email.reconstruct('root@test.com'),
+      name: 'Root User',
+      passwordHash: 'hashed',
+      roles: ['ROOT'],
+    });
+    expect(user.hasPermission('GRADES', 'CREATE')).toBe(true);
+    expect(user.hasPermission('ANY_MODULE', 'ANY_ACTION')).toBe(true);
+    expect(user.hasPermission('ANY_PERMISSION')).toBe(true);
   });
 
   it('reconstruct returns a user with given id', () => {
@@ -27,10 +82,31 @@ describe('User', () => {
     expect(user.id.get()).toBe(id.get());
   });
 
-  it('setHashedPassword updates the hash', () => {
+  it('backward-compat role returns first role', () => {
+    const user = User.reconstruct({
+      ...validProps,
+      roles: ['ADMIN', 'MANAGER'],
+      id: Id.create(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    expect(user.role).toBe('ADMIN');
+  });
+
+  it('role defaults to TEACHER when no roles', () => {
+    const user = User.create({
+      email: Email.reconstruct('norole@test.com'),
+      name: 'No Role',
+      passwordHash: 'hashed',
+    });
+    expect(user.role).toBe('TEACHER');
+    expect(user.roles).toEqual([]);
+  });
+
+  it('setPasswordHash updates the hash', () => {
     const user = User.create(validProps);
-    user.setHashedPassword('new-hash');
-    expect(user.hashedPassword).toBe('new-hash');
+    user.setPasswordHash('new-hash');
+    expect(user.passwordHash).toBe('new-hash');
   });
 
   it('assignToInstitution sets institutionId', () => {
@@ -41,8 +117,8 @@ describe('User', () => {
 
   it('assignLevel sets the level', () => {
     const user = User.create(validProps);
-    user.assignLevel(Level.reconstruct(LevelType.SECUNDARIO));
-    expect(user.level?.get()).toBe(LevelType.SECUNDARIO);
+    user.assignLevel(EducationalLevelCode.SECUNDARIO);
+    expect(user.level).toBe(EducationalLevelCode.SECUNDARIO);
   });
 
   it('reconstruct preserves all props', () => {
@@ -52,15 +128,91 @@ describe('User', () => {
     const user = User.reconstruct({
       ...validProps,
       id,
+      modules: [
+        { moduleCode: 'STUDENTS', actions: ['READ'] },
+        { moduleCode: 'GRADES', actions: ['READ', 'CREATE'] },
+      ],
       institutionId: 'inst-1',
-      level: Level.reconstruct(LevelType.PRIMARIO),
+      level: EducationalLevelCode.PRIMARIO,
+      modality: EducationalModalityCode.COMUN,
       createdAt,
       updatedAt,
     });
     expect(user.id.get()).toBe(id.get());
+    expect(user.roles).toEqual(['TEACHER']);
+    expect(user.modules).toEqual([
+      { moduleCode: 'STUDENTS', actions: ['READ'] },
+      { moduleCode: 'GRADES', actions: ['READ', 'CREATE'] },
+    ]);
+    expect(user.hasPermission('STUDENTS', 'READ')).toBe(true);
+    expect(user.hasPermission('GRADES', 'CREATE')).toBe(true);
     expect(user.institutionId).toBe('inst-1');
-    expect(user.level?.get()).toBe(LevelType.PRIMARIO);
+    expect(user.level).toBe(EducationalLevelCode.PRIMARIO);
+    expect(user.modality).toBe(EducationalModalityCode.COMUN);
     expect(user.createdAt).toEqual(createdAt);
     expect(user.updatedAt).toEqual(updatedAt);
+  });
+
+  it('getModuleActions returns actions for a module', () => {
+    const user = User.create(validProps);
+    const actions = user.getModuleActions('GRADES');
+    expect(actions).toContain('CREATE');
+    expect(actions).toContain('READ');
+    expect(user.getModuleActions('NONEXISTENT')).toEqual([]);
+  });
+
+  describe('security', () => {
+    it('incrementFailedAttempts increases counter', () => {
+      const user = User.create(validProps);
+      user.incrementFailedAttempts();
+      expect(user.failedAttempts).toBe(1);
+      user.incrementFailedAttempts();
+      expect(user.failedAttempts).toBe(2);
+    });
+
+    it('resetFailedAttempts clears counter and lock', () => {
+      const user = User.create(validProps);
+      user.incrementFailedAttempts();
+      user.incrementFailedAttempts();
+      user.lock(15);
+      user.resetFailedAttempts();
+      expect(user.failedAttempts).toBe(0);
+      expect(user.lockedUntil).toBeUndefined();
+      expect(user.isLocked).toBe(false);
+    });
+
+    it('lock sets lockedUntil in the future', () => {
+      const user = User.create(validProps);
+      user.lock(15);
+      expect(user.lockedUntil).toBeDefined();
+      expect(user.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+      expect(user.isLocked).toBe(true);
+    });
+
+    it('isLocked returns false when not locked', () => {
+      const user = User.create(validProps);
+      expect(user.isLocked).toBe(false);
+    });
+
+    it('isLocked returns false when lock expired', () => {
+      const id = Id.create();
+      const pastLock = new Date(Date.now() - 1000);
+      const user = User.reconstruct({
+        ...validProps,
+        id,
+        lockedUntil: pastLock,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      expect(user.isLocked).toBe(false);
+    });
+
+    it('softDelete sets active to false and records deletedAt', () => {
+      const user = User.create(validProps);
+      user.softDelete();
+      expect(user.active).toBe(false);
+      expect(user.deletedAt).toBeDefined();
+      expect(user.deletedAt).toBeInstanceOf(Date);
+    });
   });
 });

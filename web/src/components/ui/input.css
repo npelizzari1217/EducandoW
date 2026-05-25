@@ -1,8 +1,102 @@
-.field { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-.field-label { font-size: var(--text-sm); font-weight: 500; color: var(--color-text); }
-.input { font-family: var(--font-sans); font-size: var(--text-sm); padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); color: var(--color-text); outline: none; transition: border-color 0.15s; width: 100%; }
-.input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
-.input-error { border-color: var(--color-danger); }
-.input-error:focus { box-shadow: 0 0 0 3px rgba(220,38,38,0.15); }
-.field-error { font-size: var(--text-xs); color: var(--color-danger); }
-select.input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.75rem center; padding-right: 2rem; }
+/* ── Field wrapper ───────────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  position: relative;
+}
+
+.field-label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-text);
+  transition: color var(--transition-fast);
+}
+
+/* ── Floating label container ────────────────────── */
+.field--floating {
+  position: relative;
+  padding-top: calc(var(--text-xs) + var(--space-xs));
+}
+
+.field--floating .field-label {
+  position: absolute;
+  top: calc(var(--text-xs) + var(--space-sm));
+  left: 0.75rem;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  transform-origin: left top;
+  transition: transform var(--transition-fast), color var(--transition-fast), font-size var(--transition-fast);
+}
+
+.field--floating .input:focus ~ .field-label,
+.field--floating .input:not(:placeholder-shown) ~ .field-label,
+.field--floating .input.has-value ~ .field-label {
+  transform: translateY(calc(-1 * (var(--text-xs) + var(--space-sm)))) scale(0.8);
+  color: var(--color-primary);
+}
+
+/* ── Input ──────────────────────────────────────── */
+.input {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  width: 100%;
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.input::placeholder {
+  color: var(--color-text-light);
+}
+
+/* ── Error state ────────────────────────────────── */
+.input-error {
+  border-color: var(--color-danger);
+}
+
+.input-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-light);
+}
+
+.field-error {
+  font-size: var(--text-xs);
+  color: var(--color-danger);
+  animation: fieldShake 0.4s ease;
+}
+
+@keyframes fieldShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+/* ── Select ─────────────────────────────────────── */
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+
+/* ── Mobile adjustments ─────────────────────────── */
+@media (min-width: 768px) {
+  .input {
+    padding: 0.625rem 0.875rem;
+  }
+}

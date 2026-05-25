@@ -11,19 +11,19 @@ export class PrismaRefreshTokenRepository implements RefreshTokenRepository {
     this.client = prismaService.getMasterClient();
   }
 
-  async create(userId: string, role: string, token: string, expiresAt: Date): Promise<void> {
+  async create(userId: string, token: string, expiresAt: Date): Promise<void> {
     await this.client.refreshToken.create({
-      data: { userId, role, token, expiresAt },
+      data: { userId, token, expiresAt },
     });
   }
 
   async findByToken(token: string): Promise<RefreshTokenData | null> {
     const record = await this.client.refreshToken.findUnique({
       where: { token },
-      select: { userId: true, role: true, expiresAt: true },
+      select: { userId: true, expiresAt: true },
     });
     if (!record) return null;
-    return { userId: record.userId, role: record.role, expiresAt: record.expiresAt };
+    return { userId: record.userId, expiresAt: record.expiresAt };
   }
 
   async deleteByToken(token: string): Promise<void> {

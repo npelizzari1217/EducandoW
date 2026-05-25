@@ -15,6 +15,7 @@ export { EducationalModality, EducationalModalityCode } from './shared/value-obj
 
 // Institution
 export { Institution } from './institution/entities';
+export type { InstitutionLevelEntry } from './institution/entities/institution';
 export { Level, LevelType, LEVEL_CATALOG, LEVEL_LABELS, LEVEL_NAMES, HexColor, Cue, LogoUrl, EncryptedSmtpPass, SmtpConfig } from './institution/value-objects';
 export type { LevelCatalogEntry } from './institution/value-objects';
 export type { SmtpEncryption, SmtpConfigProps } from './institution/value-objects';
@@ -32,13 +33,16 @@ export type { EnrollmentStatus } from './enrollment/entities';
 export type { EnrollmentRepository } from './enrollment/repositories/enrollment-repository';
 
 // Pedagogy
-export { Subject, CourseSection, SubjectAssignment, Grade, Attendance } from './pedagogy';
-export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, GradeProps, GradeStatus, AttendanceProps, AttendanceStatus } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, GradeRepository, AttendanceRepository } from './pedagogy';
+export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue } from './pedagogy';
+export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository } from './pedagogy';
 
 // Auth
 export { User } from './auth/entities/user';
-export type { UserRole } from './auth/entities/user';
+export type { UserRole, ModuleAccess } from './auth/entities/user';
+export { Role } from './auth/entities/role';
+export { Module } from './auth/entities/module';
+export { ModuleAction } from './auth/entities/module-action';
 export { Password } from './auth/value-objects/password';
 export type { UserRepository } from './auth/repositories/user-repository';
 export type { RefreshTokenRepository, RefreshTokenData } from './auth/repositories/refresh-token-repository';
