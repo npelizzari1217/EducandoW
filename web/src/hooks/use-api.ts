@@ -61,3 +61,15 @@ export function useApiCreate<T>(url: string) {
   };
   return { creating, createError, create, setCreateError };
 }
+
+export function useApiUpdate<T>(url: string) {
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState('');
+  const update = async (id: string, body: Partial<T>) => {
+    setUpdating(true); setUpdateError('');
+    try { await apiClient.patch(`${url}/${id}`, body); return true; }
+    catch (e: any) { setUpdateError(extractErrorMessage(e)); return false; }
+    finally { setUpdating(false); }
+  };
+  return { updating, updateError, update, setUpdateError };
+}
