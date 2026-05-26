@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ok, err, Result, ValidationError, NotFoundError, InstitutionRepository,
+  ok, err, Result, ValidationError, NotFoundError, ForbiddenError,
+  InstitutionRepository,
   Institution, Level, HexColor, Cue, SmtpConfig, Id,
   EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
@@ -63,6 +64,7 @@ export interface UpdateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
+  active?: boolean;
   institution_levels?: InstitutionLevelInput[];
   // Legacy
   levels?: string[];
@@ -169,8 +171,12 @@ export class CreateInstitutionUseCase {
 export class ListInstitutionsUseCase {
   constructor(private readonly repo: InstitutionRepository) {}
 
-  async execute(): Promise<Institution[]> {
-    return this.repo.findAll();
+  async execute(tenantId?: string): Promise<Institution[]> {
+    const all = await this.repo.findAll();
+    if (tenantId) {
+      return all.filter((inst) => inst.id.get() === tenantId);
+    }
+    return all;
   }
 }
 
@@ -211,14 +217,57 @@ export class GetMeUseCase {
   }
 }
 
+export interface PrintData {
+  id: string;
+  name: string;
+  active: boolean;
+  db_name: string | null;
+  printed_at: Date;
+  printed_by: string;
+}
+
+@Injectable()
+export class PrintInstitutionUseCase {
+  constructor(private readonly repo: InstitutionRepository) {}
+
+  async execute(id: string): Promise<Result<PrintData, NotFoundError>> {
+    const institution = await this.repo.findById(id);
+    if (!institution) {
+      return err(new NotFoundError('Institution', id));
+    }
+    return ok({
+      id: institution.id.get(),
+      name: institution.name,
+      active: institution.active ?? true,
+      db_name: institution.dbName ?? null,
+      printed_at: new Date(),
+      printed_by: 'system',
+    });
+  }
+}
+
 @Injectable()
 export class UpdateInstitutionUseCase {
   constructor(private readonly repo: InstitutionRepository) {}
 
-  async execute(id: string, input: UpdateInstitutionInput): Promise<Result<Institution, ValidationError | NotFoundError>> {
+  async execute(
+    id: string,
+    input: UpdateInstitutionInput,
+    caller?: { institutionId?: string; isRoot: boolean },
+  ): Promise<Result<Institution, ValidationError | NotFoundError | ForbiddenError>> {
     const existing = await this.repo.findById(id);
     if (!existing) {
       return err(new NotFoundError('Institution', id));
+    }
+
+    // Authorization: admin can only edit own institution
+    if (caller && !caller.isRoot && caller.institutionId !== id) {
+      return err(new ForbiddenError('No tenés permiso para modificar esta institución'));
+    }
+
+    // Authorization: only ROOT can change active
+    if (caller && !caller.isRoot && input.active !== undefined) {
+      return err(new ForbiddenError('Solo ROOT puede activar o desactivar una institución'));
     }
 
     // Check CUE uniqueness if being changed
@@ -315,7 +364,7 @@ export class UpdateInstitutionUseCase {
       sendMessages: input.send_messages !== undefined ? input.send_messages : existing.sendMessages,
       socketHost: input.socket_host !== undefined ? input.socket_host : existing.socketHost,
       socketPort: input.socket_port !== undefined ? input.socket_port : existing.socketPort,
-      active: existing.active,
+      active: input.active !== undefined ? input.active : existing.active,
       dbName: existing.dbName,
       institutionLevels,
       createdAt: existing.createdAt,

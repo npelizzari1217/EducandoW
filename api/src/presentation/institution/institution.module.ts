@@ -4,6 +4,7 @@ import { InstitutionController } from './institution.controller';
 import {
   CreateInstitutionUseCase, ListInstitutionsUseCase, GetInstitutionUseCase,
   DeleteInstitutionUseCase, GetMeUseCase, UpdateInstitutionUseCase,
+  PrintInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
@@ -47,6 +48,11 @@ import { PrismaInstitutionRepository } from '../../infrastructure/persistence/pr
     {
       provide: UpdateInstitutionUseCase,
       useFactory: (r) => new UpdateInstitutionUseCase(r),
+      inject: ['InstitutionRepository'],
+    },
+    {
+      provide: PrintInstitutionUseCase,
+      useFactory: (r) => new PrintInstitutionUseCase(r),
       inject: ['InstitutionRepository'],
     },
   ],

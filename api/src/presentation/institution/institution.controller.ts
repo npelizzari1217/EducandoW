@@ -11,6 +11,7 @@ import { UpdateInstitutionSchema, UpdateInstitutionDTO } from './dto/update-inst
 import {
   CreateInstitutionUseCase, ListInstitutionsUseCase, GetInstitutionUseCase,
   DeleteInstitutionUseCase, GetMeUseCase, UpdateInstitutionUseCase,
+  PrintInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
 import type { Institution } from '@educandow/domain';
 
@@ -61,10 +62,11 @@ export class InstitutionController {
     private readonly deleteUC: DeleteInstitutionUseCase,
     private readonly getMeUC: GetMeUseCase,
     private readonly updateUC: UpdateInstitutionUseCase,
+    private readonly printUC: PrintInstitutionUseCase,
   ) {}
 
   @Post()
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateInstitutionSchema)) body: CreateInstitutionDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -84,14 +86,17 @@ export class InstitutionController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
-  async list() {
-    const institutions = await this.listUC.execute();
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
+  async list(@Req() req: Request) {
+    const user = (req as any).user;
+    const isRoot = user?.role === 'ROOT';
+    const tenantId = isRoot ? undefined : user?.institutionId ?? undefined;
+    const institutions = await this.listUC.execute(tenantId);
     return { data: institutions.map((i) => toResponse(i)) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
   async get(@Param('id') id: string) {
     const inst = await this.getUC.execute(id);
     if (!inst) return { data: null };
@@ -99,7 +104,7 @@ export class InstitutionController {
   }
 
   @Get(':id/levels')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
   async getLevels(@Param('id') id: string) {
     const inst = await this.getUC.execute(id);
     if (!inst) return { data: [] };
@@ -107,19 +112,34 @@ export class InstitutionController {
     return { data: inst.levels.map((l) => ({ level: l.toString(), active: true, academicYear: currentYear })) };
   }
 
+  @Get(':id/print')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'PRINT' })
+  async print(@Param('id') id: string) {
+    const result = await this.printUC.execute(id);
+    if (result.isErr()) throw result.unwrapErr();
+    const data = result.unwrap();
+    return { data };
+  }
+
   @Patch(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateInstitutionSchema)) body: UpdateInstitutionDTO,
+    @Req() req: Request,
   ) {
-    const result = await this.updateUC.execute(id, body);
+    const user = (req as any).user;
+    const caller = {
+      institutionId: user?.institutionId ?? undefined,
+      isRoot: user?.role === 'ROOT',
+    };
+    const result = await this.updateUC.execute(id, body, caller);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toResponse(result.unwrap()) };
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     const result = await this.deleteUC.execute(id);

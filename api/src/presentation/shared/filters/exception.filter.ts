@@ -9,6 +9,7 @@ const DOMAIN_STATUS: Record<string, number> = {
   EMAIL_ALREADY_EXISTS: 409,
   NOT_FOUND: 404,
   VALIDATION_ERROR: 400,
+  FORBIDDEN: 403,
 };
 
 @Catch()
