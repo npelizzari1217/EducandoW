@@ -12,10 +12,11 @@ import InstitutionsPage from './pages/dashboard/institutions';
 import StudentsPage from './pages/dashboard/students';
 import TeachersPage from './pages/dashboard/teachers';
 import EnrollmentsPage from './pages/dashboard/enrollments';
-import { SubjectsPage, CourseSectionsPage, SubjectAssignmentsPage, GradesPage, AttendancePage } from './pages/dashboard/pedagogy-pages';
+import { GradesPage, AttendancePage } from './pages/dashboard/pedagogy-pages';
 import ModulesPage from './pages/dashboard/modules';
 import UsersPage from './pages/dashboard/users';
 import LegajosPage from './pages/dashboard/legajos';
+import StudyPlansPage from './pages/dashboard/study-plans';
 
 function App() {
   return (
@@ -32,14 +33,12 @@ function App() {
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/enrollments" element={<EnrollmentsPage />} />
-              <Route path="/subjects" element={<SubjectsPage />} />
-              <Route path="/course-sections" element={<CourseSectionsPage />} />
-              <Route path="/subject-assignments" element={<SubjectAssignmentsPage />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/modules" element={<ProtectedRoute roles={['ROOT']}><ModulesPage /></ProtectedRoute>} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/legajos" element={<LegajosPage />} />
+              <Route path="/study-plans" element={<StudyPlansPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
