@@ -365,7 +365,7 @@ export default function UsersPage() {
                     {manageable ? (
                       <>
                         <Button variant="action" size="sm" onClick={() => startEdit(row)}>Editar</Button>
-                        <Button variant="action" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button>
+                        <Button variant="danger-soft" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button>
                       </>
                     ) : (
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>

@@ -197,7 +197,7 @@ export default function CourseSectionsPage() {
             {
               key: 'actions', header: '',
               render: (row: any) => (
-                <Button variant="action" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>
+                <Button variant="danger-soft" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>
                   Eliminar
                 </Button>
               ),

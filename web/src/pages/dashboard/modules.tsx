@@ -103,7 +103,7 @@ export default function ModulesPage() {
               render: (m: any) => (
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                   <Button variant="action" size="sm" onClick={() => startEdit(m as unknown as Module)}>Editar</Button>
-                  <Button variant="action" size="sm" onClick={() => del((m as unknown as Module).id).then(() => reload())} loading={deleting}>Eliminar</Button>
+                  <Button variant="danger-soft" size="sm" onClick={() => del((m as unknown as Module).id).then(() => reload())} loading={deleting}>Eliminar</Button>
                 </div>
               ),
             },

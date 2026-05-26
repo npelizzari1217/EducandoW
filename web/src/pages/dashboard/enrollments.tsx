@@ -115,7 +115,7 @@ export default function EnrollmentsPage() {
               return institutions.find(i => i.id === iid)?.name || iid;
             }},
             { key: 'status', header: 'Estado' },
-            { key: 'actions', header: '', render: (e) => <Button variant="action" size="sm" onClick={() => del(e.id).then(() => reload())} loading={deleting}>Eliminar</Button> }
+            { key: 'actions', header: '', render: (e) => <Button variant="danger-soft" size="sm" onClick={() => del(e.id).then(() => reload())} loading={deleting}>Eliminar</Button> }
           ]}
           data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay inscripciones'}

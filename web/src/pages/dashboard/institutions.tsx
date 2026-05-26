@@ -523,7 +523,7 @@ export default function InstitutionsPage() {
                       <Button variant="action" size="sm" onClick={() => handlePrint(row)} loading={printing}>Imprimir</Button>
                     )}
                     {isRoot && (
-                      <Button variant="action" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
+                      <Button variant="danger-soft" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
                     )}
                   </div>
                 );
