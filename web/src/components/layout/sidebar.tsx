@@ -70,7 +70,6 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
       <div className="sidebar-brand" title="EducandoW">
         <img className="sidebar-logo" src="/EducandoW4_02.jpeg" alt="EducandoW" />
-        <span className="sidebar-title">EducandoW</span>
       </div>
 
       {config.name && (

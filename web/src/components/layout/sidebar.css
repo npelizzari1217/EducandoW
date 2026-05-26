@@ -47,19 +47,11 @@
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-lg);
+  justify-content: center;
+  padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
 }
-.sidebar-logo { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; border-radius: var(--radius-sm); }
-.sidebar-title {
-  font-size: var(--text-lg);
-  font-weight: 700;
-  color: var(--color-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.sidebar-logo { width: 100%; height: auto; max-width: 160px; object-fit: contain; border-radius: var(--radius-sm); }
 
 /* Institution branding — subtle block between brand and user */
 .sidebar-institution {
@@ -292,7 +284,6 @@
   }
 
   /* ── Collapsed state — icon-only ── */
-  .sidebar:not(.sidebar-open) .sidebar-title,
   .sidebar:not(.sidebar-open) .sidebar-user-info,
   .sidebar:not(.sidebar-open) .sidebar-link-text,
   .sidebar:not(.sidebar-open) .sidebar-logout-text,
@@ -311,6 +302,9 @@
   .sidebar:not(.sidebar-open) .sidebar-brand {
     justify-content: center;
     padding: var(--space-md) var(--space-sm);
+  }
+  .sidebar:not(.sidebar-open) .sidebar-logo {
+    max-width: 40px;
   }
   .sidebar:not(.sidebar-open) .sidebar-user {
     justify-content: center;
