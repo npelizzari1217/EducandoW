@@ -42,7 +42,7 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
 
       <Card className="mt-lg">
         <Table
-          columns={[...columns, { key: 'actions', header: '', render: (row) => <Button variant="ghost" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
+          columns={[...columns, { key: 'actions', header: '', render: (row) => <Button variant="action" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
           data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay datos'}
         />

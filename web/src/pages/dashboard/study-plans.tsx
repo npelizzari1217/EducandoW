@@ -549,7 +549,7 @@ export default function StudyPlansPage() {
           <p>Gestión curricular — planes, cursos y materias</p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Button variant="ghost" onClick={handlePrint}>🖨 Imprimir</Button>
+          <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
           <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancelar' : '+ Nuevo plan'}
           </Button>
@@ -605,8 +605,8 @@ export default function StudyPlansPage() {
                   <span className="badge badge-year">{plan.academicYear}</span>
                 </div>
                 <div className="plan-actions no-print" onClick={e => e.stopPropagation()}>
-                  <button className="btn-ghost-sm" onClick={() => startEditPlan(plan)}>Editar</button>
-                  <button className="btn-ghost-sm" onClick={() => handleDeletePlan(plan.id)}>Eliminar</button>
+                  <Button variant="action" size="sm" onClick={() => startEditPlan(plan)}>Editar</Button>
+                  <Button variant="action" size="sm" onClick={() => handleDeletePlan(plan.id)}>Eliminar</Button>
                 </div>
               </div>
 
@@ -685,9 +685,9 @@ export default function StudyPlansPage() {
                               )}
                             </div>
                             <div className="no-print" style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
-                              <button className="btn-ghost-sm" onClick={() => handleEditCourse(pc)}>Editar</button>
-                              <button className="btn-ghost-sm" onClick={() => removeCourseFromPlan(plan.id, pc.courseSectionId)}>Quitar</button>
-                              <button className="btn-ghost-sm" onClick={() => handleDeleteCourse(plan.id, pc.courseSectionId)}>Eliminar</button>
+                              <Button variant="action" size="sm" onClick={() => handleEditCourse(pc)}>Editar</Button>
+                              <Button variant="action" size="sm" onClick={() => removeCourseFromPlan(plan.id, pc.courseSectionId)}>Quitar</Button>
+                              <Button variant="action" size="sm" onClick={() => handleDeleteCourse(plan.id, pc.courseSectionId)}>Eliminar</Button>
                             </div>
                           </div>
 
@@ -763,9 +763,9 @@ export default function StudyPlansPage() {
                                         <>
                                           <span>{ps.subjectName || ps.subjectId}</span>
                                           <div className="subject-actions no-print">
-                                            <button className="btn-ghost-sm" onClick={() => handleEditSubject(ps)}>Editar</button>
-                                            <button className="btn-ghost-sm" onClick={() => removeSubjectFromPlanCourse(pc.id, ps.subjectId)}>Quitar</button>
-                                            <button className="btn-ghost-sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</button>
+                                            <Button variant="action" size="sm" onClick={() => handleEditSubject(ps)}>Editar</Button>
+                                            <Button variant="action" size="sm" onClick={() => removeSubjectFromPlanCourse(pc.id, ps.subjectId)}>Quitar</Button>
+                                            <Button variant="action" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
                                           </div>
                                         </>
                                       )}

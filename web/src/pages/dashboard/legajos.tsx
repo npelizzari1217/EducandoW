@@ -189,7 +189,7 @@ export default function LegajosPage() {
           <p className="page-subtitle">Ficha completa del alumno: datos, matrículas, calificaciones y asistencia</p>
         </div>
         {selectedStudent && (
-          <Button variant="ghost" onClick={handlePrint} title="Imprimir legajo">🖨 Imprimir</Button>
+          <Button variant="action" onClick={handlePrint} title="Imprimir legajo">🖨 Imprimir</Button>
         )}
       </div>
 
@@ -214,7 +214,7 @@ export default function LegajosPage() {
                   {
                     key: 'actions', header: '',
                     render: (s: any) => (
-                      <Button variant="ghost" size="sm" onClick={() => selectStudent(s as StudentSummary)}>
+                      <Button variant="action" size="sm" onClick={() => selectStudent(s as StudentSummary)}>
                         Ver legajo
                       </Button>
                     ),

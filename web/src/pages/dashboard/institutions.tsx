@@ -518,12 +518,12 @@ export default function InstitutionsPage() {
                 const row = i as unknown as InstitutionRow;
                 return (
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(row)}>Editar</Button>
+                    <Button variant="action" size="sm" onClick={() => handleEdit(row)}>Editar</Button>
                     {isRoot && (
-                      <Button variant="ghost" size="sm" onClick={() => handlePrint(row)} loading={printing}>Imprimir</Button>
+                      <Button variant="action" size="sm" onClick={() => handlePrint(row)} loading={printing}>Imprimir</Button>
                     )}
                     {isRoot && (
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
+                      <Button variant="action" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
                     )}
                   </div>
                 );
