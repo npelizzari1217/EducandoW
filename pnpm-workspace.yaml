@@ -3,3 +3,12 @@ packages:
   - "api"
   - "web"
   - "mobile"
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@swc/core': true
+  bcrypt: true
+  esbuild: true
+  prisma: true
+  puppeteer: true
