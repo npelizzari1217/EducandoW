@@ -1,6 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
+import { SidebarGroup } from './SidebarGroup';
 import './sidebar.css';
 
 interface NavItem {
@@ -11,26 +12,67 @@ interface NavItem {
   featureFlag?: 'send_email' | 'send_messages'; // Show only when this flag is true
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Instituciones', path: '/institutions', roles: ['ADMIN'] },
-  { label: 'Estudiantes', path: '/students', requiresLevel: true },
-  { label: 'Docentes', path: '/teachers', requiresLevel: true },
-  { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
-  { label: 'Legajos', path: '/legajos', requiresLevel: true },
-  { label: 'Asignaciones', path: '/subject-assignments', requiresLevel: true },
-  { label: 'Planes de Estudio', path: '/study-plans', requiresLevel: true },
-  { label: 'Calificaciones', path: '/grades', requiresLevel: true },
-  { label: 'Asistencia', path: '/attendance', requiresLevel: true },
-  { label: 'Usuarios', path: '/users', roles: ['ROOT', 'ADMIN', 'MANAGER'] },
-  { label: 'Módulos', path: '/modules', roles: ['ROOT'] },
-  { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
-  { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
+interface NavGroupDef {
+  id: string;
+  label: string;
+  icon: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroupDef[] = [
+  {
+    id: 'secretarios',
+    label: 'Secretarios',
+    icon: '📁',
+    items: [
+      { label: 'Instituciones', path: '/institutions', roles: ['ADMIN'] },
+      { label: 'Estudiantes', path: '/students', requiresLevel: true },
+      { label: 'Docentes', path: '/teachers', requiresLevel: true },
+      { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
+      { label: 'Legajos', path: '/legajos', requiresLevel: true },
+      { label: 'Planes de Estudio', path: '/study-plans', requiresLevel: true },
+      { label: 'Usuarios', path: '/users', roles: ['ROOT', 'ADMIN', 'MANAGER'] },
+    ],
+  },
+  {
+    id: 'academico',
+    label: 'Académico',
+    icon: '📁',
+    items: [
+      { label: 'Calificaciones', path: '/grades', requiresLevel: true },
+      { label: 'Asistencia', path: '/attendance', requiresLevel: true },
+    ],
+  },
+  {
+    id: 'sistema',
+    label: 'Sistema',
+    icon: '📁',
+    items: [
+      { label: 'Módulos', path: '/modules', roles: ['ROOT'] },
+      { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
+      { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
+    ],
+  },
 ];
 
 interface SidebarProps {
   isOpen: boolean;
   onToggle: () => void;
+}
+
+function makeFilterItem(
+  user: { role: string } | null,
+  hasLevels: boolean,
+  sendEmail: boolean,
+  sendMessages: boolean,
+) {
+  return (item: NavItem): boolean => {
+    if (item.roles && user && !item.roles.includes(user.role)) return false;
+    if (item.requiresLevel && !hasLevels) return false;
+    if (item.featureFlag === 'send_email' && !sendEmail) return false;
+    if (item.featureFlag === 'send_messages' && !sendMessages) return false;
+    return true;
+  };
 }
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
@@ -39,19 +81,35 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const navigate = useNavigate();
 
   const hasLevels = config.levels.length > 0;
+  const filterItem = makeFilterItem(user, hasLevels, config.send_email, config.send_messages);
 
-  const filteredItems = navItems.filter(item => {
-    // Role-based filtering (existing logic)
-    if (item.roles && user && !item.roles.includes(user.role)) return false;
-    // Level-based filtering: items that require a level are hidden when no levels configured
-    if (item.requiresLevel && !hasLevels) return false;
-    // Feature flag filtering
-    if (item.featureFlag === 'send_email' && !config.send_email) return false;
-    if (item.featureFlag === 'send_messages' && !config.send_messages) return false;
-    return true;
-  });
+  // Build visible groups (filter items, skip empty groups).
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      visibleItems: group.items.filter(filterItem),
+    }))
+    .filter((group) => group.visibleItems.length > 0);
 
-  const handleLogout = async () => { await logout(); navigate('/login'); };
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const renderLink = (item: NavItem) => (
+    <NavLink
+      key={item.path}
+      to={item.path}
+      className={({ isActive }) =>
+        `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
+      }
+      title={item.label}
+      end={item.path === '/'}
+    >
+      <span className="sidebar-link-icon">{item.label.charAt(0)}</span>
+      <span className="sidebar-link-text">{item.label}</span>
+    </NavLink>
+  );
 
   return (
     <aside
@@ -94,20 +152,20 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       </div>
 
       <nav className="sidebar-nav">
-        {filteredItems.map(item => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'sidebar-link-active' : ''}`
-            }
-            title={item.label}
-            end={item.path === '/'}
+        {/* Dashboard — always visible, outside groups */}
+        {renderLink({ label: 'Dashboard', path: '/' })}
+
+        {visibleGroups.map((group) => (
+          <SidebarGroup
+            key={group.id}
+            id={group.id}
+            label={group.label}
+            icon={group.icon}
           >
-            <span className="sidebar-link-icon">{item.label.charAt(0)}</span>
-            <span className="sidebar-link-text">{item.label}</span>
-          </NavLink>
+            {group.visibleItems.map(renderLink)}
+          </SidebarGroup>
         ))}
+
         {!hasLevels && (
           <div className="sidebar-placeholder">
             <span className="sidebar-placeholder-icon">⚠</span>
