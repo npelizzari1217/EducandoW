@@ -68,11 +68,13 @@ INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
   ('rm-r-teach-m-grades', 'r-teach', 'm-grades', ARRAY['CREATE','READ']),
   ('rm-r-teach-m-attendance', 'r-teach', 'm-attendance', ARRAY['CREATE','READ']);
 
--- TUTOR: grades(READ), attendance(READ)
+-- TUTOR: grades(READ), attendance(READ), students(READ)
 INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
   ('rm-r-tutor-m-grades', 'r-tutor', 'm-grades', ARRAY['READ']),
-  ('rm-r-tutor-m-attendance', 'r-tutor', 'm-attendance', ARRAY['READ']);
+  ('rm-r-tutor-m-attendance', 'r-tutor', 'm-attendance', ARRAY['READ']),
+  ('rm-r-tutor-m-students', 'r-tutor', 'm-students', ARRAY['READ']);
 
--- STUDENT: grades(READ)
+-- STUDENT: grades(READ), students(READ)
 INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
-  ('rm-r-student-m-grades', 'r-student', 'm-grades', ARRAY['READ']);
+  ('rm-r-student-m-grades', 'r-student', 'm-grades', ARRAY['READ']),
+  ('rm-r-student-m-students', 'r-student', 'm-students', ARRAY['READ']);

@@ -20,6 +20,10 @@ model Student {
   birthDate     DateTime?
   guardianName  String?
   guardianPhone String?
+  address       String?
+  phone         String?
+  photoUrl      String?
+  userId        String?
 
   active    Boolean   @default(true)
   deletedAt DateTime?
@@ -28,6 +32,7 @@ model Student {
   notas             Nota[]
   notasTrimestrales NotaTrimestral[]
   attendances       Attendance[]
+  guardians         StudentGuardian[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -35,6 +40,28 @@ model Student {
   @@index([lastName])
   @@index([dni])
   @@map("students")
+}
+
+enum GuardianRelationship {
+  mother
+  father
+  legal_guardian
+  other
+}
+
+model StudentGuardian {
+  id           String               @id @default(uuid())
+  studentId    String
+  userId       String
+  relationship GuardianRelationship
+  createdAt    DateTime             @default(now())
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, userId])
+  @@index([studentId])
+  @@index([userId])
+  @@map("student_guardians")
 }
 
 model Teacher {

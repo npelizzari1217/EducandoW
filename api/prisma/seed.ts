@@ -86,11 +86,11 @@ async function main() {
       actions: [],
     },
     'r-tutor': {
-      moduleIds: ['m-grades', 'm-attendance'],
+      moduleIds: ['m-students', 'm-grades', 'm-attendance'],
       actions: [],
     },
     'r-student': {
-      moduleIds: ['m-grades'],
+      moduleIds: ['m-students', 'm-grades'],
       actions: [],
     },
   };
@@ -102,14 +102,16 @@ async function main() {
     'm-attendance': ['CREATE', 'READ'],
   };
 
-  // TUTOR: grades(READ), attendance(READ)
+  // TUTOR: students(READ), grades(READ), attendance(READ)
   const tutorActions: Record<string, string[]> = {
+    'm-students': ['READ'],
     'm-grades': ['READ'],
     'm-attendance': ['READ'],
   };
 
-  // STUDENT: grades(READ)
+  // STUDENT: students(READ), grades(READ)
   const studentActions: Record<string, string[]> = {
+    'm-students': ['READ'],
     'm-grades': ['READ'],
   };
 

@@ -46,4 +46,43 @@ describe('Student', () => {
     expect(s.birthDate).toEqual(birthDate);
     expect(s.institutionId).toBe('inst-1');
   });
+
+  // ── New fields: address, phone, photoUrl, userId ─────────────
+
+  it('optional fields (address, phone, photoUrl, userId) default to undefined', () => {
+    const s = Student.create(validProps);
+    expect(s.address).toBeUndefined();
+    expect(s.phone).toBeUndefined();
+    expect(s.photoUrl).toBeUndefined();
+    expect(s.userId).toBeUndefined();
+  });
+
+  it('create and reconstruct accept address, phone, photoUrl, userId as optional', () => {
+    const created = Student.create({
+      ...validProps,
+      address: 'Calle 123',
+      phone: '2215551234',
+      photoUrl: 'https://example.com/photo.jpg',
+      userId: 'user-abc',
+    });
+
+    expect(created.address).toBe('Calle 123');
+    expect(created.phone).toBe('2215551234');
+    expect(created.photoUrl).toBe('https://example.com/photo.jpg');
+    expect(created.userId).toBe('user-abc');
+
+    const reconstructed = Student.reconstruct({
+      ...validProps,
+      id: Id.create(),
+      address: 'Av. Siempre Viva 742',
+      phone: '2215559999',
+      photoUrl: 'https://example.com/photo2.jpg',
+      userId: 'user-xyz',
+    });
+
+    expect(reconstructed.address).toBe('Av. Siempre Viva 742');
+    expect(reconstructed.phone).toBe('2215559999');
+    expect(reconstructed.photoUrl).toBe('https://example.com/photo2.jpg');
+    expect(reconstructed.userId).toBe('user-xyz');
+  });
 });

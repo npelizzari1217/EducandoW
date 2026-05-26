@@ -10,10 +10,18 @@ import apiClient from '../../api/client';
 
 interface Institution { id: string; name: string; }
 
+const ALLOWED_FIELDS = ['phone', 'address', 'photoUrl', 'email', 'birthDate', 'guardianPhone'];
+
 export default function StudentsPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const roles: string[] = (user as any)?.roles ?? [];
+  const isRoot = roles.includes('ROOT');
+  const isTutor = roles.includes('TUTOR');
+  const isStudent = roles.includes('STUDENT');
+  const isAdmin = roles.includes('ADMIN') || roles.includes('MANAGER');
+  const isStaff = isRoot || isAdmin || roles.includes('MANAGER') || roles.includes('TEACHER') || roles.includes('PRECEPTOR');
+
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
 
   const [institutionId, setInstitutionId] = useState(userInstitutionId);
@@ -25,7 +33,75 @@ export default function StudentsPage() {
     }).catch(() => {});
   }, []);
 
-  const { data, loading, reload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string }>('/students', institutionId ? { institutionId } : undefined);
+  // ── TUTOR mode: my-children ───────────────────────────────
+
+  const { data: tutorData, loading: tutorLoading, reload: tutorReload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; address?: string; phone?: string; photoUrl?: string }>(
+    '/students/my-children',
+    isTutor ? {} : undefined,
+  );
+
+  // ── STUDENT mode: own profile ────────────────────────────
+
+  const [studentProfile, setStudentProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileForm, setProfileForm] = useState<Record<string, string>>({});
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isStudent || (!isTutor && !isStudent && !isStaff)) return;
+    if (!isStudent) return;
+    setProfileLoading(true);
+    apiClient.get('/students/me')
+      .then(r => {
+        const s = r.data?.data;
+        setStudentProfile(s);
+        if (s) {
+          const form: Record<string, string> = {};
+          for (const field of ALLOWED_FIELDS) {
+            const val = s[field];
+            form[field] = val !== undefined && val !== null ? String(val) : '';
+          }
+          setProfileForm(form);
+        }
+      })
+      .catch(() => setProfileError('Error al cargar perfil'))
+      .finally(() => setProfileLoading(false));
+  }, [isStudent]);
+
+  const handleProfileSave = async () => {
+    if (!studentProfile) return;
+    setProfileSaving(true);
+    setProfileError('');
+
+    // Build patch body: only include fields that changed from original
+    const body: Record<string, string | null> = {};
+    for (const field of ALLOWED_FIELDS) {
+      const original = studentProfile[field];
+      const newVal = profileForm[field];
+      const originalStr = original !== undefined && original !== null ? String(original) : '';
+      if (newVal !== originalStr) {
+        body[field] = newVal || null;
+      }
+    }
+
+    try {
+      const r = await apiClient.patch(`/students/${studentProfile.id}`, body);
+      setStudentProfile(r.data?.data);
+      setProfileError('Guardado correctamente');
+    } catch (e: any) {
+      setProfileError(e?.response?.data?.error?.message ?? 'Error al guardar');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  // ── ADMIN/STAFF mode: list students ───────────────────────
+
+  const { data: adminData, loading: adminLoading, reload: adminReload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string }>(
+    '/students',
+    isStaff && !isTutor && !isStudent ? { institutionId } : undefined,
+  );
   const { deleting, del } = useApiDelete('/students');
   const { creating, createError, create, setCreateError } = useApiCreate('/students');
   const [showForm, setShowForm] = useState(false);
@@ -33,8 +109,93 @@ export default function StudentsPage() {
 
   const handleCreate = async () => {
     const ok = await create({ ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, email: form.email || undefined, institutionId: institutionId });
-    if (ok) { setShowForm(false); reload(); }
+    if (ok) { setShowForm(false); adminReload(); }
   };
+
+  // ── Render: STUDENT mode ──────────────────────────────────
+
+  if (isStudent) {
+    return (
+      <div>
+        <div className="page-header">
+          <div><h1 className="page-title">Mis Datos</h1><p className="page-subtitle">Tu ficha personal</p></div>
+        </div>
+
+        {profileLoading && <p>Cargando...</p>}
+
+        {profileError && (
+          <div style={{ background: profileError.includes('correctamente') ? '#f0fdf4' : '#fef2f2', color: profileError.includes('correctamente') ? 'var(--color-success)' : 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+            {profileError}
+          </div>
+        )}
+
+        {studentProfile && (
+          <Card className="mt-md">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <div>
+                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nombre</label>
+                <input type="text" value={studentProfile.firstName ?? ''} disabled
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Apellido</label>
+                <input type="text" value={studentProfile.lastName ?? ''} disabled
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
+              </div>
+            </div>
+
+            <div style={{ marginTop: 'var(--space-md)' }}>
+              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>DNI</label>
+              <input type="text" value={studentProfile.dni ?? ''} disabled
+                style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
+            </div>
+
+            {ALLOWED_FIELDS.map(field => (
+              <div key={field} style={{ marginTop: 'var(--space-md)' }}>
+                <Input
+                  label={field === 'photoUrl' ? 'URL de foto' : field === 'birthDate' ? 'Fecha de nacimiento' : field === 'guardianPhone' ? 'Teléfono del tutor' : field.charAt(0).toUpperCase() + field.slice(1)}
+                  type={field === 'birthDate' ? 'date' : 'text'}
+                  value={profileForm[field] ?? ''}
+                  onChange={e => setProfileForm({ ...profileForm, [field]: e.target.value })}
+                />
+              </div>
+            ))}
+
+            <div style={{ marginTop: 'var(--space-md)' }}>
+              <Button onClick={handleProfileSave} loading={profileSaving}>Guardar cambios</Button>
+            </div>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // ── Render: TUTOR mode ────────────────────────────────────
+
+  if (isTutor) {
+    return (
+      <div>
+        <div className="page-header">
+          <div><h1 className="page-title">Mis Hijos</h1><p className="page-subtitle">Datos de tus hijos</p></div>
+        </div>
+
+        <Card className="mt-lg">
+          <Table
+            columns={[
+              { key: 'fullName', header: 'Nombre' },
+              { key: 'dni', header: 'DNI' },
+              { key: 'email', header: 'Email', render: (s: any) => s.email ?? '-' },
+              { key: 'phone', header: 'Teléfono', render: (s: any) => s.phone ?? '-' },
+            ]}
+            data={tutorData}
+            emptyMessage={tutorLoading ? 'Cargando...' : 'No hay hijos vinculados a tu cuenta'}
+          />
+        </Card>
+      </div>
+    );
+  }
+
+  // ── Render: ADMIN/STAFF mode (default) ────────────────────
 
   return (
     <div>
@@ -66,7 +227,7 @@ export default function StudentsPage() {
             />
           )}
         </div>
-        <Button variant="ghost" onClick={reload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
+        <Button variant="ghost" onClick={adminReload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
       </div>
 
       {showForm && (
@@ -89,9 +250,9 @@ export default function StudentsPage() {
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <Button variant="action" size="sm" onClick={() => del(s.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
-          data={data}
-          emptyMessage={loading ? 'Cargando...' : 'No hay estudiantes'}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <Button variant="action" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button> }]}
+          data={adminData}
+          emptyMessage={adminLoading ? 'Cargando...' : 'No hay estudiantes'}
         />
       </Card>
     </div>
