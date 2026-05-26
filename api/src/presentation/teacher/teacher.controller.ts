@@ -1,13 +1,15 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
+  Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateTeacherSchema, CreateTeacherDTO } from './dto/create-teacher.dto';
+import { UpdateTeacherSchema, UpdateTeacherDTO } from './dto/update-teacher.dto';
 import {
   CreateTeacherUseCase, ListTeachersUseCase, GetTeacherUseCase, DeleteTeacherUseCase,
+  UpdateTeacherUseCase,
 } from '../../application/teacher/use-cases/teacher.use-cases';
 
 @Controller('teachers')
@@ -18,6 +20,7 @@ export class TeacherController {
     private readonly listUC: ListTeachersUseCase,
     private readonly getUC: GetTeacherUseCase,
     private readonly deleteUC: DeleteTeacherUseCase,
+    private readonly updateUC: UpdateTeacherUseCase,
   ) {}
 
   @Post()
@@ -42,6 +45,16 @@ export class TeacherController {
     const t = await this.getUC.execute(id);
     if (!t) return { data: null };
     return { data: { id: t.id.get(), firstName: t.firstName, lastName: t.lastName, dni: t.dni.get(), email: t.email.get(), phone: t.phone, title: t.title, institutionId: t.institutionId } };
+  }
+
+  @Patch(':id')
+  @Roles('ADMIN', 'MANAGER')
+  async patch(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateTeacherSchema)) body: UpdateTeacherDTO,
+  ) {
+    const updated = await this.updateUC.execute(id, body as Record<string, unknown>);
+    return { data: { id: updated.id.get(), firstName: updated.firstName, lastName: updated.lastName, dni: updated.dni.get(), email: updated.email.get(), phone: updated.phone, title: updated.title } };
   }
 
   @Delete(':id')

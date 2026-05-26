@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, TeacherRepository, Teacher, Dni, Email } from '@educandow/domain';
+import { ok, err, Result, ValidationError, NotFoundError, TeacherRepository, Teacher, Dni, Email } from '@educandow/domain';
 
 export interface CreateTeacherInput {
   firstName: string;
@@ -64,5 +64,39 @@ export class DeleteTeacherUseCase {
 
   async execute(id: string): Promise<void> {
     await this.repo.delete(id);
+  }
+}
+
+@Injectable()
+export class UpdateTeacherUseCase {
+  constructor(private readonly repo: TeacherRepository) {}
+
+  async execute(id: string, body: Record<string, unknown>): Promise<Teacher> {
+    const teacher = await this.repo.findById(id);
+    if (!teacher) throw new NotFoundError('Teacher', id);
+
+    const emailVo = body.email !== undefined && body.email !== ''
+      ? Email.reconstruct(body.email as string)
+      : teacher.email;
+
+    const dniVo = body.dni !== undefined
+      ? Dni.reconstruct(body.dni as string)
+      : teacher.dni;
+
+    const updated = Teacher.reconstruct({
+      id: teacher.id,
+      firstName: body.firstName !== undefined ? (body.firstName as string) : teacher.firstName,
+      lastName: body.lastName !== undefined ? (body.lastName as string) : teacher.lastName,
+      dni: dniVo,
+      email: emailVo,
+      phone: body.phone !== undefined ? (body.phone as string | undefined) : teacher.phone,
+      title: body.title !== undefined ? (body.title as string | undefined) : teacher.title,
+      institutionId: teacher.institutionId,
+      active: teacher.active,
+      deletedAt: teacher.deletedAt,
+    });
+
+    await this.repo.save(updated);
+    return updated;
   }
 }

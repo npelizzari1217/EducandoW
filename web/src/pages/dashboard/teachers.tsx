@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -21,7 +21,9 @@ export default function TeachersPage() {
   const { data, loading, reload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; email: string; fullName: string }>('/teachers', institutionId ? { institutionId } : undefined);
   const { deleting, del } = useApiDelete('/teachers');
   const { creating, createError, create } = useApiCreate('/teachers');
+  const { updating, updateError, update } = useApiUpdate('/teachers');
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', phone: '', title: '', institutionId });
 
   useEffect(() => {
@@ -31,6 +33,32 @@ export default function TeachersPage() {
   const handleCreate = async () => {
     const ok = await create({ ...form, phone: form.phone || undefined, title: form.title || undefined, institutionId });
     if (ok) { setShowForm(false); reload(); }
+  };
+
+  const handleEdit = (teacher: { id: string; firstName: string; lastName: string; dni: string; email: string; fullName: string; phone?: string; title?: string }) => {
+    setEditingId(teacher.id);
+    setForm({
+      firstName: teacher.firstName,
+      lastName: teacher.lastName,
+      dni: teacher.dni,
+      email: teacher.email,
+      phone: (teacher as any).phone ?? '',
+      title: (teacher as any).title ?? '',
+      institutionId,
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingId) return;
+    const ok = await update(editingId, {
+      firstName: form.firstName,
+      lastName: form.lastName,
+      dni: form.dni,
+      email: form.email,
+      phone: form.phone || undefined,
+      title: form.title || undefined,
+    });
+    if (ok) { setEditingId(null); reload(); }
   };
 
   return (
@@ -73,9 +101,29 @@ export default function TeachersPage() {
         </Card>
       )}
 
+      {editingId && (
+        <Card title="Editar docente" className="mt-md">
+          {updateError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{updateError}</div>}
+          <div className="flex flex-col gap-md">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+              <Input label="Nombre" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} required />
+              <Input label="Apellido" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} required />
+            </div>
+            <Input label="DNI" value={form.dni} onChange={e => setForm({...form, dni: e.target.value})} required />
+            <Input label="Email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
+            <Input label="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
+            <Input label="Título" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={handleUpdate} loading={updating}>Guardar cambios</Button>
+              <Button variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'email', header: 'Email' }, { key: 'actions', header: '', render: (t) => <Button variant="danger-soft" size="sm" onClick={() => del(t.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'email', header: 'Email' }, { key: 'actions', header: '', render: (t) => <div style={{ display: 'flex', gap: 'var(--space-xs)' }}><Button variant="action" size="sm" onClick={() => handleEdit(t)}>Editar</Button><Button variant="danger-soft" size="sm" onClick={() => del(t.id).then(() => reload())} loading={deleting}>Eliminar</Button></div> }]}
           data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay docentes'}
         />
