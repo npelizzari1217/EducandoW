@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest';
 
 // Mock Prisma client and encryption service
 const mockPrismaInstitution = {
@@ -38,7 +38,7 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
     // Dynamic import to ensure fresh module with correct env
     const mod = await import('../repositories/prisma-institution.repository');
     const RepoClass = mod.PrismaInstitutionRepository;
-    repository = new RepoClass(mockPrismaService);
+    repository = new RepoClass(mockPrismaService as any);
   });
 
   afterAll(() => {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
 
 // Mock @prisma/client and @prisma/tenant-client BEFORE importing PrismaService
 vi.mock('@prisma/client', () => ({
@@ -29,8 +29,8 @@ import { PrismaService } from '../prisma.service';
 import { PrismaClient as MasterPrismaClient } from '@prisma/client';
 import { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 
-const MockMasterClient = MasterPrismaClient as unknown as vi.Mock;
-const MockTenantClient = TenantPrismaClient as unknown as vi.Mock;
+const MockMasterClient = MasterPrismaClient as unknown as Mock;
+const MockTenantClient = TenantPrismaClient as unknown as Mock;
 
 describe('PrismaService (factory)', () => {
   let service: PrismaService;
