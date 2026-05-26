@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards, HttpException } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -11,15 +11,29 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 export class PedagogyController {
 
   constructor(
-    private createSubjUC: UC.CreateSubjectUC, private listSubjUC: UC.ListSubjectsUC, private deleteSubjUC: UC.DeleteSubjectUC,
-    private createSecUC: UC.CreateCourseSectionUC, private listSecUC: UC.ListCourseSectionsUC, private deleteSecUC: UC.DeleteCourseSectionUC,
+    private createSubjUC: UC.CreateSubjectUC, private listSubjUC: UC.ListSubjectsUC, private deleteSubjUC: UC.DeleteSubjectUC, private updateSubjUC: UC.UpdateSubjectUC,
+    private createSecUC: UC.CreateCourseSectionUC, private listSecUC: UC.ListCourseSectionsUC, private deleteSecUC: UC.DeleteCourseSectionUC, private updateSecUC: UC.UpdateCourseSectionUC,
     private createAssignUC: UC.CreateSubjectAssignmentUC, private listAssignUC: UC.ListSubjectAssignmentsUC, private deleteAssignUC: UC.DeleteSubjectAssignmentUC,
     private createEvaluacionUC: UC.CreateEvaluacionUC, private listEvaluacionesUC: UC.ListEvaluacionesUC, private deleteEvaluacionUC: UC.DeleteEvaluacionUC,
     private createNotaUC: UC.CreateNotaUC, private listNotasUC: UC.ListNotasUC, private deleteNotaUC: UC.DeleteNotaUC,
     private createPeriodoUC: UC.CreatePeriodoUC, private listPeriodosUC: UC.ListPeriodosUC, private deletePeriodoUC: UC.DeletePeriodoUC,
     private createNotaTrimestralUC: UC.CreateNotaTrimestralUC, private listNotasTrimestralesUC: UC.ListNotasTrimestralesUC, private deleteNotaTrimestralUC: UC.DeleteNotaTrimestralUC,
     private createAttUC: UC.CreateAttendanceUC, private listAttUC: UC.ListAttendanceUC, private deleteAttUC: UC.DeleteAttendanceUC,
+    private listCyclesUC: UC.ListAcademicCyclesUC,
+    private createPlanUC: UC.CreateStudyPlanUC, private listPlansUC: UC.ListStudyPlansUC,
+    private getPlanUC: UC.GetStudyPlanUC, private updatePlanUC: UC.UpdateStudyPlanUC, private deletePlanUC: UC.DeleteStudyPlanUC,
+    private addCourseUC: UC.AddCourseToPlanUC, private removeCourseUC: UC.RemoveCourseFromPlanUC,
+    private addSubjectUC: UC.AddSubjectToPlanCourseUC, private removeSubjectUC: UC.RemoveSubjectFromPlanCourseUC,
+    private getPlanCourseUC: UC.GetPlanCourseDetailUC, private listPlanCoursesUC: UC.ListPlanCoursesUC,
   ) {}
+
+  // ── Academic Cycles ────────────────────────────────────
+  @Get('academic-cycles') @Roles('ADMIN','MANAGER','TEACHER')
+  async getCycles(@Query('level') l?: string) {
+    const level = l ? parseInt(l, 10) : undefined;
+    const cycles = await this.listCyclesUC.execute(level);
+    return { data: cycles.map((c) => ({ id: c.id.get(), name: c.name, level: c.level, modality: c.modality, startDate: c.startDate.toISOString(), endDate: c.endDate.toISOString(), active: c.active })) };
+  }
 
   // ── Subjects ───────────────────────────────────────
   @Post('subjects') @Roles('ADMIN','MANAGER')
@@ -31,15 +45,21 @@ export class PedagogyController {
   @Delete('subjects/:id') @Roles('ADMIN') @HttpCode(HttpStatus.NO_CONTENT)
   async deleteSubject(@Param('id') id: string) { await this.deleteSubjUC.execute(id); }
 
+  @Patch('subjects/:id') @Roles('ADMIN','MANAGER')
+  async patchSubject(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateSubjectSchema)) b: DTO.UpdateSubjectDTO) { const r = await this.updateSubjUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s: any = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, level: s.level.toCode() } }; }
+
   // ── Course Sections ────────────────────────────────
   @Post('course-sections') @Roles('ADMIN','MANAGER')
-  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level.toCode(), academicYear: s.academicYear } }; }
+  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const s = r.unwrap() as any; return { data: { id: s.id.get(), name: s.name, level: s.level.toCode(), academicYear: s.academicYear } }; }
 
   @Get('course-sections') @Roles('ADMIN','MANAGER','TEACHER')
   async getSections(@Query('institutionId') iid: string, @Query('level') l: string, @Query('academicYear') ay: string) { const sections = await this.listSecUC.execute(iid, l, ay); return { data: sections.map((s) => ({ id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear })) }; }
 
   @Delete('course-sections/:id') @Roles('ADMIN') @HttpCode(HttpStatus.NO_CONTENT)
   async deleteSection(@Param('id') id: string) { await this.deleteSecUC.execute(id); }
+
+  @Patch('course-sections/:id') @Roles('ADMIN','MANAGER')
+  async patchSection(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateCourseSectionSchema)) b: DTO.UpdateCourseSectionDTO) { const r = await this.updateSecUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s: any = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear } }; }
 
   // ── Subject Assignments ────────────────────────────
   @Post('subject-assignments') @Roles('ADMIN','MANAGER')
@@ -100,4 +120,106 @@ export class PedagogyController {
 
   @Delete('attendance/:id') @Roles('ADMIN','MANAGER') @HttpCode(HttpStatus.NO_CONTENT)
   async deleteAttendance(@Param('id') id: string) { await this.deleteAttUC.execute(id); }
+
+  // ── Study Plans ─────────────────────────────────────
+  @Post('study-plans') @Roles('ADMIN','MANAGER')
+  async createPlan(@Body(new ZodValidationPipe(DTO.CreateStudyPlanSchema)) b: DTO.CreateStudyPlanDTO) { const r = await this.createPlanUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const p = r.unwrap() as any; return { data: { id: p.id.get(), name: p.name, level: p.level, academicYear: p.academicYear } }; }
+
+  @Get('study-plans') @Roles('ADMIN','MANAGER','TEACHER')
+  async listPlans(@Query('level') l?: string) {
+    const plans = await this.listPlansUC.execute(l ? parseInt(l, 10) : undefined) as any[];
+    return {
+      data: plans.map((p: any) => ({
+        id: p.id.get(),
+        name: p.name,
+        level: p.level,
+        modality: p.modality,
+        academicYear: p.academicYear,
+        active: p.active,
+      })),
+    };
+  }
+
+  @Get('study-plans/:id') @Roles('ADMIN','MANAGER','TEACHER')
+  async getPlan(@Param('id') id: string) {
+    const p: any = await this.getPlanUC.execute(id);
+    if (!p) return { data: null };
+    const planCourses = await this.listPlanCoursesUC.execute(id);
+    return {
+      data: {
+        id: p.id.get(),
+        name: p.name,
+        level: p.level,
+        modality: p.modality,
+        academicYear: p.academicYear,
+        active: p.active,
+        courses: planCourses.map((c) => ({
+          id: c.id,
+          courseSectionId: c.courseSectionId,
+          courseSectionName: c.courseSectionName,
+          studyPlanId: c.studyPlanId,
+          subjectCount: c.subjects?.length ?? 0,
+          subjects: c.subjects?.map((s: any) => ({
+            id: s.id,
+            subjectId: s.subjectId,
+            subjectName: s.subjectName,
+            hoursPerWeek: s.hoursPerWeek,
+          })) ?? [],
+        })),
+      },
+    };
+  }
+
+  @Patch('study-plans/:id') @Roles('ADMIN','MANAGER')
+  async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p: any = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, academicYear: p.academicYear, active: p.active } }; }
+
+  @Delete('study-plans/:id') @Roles('ADMIN','MANAGER') @HttpCode(HttpStatus.NO_CONTENT)
+  async deletePlan(@Param('id') id: string) { await this.deletePlanUC.execute(id); }
+
+  // ── Plan Courses ───────────────────────────────────
+  @Get('study-plans/:id/courses') @Roles('ADMIN','MANAGER','TEACHER')
+  async listPlanCourses(@Param('id') id: string) {
+    const courses = await this.listPlanCoursesUC.execute(id);
+    return { data: courses.map((c) => ({ id: c.id, courseSectionId: c.courseSectionId, courseSectionName: c.courseSectionName, courseGrade: c.courseGrade, courseDivision: c.courseDivision, studyPlanId: c.studyPlanId, subjectCount: c.subjects?.length ?? 0 })) };
+  }
+
+  @Post('study-plans/:id/courses') @Roles('ADMIN','MANAGER')
+  async addCourseToPlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.AddCourseToPlanSchema)) b: DTO.AddCourseToPlanDTO) {
+    const r = await this.addCourseUC.execute(id, b.courseSectionId);
+    if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST);
+    return { data: { ok: true } };
+  }
+
+  @Delete('study-plans/:id/courses/:courseId') @Roles('ADMIN','MANAGER') @HttpCode(HttpStatus.NO_CONTENT)
+  async removeCourseFromPlan(@Param('id') id: string, @Param('courseId') courseId: string) { await this.removeCourseUC.execute(id, courseId); }
+
+  // ── Plan Course Subjects ───────────────────────────
+  @Get('study-plan-courses/:id') @Roles('ADMIN','MANAGER','TEACHER')
+  async getPlanCourseDetail(@Param('id') id: string) {
+    const detail = await this.getPlanCourseUC.execute(id);
+    if (!detail) return { data: null };
+    return { data: { id: detail.id, studyPlanId: detail.studyPlanId, courseSectionId: detail.courseSectionId } };
+  }
+
+  @Get('study-plan-courses/:id/subjects') @Roles('ADMIN','MANAGER','TEACHER')
+  async listPlanCourseSubjects(@Param('id') id: string) {
+    const detail = await this.getPlanCourseUC.execute(id);
+    if (!detail) return { data: [] };
+    return { data: (detail.subjects || []).map((s: any) => ({
+      id: s.id,
+      subjectId: s.subjectId,
+      subjectName: s.subjectName || null,
+      hoursPerWeek: s.hoursPerWeek ?? null,
+    })) };
+  }
+
+  @Post('study-plan-courses/:id/subjects') @Roles('ADMIN','MANAGER')
+  async addSubjectToPlanCourse(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.AddSubjectToPlanCourseSchema)) b: DTO.AddSubjectToPlanCourseDTO) {
+    const r = await this.addSubjectUC.execute(id, b.subjectId, b.hoursPerWeek);
+    if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST);
+    return { data: { ok: true } };
+  }
+
+  @Delete('study-plan-courses/:id/subjects/:subjectId') @Roles('ADMIN','MANAGER') @HttpCode(HttpStatus.NO_CONTENT)
+  async removeSubjectFromPlanCourse(@Param('id') id: string, @Param('subjectId') subjectId: string) { await this.removeSubjectUC.execute(id, subjectId); }
 }
