@@ -7,7 +7,6 @@
     "web"
   ],
   "scripts": {
-    "preinstall": "node scripts/fix-binary-perms.js",
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
@@ -15,7 +14,9 @@
     "lint:typecheck": "turbo run lint",
     "clean": "turbo run clean",
     "dev": "turbo run dev",
-    "format": "prettier --write \"**/*.{ts,tsx,json}\""
+    "format": "prettier --write \"**/*.{ts,tsx,json}\"",
+    "fix-perms": "node scripts/fix-binary-perms.js",
+    "postinstall": "node scripts/fix-binary-perms.js && pnpm rebuild @swc/core bcrypt @prisma/engines || true"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

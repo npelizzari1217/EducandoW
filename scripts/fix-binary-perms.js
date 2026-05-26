@@ -1,37 +1,43 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
-const root = path.resolve(__dirname, '..');
+if (os.platform() === 'win32') {
+  process.exit(0);
+}
 
-function walk(dir, callback) {
+const nodeModulesPath = path.join(__dirname, '..', 'node_modules');
+
+function fixPermissions(dir) {
   try {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        walk(full, callback);
-      } else if (entry.isFile()) {
-        callback(full);
+    if (!fs.existsSync(dir)) return;
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      let stat;
+      try {
+        stat = fs.statSync(filePath);
+      } catch {
+        continue;
+      }
+      if (stat.isDirectory()) {
+        fixPermissions(filePath);
+      } else if (
+        file.match(/^(esbuild|node-gyp|prebuild-install)$/i) ||
+        filePath.includes('/bin/') ||
+        filePath.includes('/.bin/')
+      ) {
+        try {
+          fs.chmodSync(filePath, 0o755);
+          console.log('[fix-perms] chmod 755', filePath);
+        } catch {
+          // ignore individual file errors
+        }
       }
     }
-  } catch (e) {
-    // Permission errors on some dirs are ok
+  } catch {
+    // ignore directory errors
   }
 }
 
-let fixed = 0;
-walk(path.join(root, 'node_modules'), (full) => {
-  if (path.basename(full) === 'esbuild' && !full.includes('node_modules/.bin')) {
-    try {
-      fs.chmodSync(full, 0o755);
-      console.log(`[fix-binary-perms] chmod 755 ${full}`);
-      fixed++;
-    } catch (e) {
-      console.error(`[fix-binary-perms] failed on ${full}: ${e.message}`);
-    }
-  }
-});
-
-if (fixed === 0) {
-  console.log('[fix-binary-perms] no esbuild binaries found to fix');
-}
+fixPermissions(nodeModulesPath);
