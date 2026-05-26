@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, StudentRepository, Student, Dni } from '@educandow/domain';
+import { ok, err, Result, ValidationError, StudentRepository, Student, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email } from '@educandow/domain';
 
 export interface CreateStudentInput {
   firstName: string;
@@ -11,6 +11,14 @@ export interface CreateStudentInput {
   guardianPhone?: string;
   institutionId: string;
 }
+
+// Fields that TUTOR and STUDENT roles are allowed to edit
+const ALLOWED_TUTOR_FIELDS = ['phone', 'address', 'photoUrl', 'email', 'birthDate', 'guardianPhone'];
+
+// Roles that can edit ALL fields (full access, no field-level restriction)
+const FULL_ACCESS_ROLES = ['ADMIN', 'MANAGER', 'TEACHER', 'PRECEPTOR'];
+
+const RESTRICTED_ROLES = ['STUDENT', 'TUTOR'];
 
 @Injectable()
 export class CreateStudentUseCase {
@@ -62,5 +70,207 @@ export class DeleteStudentUseCase {
 
   async execute(id: string): Promise<void> {
     await this.repo.delete(id);
+  }
+}
+
+// ── Caller info passed from the controller ──────────────────
+
+export interface CallerInfo {
+  userId: string;
+  roles: string[];
+}
+
+// ── PatchStudentUseCase (field-level permissions) ───────────
+
+export interface PatchStudentInput {
+  firstName?: string;
+  lastName?: string;
+  dni?: string;
+  email?: string;
+  birthDate?: string;
+  guardianName?: string;
+  guardianPhone?: string;
+  address?: string;
+  phone?: string;
+  photoUrl?: string;
+}
+
+@Injectable()
+export class PatchStudentUseCase {
+  constructor(
+    private readonly studentRepo: StudentRepository,
+    private readonly guardianRepo: StudentGuardianRepository,
+  ) {}
+
+  async execute(
+    studentId: string,
+    body: Record<string, unknown>,
+    caller: CallerInfo,
+  ): Promise<Student> {
+    // 1. Validate student exists
+    const student = await this.studentRepo.findById(studentId);
+    if (!student) throw new NotFoundError('Student', studentId);
+
+    // 2. Determine if caller has restricted roles
+    const isRestricted = caller.roles.some((r) => RESTRICTED_ROLES.includes(r));
+    const isFullAccess = caller.roles.some((r) => FULL_ACCESS_ROLES.includes(r));
+
+    // 3. Check ownership
+    if (isRestricted) {
+      await this.checkOwnership(student, caller);
+    }
+
+    // 4. Field-level validation for restricted roles
+    if (isRestricted && !isFullAccess) {
+      this.validateAllowedFields(body, caller.roles);
+    }
+
+    // 5. Apply changes and save
+    const updated = this.applyChanges(student, body);
+    await this.studentRepo.save(updated);
+    return updated;
+  }
+
+  private async checkOwnership(student: Student, caller: CallerInfo): Promise<void> {
+    // STUDENT: must match userId
+    if (caller.roles.includes('STUDENT')) {
+      if (student.userId !== caller.userId) {
+        throw new ForbiddenError('You can only edit your own profile');
+      }
+      return;
+    }
+
+    // TUTOR: must be linked via StudentGuardian
+    if (caller.roles.includes('TUTOR')) {
+      const guardians = await this.guardianRepo.findByGuardianUserId(caller.userId);
+      const isLinked = guardians.some((g) => g.studentId === student.id.get());
+      if (!isLinked) {
+        throw new ForbiddenError('You can only edit students linked to you as guardian');
+      }
+    }
+  }
+
+  private validateAllowedFields(body: Record<string, unknown>, _roles: string[]): void {
+    const fieldKeys = Object.keys(body);
+    for (const key of fieldKeys) {
+      if (!ALLOWED_TUTOR_FIELDS.includes(key)) {
+        throw new ForbiddenError(
+          `Field "${key}" is not editable by your role. Allowed fields: ${ALLOWED_TUTOR_FIELDS.join(', ')}`,
+        );
+      }
+    }
+  }
+
+  private applyChanges(student: Student, body: Record<string, unknown>): Student {
+    const emailVo = body.email !== undefined
+      ? (body.email as string ? Email.reconstruct(body.email as string) : undefined)
+      : student.email;
+
+    const dniVo = body.dni !== undefined
+      ? Dni.reconstruct(body.dni as string)
+      : student.dni;
+
+    return Student.reconstruct({
+      id: student.id,
+      firstName: body.firstName !== undefined ? (body.firstName as string) : student.firstName,
+      lastName: body.lastName !== undefined ? (body.lastName as string) : student.lastName,
+      dni: dniVo,
+      email: emailVo,
+      birthDate: body.birthDate !== undefined ? new Date(body.birthDate as string) : student.birthDate,
+      guardianName: body.guardianName !== undefined ? (body.guardianName as string) : student.guardianName,
+      guardianPhone: body.guardianPhone !== undefined ? (body.guardianPhone as string) : student.guardianPhone,
+      address: body.address !== undefined ? (body.address as string) : student.address,
+      phone: body.phone !== undefined ? (body.phone as string) : student.phone,
+      photoUrl: body.photoUrl !== undefined ? (body.photoUrl as string) : student.photoUrl,
+      userId: body.userId !== undefined ? (body.userId as string) : student.userId,
+      institutionId: student.institutionId,
+      active: student.active,
+      deletedAt: student.deletedAt,
+    });
+  }
+}
+
+// ── GetMyStudentDataUseCase ─────────────────────────────────
+
+@Injectable()
+export class GetMyStudentDataUseCase {
+  constructor(private readonly studentRepo: StudentRepository) {}
+
+  async execute(userId: string): Promise<Student> {
+    const student = await this.studentRepo.findByUserId(userId);
+    if (!student) throw new NotFoundError('Student', userId);
+    return student;
+  }
+}
+
+// ── GetMyChildrenUseCase ────────────────────────────────────
+
+@Injectable()
+export class GetMyChildrenUseCase {
+  constructor(
+    private readonly guardianRepo: StudentGuardianRepository,
+    private readonly studentRepo: StudentRepository,
+  ) {}
+
+  async execute(userId: string): Promise<Student[]> {
+    const guardians = await this.guardianRepo.findByGuardianUserId(userId);
+    const students: Student[] = [];
+
+    for (const guardian of guardians) {
+      const student = await this.studentRepo.findById(guardian.studentId);
+      if (student) students.push(student);
+    }
+
+    return students;
+  }
+}
+
+// ── AssignGuardianUseCase ───────────────────────────────────
+
+export interface AssignGuardianInput {
+  userId: string;
+  relationship: string;
+}
+
+@Injectable()
+export class AssignGuardianUseCase {
+  constructor(
+    private readonly studentRepo: StudentRepository,
+    private readonly guardianRepo: StudentGuardianRepository,
+  ) {}
+
+  async execute(studentId: string, input: AssignGuardianInput): Promise<void> {
+    // Validate student exists
+    const student = await this.studentRepo.findById(studentId);
+    if (!student) throw new NotFoundError('Student', studentId);
+
+    // Check for duplicate
+    const existing = await this.guardianRepo.findByComposite(studentId, input.userId);
+    if (existing) {
+      throw new ValidationError('This guardian is already assigned to this student');
+    }
+
+    // Create and save
+    const guardian = StudentGuardian.create({
+      studentId,
+      userId: input.userId,
+      relationship: input.relationship as any,
+    });
+
+    await this.guardianRepo.save(guardian);
+  }
+}
+
+// ── RemoveGuardianUseCase ───────────────────────────────────
+
+@Injectable()
+export class RemoveGuardianUseCase {
+  constructor(private readonly guardianRepo: StudentGuardianRepository) {}
+
+  async execute(guardianId: string): Promise<void> {
+    const guardian = await this.guardianRepo.findById(guardianId);
+    if (!guardian) throw new NotFoundError('StudentGuardian', guardianId);
+
+    await this.guardianRepo.delete(guardianId);
   }
 }

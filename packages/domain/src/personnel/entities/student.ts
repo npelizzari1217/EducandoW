@@ -11,6 +11,10 @@ export interface StudentProps {
   birthDate?: Date;
   guardianName?: string;
   guardianPhone?: string;
+  address?: string;
+  phone?: string;
+  photoUrl?: string;
+  userId?: string;
   institutionId: string;
   active?: boolean;
   deletedAt?: Date;
@@ -57,6 +61,22 @@ export class Student {
 
   get guardianPhone(): string | undefined {
     return this.props.guardianPhone;
+  }
+
+  get address(): string | undefined {
+    return this.props.address;
+  }
+
+  get phone(): string | undefined {
+    return this.props.phone;
+  }
+
+  get photoUrl(): string | undefined {
+    return this.props.photoUrl;
+  }
+
+  get userId(): string | undefined {
+    return this.props.userId;
   }
 
   get institutionId(): string {

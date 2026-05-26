@@ -7,4 +7,6 @@ export interface StudentRepository {
   search(institutionId: string, query: string): Promise<Student[]>;
   save(student: Student): Promise<void>;
   delete(id: string): Promise<void>;
+  findByUserId(userId: string): Promise<Student | null>;
+  findByGuardianUserId(guardianUserId: string): Promise<Student[]>;
 }

@@ -23,10 +23,12 @@ export type { SmtpEncryption, SmtpConfigProps } from './institution/value-object
 export type { InstitutionRepository } from './institution/repositories/institution-repository';
 
 // Personnel
-export { Student, Teacher } from './personnel/entities';
+export { Student, Teacher, StudentGuardian } from './personnel/entities';
+export type { StudentGuardianProps, GuardianRelationship } from './personnel/entities';
 export { Dni } from './personnel/value-objects';
 export type { StudentRepository } from './personnel/repositories/student-repository';
 export type { TeacherRepository } from './personnel/repositories/teacher-repository';
+export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';
 
 // Enrollment
 export { Enrollment } from './enrollment/entities';

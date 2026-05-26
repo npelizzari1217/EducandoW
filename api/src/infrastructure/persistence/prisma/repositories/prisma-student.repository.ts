@@ -28,6 +28,23 @@ export class PrismaStudentRepository implements StudentRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findByUserId(userId: string): Promise<Student | null> {
+    const record = await this.client.student.findFirst({ where: { userId } });
+    return record ? this.toDomain(record) : null;
+  }
+
+  async findByGuardianUserId(guardianUserId: string): Promise<Student[]> {
+    const records = await this.client.student.findMany({
+      where: {
+        guardians: {
+          some: { userId: guardianUserId },
+        },
+      },
+      orderBy: { lastName: 'asc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
   async search(_institutionId: string, query: string): Promise<Student[]> {
     const records = await this.client.student.findMany({
       where: {
@@ -55,6 +72,10 @@ export class PrismaStudentRepository implements StudentRepository {
         birthDate: student.birthDate,
         guardianName: student.guardianName,
         guardianPhone: student.guardianPhone,
+        address: student.address,
+        phone: student.phone,
+        photoUrl: student.photoUrl,
+        userId: student.userId,
       },
       update: {
         firstName: student.firstName,
@@ -64,6 +85,10 @@ export class PrismaStudentRepository implements StudentRepository {
         birthDate: student.birthDate,
         guardianName: student.guardianName,
         guardianPhone: student.guardianPhone,
+        address: student.address,
+        phone: student.phone,
+        photoUrl: student.photoUrl,
+        userId: student.userId,
       },
     });
   }
@@ -82,6 +107,10 @@ export class PrismaStudentRepository implements StudentRepository {
       birthDate: record.birthDate ? new Date(record.birthDate as string) : undefined,
       guardianName: record.guardianName as string | undefined,
       guardianPhone: record.guardianPhone as string | undefined,
+      address: record.address as string | undefined,
+      phone: record.phone as string | undefined,
+      photoUrl: record.photoUrl as string | undefined,
+      userId: record.userId as string | undefined,
       institutionId: TenantContext.getInstitutionId() ?? '',
       active: (record.active as boolean) ?? true,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
