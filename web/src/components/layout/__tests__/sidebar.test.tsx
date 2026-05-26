@@ -85,8 +85,8 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Inscripciones')).not.toBeInTheDocument();
     expect(screen.queryByText('Legajos')).not.toBeInTheDocument();
     expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
-    expect(screen.queryByText('Calificaciones')).not.toBeInTheDocument();
-    expect(screen.queryByText('Asistencia')).not.toBeInTheDocument();
+    expect(screen.queryByText('Calificaciones parciales')).not.toBeInTheDocument();
+    expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
   });
 
   it('shows academic nav items when institution has at least one level', () => {
@@ -98,8 +98,8 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Inscripciones')).toBeInTheDocument();
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
-    expect(screen.getByText('Calificaciones')).toBeInTheDocument();
-    expect(screen.getByText('Asistencia')).toBeInTheDocument();
+    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
   });
 
   it('shows placeholder when levels array is empty', () => {
@@ -156,8 +156,8 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
-    expect(screen.getByText('Calificaciones')).toBeInTheDocument();
-    expect(screen.getByText('Asistencia')).toBeInTheDocument();
+    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
     expect(screen.getByText('Módulos')).toBeInTheDocument();
     expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();

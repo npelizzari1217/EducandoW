@@ -25,7 +25,6 @@ const navGroups: NavGroupDef[] = [
     label: 'Secretarios',
     icon: '📁',
     items: [
-      { label: 'Instituciones', path: '/institutions', roles: ['ADMIN'] },
       { label: 'Estudiantes', path: '/students', requiresLevel: true },
       { label: 'Docentes', path: '/teachers', requiresLevel: true },
       { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
@@ -39,8 +38,9 @@ const navGroups: NavGroupDef[] = [
     label: 'Académico',
     icon: '📁',
     items: [
-      { label: 'Calificaciones', path: '/grades', requiresLevel: true },
-      { label: 'Asistencia', path: '/attendance', requiresLevel: true },
+      { label: 'Alumnos por curso', path: '/students-by-course', requiresLevel: true },
+      { label: 'Calificaciones parciales', path: '/grades', requiresLevel: true },
+      { label: 'Asistencia del día', path: '/attendance', requiresLevel: true },
     ],
   },
   {
@@ -48,6 +48,7 @@ const navGroups: NavGroupDef[] = [
     label: 'Sistema',
     icon: '📁',
     items: [
+      { label: 'Instituciones', path: '/institutions', roles: ['ADMIN'] },
       { label: 'Módulos', path: '/modules', roles: ['ROOT'] },
       { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
       { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
