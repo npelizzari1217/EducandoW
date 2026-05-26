@@ -146,7 +146,7 @@ describe('Sidebar filtering', () => {
 
   it('shows all items when all levels and flags are active', () => {
     // Use ROOT role so Módulos (ROOT-only) is visible.
-    // Note: Instituciones is ADMIN-only so it is hidden for ROOT.
+    // Use ROOT role so Módulos (ROOT-only) and Instituciones are visible.
     (mockUser as any).role = 'ROOT';
     mockLevels = [1, 2, 3, 4];
     mockSendEmail = true;
@@ -158,6 +158,7 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+    expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
     expect(screen.getByText('Módulos')).toBeInTheDocument();
     expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();

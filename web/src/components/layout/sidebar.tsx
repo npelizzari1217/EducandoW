@@ -48,7 +48,7 @@ const navGroups: NavGroupDef[] = [
     label: 'Sistema',
     icon: '📁',
     items: [
-      { label: 'Instituciones', path: '/institutions', roles: ['ADMIN'] },
+      { label: 'Instituciones', path: '/institutions', roles: ['ROOT', 'ADMIN'] },
       { label: 'Módulos', path: '/modules', roles: ['ROOT'] },
       { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
       { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
