@@ -18,8 +18,6 @@ const navItems: NavItem[] = [
   { label: 'Docentes', path: '/teachers', requiresLevel: true },
   { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
   { label: 'Legajos', path: '/legajos', requiresLevel: true },
-  { label: 'Materias', path: '/subjects', requiresLevel: true },
-  { label: 'Cursos', path: '/course-sections', requiresLevel: true },
   { label: 'Asignaciones', path: '/subject-assignments', requiresLevel: true },
   { label: 'Planes de Estudio', path: '/study-plans', requiresLevel: true },
   { label: 'Calificaciones', path: '/grades', requiresLevel: true },

@@ -1,14 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import apiClient from '../../api/client';
+
+interface Institution { id: string; name: string; }
 
 export default function StudentsPage() {
   const { user } = useAuth();
-  const [institutionId, setInstitutionId] = useState(user?.institutionId ?? '');
+  const { config } = useInstitution();
+  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
+
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+
+  useEffect(() => {
+    apiClient.get('/institutions').then(r => {
+      setInstitutions(r.data?.data ?? []);
+    }).catch(() => {});
+  }, []);
+
   const { data, loading, reload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string }>('/students', institutionId ? { institutionId } : undefined);
   const { deleting, del } = useApiDelete('/students');
   const { creating, createError, create, setCreateError } = useApiCreate('/students');
@@ -28,7 +44,28 @@ export default function StudentsPage() {
       </div>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
-        <Input label="Filtrar por institución" value={institutionId} onChange={e => setInstitutionId(e.target.value)} placeholder="UUID" />
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+          {isRoot ? (
+            <select
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            >
+              <option value="">Todas las instituciones</option>
+              {institutions.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
+        </div>
         <Button variant="ghost" onClick={reload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
       </div>
 
