@@ -1,0 +1,12 @@
+# =============================================================================
+# Version Lock — EducandoW
+# =============================================================================
+# Auto-generated from project config: nestjs-enterprise + react-spa + expo-mobile
+# =============================================================================
+
+global-core: "1.0"
+
+profiles:
+  nestjs-enterprise: "1.0"
+  react-spa: "1.0"
+  expo-mobile: "1.0"
