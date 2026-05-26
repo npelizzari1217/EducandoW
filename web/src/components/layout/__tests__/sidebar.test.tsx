@@ -23,7 +23,7 @@ vi.mock('../../../context/auth-context', () => ({
 }));
 
 // ── Mock useInstitution (configurable per test) ──
-let mockLevels: string[] = ['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'];
+let mockLevels: number[] = [1, 2, 3, 4]; // match InstitutionConfig.levels: number[]
 let mockSendEmail = true;
 let mockSendMessages = true;
 
@@ -39,7 +39,7 @@ vi.mock('../../../context/institution-context', () => ({
       header_text_color: null,
       body_text_color: null,
       active: true,
-    },
+    } as any,
     isLoading: false,
     error: null,
     reload: vi.fn(),
@@ -60,7 +60,7 @@ function renderSidebar() {
 describe('Sidebar filtering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLevels = ['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'];
+    mockLevels = [1, 2, 3, 4];
     mockSendEmail = true;
     mockSendMessages = true;
   });
@@ -83,22 +83,21 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Estudiantes')).not.toBeInTheDocument();
     expect(screen.queryByText('Docentes')).not.toBeInTheDocument();
     expect(screen.queryByText('Inscripciones')).not.toBeInTheDocument();
-    expect(screen.queryByText('Materias')).not.toBeInTheDocument();
-    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
-    expect(screen.queryByText('Asignaciones')).not.toBeInTheDocument();
+    expect(screen.queryByText('Legajos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
     expect(screen.queryByText('Calificaciones')).not.toBeInTheDocument();
     expect(screen.queryByText('Asistencia')).not.toBeInTheDocument();
   });
 
   it('shows academic nav items when institution has at least one level', () => {
-    mockLevels = ['INICIAL'];
+    mockLevels = [1];
     renderSidebar();
 
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Inscripciones')).toBeInTheDocument();
-    expect(screen.getByText('Materias')).toBeInTheDocument();
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Legajos')).toBeInTheDocument();
+    expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
     expect(screen.getByText('Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia')).toBeInTheDocument();
   });
@@ -111,7 +110,7 @@ describe('Sidebar filtering', () => {
   });
 
   it('does NOT show placeholder when levels exist', () => {
-    mockLevels = ['INICIAL'];
+    mockLevels = [1];
     renderSidebar();
 
     expect(screen.queryByText(/No hay niveles configurados/i)).not.toBeInTheDocument();
@@ -146,16 +145,47 @@ describe('Sidebar filtering', () => {
   });
 
   it('shows all items when all levels and flags are active', () => {
-    mockLevels = ['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'];
+    // Use ROOT role so Módulos (ROOT-only) is visible.
+    // Note: Instituciones is ADMIN-only so it is hidden for ROOT.
+    (mockUser as any).role = 'ROOT';
+    mockLevels = [1, 2, 3, 4];
     mockSendEmail = true;
     mockSendMessages = true;
     renderSidebar();
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
+    expect(screen.getByText('Calificaciones')).toBeInTheDocument();
+    expect(screen.getByText('Asistencia')).toBeInTheDocument();
+    expect(screen.getByText('Usuarios')).toBeInTheDocument();
+    expect(screen.getByText('Módulos')).toBeInTheDocument();
     expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();
     expect(screen.getByText('WebSocket')).toBeInTheDocument();
+  });
+
+  it('renders group labels (Secretarios, Académico, Sistema)', () => {
+    renderSidebar();
+
+    expect(screen.getByText('Secretarios')).toBeInTheDocument();
+    expect(screen.getByText('Académico')).toBeInTheDocument();
+    expect(screen.getByText('Sistema')).toBeInTheDocument();
+  });
+
+  it('hides groups that have no visible items', () => {
+    // With no levels, disabled feature flags, and a non-privileged role,
+    // every group should end up empty.
+    mockLevels = [];
+    mockSendEmail = false;
+    mockSendMessages = false;
+    (mockUser as any).role = 'USER';
+
+    renderSidebar();
+
+    // Only Dashboard should be visible (no groups because all items are filtered)
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
+    expect(screen.queryByText('Secretarios')).not.toBeInTheDocument();
+    expect(screen.queryByText('Académico')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sistema')).not.toBeInTheDocument();
   });
 });

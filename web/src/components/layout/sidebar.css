@@ -288,7 +288,17 @@
   .sidebar:not(.sidebar-open) .sidebar-link-text,
   .sidebar:not(.sidebar-open) .sidebar-logout-text,
   .sidebar:not(.sidebar-open) .sidebar-placeholder-text,
-  .sidebar:not(.sidebar-open) .sidebar-institution-name {
+  .sidebar:not(.sidebar-open) .sidebar-institution-name,
+  .sidebar:not(.sidebar-open) .sidebar-group-label,
+  .sidebar:not(.sidebar-open) .sidebar-group-chevron {
+    display: none;
+  }
+
+  .sidebar:not(.sidebar-open) .sidebar-group summary {
+    justify-content: center;
+    padding: 0.5rem;
+  }
+  .sidebar:not(.sidebar-open) .sidebar-group-content {
     display: none;
   }
 
