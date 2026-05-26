@@ -125,6 +125,7 @@ model Subject {
 
   subjectAssignments  SubjectAssignment[]
   attendances         Attendance[]
+  studyPlanSubjects   StudyPlanSubject[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -147,6 +148,7 @@ model CourseSection {
 
   attendances         Attendance[]
   subjectAssignments  SubjectAssignment[]
+  studyPlanCourses    StudyPlanCourse[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -368,4 +370,54 @@ model Attendance {
   @@index([cycleId])
   @@unique([studentId, courseSectionId, subjectId, date])
   @@map("attendances")
+}
+
+// ── Study Plans ───────────────────────────────────────────
+
+model StudyPlan {
+  id           String   @id @default(uuid())
+  name         String
+  level        Int
+  modality     Int      @default(0)
+  academicYear String
+  active       Boolean  @default(true)
+  deletedAt    DateTime?
+
+  courses StudyPlanCourse[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([level])
+  @@index([academicYear])
+  @@map("study_plans")
+}
+
+model StudyPlanCourse {
+  id              String @id @default(uuid())
+  studyPlanId     String
+  courseSectionId String
+
+  studyPlan     StudyPlan     @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  courseSection CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
+
+  subjects StudyPlanSubject[]
+
+  @@unique([studyPlanId, courseSectionId])
+  @@index([studyPlanId])
+  @@map("study_plan_courses")
+}
+
+model StudyPlanSubject {
+  id                String  @id @default(uuid())
+  studyPlanCourseId String
+  subjectId         String
+  hoursPerWeek      Int?
+
+  studyPlanCourse StudyPlanCourse @relation(fields: [studyPlanCourseId], references: [id], onDelete: Cascade)
+  subject         Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([studyPlanCourseId, subjectId])
+  @@index([studyPlanCourseId])
+  @@map("study_plan_subjects")
 }
