@@ -75,7 +75,7 @@ export default function TeachersPage() {
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'email', header: 'Email' }, { key: 'actions', header: '', render: (t) => <Button variant="action" size="sm" onClick={() => del(t.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'email', header: 'Email' }, { key: 'actions', header: '', render: (t) => <Button variant="danger-soft" size="sm" onClick={() => del(t.id).then(() => reload())} loading={deleting}>Eliminar</Button> }]}
           data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay docentes'}
         />

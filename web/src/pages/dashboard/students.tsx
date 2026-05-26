@@ -250,7 +250,7 @@ export default function StudentsPage() {
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <Button variant="action" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button> }]}
           data={adminData}
           emptyMessage={adminLoading ? 'Cargando...' : 'No hay estudiantes'}
         />

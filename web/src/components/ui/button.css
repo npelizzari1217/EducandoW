@@ -98,6 +98,22 @@
   color: #fff;
 }
 
+/* ── Danger-soft ──────────────────────────────── */
+.btn-danger-soft {
+  background: #FCE4EC;
+  color: #C62828;
+  border: 1px solid #F8BBD0;
+}
+
+.btn-danger-soft:hover:not(:disabled) {
+  background: #F8BBD0;
+  color: #B71C1C;
+}
+
+.btn-danger-soft:active:not(:disabled) {
+  background: #F48FB1;
+}
+
 /* ── Spinner ────────────────────────────────────── */
 .btn-spinner {
   width: 14px;

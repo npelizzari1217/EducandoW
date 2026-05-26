@@ -42,12 +42,6 @@ interface CourseSection {
   academicYear: string;
 }
 
-interface Subject {
-  id: string;
-  name: string;
-  level: string;
-}
-
 const LEVEL_LABELS: Record<number, string> = {
   1: 'Inicial', 2: 'Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
 };
@@ -99,9 +93,7 @@ export default function StudyPlansPage() {
   const [planCourseSubjects, setPlanCourseSubjects] = useState<Record<string, PlanCourseSubject[]>>({});
 
   const [availableCourses, setAvailableCourses] = useState<CourseSection[]>([]);
-  const [availableSubjects, setAvailableSubjects] = useState<Subject[]>([]);
   const [selectedCourse, setSelectedCourse] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('');
 
   // ── Edición ──
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
@@ -130,13 +122,6 @@ export default function StudyPlansPage() {
       const res = await apiClient.get(`/course-sections${params}`);
       setAvailableCourses(res.data?.data ?? []);
     } catch { setAvailableCourses([]); }
-  };
-
-  const loadAvailableSubjects = async () => {
-    try {
-      const res = await apiClient.get('/subjects?institutionId=' + (config?.id || ''));
-      setAvailableSubjects(res.data?.data ?? []);
-    } catch { setAvailableSubjects([]); }
   };
 
   const resetForm = () => {
@@ -183,7 +168,6 @@ export default function StudyPlansPage() {
       newSet.add(planId);
       setExpandedPlans(newSet);
       loadAvailableCourses();
-      loadAvailableSubjects();
       try {
         const res = await apiClient.get(`/study-plans/${planId}/courses`);
         setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
@@ -278,17 +262,7 @@ export default function StudyPlansPage() {
     refreshPlanCourses(planId);
   };
 
-  // ── Curso: quitar del plan ──
-  const removeCourseFromPlan = async (planId: string, courseSectionId: string) => {
-    try {
-      await apiClient.delete(`/study-plans/${planId}/courses/${courseSectionId}`);
-      refreshPlanCourses(planId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al quitar curso');
-    }
-  };
-
-  // ── Curso: eliminar definitivo ──
+  // ── Curso: eliminar ──
   const handleDeleteCourse = async (planId: string, courseSectionId: string) => {
     if (!window.confirm('¿Eliminar este curso definitivamente?')) return;
     try {
@@ -323,18 +297,6 @@ export default function StudyPlansPage() {
     }
   };
 
-  // ── Materia: agregar existente ──
-  const addSubjectToPlanCourse = async (planCourseId: string) => {
-    if (!selectedSubject) return;
-    try {
-      await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, { subjectId: selectedSubject });
-      setSelectedSubject('');
-      refreshPlanCourseSubjects(planCourseId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al agregar materia');
-    }
-  };
-
   // ── Materia: editar ──
   const handleEditSubject = (ps: PlanCourseSubject) => {
     setEditingSubject({ subjectId: ps.subjectId, name: ps.subjectName || '' });
@@ -348,17 +310,7 @@ export default function StudyPlansPage() {
     refreshPlanCourseSubjects(planCourseId);
   };
 
-  // ── Materia: quitar del plan-course ──
-  const removeSubjectFromPlanCourse = async (planCourseId: string, subjectId: string) => {
-    try {
-      await apiClient.delete(`/study-plan-courses/${planCourseId}/subjects/${subjectId}`);
-      refreshPlanCourseSubjects(planCourseId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al quitar materia');
-    }
-  };
-
-  // ── Materia: eliminar definitivo ──
+  // ── Materia: eliminar ──
   const handleDeleteSubject = async (planCourseId: string, subjectId: string) => {
     if (!window.confirm('¿Eliminar esta materia definitivamente?')) return;
     try {
@@ -606,7 +558,7 @@ export default function StudyPlansPage() {
                 </div>
                 <div className="plan-actions no-print" onClick={e => e.stopPropagation()}>
                   <Button variant="action" size="sm" onClick={() => startEditPlan(plan)}>Editar</Button>
-                  <Button variant="action" size="sm" onClick={() => handleDeletePlan(plan.id)}>Eliminar</Button>
+                  <Button variant="danger-soft" size="sm" onClick={() => handleDeletePlan(plan.id)}>Eliminar</Button>
                 </div>
               </div>
 
@@ -686,8 +638,7 @@ export default function StudyPlansPage() {
                             </div>
                             <div className="no-print" style={{ display: 'flex', gap: '0.2rem' }} onClick={e => e.stopPropagation()}>
                               <Button variant="action" size="sm" onClick={() => handleEditCourse(pc)}>Editar</Button>
-                              <Button variant="action" size="sm" onClick={() => removeCourseFromPlan(plan.id, pc.courseSectionId)}>Quitar</Button>
-                              <Button variant="action" size="sm" onClick={() => handleDeleteCourse(plan.id, pc.courseSectionId)}>Eliminar</Button>
+                              <Button variant="danger-soft" size="sm" onClick={() => handleDeleteCourse(plan.id, pc.courseSectionId)}>Eliminar</Button>
                             </div>
                           </div>
 
@@ -764,8 +715,7 @@ export default function StudyPlansPage() {
                                           <span>{ps.subjectName || ps.subjectId}</span>
                                           <div className="subject-actions no-print">
                                             <Button variant="action" size="sm" onClick={() => handleEditSubject(ps)}>Editar</Button>
-                                            <Button variant="action" size="sm" onClick={() => removeSubjectFromPlanCourse(pc.id, ps.subjectId)}>Quitar</Button>
-                                            <Button variant="action" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
+                                            <Button variant="danger-soft" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
                                           </div>
                                         </>
                                       )}
@@ -774,18 +724,6 @@ export default function StudyPlansPage() {
                                 })
                               )}
 
-                              {/* Agregar materia existente */}
-                              <div className="add-existing-row no-print">
-                                <select value={selectedSubject} onChange={e => setSelectedSubject(e.target.value)}>
-                                  <option value="">+ Agregar existente...</option>
-                                  {availableSubjects
-                                    .filter((s: any) => !subjects.find((ps: any) => ps.subjectId === s.id))
-                                    .map((s: any) => (
-                                      <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
-                                <button className="btn-sm" onClick={() => addSubjectToPlanCourse(pc.id)} disabled={!selectedSubject}>Agregar</button>
-                              </div>
                             </div>
                           )}
                         </div>
