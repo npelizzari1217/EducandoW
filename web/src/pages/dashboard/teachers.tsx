@@ -115,7 +115,7 @@ export default function TeachersPage() {
             <Input label="Título" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <Button variant="success-soft" onClick={handleUpdate} loading={updating}>Guardar cambios</Button>
-              <Button variant="ghost" onClick={() => setEditingId(null)}>Cancelar</Button>
+              <Button variant="danger-soft" onClick={() => setEditingId(null)}>Cancelar</Button>
             </div>
           </div>
         </Card>
