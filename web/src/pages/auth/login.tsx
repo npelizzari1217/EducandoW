@@ -46,7 +46,7 @@ export default function LoginPage() {
       <div className="login-card">
         {/* Brand */}
         <div className="login-brand">
-          <div className="login-logo" aria-hidden="true">📚</div>
+          <img className="login-logo" src="/EducandoW4_02.jpeg" alt="EducandoW" />
           <h1 className="login-title">EducandoW</h1>
           <p className="login-subtitle">Administración Pedagógica</p>
         </div>

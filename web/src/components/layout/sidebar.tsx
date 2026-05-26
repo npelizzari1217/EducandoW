@@ -18,9 +18,7 @@ const navItems: NavItem[] = [
   { label: 'Docentes', path: '/teachers', requiresLevel: true },
   { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
   { label: 'Legajos', path: '/legajos', requiresLevel: true },
-  { label: 'Materias', path: '/subjects', requiresLevel: true },
-  { label: 'Cursos', path: '/course-sections', requiresLevel: true },
-  { label: 'Asignaciones', path: '/subject-assignments', requiresLevel: true },
+  { label: 'Planes de Estudio', path: '/study-plans', requiresLevel: true },
   { label: 'Calificaciones', path: '/grades', requiresLevel: true },
   { label: 'Asistencia', path: '/attendance', requiresLevel: true },
   { label: 'Usuarios', path: '/users', roles: ['ROOT', 'ADMIN', 'MANAGER'] },
@@ -68,9 +66,24 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       </button>
 
       <div className="sidebar-brand" title="EducandoW">
-        <span className="sidebar-logo">📚</span>
+        <img className="sidebar-logo" src="/EducandoW4_02.jpeg" alt="EducandoW" />
         <span className="sidebar-title">EducandoW</span>
       </div>
+
+      {config.name && (
+        <div className="sidebar-institution" title={config.name}>
+          {config.logo_url ? (
+            <img
+              className="sidebar-institution-logo"
+              src={config.logo_url}
+              alt={config.name}
+            />
+          ) : (
+            <span className="sidebar-institution-icon">🏫</span>
+          )}
+          <span className="sidebar-institution-name">{config.name}</span>
+        </div>
+      )}
 
       <div className="sidebar-user" title={user?.name}>
         <div className="sidebar-avatar">{user?.name?.charAt(0).toUpperCase()}</div>
