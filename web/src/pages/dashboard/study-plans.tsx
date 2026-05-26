@@ -369,15 +369,6 @@ export default function StudyPlansPage() {
         .badge-year { background: #f1f5f9; color: #475569; }
         .badge-count { background: #ede9fe; color: #6d28d9; }
 
-        /* ── Plan actions ── */
-        .plan-actions { display: flex; gap: 0.35rem; align-items: center; }
-        .sp-btn-ghost-sm {
-          background: none; border: none; cursor: pointer;
-          font-size: 0.78rem; padding: 0.3rem 0.6rem; border-radius: 6px;
-          color: #64748b; font-weight: 500; transition: all 0.12s;
-        }
-        .sp-btn-ghost-sm:hover { background: #f1f5f9; color: #1e293b; }
-
         /* ── Course list container ── */
         .plan-courses {
           border-top: 1px solid #f1f5f9;
@@ -441,15 +432,6 @@ export default function StudyPlansPage() {
         .inline-form input:focus, .inline-form select:focus {
           border-color: #818cf8; box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
         }
-        .sp-btn-sm {
-          background: #6366f1; color: #fff; border: none; cursor: pointer;
-          font-size: 0.78rem; padding: 0.4rem 0.85rem; border-radius: 6px;
-          font-weight: 500; white-space: nowrap;
-          transition: background 0.12s;
-        }
-        .sp-btn-sm:hover { background: #4f46e5; }
-        .sp-btn-sm:disabled { opacity: 0.5; cursor: default; }
-
         .context-hint {
           font-size: 0.7rem; color: #94a3b8; margin-top: 0.35rem;
         }
@@ -574,8 +556,8 @@ export default function StudyPlansPage() {
                       <label>Año</label>
                       <input value={editPlanForm.academicYear} onChange={e => setEditPlanForm({ ...editPlanForm, academicYear: e.target.value })} style={{ width: '80px' }} />
                     </div>
-                    <button className="sp-btn-sm" onClick={handleUpdatePlan}>Guardar</button>
-                    <button className="sp-btn-ghost-sm" onClick={() => setEditingPlanId(null)}>Cancelar</button>
+                    <Button variant="success-soft" size="sm" onClick={handleUpdatePlan}>Guardar</Button>
+                    <Button variant="danger-soft" size="sm" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
                   </div>
                 </div>
               )}
@@ -585,12 +567,16 @@ export default function StudyPlansPage() {
                 <div className="plan-courses">
                   <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                     <h4 style={{ margin: 0 }}>Cursos</h4>
-                    <button className="sp-btn-ghost-sm" onClick={() => {
-                      setShowCourseForm(showCourseForm === plan.id ? null : plan.id);
-                      setCourseForm({ grade: '', division: '' });
-                    }}>
+                    <Button
+                      variant={showCourseForm === plan.id ? 'danger-soft' : 'success-soft'}
+                      size="sm"
+                      onClick={() => {
+                        setShowCourseForm(showCourseForm === plan.id ? null : plan.id);
+                        setCourseForm({ grade: '', division: '' });
+                      }}
+                    >
                       {showCourseForm === plan.id ? 'Cancelar' : '+ Nuevo'}
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Form: nuevo curso */}
@@ -605,9 +591,9 @@ export default function StudyPlansPage() {
                           <label>División</label>
                           <input value={courseForm.division} onChange={e => setCourseForm({ ...courseForm, division: e.target.value })} placeholder="A" style={{ width: '80px' }} />
                         </div>
-                        <button className="sp-btn-sm" onClick={() => handleCreateCourseInline(plan)} disabled={courseFormLoading}>
+                        <Button variant="success-soft" size="sm" onClick={() => handleCreateCourseInline(plan)} disabled={courseFormLoading}>
                           {courseFormLoading ? 'Creando...' : 'Crear'}
-                        </button>
+                        </Button>
                       </div>
                       <div className="context-hint">
                         Hereda: {LEVEL_LABELS[plan.level]} — {plan.academicYear}
@@ -655,8 +641,8 @@ export default function StudyPlansPage() {
                                     <label>División</label>
                                     <input value={editingCourse.division} onChange={e => setEditingCourse({ ...editingCourse, division: e.target.value })} placeholder="A" style={{ width: '80px' }} />
                                   </div>
-                                  <button className="sp-btn-sm" onClick={() => handleSaveCourse(plan.id)}>Guardar</button>
-                                  <button className="sp-btn-ghost-sm" onClick={() => setEditingCourse({ courseSectionId: null, grade: '', division: '' })}>Cancelar</button>
+                                  <Button variant="success-soft" size="sm" onClick={() => handleSaveCourse(plan.id)}>Guardar</Button>
+                                  <Button variant="danger-soft" size="sm" onClick={() => setEditingCourse({ courseSectionId: null, grade: '', division: '' })}>Cancelar</Button>
                                 </div>
                               </div>
                             </div>
@@ -667,12 +653,16 @@ export default function StudyPlansPage() {
                             <div className="course-subjects">
                               <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Materias</span>
-                                <button className="sp-btn-ghost-sm" onClick={() => {
-                                  setShowSubjectForm(showSubjectForm === pc.id ? null : pc.id);
-                                  setSubjectForm({ name: '', modality: 'COMUN' });
-                                }}>
+                                <Button
+                                  variant={showSubjectForm === pc.id ? 'danger-soft' : 'success-soft'}
+                                  size="sm"
+                                  onClick={() => {
+                                    setShowSubjectForm(showSubjectForm === pc.id ? null : pc.id);
+                                    setSubjectForm({ name: '', modality: 'COMUN' });
+                                  }}
+                                >
                                   {showSubjectForm === pc.id ? 'Cancelar' : '+ Nueva'}
-                                </button>
+                                </Button>
                               </div>
 
                               {/* Form: nueva materia */}
@@ -689,9 +679,9 @@ export default function StudyPlansPage() {
                                         {MODALITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                       </select>
                                     </div>
-                                    <button className="sp-btn-sm" onClick={() => handleCreateSubjectInline(pc.id, plan)} disabled={subjectFormLoading}>
+                                    <Button variant="success-soft" size="sm" onClick={() => handleCreateSubjectInline(pc.id, plan)} disabled={subjectFormLoading}>
                                       {subjectFormLoading ? 'Creando...' : 'Crear'}
-                                    </button>
+                                    </Button>
                                   </div>
                                   <div className="context-hint">Nivel: {LEVEL_LABELS[plan.level]}</div>
                                 </div>
@@ -707,8 +697,8 @@ export default function StudyPlansPage() {
                                       {isEditingSubj ? (
                                         <div className="edit-inline-row no-print" style={{ flex: 1 }}>
                                           <input value={editingSubject.name} onChange={e => setEditingSubject({ ...editingSubject, name: e.target.value })} style={{ flex: 1 }} />
-                                          <button className="sp-btn-sm" onClick={() => handleSaveSubject(pc.id)}>Guardar</button>
-                                          <button className="sp-btn-ghost-sm" onClick={() => setEditingSubject({ subjectId: null, name: '' })}>Cancelar</button>
+                                          <Button variant="success-soft" size="sm" onClick={() => handleSaveSubject(pc.id)}>Guardar</Button>
+                                          <Button variant="danger-soft" size="sm" onClick={() => setEditingSubject({ subjectId: null, name: '' })}>Cancelar</Button>
                                         </div>
                                       ) : (
                                         <>
@@ -742,7 +732,7 @@ export default function StudyPlansPage() {
                             <option key={c.id} value={c.id}>{c.name} — {c.level}</option>
                           ))}
                       </select>
-                      <button className="sp-btn-sm" onClick={() => addCourseToPlan(plan.id)} disabled={!selectedCourse}>Agregar</button>
+                      <Button variant="success-soft" size="sm" onClick={() => addCourseToPlan(plan.id)} disabled={!selectedCourse}>Agregar</Button>
                     </div>
                   )}
                 </div>
