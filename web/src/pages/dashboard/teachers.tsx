@@ -1,19 +1,32 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import apiClient from '../../api/client';
+
+interface Institution { id: string; name: string; }
 
 export default function TeachersPage() {
   const { user } = useAuth();
-  const [institutionId, setInstitutionId] = useState(user?.institutionId ?? '');
+  const { config } = useInstitution();
+  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
+
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
   const { data, loading, reload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; email: string; fullName: string }>('/teachers', institutionId ? { institutionId } : undefined);
   const { deleting, del } = useApiDelete('/teachers');
   const { creating, createError, create } = useApiCreate('/teachers');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', phone: '', title: '', institutionId });
+
+  useEffect(() => {
+    apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
+  }, []);
 
   const handleCreate = async () => {
     const ok = await create({ ...form, phone: form.phone || undefined, title: form.title || undefined, institutionId });
@@ -28,7 +41,18 @@ export default function TeachersPage() {
       </div>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
-        <Input label="Filtrar por institución" value={institutionId} onChange={e => setInstitutionId(e.target.value)} placeholder="UUID" />
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Filtrar por institución</label>
+          <select
+            className="input"
+            value={institutionId}
+            onChange={e => setInstitutionId(e.target.value)}
+            disabled={!isRoot}
+          >
+            <option value="">Todas</option>
+            {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+          </select>
+        </div>
         <Button variant="ghost" onClick={reload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
       </div>
 
