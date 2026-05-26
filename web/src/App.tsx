@@ -29,7 +29,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/institutions" element={<ProtectedRoute roles={['ADMIN']}><InstitutionsPage /></ProtectedRoute>} />
+              <Route path="/institutions" element={<ProtectedRoute roles={['ROOT', 'ADMIN']}><InstitutionsPage /></ProtectedRoute>} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/enrollments" element={<EnrollmentsPage />} />
