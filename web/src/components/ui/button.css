@@ -66,14 +66,14 @@
 
 /* ── Action ─────────────────────────────────────── */
 .btn-action {
-  background: #bbdefb;
-  color: #0d47a1;
-  border: 1px solid #90caf9;
+  background: #e3f2fd;
+  color: #1565c0;
+  border: 1px solid #bbdefb;
 }
 
 .btn-action:hover:not(:disabled) {
-  background: #e3f2fd;
-  color: #1565c0;
+  background: #bbdefb;
+  color: #0d47a1;
 }
 
 .btn-action:active:not(:disabled) {
@@ -100,14 +100,14 @@
 
 /* ── Danger-soft ──────────────────────────────── */
 .btn-danger-soft {
-  background: #F8BBD0;
-  color: #B71C1C;
-  border: 1px solid #F48FB1;
+  background: #FCE4EC;
+  color: #C62828;
+  border: 1px solid #F8BBD0;
 }
 
 .btn-danger-soft:hover:not(:disabled) {
-  background: #FCE4EC;
-  color: #C62828;
+  background: #F8BBD0;
+  color: #B71C1C;
 }
 
 .btn-danger-soft:active:not(:disabled) {
