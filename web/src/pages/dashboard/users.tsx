@@ -364,8 +364,8 @@ export default function UsersPage() {
                   <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                     {manageable ? (
                       <>
-                        <Button variant="ghost" size="sm" onClick={() => startEdit(row)}>Editar</Button>
-                        <Button variant="ghost" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button>
+                        <Button variant="action" size="sm" onClick={() => startEdit(row)}>Editar</Button>
+                        <Button variant="action" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button>
                       </>
                     ) : (
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>

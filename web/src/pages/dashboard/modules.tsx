@@ -60,7 +60,7 @@ export default function ModulesPage() {
           <p className="page-subtitle">Gestión de módulos — solo ROOT</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-          <Button variant="ghost" onClick={handlePrint} title="Imprimir">🖨 Imprimir</Button>
+          <Button variant="action" onClick={handlePrint} title="Imprimir">🖨 Imprimir</Button>
           <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancelar' : 'Nuevo módulo'}
           </Button>
@@ -102,8 +102,8 @@ export default function ModulesPage() {
               key: 'actions', header: '',
               render: (m: any) => (
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                  <Button variant="ghost" size="sm" onClick={() => startEdit(m as unknown as Module)}>Editar</Button>
-                  <Button variant="ghost" size="sm" onClick={() => del((m as unknown as Module).id).then(() => reload())} loading={deleting}>Eliminar</Button>
+                  <Button variant="action" size="sm" onClick={() => startEdit(m as unknown as Module)}>Editar</Button>
+                  <Button variant="action" size="sm" onClick={() => del((m as unknown as Module).id).then(() => reload())} loading={deleting}>Eliminar</Button>
                 </div>
               ),
             },
