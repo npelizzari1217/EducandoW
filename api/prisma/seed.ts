@@ -113,7 +113,13 @@ async function main() {
     'm-grades': ['READ'],
   };
 
+  // ADMIN: institutions(READ,UPDATE), users/students/teachers/reports keep ALL_ACTIONS
+  const adminActions: Record<string, string[]> = {
+    'm-inst': ['READ', 'UPDATE'],
+  };
+
   const customActions: Record<string, Record<string, string[]>> = {
+    'r-admin': adminActions,
     'r-teach': teacherActions,
     'r-tutor': tutorActions,
     'r-student': studentActions,

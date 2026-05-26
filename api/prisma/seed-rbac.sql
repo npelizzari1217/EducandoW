@@ -47,7 +47,7 @@ INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
 
 -- ADMIN: institutions, users, students, teachers, reports (full)
 INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
-  ('rm-r-admin-m-inst', 'r-admin', 'm-inst', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']),
+  ('rm-r-admin-m-inst', 'r-admin', 'm-inst', ARRAY['READ','UPDATE']),
   ('rm-r-admin-m-users', 'r-admin', 'm-users', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']),
   ('rm-r-admin-m-students', 'r-admin', 'm-students', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']),
   ('rm-r-admin-m-teachers', 'r-admin', 'm-teachers', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']),

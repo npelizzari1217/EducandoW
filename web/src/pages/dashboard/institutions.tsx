@@ -147,6 +147,8 @@ export default function InstitutionsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [deleteTarget, setDeleteTarget] = useState<InstitutionRow | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   // Collapsible section state
   const [sections, setSections] = useState({
@@ -284,6 +286,39 @@ export default function InstitutionsPage() {
     } finally { setSaving(false); }
   };
 
+  const handlePrint = async (row: InstitutionRow) => {
+    setPrinting(true);
+    try {
+      const { data: res } = await apiClient.get(`/institutions/${row.id}/print`);
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const content = `
+          <html>
+            <head><title>Imprimir — ${row.name}</title></head>
+            <body>
+              <pre>${JSON.stringify(res.data, null, 2)}</pre>
+            </body>
+          </html>`;
+        printWindow.document.write(content);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (e: any) {
+      setSaveError(e?.response?.data?.message ?? 'Error al imprimir');
+    } finally { setPrinting(false); }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    const success = await del(deleteTarget.id);
+    if (success) {
+      setDeleteTarget(null);
+      reload();
+    } else {
+      setDeleteTarget(null);
+    }
+  };
+
   const errorMessage = createError || saveError;
 
   const clearForm = () => {
@@ -302,7 +337,7 @@ export default function InstitutionsPage() {
           <h1 className="page-title">Instituciones</h1>
           <p className="page-subtitle">Gestioná las instituciones educativas</p>
         </div>
-        {user?.role === 'ADMIN' && (
+        {user?.role === 'ROOT' && (
           <Button onClick={() => { if (showForm) { clearForm(); } else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); } }}>
             {showForm ? 'Cancelar' : 'Nueva institución'}
           </Button>
@@ -476,19 +511,58 @@ export default function InstitutionsPage() {
             {
               key: 'actions',
               header: '',
-              render: (i: Record<string, unknown>) =>
-                user?.role === 'ADMIN' ? (
+              render: (i: Record<string, unknown>) => {
+                const isRoot = user?.role === 'ROOT';
+                const isAdmin = user?.role === 'ADMIN';
+                if (!isRoot && !isAdmin) return null;
+                const row = i as unknown as InstitutionRow;
+                return (
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(i as unknown as InstitutionRow)}>Editar</Button>
-                    <Button variant="ghost" size="sm" onClick={() => del(i.id as string).then(() => reload())} loading={deleting}>Eliminar</Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(row)}>Editar</Button>
+                    {isRoot && (
+                      <Button variant="ghost" size="sm" onClick={() => handlePrint(row)} loading={printing}>Imprimir</Button>
+                    )}
+                    {isRoot && (
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
+                    )}
                   </div>
-                ) : null,
+                );
+              },
             },
           ]}
           data={data as unknown as Record<string, unknown>[]}
           emptyMessage={loading ? 'Cargando...' : 'No hay instituciones'}
         />
       </Card>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)',
+            padding: 'var(--space-lg)', maxWidth: 400, width: '100%',
+            boxShadow: 'var(--shadow-lg)',
+          }}>
+            <h3 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-lg)', fontWeight: 600 }}>
+              Confirmar eliminación
+            </h3>
+            <p style={{ marginBottom: 'var(--space-md)' }}>
+              ¿Estás seguro de que querés eliminar la institución <strong>{deleteTarget.name}</strong>?
+            </p>
+            <p style={{ marginBottom: 'var(--space-lg)', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+              Esta acción desactivará la institución pero no borrará sus datos.
+            </p>
+            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+              <Button onClick={handleDeleteConfirm} loading={deleting}>Eliminar</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
