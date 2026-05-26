@@ -42,12 +42,15 @@
 }
 
 .login-logo {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
   object-fit: contain;
   margin-bottom: var(--space-sm);
   border-radius: var(--radius-md);
-  display: inline-block;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .login-title {
