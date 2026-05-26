@@ -6,6 +6,8 @@ const nameField = z.string().min(1).max(200).transform(upper);
 const lastNameField = z.string().min(1).max(100).transform(upper);
 const dniField = z.string().min(7).max(9).regex(/^\d+$/, 'El DNI debe contener solo números');
 const codeField = z.string().min(1).max(50).transform(upper);
+const textField = z.string().min(1).max(200).transform((s: string) => s.trim());
+const gradeField = z.string().min(1).max(50).transform((s: string) => s.trim());
 const emailField = z.string().email('Email inválido');
 const uuidField = z.string().uuid('ID inválido');
 
@@ -82,7 +84,7 @@ export const CreateEnrollmentSchema = z.object({
 export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 
 export const CreateSubjectSchema = z.object({
-  name: nameField,
+  name: textField,
   level: levelField,
   modality: modalityField,
   institutionId: uuidField,
@@ -90,13 +92,14 @@ export const CreateSubjectSchema = z.object({
 export type CreateSubjectDTO = z.infer<typeof CreateSubjectSchema>;
 
 export const CreateCourseSectionSchema = z.object({
-  name: z.string().min(1).max(100),
-  grade: codeField.optional(),
+  name: z.string().min(1).max(100).optional(),
+  grade: gradeField.optional(),
   division: codeField.optional(),
   level: levelField,
   modality: modalityField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
-  institutionId: uuidField,
+  institutionId: uuidField.optional(),
+  studyPlanId: uuidField.optional(),
 });
 export type CreateCourseSectionDTO = z.infer<typeof CreateCourseSectionSchema>;
 
@@ -151,6 +154,45 @@ export const CreateAttendanceSchema = z.object({
   note: z.string().max(300).optional(),
 });
 export type CreateAttendanceDTO = z.infer<typeof CreateAttendanceSchema>;
+
+// ── Study Plans ────────────────────────────────────
+export const CreateStudyPlanSchema = z.object({
+  name: z.string().min(1).max(200),
+  level: z.number().int().min(1).max(9),
+  modality: z.number().int().min(0).max(9).optional().default(0),
+  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
+});
+export type CreateStudyPlanDTO = z.infer<typeof CreateStudyPlanSchema>;
+
+export const UpdateStudyPlanSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido').optional(),
+  active: z.boolean().optional(),
+});
+export type UpdateStudyPlanDTO = z.infer<typeof UpdateStudyPlanSchema>;
+
+export const UpdateSubjectSchema = z.object({
+  name: z.string().min(1).max(200).transform((s: string) => s.trim()).optional(),
+});
+export type UpdateSubjectDTO = z.infer<typeof UpdateSubjectSchema>;
+
+export const UpdateCourseSectionSchema = z.object({
+  name: z.string().min(1).max(100).transform((s: string) => s.trim()).optional(),
+  grade: z.string().min(1).max(50).transform((s: string) => s.trim()).optional(),
+  division: z.string().min(1).max(50).transform((s: string) => s.toUpperCase().trim()).optional(),
+});
+export type UpdateCourseSectionDTO = z.infer<typeof UpdateCourseSectionSchema>;
+
+export const AddCourseToPlanSchema = z.object({
+  courseSectionId: uuidField,
+});
+export type AddCourseToPlanDTO = z.infer<typeof AddCourseToPlanSchema>;
+
+export const AddSubjectToPlanCourseSchema = z.object({
+  subjectId: uuidField,
+  hoursPerWeek: z.number().int().min(1).max(40).optional(),
+});
+export type AddSubjectToPlanCourseDTO = z.infer<typeof AddSubjectToPlanCourseSchema>;
 
 // Legacy classes for controller compatibility
 export class RegisterRequest { email!: string; password!: string; name!: string; role?: string; institutionId?: string; }
