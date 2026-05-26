@@ -131,26 +131,44 @@ export default function LegajosPage() {
     setSearchResults([]);
     setQuery('');
 
-    try {
-      const [studentRes, enrollRes, notasRes, attRes] = await Promise.all([
-        apiClient.get(`/students/${student.id}`),
-        apiClient.get('/enrollments', { params: { studentId: student.id } }),
-        apiClient.get('/notas', { params: { studentId: student.id } }),
-        apiClient.get('/attendance', { params: { studentId: student.id } }),
-      ]);
+    // Cargar cada sección de forma independiente — si una falla, mostramos las otras
+    const results = await Promise.allSettled([
+      apiClient.get(`/students/${student.id}`),
+      apiClient.get('/enrollments', { params: { studentId: student.id } }),
+      apiClient.get('/notas', { params: { studentId: student.id } }),
+      apiClient.get('/attendance', { params: { studentId: student.id } }),
+    ]);
 
-      const s = studentRes.data?.data;
-      if (!s) { setError('Alumno no encontrado'); return; }
-
-      setSelectedStudent(s);
-      setEnrollments(enrollRes.data?.data ?? []);
-      setNotas(notasRes.data?.data ?? []);
-      setAttendance(attRes.data?.data ?? []);
-    } catch {
-      setError('Error al cargar el legajo');
-    } finally {
+    // Student detail (requerido)
+    if (results[0].status === 'rejected' || !(results[0] as any).value?.data?.data) {
+      setError('Alumno no encontrado');
       setLoadingLegajo(false);
+      return;
     }
+    setSelectedStudent((results[0] as any).value.data.data);
+
+    // Enrollments (opcional)
+    if (results[1].status === 'fulfilled') {
+      setEnrollments((results[1] as any).value.data?.data ?? []);
+    } else {
+      setEnrollments([]);
+    }
+
+    // Notas (opcional)
+    if (results[2].status === 'fulfilled') {
+      setNotas((results[2] as any).value.data?.data ?? []);
+    } else {
+      setNotas([]);
+    }
+
+    // Attendance (opcional)
+    if (results[3].status === 'fulfilled') {
+      setAttendance((results[3] as any).value.data?.data ?? []);
+    } else {
+      setAttendance([]);
+    }
+
+    setLoadingLegajo(false);
   };
 
   const handlePrint = () => window.print();
@@ -276,31 +294,43 @@ export default function LegajosPage() {
           </Card>
 
           {/* ── Calificaciones ── */}
-          <Card title={`Calificaciones (${notas.length} registros)`} className="mt-md">
-            <Table
-              columns={[
-                { key: 'evaluationId', header: 'Evaluación ID' },
-                { key: 'numericValue', header: 'Nota num.', render: (n: any) => (n as Nota).numericValue ?? '-' },
-                { key: 'qualitativeValue', header: 'Nota cual.', render: (n: any) => (n as Nota).qualitativeValue ?? '-' },
-                { key: 'gradeCode', header: 'Código' },
-                { key: 'gradeLabel', header: 'Concepto', render: (n: any) => (n as Nota).gradeLabel ?? '-' },
-              ]}
-              data={notas as any}
-              emptyMessage="Sin calificaciones registradas"
-            />
+          <Card title={`Calificaciones (${notas.length} registros)${notas.length === 0 ? ' — sin datos disponibles' : ''}`} className="mt-md">
+            {notas.length === 0 ? (
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', padding: 'var(--space-md)' }}>
+                No hay calificaciones registradas para este alumno.
+              </p>
+            ) : (
+              <Table
+                columns={[
+                  { key: 'evaluationId', header: 'Evaluación ID' },
+                  { key: 'numericValue', header: 'Nota num.', render: (n: any) => (n as Nota).numericValue ?? '-' },
+                  { key: 'qualitativeValue', header: 'Nota cual.', render: (n: any) => (n as Nota).qualitativeValue ?? '-' },
+                  { key: 'gradeCode', header: 'Código' },
+                  { key: 'gradeLabel', header: 'Concepto', render: (n: any) => (n as Nota).gradeLabel ?? '-' },
+                ]}
+                data={notas as any}
+                emptyMessage="Sin calificaciones registradas"
+              />
+            )}
           </Card>
 
           {/* ── Asistencia ── */}
-          <Card title={`Asistencia (${attendance.length} registros)`} className="mt-md">
-            <Table
-              columns={[
-                { key: 'date', header: 'Fecha', render: (a: any) => formatDate((a as AttendanceRecord).date) },
-                { key: 'status', header: 'Código' },
-                { key: 'statusDescription', header: 'Estado', render: (a: any) => (a as AttendanceRecord).statusDescription },
-              ]}
-              data={attendance as any}
-              emptyMessage="Sin registros de asistencia"
-            />
+          <Card title={`Asistencia (${attendance.length} registros)${attendance.length === 0 ? ' — sin datos disponibles' : ''}`} className="mt-md">
+            {attendance.length === 0 ? (
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)', padding: 'var(--space-md)' }}>
+                No hay registros de asistencia para este alumno.
+              </p>
+            ) : (
+              <Table
+                columns={[
+                  { key: 'date', header: 'Fecha', render: (a: any) => formatDate((a as AttendanceRecord).date) },
+                  { key: 'status', header: 'Código' },
+                  { key: 'statusDescription', header: 'Estado', render: (a: any) => (a as AttendanceRecord).statusDescription },
+                ]}
+                data={attendance as any}
+                emptyMessage="Sin registros de asistencia"
+              />
+            )}
           </Card>
 
           {/* Botón volver */}

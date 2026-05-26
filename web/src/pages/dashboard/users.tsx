@@ -227,7 +227,19 @@ export default function UsersPage() {
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
-        <Input label="Institución (UUID)" value={institutionFilter} onChange={e => setInstitutionFilter(e.target.value)} placeholder="Filtrar por institución" />
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+          <select
+            value={institutionFilter}
+            onChange={e => setInstitutionFilter(e.target.value)}
+            style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+          >
+            <option value="">Todas las instituciones</option>
+            {institutions.map(inst => (
+              <option key={inst.id} value={inst.id}>{inst.name}</option>
+            ))}
+          </select>
+        </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)', paddingBottom: '0.3rem' }}>
           <input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} />
           Incluir inactivos
@@ -254,16 +266,25 @@ export default function UsersPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
-                <select
-                  value={form.institutionId}
-                  onChange={e => setForm({ ...form, institutionId: e.target.value })}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}
-                >
-                  <option value="">Sin institución</option>
-                  {institutions.map(inst => (
-                    <option key={inst.id} value={inst.id}>{inst.name}</option>
-                  ))}
-                </select>
+                {isRoot ? (
+                  <select
+                    value={form.institutionId}
+                    onChange={e => setForm({ ...form, institutionId: e.target.value })}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}
+                  >
+                    <option value="">Sin institución</option>
+                    {institutions.map(inst => (
+                      <option key={inst.id} value={inst.id}>{inst.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={institutions.find(i => i.id === form.institutionId)?.name || user?.institutionId || ''}
+                    disabled
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)' }}
+                  />
+                )}
               </div>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel educativo</label>
