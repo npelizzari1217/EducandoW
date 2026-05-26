@@ -3,6 +3,8 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { TenantContext } from './tenant.context';
 import type { AuthenticatedUser } from './guards/auth.guard';
+import * as jwt from 'jsonwebtoken';
+import { loadEnvConfig } from '../config/env.config';
 
 /**
  * TenantMiddleware — resolves the correct PrismaClient per request.
@@ -19,10 +21,11 @@ export class TenantMiddleware implements NestMiddleware {
   constructor(private readonly prismaService: PrismaService) {}
 
   async use(req: Request, _res: Response, next: NextFunction): Promise<void> {
-    const path = req.path;
+    // Usamos originalUrl porque req.path se ve afectado por el global prefix
+    const path = req.originalUrl || req.path;
 
     // ── Health check — always pass through ──────────────────
-    if (path === '/health' || path === '/') {
+    if (path === '/v1/health' || path === '/health' || path === '/') {
       return TenantContext.run(
         { prismaClient: null, dbName: null, institutionId: null },
         () => next(),
@@ -38,7 +41,23 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // ── Tenant-scoped routes — require dbName in JWT ────────
-    const user = (req as any).user as AuthenticatedUser | undefined;
+    let user = (req as any).user as AuthenticatedUser | undefined;
+
+    // Si el AuthGuard aún no decodificó el JWT (middleware corre antes),
+    // lo decodificamos nosotros desde el header Authorization
+    if (!user) {
+      const authHeader = req.headers?.authorization;
+      if (authHeader?.startsWith('Bearer ')) {
+        try {
+          const token = authHeader.slice(7);
+          const env = loadEnvConfig();
+          user = jwt.verify(token, env.jwtSecret) as AuthenticatedUser;
+          (req as any).user = user;
+        } catch {
+          throw new ForbiddenException('Token JWT inválido o expirado');
+        }
+      }
+    }
 
     if (!user || !user.dbName) {
       throw new ForbiddenException(
@@ -82,7 +101,9 @@ export class TenantMiddleware implements NestMiddleware {
    *   - Swagger docs: /docs*
    */
   private isMasterRoute(req: Request): boolean {
-    const path = req.path;
+    // originalUrl incluye el global prefix /v1, lo removemos para comparar
+    const raw = req.originalUrl || req.path;
+    const path = raw.replace(/^\/v1/, '') || '/';
     const method = req.method;
 
     // Auth endpoints
@@ -94,12 +115,9 @@ export class TenantMiddleware implements NestMiddleware {
     // Institution CRUD (master DB)
     if (path === '/institutions' || path === '/institutions/') return true;
     if (path.startsWith('/institutions/')) {
-      // POST /institutions, GET /institutions (list), DELETE /institutions/:id
       if (method === 'POST' || method === 'DELETE') return true;
       if (method === 'GET') {
-        // GET /institutions (list)
         if (path.match(/^\/institutions\/?$/)) return true;
-        // GET /institutions/:id (single)
         if (path.match(/^\/institutions\/[^/]+$/)) return true;
       }
     }
