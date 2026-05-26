@@ -27,7 +27,7 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">{title}</h1><p className="page-subtitle">{subtitle}</p></div>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo'}</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo'}</Button>
       </div>
 
       {showForm && (
@@ -35,7 +35,7 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
           {createError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{createError}</div>}
           <div className="flex flex-col gap-md">
             {fields.map(f => <Input key={f.name} label={f.label} type={f.type} value={form[f.name] ?? ''} onChange={e => setForm({...form, [f.name]: e.target.value})} placeholder={f.placeholder} />)}
-            <Button onClick={handleCreate} loading={creating}>Crear</Button>
+            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear</Button>
           </div>
         </Card>
       )}

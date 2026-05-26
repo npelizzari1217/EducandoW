@@ -111,7 +111,7 @@ export default function CourseSectionsPage() {
           <h1 className="page-title">Cursos</h1>
           <p className="page-subtitle">Secciones y divisiones — campos contextuales automáticos</p>
         </div>
-        <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : 'Nuevo curso'}
         </Button>
       </div>
@@ -181,7 +181,7 @@ export default function CourseSectionsPage() {
               <input type="hidden" value={form.level} />
             )}
 
-            <Button onClick={handleCreate} loading={creating}>
+            <Button variant="success-soft" onClick={handleCreate} loading={creating}>
               Crear curso
             </Button>
           </div>

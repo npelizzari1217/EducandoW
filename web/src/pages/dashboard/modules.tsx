@@ -61,7 +61,7 @@ export default function ModulesPage() {
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
           <Button variant="action" onClick={handlePrint} title="Imprimir">🖨 Imprimir</Button>
-          <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancelar' : 'Nuevo módulo'}
           </Button>
         </div>
@@ -85,7 +85,7 @@ export default function ModulesPage() {
                 Activo
               </label>
             )}
-            <Button onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
+            <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
               {editingId ? 'Guardar cambios' : 'Crear módulo'}
             </Button>
           </div>

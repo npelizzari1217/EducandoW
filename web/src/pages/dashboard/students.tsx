@@ -162,7 +162,7 @@ export default function StudentsPage() {
             ))}
 
             <div style={{ marginTop: 'var(--space-md)' }}>
-              <Button onClick={handleProfileSave} loading={profileSaving}>Guardar cambios</Button>
+              <Button variant="success-soft" onClick={handleProfileSave} loading={profileSaving}>Guardar cambios</Button>
             </div>
           </Card>
         )}
@@ -201,7 +201,7 @@ export default function StudentsPage() {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Estudiantes</h1><p className="page-subtitle">Gestión de alumnos</p></div>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
       </div>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
@@ -243,7 +243,7 @@ export default function StudentsPage() {
             <Input label="Fecha de nacimiento" type="date" value={form.birthDate} onChange={e => setForm({...form, birthDate: e.target.value})} />
             <Input label="Nombre del tutor" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
             <Input label="Teléfono del tutor" value={form.guardianPhone} onChange={e => setForm({...form, guardianPhone: e.target.value})} />
-            <Button onClick={handleCreate} loading={creating}>Crear estudiante</Button>
+            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear estudiante</Button>
           </div>
         </Card>
       )}

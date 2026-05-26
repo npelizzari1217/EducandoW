@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import './button.css';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'danger' | 'ghost' | 'action' | 'danger-soft';
+  variant?: 'primary' | 'danger' | 'ghost' | 'action' | 'danger-soft' | 'success-soft';
   size?: 'sm' | 'md';
   loading?: boolean;
   children: ReactNode;

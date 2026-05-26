@@ -37,7 +37,7 @@ export default function TeachersPage() {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Docentes</h1><p className="page-subtitle">Gestión de docentes</p></div>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo docente'}</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo docente'}</Button>
       </div>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
@@ -68,7 +68,7 @@ export default function TeachersPage() {
             <Input label="Email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
             <Input label="Teléfono" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} />
             <Input label="Título" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
-            <Button onClick={handleCreate} loading={creating}>Crear docente</Button>
+            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear docente</Button>
           </div>
         </Card>
       )}

@@ -38,7 +38,7 @@ export default function EnrollmentsPage() {
     <div>
       <div className="page-header">
         <div><h1 className="page-title">Inscripciones</h1></div>
-        <Button onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nueva inscripción'}</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nueva inscripción'}</Button>
       </div>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
@@ -97,7 +97,7 @@ export default function EnrollmentsPage() {
             <Input label="Año lectivo" value={form.academicYear} onChange={e => setForm({...form, academicYear: e.target.value})} required />
             <Input label="Grado" value={form.grade} onChange={e => setForm({...form, grade: e.target.value})} />
             <Input label="División" value={form.division} onChange={e => setForm({...form, division: e.target.value})} />
-            <Button onClick={handleCreate} loading={creating}>Inscribir</Button>
+            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Inscribir</Button>
           </div>
         </Card>
       )}

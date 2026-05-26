@@ -220,7 +220,7 @@ export default function UsersPage() {
             </span>
           </p>
         </div>
-        <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : 'Nuevo usuario'}
         </Button>
       </div>
@@ -332,7 +332,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <Button onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
+            <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
               {editingId ? 'Guardar cambios' : 'Crear usuario'}
             </Button>
           </div>
