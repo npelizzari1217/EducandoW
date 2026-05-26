@@ -11,4 +11,4 @@ allowBuilds:
   bcrypt: true
   esbuild: true
   prisma: true
-  puppeteer: set this to true or false
+  puppeteer: true
