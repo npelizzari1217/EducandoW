@@ -16,7 +16,7 @@
     "dev": "turbo run dev",
     "format": "prettier --write \"**/*.{ts,tsx,json}\"",
     "fix-perms": "node scripts/fix-binary-perms.js",
-    "postinstall": "node scripts/fix-binary-perms.js && pnpm rebuild @swc/core bcrypt @prisma/engines || true"
+    "postinstall": "node scripts/fix-binary-perms.js || true"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
