@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: '/v1',
+  baseURL: import.meta.env.VITE_API_URL || '/v1',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -17,8 +17,12 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      window.location.href = '/login';
+      // Don't redirect on auth endpoints — let the caller handle the error
+      const isAuthRequest = error.config?.url?.includes('/auth/');
+      if (!isAuthRequest) {
+        localStorage.removeItem('accessToken');
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   },
