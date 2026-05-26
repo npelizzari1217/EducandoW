@@ -502,7 +502,7 @@ export default function StudyPlansPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
-          <Button onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancelar' : '+ Nuevo plan'}
           </Button>
         </div>
@@ -528,7 +528,7 @@ export default function StudyPlansPage() {
               )}
               <Input label="Año lectivo" value={form.academicYear} onChange={e => setForm({ ...form, academicYear: e.target.value })} placeholder="2026" />
             </div>
-            <Button onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
+            <Button variant="success-soft" onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
           </div>
         </Card>
       )}

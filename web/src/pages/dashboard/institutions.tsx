@@ -338,7 +338,7 @@ export default function InstitutionsPage() {
           <p className="page-subtitle">Gestioná las instituciones educativas</p>
         </div>
         {user?.role === 'ROOT' && (
-          <Button onClick={() => { if (showForm) { clearForm(); } else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); } }}>
+          <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { if (showForm) { clearForm(); } else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); } }}>
             {showForm ? 'Cancelar' : 'Nueva institución'}
           </Button>
         )}
@@ -486,9 +486,9 @@ export default function InstitutionsPage() {
 
           <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)' }}>
             {editingId ? (
-              <Button onClick={handleSave} loading={saving}>Guardar cambios</Button>
+              <Button variant="success-soft" onClick={handleSave} loading={saving}>Guardar cambios</Button>
             ) : (
-              <Button onClick={handleCreate} loading={creating}>Crear institución</Button>
+              <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear institución</Button>
             )}
           </div>
         </Card>
@@ -557,7 +557,7 @@ export default function InstitutionsPage() {
               Esta acción desactivará la institución pero no borrará sus datos.
             </p>
             <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
-              <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+              <Button variant="danger-soft" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
               <Button onClick={handleDeleteConfirm} loading={deleting}>Eliminar</Button>
             </div>
           </div>

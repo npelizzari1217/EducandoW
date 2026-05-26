@@ -114,6 +114,22 @@
   background: #F48FB1;
 }
 
+/* ── Success-soft ──────────────────────────────── */
+.btn-success-soft {
+  background: #E8F5E9;
+  color: #2E7D32;
+  border: 1px solid #C8E6C9;
+}
+
+.btn-success-soft:hover:not(:disabled) {
+  background: #C8E6C9;
+  color: #1B5E20;
+}
+
+.btn-success-soft:active:not(:disabled) {
+  background: #A5D6A7;
+}
+
 /* ── Spinner ────────────────────────────────────── */
 .btn-spinner {
   width: 14px;
