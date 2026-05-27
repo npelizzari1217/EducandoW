@@ -6,30 +6,121 @@ Define the soft-delete mechanism and session blocking that controls institution 
 
 ## Requirements
 
+### Requirement: Create Institution
+
+`POST /v1/institutions` MUST create a new institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'CREATE' }` MAY create. (Ref: R9)
+
+#### Scenario: ROOT creates an institution
+
+- GIVEN a ROOT user with INSTITUTIONS:CREATE
+- WHEN `POST /v1/institutions` with valid data
+- THEN the system returns HTTP 201 with created institution
+
+#### Scenario: ADMIN cannot create
+
+- GIVEN an ADMIN user (not ROOT)
+- WHEN `POST /v1/institutions`
+- THEN the system MUST return HTTP 403
+
+### Requirement: List Institutions with Tenant Filter
+
+`GET /v1/institutions` MUST return all institutions for ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }`. Non-ROOT MUST only see their own institution (JWT `institutionId`).
+
+#### Scenario: ROOT lists all
+
+- GIVEN a ROOT user with INSTITUTIONS:READ
+- WHEN `GET /v1/institutions`
+- THEN the system returns HTTP 200 with all institutions
+
+#### Scenario: Non-ROOT sees only own institution
+
+- GIVEN an ADMIN from institution "XYZ"
+- WHEN `GET /v1/institutions`
+- THEN the system returns HTTP 200 with only "XYZ"
+
+#### Scenario: Unauthenticated rejected
+
+- GIVEN a request without valid JWT
+- WHEN `GET /v1/institutions`
+- THEN the system MUST return HTTP 401
+
+### Requirement: Get Institution by ID
+
+`GET /v1/institutions/:id` MUST return a single institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }` MAY access.
+
+#### Scenario: ROOT gets by ID
+
+- GIVEN a ROOT user with INSTITUTIONS:READ
+- WHEN `GET /v1/institutions/:id` with valid UUID
+- THEN the system returns HTTP 200 with institution data
+
+#### Scenario: Not found returns null
+
+- GIVEN a ROOT user
+- WHEN `GET /v1/institutions/nonexistent-uuid`
+- THEN the system returns HTTP 200 with `{ data: null }`
+
+#### Scenario: ADMIN cannot access by ID
+
+- GIVEN an ADMIN (not ROOT)
+- WHEN `GET /v1/institutions/:id`
+- THEN the system MUST return HTTP 403
+
+### Requirement: Update Institution
+
+`PATCH /v1/institutions/:id` MUST use `@Roles('ROOT', 'ADMIN')`. ROOT MAY update any institution including `active`. ADMIN MAY only update their own institution (JWT `institutionId`) and MUST NOT change `active`. Non-existent returns `{ data: null }`.
+
+#### Scenario: ROOT updates any institution
+
+- GIVEN a ROOT user
+- WHEN `PATCH /v1/institutions/:id` with `{ name: "New" }`
+- THEN the system updates and returns HTTP 200
+
+#### Scenario: ADMIN updates own institution
+
+- GIVEN an ADMIN with JWT `institutionId: "xyz"`
+- WHEN `PATCH /v1/institutions/xyz` with `{ phone: "555" }`
+- THEN the system updates and returns HTTP 200
+
+#### Scenario: ADMIN cannot update other institution
+
+- GIVEN an ADMIN with JWT `institutionId: "xyz"`
+- WHEN `PATCH /v1/institutions/abc`
+- THEN the system MUST return HTTP 403
+
+#### Scenario: ADMIN cannot change active
+
+- GIVEN an ADMIN editing own institution
+- WHEN `PATCH /v1/institutions/:id` with `{ active: false }`
+- THEN the system MUST return HTTP 403 — only ROOT MAY change `active`
+
+#### Scenario: ROOT reactivates inactive institution
+
+- GIVEN an institution with `active: false`
+- WHEN ROOT calls `PATCH /v1/institutions/:id` with `{ active: true }`
+- THEN `active` is set to `true` and users can log in
+
 ### Requirement: Soft-Delete via active=false
 
-`DELETE /v1/institutions/:id` MUST NOT physically remove the institution record or its tenant database. Instead, it MUST set `active: false` on the institution record in the master DB. The tenant database is preserved intact. Only ROOT role MAY soft-delete. (Ref: R15)
+`DELETE /v1/institutions/:id` MUST set `active: false` (not physical delete). Tenant DB is preserved. Endpoint MUST use `@Roles('ROOT')` — no other role MAY access. (Ref: R15)
 
 #### Scenario: Soft-delete preserves data
 
-- GIVEN an existing active institution with `id: "abc-123"` and tenant DB `educandow_abc-123`
-- WHEN `DELETE /v1/institutions/abc-123` is called by a ROOT user
-- THEN the institution's `active` field is set to `false` in `educandow_master`
-- AND the `educandow_abc-123` database remains intact and untouched
-- AND the response is HTTP 204 No Content
+- GIVEN an active institution `abc-123` with tenant DB `educandow_abc-123`
+- WHEN `DELETE /v1/institutions/abc-123` by ROOT
+- THEN `active: false` in master DB, tenant DB intact, HTTP 204
 
-#### Scenario: Already-deactivated institution returns 204
+#### Scenario: Already-deactivated returns 204
 
 - GIVEN an institution with `active: false`
-- WHEN `DELETE /v1/institutions/:id` is called again
-- THEN the system SHOULD return HTTP 204 (idempotent operation)
-- AND no error is raised
+- WHEN `DELETE /v1/institutions/:id` by ROOT again
+- THEN the system SHOULD return HTTP 204 (idempotent)
 
-#### Scenario: Non-ROOT user cannot soft-delete
+#### Scenario: Non-ROOT cannot soft-delete
 
-- GIVEN a user with role ADMIN
-- WHEN they call `DELETE /v1/institutions/:id`
-- THEN the system MUST return HTTP 403 Forbidden
+- GIVEN an ADMIN user (not ROOT)
+- WHEN `DELETE /v1/institutions/:id`
+- THEN the system MUST return HTTP 403
 
 ### Requirement: Session Blocked for Inactive Institutions
 
@@ -56,24 +147,6 @@ If `active: false` on a user's institution, the system MUST reject the session e
 - WHEN they make a request to master-only endpoints (e.g., `GET /v1/institutions`)
 - THEN the request MUST succeed regardless of any institution's `active` status
 - AND ROOT user list and CRUD operations are not blocked by institutional deactivation
-
-### Requirement: Reactivation
-
-An institution with `active: false` MAY be reactivated by setting `active: true` via `PATCH /v1/institutions/:id` by ROOT users only. After reactivation, login and session proceed normally.
-
-#### Scenario: Reactivate institution
-
-- GIVEN an inactive institution with `active: false`
-- WHEN a ROOT user calls `PATCH /v1/institutions/:id` with `{ "active": true }`
-- THEN the institution's `active` field is set to `true`
-- AND users of that institution can now log in successfully
-
-#### Scenario: Reactivation restores full access
-
-- GIVEN a recently reactivated institution
-- WHEN a user of that institution logs in
-- THEN the system issues a JWT and the session works normally
-- AND `GET /v1/institutions/me` returns `active: true`
 
 ### Requirement: Active Field in All Institution Responses
 

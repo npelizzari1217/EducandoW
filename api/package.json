@@ -8,6 +8,7 @@
     "start": "nest start",
     "start:prod": "node dist/src/main",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "prisma:generate": "prisma generate --schema=prisma/schema_master.prisma && prisma generate --schema=prisma/schema_tenant.prisma",
     "prisma:generate:master": "prisma generate --schema=prisma/schema_master.prisma",
@@ -17,7 +18,8 @@
     "prisma:migrate": "pnpm prisma:migrate:master",
     "prisma:seed": "ts-node prisma/seed.ts",
     "tenant:create": "ts-node scripts/create-tenant-db.ts",
-    "lint": "tsc --noEmit && eslint ."
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@educandow/domain": "workspace:*",
@@ -46,6 +48,7 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.14.0",
     "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^4.1.7",
     "prisma": "^5.20.0",
     "supertest": "^7.2.2",
     "ts-node": "^10.9.2",

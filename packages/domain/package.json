@@ -8,12 +8,14 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist .turbo"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.1.7",
     "typescript": "^5.4.0",
     "vitest": "^1.6.1"
   }
