@@ -1,7 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { SubjectRepository, Subject, Id, Level, LevelType, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, Subject as PrismaSubject } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
+
+interface SubjectRow {
+  id: string;
+  name: string;
+  level: number;
+  institutionId?: string;
+  modality?: number;
+  active?: boolean;
+  deletedAt?: Date | null;
+}
 
 @Injectable()
 export class PrismaSubjectRepo implements SubjectRepository {
@@ -49,8 +59,8 @@ export class PrismaSubjectRepo implements SubjectRepository {
     await this.client.subject.delete({ where: { id } }).catch(() => {});
   }
 
-  private toDomain(r: PrismaSubject): Subject {
-    const modality = (r as any).modality ?? EducationalModalityCode.COMUN;
+  private toDomain(r: SubjectRow): Subject {
+    const modality = r.modality ?? EducationalModalityCode.COMUN;
     return Subject.reconstruct({
       id: Id.reconstruct(r.id),
       name: r.name,
@@ -59,8 +69,8 @@ export class PrismaSubjectRepo implements SubjectRepository {
         modality as EducationalModalityCode,
       ),
       institutionId: TenantContext.getInstitutionId() ?? '',
-      active: (r as any).active ?? true,
-      deletedAt: (r as any).deletedAt ?? undefined,
+      active: r.active ?? true,
+      deletedAt: r.deletedAt ?? undefined,
     });
   }
 }

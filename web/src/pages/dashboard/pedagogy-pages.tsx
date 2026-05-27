@@ -12,14 +12,14 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
 }) {
   const { data, loading, reload } = useApiList<Record<string, string>>(url, extraParams);
   const { deleting, del } = useApiDelete(url);
-  const { creating, createError, create } = useApiCreate(url);
+  const { creating, createError, create } = useApiCreate<Record<string, unknown>>(url);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
 
   const handleCreate = async () => {
     const body: Record<string, unknown> = {};
     fields.forEach(f => { if (form[f.name]) body[f.name] = form[f.name]; });
-    const ok = await create(body as any);
+    const ok = await create(body);
     if (ok) { setShowForm(false); setForm({}); reload(); }
   };
 

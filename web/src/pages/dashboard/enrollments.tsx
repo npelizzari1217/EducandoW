@@ -13,7 +13,7 @@ interface Institution { id: string; name: string; }
 export default function EnrollmentsPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const isRoot = user?.roles?.includes('ROOT');
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -109,8 +109,8 @@ export default function EnrollmentsPage() {
             { key: 'academicYear', header: 'Año' },
             { key: 'grade', header: 'Grado' },
             { key: 'division', header: 'Div' },
-            { key: 'institutionName', header: 'Institución', render: (e: any) => {
-              const iid = e.institutionId;
+            { key: 'institutionName', header: 'Institución', render: (e: Record<string, unknown>) => {
+              const iid = e.institutionId as string;
               if (!iid) return '-';
               return institutions.find(i => i.id === iid)?.name || iid;
             }},

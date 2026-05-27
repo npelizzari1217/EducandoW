@@ -16,8 +16,8 @@ import { RegisterUserUseCase } from '../../application/auth/use-cases/register-u
 import { LoginUseCase } from '../../application/auth/use-cases/login.use-case';
 import { RefreshTokenUseCase } from '../../application/auth/use-cases/refresh-token.use-case';
 import { LogoutUseCase } from '../../application/auth/use-cases/logout.use-case';
-import { RegisterRequest, RegisterSchema, RegisterDTO } from './dto/register.request';
-import { LoginRequest, LoginSchema, LoginDTO } from './dto/login.request';
+import { RegisterSchema, RegisterDTO } from './dto/register.request';
+import { LoginSchema, LoginDTO } from './dto/login.request';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';

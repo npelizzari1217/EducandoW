@@ -68,8 +68,6 @@ describe('PrismaInstitutionRepository — SMTP encryption roundtrip', () => {
   });
 
   it('decrypts smtp_pass when reading from DB', async () => {
-    const { Institution } = await import('@educandow/domain');
-
     // First encrypt manually to get a known ciphertext
     const { EncryptionService } = await import('../../../crypto/encryption.service');
     const key = Buffer.from(ENCRYPTION_KEY, 'utf8');

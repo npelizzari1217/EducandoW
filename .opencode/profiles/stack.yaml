@@ -35,8 +35,8 @@ profile:
 
     quality:
       type_checker: tsc --noEmit (strict)
-      linter: "No configurado"
-      formatter: "No configurado"
+      linter: ESLint 9 (flat config, typescript-eslint)
+      formatter: Prettier 3
 
   architecture:
     pattern: clean-architecture

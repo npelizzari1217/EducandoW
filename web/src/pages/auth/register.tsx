@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -7,7 +7,6 @@ import { Card } from '../../components/ui/card';
 
 export default function RegisterPage() {
   const { register, isLoading } = useAuth();
-  const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'TEACHER', institutionId: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);

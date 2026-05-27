@@ -46,11 +46,11 @@ export class PedagogyController {
   async deleteSubject(@Param('id') id: string) { await this.deleteSubjUC.execute(id); }
 
   @Patch('subjects/:id') @Roles('ADMIN','MANAGER')
-  async patchSubject(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateSubjectSchema)) b: DTO.UpdateSubjectDTO) { const r = await this.updateSubjUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s: any = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, level: s.level.toCode() } }; }
+  async patchSubject(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateSubjectSchema)) b: DTO.UpdateSubjectDTO) { const r = await this.updateSubjUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, level: s.level.toCode() } }; }
 
   // ── Course Sections ────────────────────────────────
   @Post('course-sections') @Roles('ADMIN','MANAGER')
-  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const s = r.unwrap() as any; return { data: { id: s.id.get(), name: s.name, level: s.level.toCode(), academicYear: s.academicYear } }; }
+  async postSection(@Body(new ZodValidationPipe(DTO.CreateCourseSectionSchema)) b: DTO.CreateCourseSectionDTO) { const r = await this.createSecUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const s = r.unwrap(); return { data: { id: s.id.get(), name: s.name, level: s.level.toCode(), academicYear: s.academicYear } }; }
 
   @Get('course-sections') @Roles('ADMIN','MANAGER','TEACHER')
   async getSections(@Query('institutionId') iid: string, @Query('level') l: string, @Query('academicYear') ay: string) { const sections = await this.listSecUC.execute(iid, l, ay); return { data: sections.map((s) => ({ id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear })) }; }
@@ -59,7 +59,7 @@ export class PedagogyController {
   async deleteSection(@Param('id') id: string) { await this.deleteSecUC.execute(id); }
 
   @Patch('course-sections/:id') @Roles('ADMIN','MANAGER')
-  async patchSection(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateCourseSectionSchema)) b: DTO.UpdateCourseSectionDTO) { const r = await this.updateSecUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s: any = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear } }; }
+  async patchSection(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateCourseSectionSchema)) b: DTO.UpdateCourseSectionDTO) { const r = await this.updateSecUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear } }; }
 
   // ── Subject Assignments ────────────────────────────
   @Post('subject-assignments') @Roles('ADMIN','MANAGER')
@@ -123,13 +123,13 @@ export class PedagogyController {
 
   // ── Study Plans ─────────────────────────────────────
   @Post('study-plans') @Roles('ADMIN','MANAGER')
-  async createPlan(@Body(new ZodValidationPipe(DTO.CreateStudyPlanSchema)) b: DTO.CreateStudyPlanDTO) { const r = await this.createPlanUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const p = r.unwrap() as any; return { data: { id: p.id.get(), name: p.name, level: p.level, academicYear: p.academicYear } }; }
+  async createPlan(@Body(new ZodValidationPipe(DTO.CreateStudyPlanSchema)) b: DTO.CreateStudyPlanDTO) { const r = await this.createPlanUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const p = r.unwrap(); return { data: { id: p.id.get(), name: p.name, level: p.level, academicYear: p.academicYear } }; }
 
   @Get('study-plans') @Roles('ADMIN','MANAGER','TEACHER')
   async listPlans(@Query('level') l?: string) {
-    const plans = await this.listPlansUC.execute(l ? parseInt(l, 10) : undefined) as any[];
+    const plans = await this.listPlansUC.execute(l ? parseInt(l, 10) : undefined);
     return {
-      data: plans.map((p: any) => ({
+      data: plans.map((p) => ({
         id: p.id.get(),
         name: p.name,
         level: p.level,
@@ -142,7 +142,7 @@ export class PedagogyController {
 
   @Get('study-plans/:id') @Roles('ADMIN','MANAGER','TEACHER')
   async getPlan(@Param('id') id: string) {
-    const p: any = await this.getPlanUC.execute(id);
+    const p = await this.getPlanUC.execute(id);
     if (!p) return { data: null };
     const planCourses = await this.listPlanCoursesUC.execute(id);
     return {
@@ -159,7 +159,7 @@ export class PedagogyController {
           courseSectionName: c.courseSectionName,
           studyPlanId: c.studyPlanId,
           subjectCount: c.subjects?.length ?? 0,
-          subjects: c.subjects?.map((s: any) => ({
+          subjects: c.subjects?.map((s) => ({
             id: s.id,
             subjectId: s.subjectId,
             subjectName: s.subjectName,
@@ -171,7 +171,7 @@ export class PedagogyController {
   }
 
   @Patch('study-plans/:id') @Roles('ADMIN','MANAGER')
-  async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p: any = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, academicYear: p.academicYear, active: p.active } }; }
+  async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, academicYear: p.academicYear, active: p.active } }; }
 
   @Delete('study-plans/:id') @Roles('ADMIN','MANAGER') @HttpCode(HttpStatus.NO_CONTENT)
   async deletePlan(@Param('id') id: string) { await this.deletePlanUC.execute(id); }
@@ -205,7 +205,7 @@ export class PedagogyController {
   async listPlanCourseSubjects(@Param('id') id: string) {
     const detail = await this.getPlanCourseUC.execute(id);
     if (!detail) return { data: [] };
-    return { data: (detail.subjects || []).map((s: any) => ({
+    return { data: (detail.subjects || []).map((s) => ({
       id: s.id,
       subjectId: s.subjectId,
       subjectName: s.subjectName || null,

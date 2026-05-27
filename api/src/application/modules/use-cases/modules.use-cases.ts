@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { Module } from '@educandow/domain';
 
 @Injectable()
 export class ListModulesUseCase {
@@ -45,7 +44,7 @@ export class UpdateModuleUseCase {
     const existing = await this.prisma.getMasterClient().module.findUnique({ where: { id } });
     if (!existing) return null;
 
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (input.code !== undefined) data.code = input.code.toUpperCase().trim();
     if (input.name !== undefined) data.name = input.name.trim();
     if (input.active !== undefined) data.active = input.active;

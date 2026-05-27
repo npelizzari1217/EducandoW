@@ -2,9 +2,10 @@ import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError, ForbiddenError,
   InstitutionRepository,
-  Institution, Level, HexColor, Cue, SmtpConfig, Id,
+  Institution, Level, HexColor, Cue, SmtpConfig,
   EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
+import type { SmtpEncryption } from '@educandow/domain';
 
 export interface InstitutionLevelInput {
   level: string;
@@ -103,7 +104,7 @@ export class CreateInstitutionUseCase {
         host: input.smtp_host,
         user: input.smtp_user,
         pass: input.smtp_pass,
-        encryption: input.smtp_encryption as any,
+        encryption: input.smtp_encryption as SmtpEncryption,
         port: input.smtp_port,
       });
       if (smtpResult.isErr()) return err(smtpResult.unwrapErr());
@@ -288,7 +289,7 @@ export class UpdateInstitutionUseCase {
         host: input.smtp_host ?? existing.smtpHost,
         user: input.smtp_user ?? existing.smtpUser,
         pass: input.smtp_pass ?? existing.smtpPass,
-        encryption: (input.smtp_encryption ?? existing.smtpEncryption) as any,
+        encryption: (input.smtp_encryption ?? existing.smtpEncryption) as SmtpEncryption,
         port: input.smtp_port ?? existing.smtpPort,
       });
       if (smtpResult.isErr()) return err(smtpResult.unwrapErr());

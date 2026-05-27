@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/auth-context';
-import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
 import apiClient from '../../api/client';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
@@ -268,8 +268,8 @@ export default function InstitutionsPage() {
         setShowForm(true);
         setSections({ identificacion: true, contacto: true, branding: true, smtp: true, notificaciones: true });
       }
-    } catch (e: any) {
-      setSaveError('Error al cargar datos de la institución');
+    } catch (e: unknown) {
+      setSaveError(extractErrorMessage(e) || 'Error al cargar datos de la institución');
     }
   };
 
@@ -281,9 +281,8 @@ export default function InstitutionsPage() {
       await apiClient.patch(`/institutions/${editingId}`, buildPayload());
       setShowForm(false); setForm(EMPTY_FORM); setEditingId(null); setFieldErrors({});
       reload();
-    } catch (e: any) {
-      // API returns { error: { status, message } } via AppExceptionFilter
-      setSaveError(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Error al guardar');
+    } catch (e: unknown) {
+      setSaveError(extractErrorMessage(e) || 'Error al guardar');
     } finally { setSaving(false); }
   };
 
@@ -304,8 +303,8 @@ export default function InstitutionsPage() {
         printWindow.document.close();
         printWindow.print();
       }
-    } catch (e: any) {
-      setSaveError(e?.response?.data?.message ?? 'Error al imprimir');
+    } catch (e: unknown) {
+      setSaveError(extractErrorMessage(e) || 'Error al imprimir');
     } finally { setPrinting(false); }
   };
 

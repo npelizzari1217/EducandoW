@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { InstitutionProvider, useInstitution } from '../institution-context';
 import type { ReactNode } from 'react';
-import axios from 'axios';
 
 vi.mock('../../api/client', () => ({
   default: {

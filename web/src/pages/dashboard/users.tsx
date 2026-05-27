@@ -11,6 +11,7 @@ import apiClient from '../../api/client';
 // ── Tipos ─────────────────────────────────────────────────
 
 interface UserRow {
+  [key: string]: unknown;
   id: string;
   email: string;
   name: string;
@@ -111,7 +112,7 @@ export default function UsersPage() {
   const { config } = useInstitution();
   // El user de auth-context solo tiene 'role' (legacy), pero en localStorage
   // puede existir 'roles' como array completo desde el JWT.
-  const myRoles: string[] = (user as any)?.roles ?? (user?.role ? [user.role] : []);
+  const myRoles: string[] = user?.roles ?? (user?.role ? [user.role] : []);
   const isRoot = myRoles.includes('ROOT');
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
   const myRank = getHighestRoleRank(myRoles);
@@ -164,7 +165,7 @@ export default function UsersPage() {
   };
 
   const handleCreate = async () => {
-    const body: any = {
+    const body: Record<string, unknown> = {
       email: form.email,
       password: form.password,
       name: form.name,
@@ -178,7 +179,7 @@ export default function UsersPage() {
 
   const handleUpdate = async () => {
     if (!editingId) return;
-    const body: any = {
+    const body: Record<string, unknown> = {
       email: form.email,
       name: form.name,
       institutionId: form.institutionId || null,
@@ -357,27 +358,26 @@ export default function UsersPage() {
           columns={[
             { key: 'name', header: 'Nombre' },
             { key: 'email', header: 'Email' },
-            { key: 'institutionName', header: 'Institución', render: (u: any) => (u as UserRow).institutionName ?? '-' },
-            { key: 'level', header: 'Nivel educativo', render: (u: any) => levelLabel((u as UserRow).level) },
+            { key: 'institutionName', header: 'Institución', render: (u: UserRow) => u.institutionName ?? '-' },
+            { key: 'level', header: 'Nivel educativo', render: (u: UserRow) => levelLabel(u.level) },
             {
               key: 'roles', header: 'Rol (jerarquía)',
-              render: (u: any) => {
-                const r = (u as UserRow).roles ?? [];
+              render: (u: UserRow) => {
+                const r = u.roles ?? [];
                 return r.length > 0 ? roleHierarchyLabel(r) : 'Sin rol';
               },
             },
-            { key: 'active', header: 'Activo', render: (u: any) => (u as UserRow).active ? '✅' : '❌' },
+            { key: 'active', header: 'Activo', render: (u: UserRow) => u.active ? '✅' : '❌' },
             {
               key: 'actions', header: '',
-              render: (u: any) => {
-                const row = u as UserRow;
-                const manageable = canManage(row.roles ?? []);
+              render: (u: UserRow) => {
+                const manageable = canManage(u.roles ?? []);
                 return (
                   <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                     {manageable ? (
                       <>
-                        <Button variant="action" size="sm" onClick={() => startEdit(row)}>Editar</Button>
-                        <Button variant="danger-soft" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>Eliminar</Button>
+                        <Button variant="action" size="sm" onClick={() => startEdit(u)}>Editar</Button>
+                        <Button variant="danger-soft" size="sm" onClick={() => del(u.id).then(() => reload())} loading={deleting}>Eliminar</Button>
                       </>
                     ) : (
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
@@ -389,7 +389,7 @@ export default function UsersPage() {
               },
             },
           ]}
-          data={data as any}
+          data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay usuarios'}
         />
       </Card>

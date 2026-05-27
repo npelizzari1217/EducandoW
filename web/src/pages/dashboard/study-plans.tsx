@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -74,14 +74,14 @@ const LEVEL_BADGE_COLORS: Record<number, { bg: string; text: string }> = {
 export default function StudyPlansPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const isRoot = user?.roles?.includes('ROOT');
 
   const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans');
-  const { deleting, del } = useApiDelete('/study-plans');
-  const { creating, createError, create } = useApiCreate('/study-plans');
-  const { updating, updateError, update } = useApiUpdate<StudyPlan>('/study-plans');
-  const { updating: updatingCourse, updateError: courseUpdateError, update: patchCourse } = useApiUpdate('/course-sections');
-  const { updating: updatingSubject, updateError: subjectUpdateError, update: patchSubject } = useApiUpdate('/subjects');
+  const { del } = useApiDelete('/study-plans');
+  const { creating, createError, create } = useApiCreate<{ name: string; level: number; academicYear: string }>('/study-plans');
+  const { update } = useApiUpdate<StudyPlan>('/study-plans');
+  const { updateError: courseUpdateError, update: patchCourse } = useApiUpdate('/course-sections');
+  const { updateError: subjectUpdateError, update: patchSubject } = useApiUpdate('/subjects');
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', level: '', academicYear: String(new Date().getFullYear()) });
@@ -135,7 +135,7 @@ export default function StudyPlansPage() {
       name: form.name,
       level: parseInt(form.level) || parseInt(defaultLevel) || 2,
       academicYear: form.academicYear,
-    } as any);
+    });
     if (ok) { resetForm(); reload(); }
   };
 
@@ -181,7 +181,7 @@ export default function StudyPlansPage() {
     try {
       const res = await apiClient.get(`/study-plans/${planId}/courses`);
       setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
-    } catch {}
+    } catch { /* plan has no courses */ }
   };
 
   // ── Toggle plan-course (materias) ──
@@ -206,7 +206,7 @@ export default function StudyPlansPage() {
     try {
       const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`);
       setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
-    } catch {}
+    } catch { /* course has no subjects */ }
   };
 
   // ── Curso: agregar existente ──
@@ -216,8 +216,8 @@ export default function StudyPlansPage() {
       await apiClient.post(`/study-plans/${planId}/courses`, { courseSectionId: selectedCourse });
       setSelectedCourse('');
       refreshPlanCourses(planId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al agregar curso');
+    } catch (e: unknown) {
+      alert(extractErrorMessage(e) || 'Error al agregar curso');
     }
   };
 
@@ -225,7 +225,7 @@ export default function StudyPlansPage() {
   const handleCreateCourseInline = async (plan: StudyPlan) => {
     try {
       setCourseFormLoading(true);
-      const body: any = {
+      const body: Record<string, unknown> = {
         grade: courseForm.grade || undefined,
         division: courseForm.division || undefined,
         level: LEVEL_DTO_CODE[plan.level] || 'PRIMARIO',
@@ -239,8 +239,8 @@ export default function StudyPlansPage() {
       setShowCourseForm(null);
       setCourseForm({ grade: '', division: '' });
       refreshPlanCourses(plan.id);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || e?.response?.data?.message || 'Error al crear curso');
+    } catch (e: unknown) {
+      alert(extractErrorMessage(e) || 'Error al crear curso');
     } finally {
       setCourseFormLoading(false);
     }
@@ -268,8 +268,8 @@ export default function StudyPlansPage() {
     try {
       await apiClient.delete(`/course-sections/${courseSectionId}`);
       refreshPlanCourses(planId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al eliminar curso');
+    } catch (e: unknown) {
+      alert(extractErrorMessage(e) || 'Error al eliminar curso');
     }
   };
 
@@ -290,8 +290,8 @@ export default function StudyPlansPage() {
       setShowSubjectForm(null);
       setSubjectForm({ name: '', modality: 'COMUN' });
       refreshPlanCourseSubjects(planCourseId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || e?.response?.data?.message || 'Error al crear materia');
+    } catch (e: unknown) {
+      alert(extractErrorMessage(e) || 'Error al crear materia');
     } finally {
       setSubjectFormLoading(false);
     }
@@ -316,8 +316,8 @@ export default function StudyPlansPage() {
     try {
       await apiClient.delete(`/subjects/${subjectId}`);
       refreshPlanCourseSubjects(planCourseId);
-    } catch (e: any) {
-      alert(e?.response?.data?.error?.message || 'Error al eliminar materia');
+    } catch (e: unknown) {
+      alert(extractErrorMessage(e) || 'Error al eliminar materia');
     }
   };
 
@@ -722,13 +722,13 @@ export default function StudyPlansPage() {
                   )}
 
                   {/* Agregar curso existente */}
-                  {availableCourses.filter((c: any) => !courses.find((pc: any) => pc.courseSectionId === c.id)).length > 0 && (
+                  {availableCourses.filter((c) => !courses.find((pc) => pc.courseSectionId === c.id)).length > 0 && (
                     <div className="add-existing-row no-print">
                       <select value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}>
                         <option value="">+ Agregar curso existente...</option>
                         {availableCourses
-                          .filter((c: any) => !courses.find((pc: any) => pc.courseSectionId === c.id))
-                          .map((c: any) => (
+                          .filter((c) => !courses.find((pc) => pc.courseSectionId === c.id))
+                          .map((c) => (
                             <option key={c.id} value={c.id}>{c.name} — {c.level}</option>
                           ))}
                       </select>

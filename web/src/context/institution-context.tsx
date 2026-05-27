@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import apiClient from '../api/client';
+import { extractErrorMessage } from '../hooks/use-api';
 
 export interface InstitutionConfig {
   id: string;
@@ -92,12 +93,8 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
         // No institution assigned — use defaults silently
         setConfig(DEFAULT_CONFIG);
       }
-    } catch (e: any) {
-      // NestJS error format: { error: { status, message } }
-      const message = e?.response?.data?.error?.message
-        ?? e?.response?.data?.message
-        ?? 'Error al cargar configuración institucional';
-      setError(message);
+    } catch (e: unknown) {
+      setError(extractErrorMessage(e) || 'Error al cargar configuración institucional');
       // Fallback to defaults — don't crash
       setConfig(DEFAULT_CONFIG);
     } finally {

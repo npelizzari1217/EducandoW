@@ -86,7 +86,7 @@ try {
 
   console.log(`\n✅ Tenant database "${dbToCreate}" created successfully.`);
   console.log(`   Connection URL: ${tenantUrl.replace(/:([^@]+)@/, ':****@')}`);
-} catch (error: any) {
+} catch (error: unknown) {
   // Check if database already exists
   const stderr = error.stderr?.toString() ?? error.message ?? '';
   if (stderr.includes('already exists')) {

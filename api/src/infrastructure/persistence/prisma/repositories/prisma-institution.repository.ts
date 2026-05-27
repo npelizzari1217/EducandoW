@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import {
-  InstitutionRepository, Institution, Id, Level, HexColor, Cue,
+  InstitutionRepository, Institution, Id, HexColor, Cue,
   EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
 import type {

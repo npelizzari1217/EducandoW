@@ -10,7 +10,7 @@ describe('PatchStudentUseCase', () => {
   // Helper: build a mock Student entity
   function mockStudent(overrides: Record<string, unknown> = {}) {
     const id = { get: () => (overrides.id as string) ?? 's1' };
-    const { id: _id, ...restOverrides } = overrides;
+    const { id: _, ...restOverrides } = overrides;
     return {
       id,
       firstName: 'Juan',

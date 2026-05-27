@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { CourseSectionRepository, CourseSection, Id, Level, LevelType, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, CourseSection as PrismaCourseSection } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
+
+interface CourseSectionRow {
+  id: string;
+  name: string;
+  grade?: string | null;
+  division?: string | null;
+  level: number;
+  academicYear: string;
+  institutionId?: string;
+  modality?: number;
+}
 
 @Injectable()
 export class PrismaCourseSectionRepo implements CourseSectionRepository {
@@ -57,8 +68,8 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
     await this.client.courseSection.delete({ where: { id } }).catch(() => {});
   }
 
-  private toDomain(r: PrismaCourseSection): CourseSection {
-    const modality = (r as any).modality ?? EducationalModalityCode.COMUN;
+  private toDomain(r: CourseSectionRow): CourseSection {
+    const modality = r.modality ?? EducationalModalityCode.COMUN;
     return CourseSection.reconstruct({
       id: Id.reconstruct(r.id),
       name: r.name,

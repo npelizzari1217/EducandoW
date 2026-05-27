@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, Level, LevelType, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import { ok, err, ValidationError, Level, EducationalLevelCode, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
+import type { SubjectProps, CourseSectionProps, StudyPlanProps } from '@educandow/domain';
 
 const VALID_PEDAGOGICAL_LEVELS: EducationalLevelCode[] = [
   EducationalLevelCode.INICIAL,
@@ -37,7 +38,7 @@ export class UpdateSubjectUC {
   async execute(id: string, input: { name?: string }) {
     const existing = await this.r.findById(id);
     if (!existing) return ok(null);
-    const updated = Subject.reconstruct({ ...(existing as any).props, name: input.name ?? existing.name });
+    const updated = Subject.reconstruct({ ...(existing as unknown as { props: SubjectProps }).props, name: input.name ?? existing.name });
     await this.r.save(updated);
     return ok(updated);
   }
@@ -45,7 +46,7 @@ export class UpdateSubjectUC {
 
 // ── CourseSection ────────────────────────────────────
 @Injectable()
-export class CreateCourseSectionUC { constructor(private r: CourseSectionRepository, private planRepo: StudyPlanRepository) {} async execute(input: { name?: string; grade?: string; division?: string; level: string; modality?: string; academicYear: string; institutionId?: string; studyPlanId?: string }) {
+export class CreateCourseSectionUC { constructor(private r: CourseSectionRepository, private planRepo: StudyPlanRepository) {} async execute(input: { name?: string; grade?: string; division?: string; level: string; modality?: string; academicYear: string; institutionId?: string; studyPlanId?: string }): Promise<Result<CourseSection, ValidationError>> {
     let levelVal = buildLevel(input.level, input.modality);
     let academicYear = input.academicYear;
 
@@ -74,7 +75,7 @@ export class UpdateCourseSectionUC {
     if (!existing) return ok(null);
     const name = input.name || [input.grade, input.division].filter(Boolean).join(' ') || existing.name;
     const updated = CourseSection.reconstruct({
-      ...(existing as any).props,
+      ...(existing as unknown as { props: CourseSectionProps }).props,
       name,
       grade: input.grade !== undefined ? input.grade : existing.grade,
       division: input.division !== undefined ? input.division : existing.division,
@@ -126,7 +127,7 @@ export class DeleteNotaTrimestralUC { constructor(private r: NotaTrimestralRepos
 
 // ── Attendance ───────────────────────────────────────
 @Injectable()
-export class CreateAttendanceUC { constructor(private r: AttendanceRepository) {} async execute(input: { studentId: string; courseSectionId: string; date: string; status: string; note?: string }) { const { status, ...rest } = input; const a = Attendance.create({ ...rest, date: new Date(input.date), statusId: status as any }); await this.r.save(a); return ok(a); } }
+export class CreateAttendanceUC { constructor(private r: AttendanceRepository) {} async execute(input: { studentId: string; courseSectionId: string; date: string; status: string; note?: string }) { const { status, ...rest } = input; const a = Attendance.create({ ...rest, date: new Date(input.date), statusId: status }); await this.r.save(a); return ok(a); } }
 @Injectable()
 export class ListAttendanceUC { constructor(private r: AttendanceRepository) {} async executeByCourseDate(courseSectionId: string, date: string) { return this.r.findByCourseSectionAndDate(courseSectionId, new Date(date)); } async executeByStudent(studentId: string) { return this.r.findByStudent(studentId); } }
 @Injectable()
@@ -134,7 +135,7 @@ export class DeleteAttendanceUC { constructor(private r: AttendanceRepository) {
 
 // ── Study Plans ──────────────────────────────────────
 @Injectable()
-export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(input: { name: string; level: number; modality?: number; academicYear: string }) {
+export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(input: { name: string; level: number; modality?: number; academicYear: string }): Promise<Result<StudyPlan, ValidationError>> {
     const lvl = input.level as EducationalLevelCode;
     if (!VALID_PEDAGOGICAL_LEVELS.includes(lvl)) return err(new ValidationError(`Nivel educativo inválido: ${input.level}. Debe ser 1 (Inicial), 2 (Primario), 3 (Secundario), 4 (Terciario), o 9 (Administración)`));
     const p = StudyPlan.create({ name: input.name, level: lvl, modality: (input.modality ?? 0) as EducationalModalityCode, academicYear: input.academicYear });
@@ -143,7 +144,7 @@ export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} 
   }
 }
 @Injectable()
-export class UpdateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(id: string, input: { name?: string; academicYear?: string; active?: boolean }) { const existing = await this.r.findById(id); if (!existing) return ok(null); const updated = StudyPlan.reconstruct({ ...(existing as any).props, name: input.name ?? existing.name, academicYear: input.academicYear ?? existing.academicYear, active: input.active ?? existing.active, updatedAt: new Date() }); await this.r.save(updated); return ok(updated); } }
+export class UpdateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(id: string, input: { name?: string; academicYear?: string; active?: boolean }) { const existing = await this.r.findById(id); if (!existing) return ok(null); const updated = StudyPlan.reconstruct({ ...(existing as unknown as { props: StudyPlanProps }).props, name: input.name ?? existing.name, academicYear: input.academicYear ?? existing.academicYear, active: input.active ?? existing.active, updatedAt: new Date() }); await this.r.save(updated); return ok(updated); } }
 @Injectable()
 export class ListStudyPlansUC { constructor(private r: StudyPlanRepository) {} async execute(level?: number) { return this.r.findAll(level); } }
 @Injectable()

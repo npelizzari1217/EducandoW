@@ -9,6 +9,7 @@ import apiClient from '../../api/client';
 // ── Tipos ─────────────────────────────────────────────────
 
 interface StudentSummary {
+  [key: string]: unknown;
   id: string;
   firstName: string;
   lastName: string;
@@ -17,6 +18,7 @@ interface StudentSummary {
 }
 
 interface StudentDetail {
+  [key: string]: unknown;
   id: string;
   firstName: string;
   lastName: string;
@@ -29,6 +31,7 @@ interface StudentDetail {
 }
 
 interface Enrollment {
+  [key: string]: unknown;
   id: string;
   studentId: string;
   institutionId: string;
@@ -41,6 +44,7 @@ interface Enrollment {
 }
 
 interface Nota {
+  [key: string]: unknown;
   id: string;
   evaluationId: string;
   numericValue: number | null;
@@ -50,6 +54,7 @@ interface Nota {
 }
 
 interface AttendanceRecord {
+  [key: string]: unknown;
   id: string;
   date: string;
   status: string;
@@ -140,30 +145,30 @@ export default function LegajosPage() {
     ]);
 
     // Student detail (requerido)
-    if (results[0].status === 'rejected' || !(results[0] as any).value?.data?.data) {
+    if (results[0].status === 'rejected' || !(results[0] as { value?: { data?: { data?: StudentDetail } } }).value?.data?.data) {
       setError('Alumno no encontrado');
       setLoadingLegajo(false);
       return;
     }
-    setSelectedStudent((results[0] as any).value.data.data);
+    setSelectedStudent((results[0] as { value?: { data?: { data?: StudentDetail } } }).value!.data!.data!);
 
     // Enrollments (opcional)
     if (results[1].status === 'fulfilled') {
-      setEnrollments((results[1] as any).value.data?.data ?? []);
+      setEnrollments((results[1] as { value?: { data?: { data?: Enrollment[] } } }).value?.data?.data ?? []);
     } else {
       setEnrollments([]);
     }
 
     // Notas (opcional)
     if (results[2].status === 'fulfilled') {
-      setNotas((results[2] as any).value.data?.data ?? []);
+      setNotas((results[2] as { value?: { data?: { data?: Nota[] } } }).value?.data?.data ?? []);
     } else {
       setNotas([]);
     }
 
     // Attendance (opcional)
     if (results[3].status === 'fulfilled') {
-      setAttendance((results[3] as any).value.data?.data ?? []);
+      setAttendance((results[3] as { value?: { data?: { data?: AttendanceRecord[] } } }).value?.data?.data ?? []);
     } else {
       setAttendance([]);
     }
@@ -172,14 +177,6 @@ export default function LegajosPage() {
   };
 
   const handlePrint = () => window.print();
-
-  // ── Agrupar notas por evaluationId ──
-  const notasGrouped = notas.reduce<Record<string, Nota[]>>((acc, n) => {
-    const key = n.evaluationId;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(n);
-    return acc;
-  }, {});
 
   return (
     <div>
@@ -213,14 +210,14 @@ export default function LegajosPage() {
                   { key: 'dni', header: 'DNI' },
                   {
                     key: 'actions', header: '',
-                    render: (s: any) => (
-                      <Button variant="action" size="sm" onClick={() => selectStudent(s as StudentSummary)}>
+                    render: (s: StudentSummary) => (
+                      <Button variant="action" size="sm" onClick={() => selectStudent(s)}>
                         Ver legajo
                       </Button>
                     ),
                   },
                 ]}
-                data={searchResults as any}
+                data={searchResults}
                 emptyMessage="Sin resultados"
               />
             </div>
@@ -282,13 +279,13 @@ export default function LegajosPage() {
             <Table
               columns={[
                 { key: 'academicYear', header: 'Año lectivo' },
-                { key: 'level', header: 'Nivel', render: (e: any) => levelLabel((e as Enrollment).level) },
-                { key: 'grade', header: 'Grado/Año', render: (e: any) => (e as Enrollment).grade || '-' },
-                { key: 'division', header: 'División', render: (e: any) => (e as Enrollment).division || '-' },
+                { key: 'level', header: 'Nivel', render: (e: Enrollment) => levelLabel(e.level) },
+                { key: 'grade', header: 'Grado/Año', render: (e: Enrollment) => e.grade || '-' },
+                { key: 'division', header: 'División', render: (e: Enrollment) => e.division || '-' },
                 { key: 'status', header: 'Estado' },
-                { key: 'enrolledAt', header: 'Fecha', render: (e: any) => formatDateTime((e as Enrollment).enrolledAt) },
+                { key: 'enrolledAt', header: 'Fecha', render: (e: Enrollment) => formatDateTime(e.enrolledAt) },
               ]}
-              data={enrollments as any}
+              data={enrollments}
               emptyMessage="Sin matrículas registradas"
             />
           </Card>
@@ -303,12 +300,12 @@ export default function LegajosPage() {
               <Table
                 columns={[
                   { key: 'evaluationId', header: 'Evaluación ID' },
-                  { key: 'numericValue', header: 'Nota num.', render: (n: any) => (n as Nota).numericValue ?? '-' },
-                  { key: 'qualitativeValue', header: 'Nota cual.', render: (n: any) => (n as Nota).qualitativeValue ?? '-' },
+                  { key: 'numericValue', header: 'Nota num.', render: (n: Nota) => n.numericValue ?? '-' },
+                  { key: 'qualitativeValue', header: 'Nota cual.', render: (n: Nota) => n.qualitativeValue ?? '-' },
                   { key: 'gradeCode', header: 'Código' },
-                  { key: 'gradeLabel', header: 'Concepto', render: (n: any) => (n as Nota).gradeLabel ?? '-' },
+                  { key: 'gradeLabel', header: 'Concepto', render: (n: Nota) => n.gradeLabel ?? '-' },
                 ]}
-                data={notas as any}
+                data={notas}
                 emptyMessage="Sin calificaciones registradas"
               />
             )}
@@ -323,11 +320,11 @@ export default function LegajosPage() {
             ) : (
               <Table
                 columns={[
-                  { key: 'date', header: 'Fecha', render: (a: any) => formatDate((a as AttendanceRecord).date) },
+                  { key: 'date', header: 'Fecha', render: (a: AttendanceRecord) => formatDate(a.date) },
                   { key: 'status', header: 'Código' },
-                  { key: 'statusDescription', header: 'Estado', render: (a: any) => (a as AttendanceRecord).statusDescription },
+                  { key: 'statusDescription', header: 'Estado', render: (a: AttendanceRecord) => a.statusDescription },
                 ]}
-                data={attendance as any}
+                data={attendance}
                 emptyMessage="Sin registros de asistencia"
               />
             )}
