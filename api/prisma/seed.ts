@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -184,7 +185,7 @@ async function main() {
   await ensureInstitutionLevels(prisma);
 }
 
-export async function seedAttendanceStatuses(prisma: any) {
+export async function seedAttendanceStatuses(prisma: TenantPrismaClient) {
   const statuses = [
     { code: 'PRE', description: 'Presente', absenceValue: 0, isPresent: true },
     { code: 'AUS', description: 'Ausente', absenceValue: 1, isPresent: false },
@@ -205,7 +206,7 @@ export async function seedAttendanceStatuses(prisma: any) {
 }
 
 // ── Ensure every active institution has at least one level ──────
-export async function ensureInstitutionLevels(prisma: any) {
+export async function ensureInstitutionLevels(prisma: PrismaClient) {
   const missing: { id: string }[] = await prisma.$queryRawUnsafe(`
     SELECT i.id
     FROM institutions i
@@ -239,7 +240,7 @@ export async function ensureInstitutionLevels(prisma: any) {
   console.log(`✅ Assigned Primario Común (level=2) to ${missing.length} institution(s)`);
 }
 
-export async function seedGradeScales(prisma: any) {
+export async function seedGradeScales(prisma: TenantPrismaClient) {
   // ── Primario (level=2, modality=0) — Numérica 1-10 ────
   await prisma.gradeScale.upsert({
     where: { level_modality_name: { level: 2, modality: 0, name: 'Primaria Numérica' } },

@@ -13,7 +13,7 @@ interface Institution { id: string; name: string; }
 export default function TeachersPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const isRoot = (user as any)?.roles?.includes('ROOT');
+  const isRoot = user?.roles?.includes('ROOT');
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -42,8 +42,8 @@ export default function TeachersPage() {
       lastName: teacher.lastName,
       dni: teacher.dni,
       email: teacher.email,
-      phone: (teacher as any).phone ?? '',
-      title: (teacher as any).title ?? '',
+      phone: (teacher as Record<string, unknown>).phone as string ?? '',
+      title: (teacher as Record<string, unknown>).title as string ?? '',
       institutionId,
     });
   };

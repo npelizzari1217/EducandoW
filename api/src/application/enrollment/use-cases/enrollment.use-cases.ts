@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import { ok, err, Result, ValidationError, EnrollmentRepository, Enrollment, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 
 export interface CreateEnrollmentInput {
   studentId: string;

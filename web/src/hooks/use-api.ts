@@ -1,31 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/client';
 
+export type ApiError = { response?: { data?: { error?: { message?: string }; message?: string; messages?: string[] } }; message?: string };
+
 /**
  * Extrae un mensaje de error string desde una respuesta de error de axios.
- * Maneja múltiples formatos comunes de API (NestJS validation pipe,
- * errores anidados, arrays de mensajes, etc.).
  */
-function extractErrorMessage(e: any): string {
-  const data = e?.response?.data;
-  if (!data) return e?.message ?? 'Error';
+export function extractErrorMessage(e: unknown): string {
+  const err = e as ApiError;
+  const data = err?.response?.data;
+  if (!data) return err?.message ?? 'Error';
 
   // Array de mensajes (ej: NestJS { message: string[] }, o { messages: string[] })
   const arr = data.messages ?? data.message;
   if (Array.isArray(arr)) {
     const first = arr[0];
     if (typeof first === 'string') return first;
-    if (first && typeof first === 'object' && typeof first.message === 'string') return first.message;
+    if (first && typeof first === 'object' && 'message' in first) {
+      const msg = (first as Record<string, unknown>).message;
+      if (typeof msg === 'string') return msg;
+    }
     return 'Error';
   }
   if (typeof arr === 'string') return arr;
 
   // Campo error (string u objeto anidado)
-  const err = data.error;
-  if (typeof err === 'string') return err;
-  if (err && typeof err === 'object' && typeof err.message === 'string') return err.message;
+  const errorField = data.error;
+  if (typeof errorField === 'string') return errorField;
+  if (errorField && typeof errorField === 'object' && typeof errorField.message === 'string') return errorField.message;
 
-  return e?.message ?? 'Error';
+  return err?.message ?? 'Error';
 }
 
 export function useApiList<T>(url: string, params?: Record<string, string>) {
@@ -56,7 +60,7 @@ export function useApiCreate<T>(url: string) {
   const create = async (body: T) => {
     setCreating(true); setCreateError('');
     try { await apiClient.post(url, body); return true; }
-    catch (e: any) { setCreateError(extractErrorMessage(e)); return false; }
+    catch (e: unknown) { setCreateError(extractErrorMessage(e)); return false; }
     finally { setCreating(false); }
   };
   return { creating, createError, create, setCreateError };
@@ -68,7 +72,7 @@ export function useApiUpdate<T>(url: string) {
   const update = async (id: string, body: Partial<T>) => {
     setUpdating(true); setUpdateError('');
     try { await apiClient.patch(`${url}/${id}`, body); return true; }
-    catch (e: any) { setUpdateError(extractErrorMessage(e)); return false; }
+    catch (e: unknown) { setUpdateError(extractErrorMessage(e)); return false; }
     finally { setUpdating(false); }
   };
   return { updating, updateError, update, setUpdateError };

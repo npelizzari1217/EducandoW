@@ -1,10 +1,13 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { loadEnvConfig } from './infrastructure/config/env.config';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const config = loadEnvConfig();
+  const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create(AppModule);
 
@@ -40,12 +43,11 @@ async function bootstrap() {
   app.enableCors({ origin: corsOrigin, credentials: true });
 
   // ── Cookie parser ─────────────────────────────────────────────────────
-  const cookieParser = require('cookie-parser');
   app.use(cookieParser());
 
   await app.listen(config.port);
-  console.log(`🚀 EducandoW API running on http://localhost:${config.port}/v1`);
-  console.log(`📚 Swagger docs at http://localhost:${config.port}/docs`);
+  logger.log(`🚀 EducandoW API running on http://localhost:${config.port}/v1`);
+  logger.log(`📚 Swagger docs at http://localhost:${config.port}/docs`);
 }
 
 bootstrap();

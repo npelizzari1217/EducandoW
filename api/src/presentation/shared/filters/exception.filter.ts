@@ -24,7 +24,18 @@ export class AppExceptionFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
-      message = typeof res === 'string' ? res : (res as any).message ?? (Array.isArray((res as any).messages) ? (res as any).messages.join('; ') : undefined) ?? message;
+      if (typeof res === 'string') {
+        message = res;
+      } else if (typeof res === 'object' && res !== null) {
+        const obj = res as Record<string, unknown>;
+        if (Array.isArray(obj.messages)) {
+          message = (obj.messages as string[]).join('; ');
+        } else if (typeof obj.message === 'string') {
+          message = obj.message;
+        } else if (Array.isArray(obj.message)) {
+          message = (obj.message as string[]).join('; ');
+        }
+      }
     } else if (exception instanceof DomainError) {
       status = DOMAIN_STATUS[exception.code] ?? HttpStatus.BAD_REQUEST;
       message = exception.message;

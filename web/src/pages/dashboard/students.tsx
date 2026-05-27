@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -15,7 +15,7 @@ const ALLOWED_FIELDS = ['phone', 'address', 'photoUrl', 'email', 'birthDate', 'g
 export default function StudentsPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const roles: string[] = (user as any)?.roles ?? [];
+  const roles: string[] = user?.roles ?? [];
   const isRoot = roles.includes('ROOT');
   const isTutor = roles.includes('TUTOR');
   const isStudent = roles.includes('STUDENT');
@@ -35,14 +35,14 @@ export default function StudentsPage() {
 
   // ── TUTOR mode: my-children ───────────────────────────────
 
-  const { data: tutorData, loading: tutorLoading, reload: tutorReload } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; address?: string; phone?: string; photoUrl?: string }>(
+  const { data: tutorData, loading: tutorLoading } = useApiList<{ id: string; firstName: string; lastName: string; dni: string; fullName: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; address?: string; phone?: string; photoUrl?: string }>(
     '/students/my-children',
     isTutor ? {} : undefined,
   );
 
   // ── STUDENT mode: own profile ────────────────────────────
 
-  const [studentProfile, setStudentProfile] = useState<any>(null);
+  const [studentProfile, setStudentProfile] = useState<Record<string, unknown> | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileForm, setProfileForm] = useState<Record<string, string>>({});
@@ -89,8 +89,8 @@ export default function StudentsPage() {
       const r = await apiClient.patch(`/students/${studentProfile.id}`, body);
       setStudentProfile(r.data?.data);
       setProfileError('Guardado correctamente');
-    } catch (e: any) {
-      setProfileError(e?.response?.data?.error?.message ?? 'Error al guardar');
+    } catch (e: unknown) {
+      setProfileError(extractErrorMessage(e) || 'Error al guardar');
     } finally {
       setProfileSaving(false);
     }
@@ -103,7 +103,7 @@ export default function StudentsPage() {
     isStaff && !isTutor && !isStudent ? { institutionId } : undefined,
   );
   const { deleting, del } = useApiDelete('/students');
-  const { creating, createError, create, setCreateError } = useApiCreate('/students');
+  const { creating, createError, create } = useApiCreate('/students');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', institutionId: institutionId });
 
@@ -134,19 +134,19 @@ export default function StudentsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nombre</label>
-                <input type="text" value={studentProfile.firstName ?? ''} disabled
+                <input type="text" value={(studentProfile?.firstName as string) ?? ''} disabled
                   style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
               </div>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Apellido</label>
-                <input type="text" value={studentProfile.lastName ?? ''} disabled
+                <input type="text" value={(studentProfile?.lastName as string) ?? ''} disabled
                   style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
               </div>
             </div>
 
             <div style={{ marginTop: 'var(--space-md)' }}>
               <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>DNI</label>
-              <input type="text" value={studentProfile.dni ?? ''} disabled
+              <input type="text" value={(studentProfile?.dni as string) ?? ''} disabled
                 style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }} />
             </div>
 
@@ -184,8 +184,8 @@ export default function StudentsPage() {
             columns={[
               { key: 'fullName', header: 'Nombre' },
               { key: 'dni', header: 'DNI' },
-              { key: 'email', header: 'Email', render: (s: any) => s.email ?? '-' },
-              { key: 'phone', header: 'Teléfono', render: (s: any) => s.phone ?? '-' },
+              { key: 'email', header: 'Email', render: (s: Record<string, unknown>) => (s.email as string) ?? '-' },
+              { key: 'phone', header: 'Teléfono', render: (s: Record<string, unknown>) => (s.phone as string) ?? '-' },
             ]}
             data={tutorData}
             emptyMessage={tutorLoading ? 'Cargando...' : 'No hay hijos vinculados a tu cuenta'}

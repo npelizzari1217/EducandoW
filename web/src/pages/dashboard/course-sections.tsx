@@ -9,6 +9,7 @@ import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
 
 interface CourseSection {
+  [key: string]: unknown;
   id: string;
   name: string;
   grade: string | null;
@@ -92,7 +93,7 @@ export default function CourseSectionsPage() {
 
   const handleCreate = async () => {
     const selectedOpt = LEVEL_OPTIONS.find((o) => o.value === form.level);
-    const body: any = {
+    const body: Record<string, unknown> = {
       grade: form.grade || undefined,
       division: form.division || undefined,
       level: selectedOpt?.code || form.level || 'PRIMARIO',
@@ -196,14 +197,14 @@ export default function CourseSectionsPage() {
             { key: 'academicYear', header: 'Año' },
             {
               key: 'actions', header: '',
-              render: (row: any) => (
-                <Button variant="danger-soft" size="sm" onClick={() => del(row.id).then(() => reload())} loading={deleting}>
+              render: (row: Record<string, unknown>) => (
+                <Button variant="danger-soft" size="sm" onClick={() => del(row.id as string).then(() => reload())} loading={deleting}>
                   Eliminar
                 </Button>
               ),
             },
           ]}
-          data={data as any}
+          data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay cursos'}
         />
       </Card>

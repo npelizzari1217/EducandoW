@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import { AuthenticatedRequest } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
@@ -75,7 +76,7 @@ export class InstitutionController {
 
   @Get('me')
   async me(@Req() req: Request) {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const institutionId = user?.institutionId ?? null;
     if (!institutionId) {
       return { data: null, reason: 'no_institution' };
@@ -88,7 +89,7 @@ export class InstitutionController {
   @Get()
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
   async list(@Req() req: Request) {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const isRoot = user?.roles?.includes('ROOT');
     const tenantId = isRoot ? undefined : user?.institutionId ?? undefined;
     const institutions = await this.listUC.execute(tenantId);
@@ -128,10 +129,10 @@ export class InstitutionController {
     @Body(new ZodValidationPipe(UpdateInstitutionSchema)) body: UpdateInstitutionDTO,
     @Req() req: Request,
   ) {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const caller = {
       institutionId: user?.institutionId ?? undefined,
-      isRoot: user?.role === 'ROOT',
+      isRoot: user?.roles?.includes('ROOT') ?? false,
     };
     const result = await this.updateUC.execute(id, body, caller);
     if (result.isErr()) throw result.unwrapErr();

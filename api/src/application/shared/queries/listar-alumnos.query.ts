@@ -1,5 +1,6 @@
 import { ok, Result } from '@educandow/domain';
 import { Query } from '../commands/command';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 
 export interface ListadoAlumno {
   id: string;
@@ -22,24 +23,26 @@ export interface ListarAlumnosInput {
 }
 
 interface ListarAlumnosDeps {
-  prisma: any;
+  prisma: TenantPrismaClient;
 }
 
 export class ListarAlumnosQuery implements Query<ListarAlumnosInput, ListadoAlumno[]> {
   constructor(private readonly deps: ListarAlumnosDeps) {}
 
   async execute(input: ListarAlumnosInput): Promise<Result<ListadoAlumno[], Error>> {
+    const where: Record<string, unknown> = {
+      institutionId: input.institutionId,
+    };
+    if (input.search) {
+      where.OR = [
+        { firstName: { contains: input.search, mode: 'insensitive' } },
+        { lastName: { contains: input.search, mode: 'insensitive' } },
+        { dni: { contains: input.search } },
+      ];
+    }
+
     const alumnos = await this.deps.prisma.student.findMany({
-      where: {
-        institutionId: input.institutionId,
-        ...(input.search && {
-          OR: [
-            { firstName: { contains: input.search, mode: 'insensitive' } },
-            { lastName: { contains: input.search, mode: 'insensitive' } },
-            { dni: { contains: input.search } },
-          ],
-        }),
-      },
+      where: where as Record<string, unknown>,
       include: {
         enrollments: {
           where: { status: 'ACTIVE' },

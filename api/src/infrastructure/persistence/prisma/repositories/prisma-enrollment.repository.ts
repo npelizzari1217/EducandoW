@@ -1,7 +1,21 @@
 import { Injectable } from '@nestjs/common';
 import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, Enrollment as PrismaEnrollment } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
+
+interface EnrollmentRow {
+  id: string;
+  studentId: string;
+  level: number;
+  academicYear: string;
+  grade?: string | null;
+  division?: string | null;
+  status: string;
+  enrolledAt: Date;
+  modality?: number;
+  active?: boolean;
+  deletedAt?: Date | null;
+}
 
 @Injectable()
 export class PrismaEnrollmentRepository implements EnrollmentRepository {
@@ -68,9 +82,9 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
     await this.client.enrollment.delete({ where: { id } }).catch(() => {});
   }
 
-  private toDomain(record: PrismaEnrollment): Enrollment {
+  private toDomain(record: EnrollmentRow): Enrollment {
     const institutionId = TenantContext.getInstitutionId() ?? '';
-    const modality = (record as any).modality ?? EducationalModalityCode.COMUN;
+    const modality = record.modality ?? EducationalModalityCode.COMUN;
     return Enrollment.reconstruct({
       id: Id.reconstruct(record.id),
       studentId: Id.reconstruct(record.studentId),
@@ -84,8 +98,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       division: record.division ?? undefined,
       status: record.status as EnrollmentStatus,
       enrolledAt: record.enrolledAt,
-      active: (record as any).active ?? true,
-      deletedAt: (record as any).deletedAt ?? undefined,
+      active: record.active ?? true,
+      deletedAt: record.deletedAt ?? undefined,
     });
   }
 }

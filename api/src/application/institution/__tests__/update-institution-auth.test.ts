@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { UpdateInstitutionUseCase, UpdateInstitutionInput } from '../use-cases/institution.use-cases';
+import { UpdateInstitutionUseCase } from '../use-cases/institution.use-cases';
 import { Institution, ForbiddenError, NotFoundError } from '@educandow/domain';
 
 function makeMockInst(overrides: Partial<Record<string, unknown>> = {}) {

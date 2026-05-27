@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import { AuthenticatedRequest } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
@@ -24,7 +25,7 @@ export class UsersController {
 
   /** Extrae los roles del usuario autenticado desde el request. */
   private getCreatorRoles(req: Request): string[] {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     return user?.roles ?? [];
   }
 

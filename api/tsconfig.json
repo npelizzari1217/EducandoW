@@ -1,25 +1,15 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES2022",
-    "lib": ["ES2022"],
-    "declaration": true,
-    "removeComments": true,
+    "moduleResolution": "node10",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
-    "allowSyntheticDefaultImports": true,
-    "sourceMap": true,
+    "removeComments": true,
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "strictNullChecks": true,
-    "noImplicitAny": true,
-    "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
+    "isolatedModules": false,
     "paths": {
       "@/*": ["src/*"]
     }

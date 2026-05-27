@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 
 interface Module {
+  [key: string]: unknown;
   id: string;
   code: string;
   name: string;
@@ -97,10 +98,10 @@ export default function ModulesPage() {
           columns={[
             { key: 'code', header: 'Código' },
             { key: 'name', header: 'Nombre' },
-            { key: 'active', header: 'Activo', render: (m: any) => m.active ? '✅' : '❌' },
+            { key: 'active', header: 'Activo', render: (m: Record<string, unknown>) => m.active ? '✅' : '❌' },
             {
               key: 'actions', header: '',
-              render: (m: any) => (
+              render: (m: Record<string, unknown>) => (
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                   <Button variant="action" size="sm" onClick={() => startEdit(m as unknown as Module)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => del((m as unknown as Module).id).then(() => reload())} loading={deleting}>Eliminar</Button>
@@ -108,7 +109,7 @@ export default function ModulesPage() {
               ),
             },
           ]}
-          data={data as any}
+          data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay módulos registrados'}
         />
       </Card>

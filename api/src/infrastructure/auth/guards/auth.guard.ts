@@ -9,6 +9,11 @@ export interface AuthenticatedUser {
   institutionId?: string;
   level?: number;
   dbName?: string | null;
+  hasPermission?: (module: string, action: string) => boolean;
+}
+
+export interface AuthenticatedRequest extends Request {
+  user?: AuthenticatedUser;
 }
 
 @Injectable()
@@ -27,7 +32,7 @@ export class AuthGuard implements CanActivate {
 
     try {
       const payload = this.jwtAuth.verify(token);
-      (request as any).user = {
+      (request as AuthenticatedRequest).user = {
         userId: payload.sub,
         roles: payload.roles,
         modules: payload.modules ?? [],

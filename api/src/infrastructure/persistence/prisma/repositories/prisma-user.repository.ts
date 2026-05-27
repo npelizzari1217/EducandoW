@@ -13,6 +13,40 @@ import {
 import type { PrismaClient as MasterPrismaClient } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
+interface UserModuleRow {
+  module: { id: string; code: string; name: string; active: boolean; deletedAt: Date | null };
+  actions: string[];
+}
+
+interface UserRoleRow {
+  role: {
+    id: string;
+    name: string;
+    description: string;
+    active: boolean;
+    deletedAt: Date | null;
+    roleModules?: { module: { id: string; code: string; name: string; active: boolean; deletedAt: Date | null }; actions: string[] }[];
+  };
+}
+
+interface UserRow {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string;
+  institutionId: string | null;
+  level: number | null;
+  modality: number | null;
+  failedAttempts: number;
+  lockedUntil: Date | null;
+  active: boolean;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  userRoles?: UserRoleRow[];
+  userModules?: UserModuleRow[];
+}
+
 @Injectable()
 export class PrismaUserRepository implements UserRepository {
   private readonly client: MasterPrismaClient;
@@ -103,7 +137,7 @@ export class PrismaUserRepository implements UserRepository {
     };
   }
 
-  private toDomain(record: any): User {
+  private toDomain(record: UserRow): User {
     const roles: string[] = [];
     const moduleMap = new Map<string, Set<string>>();
 

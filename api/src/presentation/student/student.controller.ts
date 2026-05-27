@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject, Req,
+  Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';

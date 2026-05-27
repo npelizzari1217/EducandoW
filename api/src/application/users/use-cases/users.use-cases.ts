@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { EmailAlreadyExistsError, canManageUser, getHighestRoleRank } from '@educandow/domain';
+import { EmailAlreadyExistsError, canManageUser } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 
 // ── Types ────────────────────────────────────────────────
@@ -53,9 +53,9 @@ export class ListUsersUseCase {
     includeInactive?: boolean;
   }) {
     const isRoot = options.creatorRoles.includes('ROOT');
-    const client = this.prisma.getMasterClient() as any;
+    const client = this.prisma.getMasterClient();
 
-    const where: any = { deletedAt: null };
+    const where: Record<string, unknown> = { deletedAt: null };
     if (!options.includeInactive) where.active = true;
     if (options.institutionId) where.institutionId = options.institutionId;
 
@@ -72,7 +72,7 @@ export class ListUsersUseCase {
     const filtered = isRoot
       ? records
       : records.filter((u) => {
-          const targetRoles = (u.userRoles ?? []).map((ur: any) => ur.role.name);
+          const targetRoles = (u.userRoles ?? []).map((ur) => ur.role.name);
           return canManageUser(options.creatorRoles, targetRoles);
         });
 
@@ -96,7 +96,7 @@ export class CreateUserUseCase {
     roles?: string[];
     creatorRoles: string[];
   }) {
-    const client = this.prisma.getMasterClient() as any;
+    const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
 
     // Verificar email único
@@ -140,7 +140,7 @@ export class CreateUserUseCase {
       });
       if (roleRecords.length > 0) {
         await client.userRole.createMany({
-          data: roleRecords.map((r: any) => ({ userId: user.id, roleId: r.id })),
+          data: roleRecords.map((r) => ({ userId: user.id, roleId: r.id })),
           skipDuplicates: true,
         });
       }
@@ -178,7 +178,7 @@ export class UpdateUserUseCase {
     },
     creatorRoles: string[],
   ) {
-    const client = this.prisma.getMasterClient() as any;
+    const client = this.prisma.getMasterClient();
     const isRoot = creatorRoles.includes('ROOT');
 
     const existing = await client.user.findUnique({
@@ -188,7 +188,7 @@ export class UpdateUserUseCase {
     if (!existing) return { data: null };
 
     // Verificar jerarquía contra los roles ACTUALES del objetivo
-    const existingRoles = (existing.userRoles ?? []).map((ur: any) => ur.role.name);
+    const existingRoles = (existing.userRoles ?? []).map((ur) => ur.role.name);
     if (!isRoot && !canManageUser(creatorRoles, existingRoles)) {
       throw new Error(
         'No tenés jerarquía suficiente para modificar este usuario. ' +
@@ -212,7 +212,7 @@ export class UpdateUserUseCase {
     }
 
     // Actualizar campos
-    const data: any = {};
+    const data: Record<string, unknown> = {};
     if (input.email !== undefined) data.email = input.email;
     if (input.name !== undefined) data.name = input.name;
     if (input.institutionId !== undefined) data.institutionId = input.institutionId;
@@ -233,7 +233,7 @@ export class UpdateUserUseCase {
         });
         if (roleRecords.length > 0) {
           await client.userRole.createMany({
-            data: roleRecords.map((r: any) => ({ userId: id, roleId: r.id })),
+            data: roleRecords.map((r) => ({ userId: id, roleId: r.id })),
             skipDuplicates: true,
           });
         }
@@ -260,7 +260,7 @@ export class DeleteUserUseCase {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(id: string, creatorRoles: string[]): Promise<boolean> {
-    const client = this.prisma.getMasterClient() as any;
+    const client = this.prisma.getMasterClient();
     const isRoot = creatorRoles.includes('ROOT');
 
     const existing = await client.user.findUnique({
@@ -270,7 +270,7 @@ export class DeleteUserUseCase {
     if (!existing) return false;
 
     // Verificar jerarquía contra los roles del objetivo
-    const targetRoles = (existing.userRoles ?? []).map((ur: any) => ur.role.name);
+    const targetRoles = (existing.userRoles ?? []).map((ur) => ur.role.name);
     if (!isRoot && !canManageUser(creatorRoles, targetRoles)) {
       throw new Error(
         'No tenés jerarquía suficiente para eliminar este usuario.',

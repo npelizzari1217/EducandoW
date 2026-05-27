@@ -2,7 +2,7 @@ import { Injectable, NestMiddleware, ForbiddenException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { PrismaService } from '../persistence/prisma/prisma.service';
 import { TenantContext } from './tenant.context';
-import type { AuthenticatedUser } from './guards/auth.guard';
+import type { AuthenticatedUser, AuthenticatedRequest } from './guards/auth.guard';
 import * as jwt from 'jsonwebtoken';
 import { loadEnvConfig } from '../config/env.config';
 
@@ -41,7 +41,7 @@ export class TenantMiddleware implements NestMiddleware {
     }
 
     // ── Tenant-scoped routes — require dbName in JWT ────────
-    let user = (req as any).user as AuthenticatedUser | undefined;
+    let user = (req as AuthenticatedRequest).user as AuthenticatedUser | undefined;
 
     // Si el AuthGuard aún no decodificó el JWT (middleware corre antes),
     // lo decodificamos nosotros desde el header Authorization
@@ -52,7 +52,7 @@ export class TenantMiddleware implements NestMiddleware {
           const token = authHeader.slice(7);
           const env = loadEnvConfig();
           user = jwt.verify(token, env.jwtSecret) as AuthenticatedUser;
-          (req as any).user = user;
+          (req as AuthenticatedRequest).user = user;
         } catch {
           throw new ForbiddenException('Token JWT inválido o expirado');
         }

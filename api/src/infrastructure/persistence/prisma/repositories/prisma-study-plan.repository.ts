@@ -3,6 +3,18 @@ import { StudyPlanRepository, StudyPlanCourseDto, StudyPlan, Id, EducationalLeve
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
+interface StudyPlanRow {
+  id: string;
+  name: string;
+  level: number;
+  modality: number;
+  academicYear: string;
+  active: boolean;
+  deletedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 @Injectable()
 export class PrismaStudyPlanRepository implements StudyPlanRepository {
   private get client(): TenantPrismaClient {
@@ -20,14 +32,14 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
   }
 
   async findAll(level?: number): Promise<StudyPlan[]> {
-    const where: any = { active: true, deletedAt: null };
+    const where: Record<string, unknown> = { active: true, deletedAt: null };
     if (level != null) where.level = level;
     const records = await this.client.studyPlan.findMany({
       where,
       orderBy: { name: 'asc' },
       include: { courses: { include: { subjects: true } } },
     });
-    return records.map((r: any) => this.toDomain(r));
+    return records.map((r) => this.toDomain(r));
   }
 
   async save(plan: StudyPlan): Promise<void> {
@@ -79,7 +91,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
       include: { subjects: { include: { subject: true } }, studyPlan: true, courseSection: true },
     });
     if (!r) return null;
-    const cs = (r as any).courseSection;
+    const cs = r.courseSection;
     return {
       id: r.id,
       studyPlanId: r.studyPlanId,
@@ -87,7 +99,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
       courseSectionName: cs?.name ?? undefined,
       courseGrade: cs?.grade ?? undefined,
       courseDivision: cs?.division ?? undefined,
-      subjects: (r as any).subjects?.map((s: any) => ({
+        subjects: r.subjects?.map((s) => ({
         id: s.id,
         subjectId: s.subjectId || s.subject?.id,
         subjectName: s.subject?.name ?? undefined,
@@ -102,7 +114,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
       include: { subjects: { include: { subject: true } }, courseSection: true },
     });
     return records.map((r) => {
-      const cs = (r as any).courseSection;
+      const cs = r.courseSection;
       return {
         id: r.id,
         studyPlanId: r.studyPlanId,
@@ -110,7 +122,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
         courseSectionName: cs?.name ?? undefined,
         courseGrade: cs?.grade ?? undefined,
         courseDivision: cs?.division ?? undefined,
-        subjects: (r as any).subjects?.map((s: any) => ({
+      subjects: r.subjects?.map((s) => ({
           id: s.id,
           subjectId: s.subjectId || s.subject?.id,
           subjectName: s.subject?.name ?? undefined,
@@ -120,7 +132,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     });
   }
 
-  private toDomain(r: any): StudyPlan {
+  private toDomain(r: StudyPlanRow): StudyPlan {
     return StudyPlan.reconstruct({
       id: Id.reconstruct(r.id),
       name: r.name,

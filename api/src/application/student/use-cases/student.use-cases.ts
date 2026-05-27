@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result, ValidationError, StudentRepository, Student, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email } from '@educandow/domain';
+import type { GuardianRelationship } from '@educandow/domain';
 
 export interface CreateStudentInput {
   firstName: string;
@@ -254,7 +255,7 @@ export class AssignGuardianUseCase {
     const guardian = StudentGuardian.create({
       studentId,
       userId: input.userId,
-      relationship: input.relationship as any,
+      relationship: input.relationship as GuardianRelationship,
     });
 
     await this.guardianRepo.save(guardian);
