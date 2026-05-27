@@ -41,7 +41,7 @@ Write-Host "=== API Started ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "  pm2 status:    pm2 status"
 Write-Host "  pm2 logs:      pm2 logs $API_NAME"
-Write-Host "  Health:        http://localhost:$API_PORT/v1/auth/health"
+Write-Host "  Health:        http://localhost:$API_PORT/v1/health"
 Write-Host ""
 Write-Host "To run on boot:  npm install -g pm2-windows-service && pm2-service-install"
 Write-Host ""

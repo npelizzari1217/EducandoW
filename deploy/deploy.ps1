@@ -102,7 +102,7 @@ Write-Host "  API started on port $API_PORT." -ForegroundColor Green
 Write-Host "[10/10] Checking API health..." -ForegroundColor Yellow
 Start-Sleep -Seconds 3
 try {
-    $response = Invoke-WebRequest -Uri "http://localhost:$API_PORT/v1/auth/health" -TimeoutSec 10 -UseBasicParsing
+    $response = Invoke-WebRequest -Uri "http://localhost:$API_PORT/v1/health" -TimeoutSec 10 -UseBasicParsing
     Write-Host "  API health check: $($response.StatusCode) OK" -ForegroundColor Green
 } catch {
     Write-Host "  API health check failed: $_" -ForegroundColor Red
@@ -144,7 +144,7 @@ Write-Host "" -ForegroundColor Cyan
 Write-Host "=== Deploy Complete ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "  API:           http://localhost:$API_PORT/v1"
-Write-Host "  Health:        http://localhost:$API_PORT/v1/auth/health"
+Write-Host "  Health:        http://localhost:$API_PORT/v1/health"
 Write-Host "  Swagger:       http://localhost:$API_PORT/docs"
 Write-Host "  pm2 status:    pm2 status"
 Write-Host "  pm2 logs:      pm2 logs $API_NAME"
