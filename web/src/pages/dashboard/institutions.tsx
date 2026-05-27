@@ -10,8 +10,8 @@ import { PEDAGOGICAL_LEVELS, LEVEL_LABELS } from '@/constants/levels';
 import type { LevelOption } from '@/constants/levels';
 
 interface InstitutionLevelEntry {
-  level: string;
-  modality: string;
+  level: number | string;  // API returns number; frontend sends string (Zod DTO expects string)
+  modality: number | string;
 }
 
 interface InstitutionRow {
@@ -282,7 +282,8 @@ export default function InstitutionsPage() {
       setShowForm(false); setForm(EMPTY_FORM); setEditingId(null); setFieldErrors({});
       reload();
     } catch (e: any) {
-      setSaveError(e?.response?.data?.message ?? 'Error al guardar');
+      // API returns { error: { status, message } } via AppExceptionFilter
+      setSaveError(e?.response?.data?.error?.message ?? e?.response?.data?.message ?? 'Error al guardar');
     } finally { setSaving(false); }
   };
 
