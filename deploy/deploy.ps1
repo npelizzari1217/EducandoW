@@ -25,7 +25,7 @@ Write-Host "[2/10] Checking pnpm..." -ForegroundColor Yellow
 $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
 if (-not $pnpm) {
     Write-Host "  Installing pnpm globally..." -ForegroundColor Yellow
-    npm install -g pnpm@11.3.0
+    npm install -g pnpm@9.15.4
 }
 Write-Host "  pnpm ready." -ForegroundColor Green
 
@@ -85,7 +85,7 @@ Write-Host "  Migrations applied." -ForegroundColor Green
 
 # ── 9. Start API with pm2 ──────────────────────────────────────────────
 Write-Host "[9/10] Starting API..." -ForegroundColor Yellow
-pm2 start $PROJECT_DIR\api\dist\src\main.js --name $API_NAME --env production
+pm2 start $PROJECT_DIR\api\dist\main.js --name $API_NAME --env production
 pm2 save
 Write-Host "  API started on port $API_PORT." -ForegroundColor Green
 
