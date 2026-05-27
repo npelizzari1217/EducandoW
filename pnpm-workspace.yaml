@@ -2,4 +2,3 @@ packages:
   - "packages/*"
   - "api"
   - "web"
-  - "mobile"

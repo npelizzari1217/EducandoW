@@ -5,10 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - '5433:5432'
+    env_file:
+      - .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: educandow
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-educandow}
     volumes:
       - pgdata:/var/lib/postgresql/data
 
