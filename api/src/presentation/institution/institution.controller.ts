@@ -89,7 +89,7 @@ export class InstitutionController {
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
   async list(@Req() req: Request) {
     const user = (req as any).user;
-    const isRoot = user?.role === 'ROOT';
+    const isRoot = user?.roles?.includes('ROOT');
     const tenantId = isRoot ? undefined : user?.institutionId ?? undefined;
     const institutions = await this.listUC.execute(tenantId);
     return { data: institutions.map((i) => toResponse(i)) };
