@@ -23,11 +23,20 @@ Write-Host "  Stopped." -ForegroundColor Green
 # ── 2. Ensure pnpm ───────────────────────────────────────────────────────
 Write-Host "[2/10] Checking pnpm..." -ForegroundColor Yellow
 $pnpm = Get-Command pnpm -ErrorAction SilentlyContinue
-if (-not $pnpm) {
-    Write-Host "  Installing pnpm globally..." -ForegroundColor Yellow
+$pnpmVersion = if ($pnpm) { & pnpm --version 2>$null }
+if ($pnpmVersion -and ($pnpmVersion -replace '\s','') -notmatch '^9\.') {
+    Write-Host "  Found incompatible pnpm $pnpmVersion. Removing and reinstalling v9..." -ForegroundColor Yellow
+    Remove-Item -Recurse -Force "$env:LOCALAPPDATA\pnpm" -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force "$env:APPDATA\npm\node_modules\pnpm" -ErrorAction SilentlyContinue
+    npm uninstall -g pnpm --silent 2>$null
     npm install -g pnpm@9.15.4
 }
-Write-Host "  pnpm ready." -ForegroundColor Green
+elseif (-not $pnpm) {
+    Write-Host "  Installing pnpm@9.15.4 globally..." -ForegroundColor Yellow
+    npm install -g pnpm@9.15.4
+}
+$finalVersion = & pnpm --version 2>$null
+Write-Host "  pnpm $finalVersion ready." -ForegroundColor Green
 
 # ── 3. Clean previous builds ─────────────────────────────────────────────
 Write-Host "[3/10] Cleaning old builds..." -ForegroundColor Yellow
