@@ -69,7 +69,8 @@ function makeFilterItem(
 ) {
   return (item: NavItem): boolean => {
     if (item.roles && user && !item.roles.includes(user.role)) return false;
-    if (item.requiresLevel && !hasLevels) return false;
+    // ROOT sees all items regardless of levels — they manage the whole system
+    if (item.requiresLevel && !hasLevels && user?.role !== 'ROOT') return false;
     if (item.featureFlag === 'send_email' && !sendEmail) return false;
     if (item.featureFlag === 'send_messages' && !sendMessages) return false;
     return true;
@@ -167,7 +168,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </SidebarGroup>
         ))}
 
-        {!hasLevels && (user?.role === 'ROOT' || user?.role === 'ADMIN') && (
+        {!hasLevels && user?.role === 'ADMIN' && (
           <div className="sidebar-placeholder sidebar-placeholder-warning">
             <span className="sidebar-placeholder-icon">⚠</span>
             <span className="sidebar-placeholder-text">

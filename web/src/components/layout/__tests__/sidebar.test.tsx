@@ -111,13 +111,17 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText(/Ir a configuración/i)).toBeInTheDocument();
   });
 
-  it('shows placeholder when levels array is empty and user is ROOT', () => {
+  it('does NOT show placeholder for ROOT — ROOT sees all items regardless of levels', () => {
     mockLevels = [];
     (mockUser as any).role = 'ROOT';
     renderSidebar();
 
-    expect(screen.getByText(/Configurá los niveles educativos/i)).toBeInTheDocument();
-    expect(screen.getByText(/Ir a configuración/i)).toBeInTheDocument();
+    // ROOT sees all nav items (Estudiantes, Docentes, etc.) even without levels
+    expect(screen.getByText('Estudiantes')).toBeInTheDocument();
+    expect(screen.getByText('Docentes')).toBeInTheDocument();
+    // Placeholder should NOT appear for ROOT
+    expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ir a configuración/i)).not.toBeInTheDocument();
   });
 
   it('does NOT show placeholder when levels exist', () => {
