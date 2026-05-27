@@ -1,0 +1,5 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # Proxy /v1/* requests to the PHP proxy
+  RewriteRule ^v1/(.*) /v1/index.php?_v1_path=$1 [L,QSA]
+</IfModule>
