@@ -206,7 +206,7 @@ export async function seedAttendanceStatuses(prisma: any) {
 
 // ── Ensure every active institution has at least one level ──────
 export async function ensureInstitutionLevels(prisma: any) {
-  const missing = await prisma.$queryRawUnsafe<{ id: string }[]>(`
+  const missing: { id: string }[] = await prisma.$queryRawUnsafe(`
     SELECT i.id
     FROM institutions i
     LEFT JOIN institution_levels il ON il.institution_id = i.id
