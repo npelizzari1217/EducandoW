@@ -62,7 +62,7 @@ const InstitutionFullBaseSchema = z.object({
 /** Create schema — requires at least one level via institution_levels or levels */
 export const CreateInstitutionFullSchema = InstitutionFullBaseSchema.refine(
   (data) => !!(data.institution_levels?.length || data.levels?.length),
-  { message: 'Debe especificar al menos un nivel educativo (institution_levels o levels)', path: ['institution_levels'] },
+  { message: 'Debés seleccionar al menos un nivel educativo. Sin niveles, los módulos de Secretarios y Académico no estarán disponibles.', path: ['institution_levels'] },
 );
 
 export type CreateInstitutionFullDTO = z.infer<typeof CreateInstitutionFullSchema>;

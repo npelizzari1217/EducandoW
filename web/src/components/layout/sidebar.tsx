@@ -167,10 +167,15 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           </SidebarGroup>
         ))}
 
-        {!hasLevels && (
-          <div className="sidebar-placeholder">
+        {!hasLevels && (user?.role === 'ROOT' || user?.role === 'ADMIN') && (
+          <div className="sidebar-placeholder sidebar-placeholder-warning">
             <span className="sidebar-placeholder-icon">⚠</span>
-            <span className="sidebar-placeholder-text">No hay niveles configurados</span>
+            <span className="sidebar-placeholder-text">
+              Configurá los niveles educativos de tu institución para acceder a todas las secciones
+            </span>
+            <NavLink to="/institutions" className="sidebar-placeholder-link">
+              Ir a configuración
+            </NavLink>
           </div>
         )}
       </nav>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
@@ -107,16 +108,18 @@ function roleHierarchyLabel(roles: string[]): string {
 
 export default function UsersPage() {
   const { user } = useAuth();
+  const { config } = useInstitution();
   // El user de auth-context solo tiene 'role' (legacy), pero en localStorage
   // puede existir 'roles' como array completo desde el JWT.
   const myRoles: string[] = (user as any)?.roles ?? (user?.role ? [user.role] : []);
   const isRoot = myRoles.includes('ROOT');
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
   const myRank = getHighestRoleRank(myRoles);
   const myHighestRole = myRoles.length > 0
     ? myRoles.reduce((best, r) => (ROLE_HIERARCHY[r] ?? -1) > (ROLE_HIERARCHY[best] ?? -1) ? r : best, myRoles[0])
     : null;
 
-  const [institutionFilter, setInstitutionFilter] = useState(user?.institutionId ?? '');
+  const [institutionFilter, setInstitutionFilter] = useState(userInstitutionId);
   const [includeInactive, setIncludeInactive] = useState(false);
 
   const params: Record<string, string> = {};
@@ -229,16 +232,25 @@ export default function UsersPage() {
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
         <div>
           <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
-          <select
-            value={institutionFilter}
-            onChange={e => setInstitutionFilter(e.target.value)}
-            style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
-          >
-            <option value="">Todas las instituciones</option>
-            {institutions.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.name}</option>
-            ))}
-          </select>
+          {isRoot ? (
+            <select
+              value={institutionFilter}
+              onChange={e => setInstitutionFilter(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            >
+              <option value="">Todas las instituciones</option>
+              {institutions.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionFilter)?.name || config.name || institutionFilter}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
         </div>
         <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)', paddingBottom: '0.3rem' }}>
           <input type="checkbox" checked={includeInactive} onChange={e => setIncludeInactive(e.target.checked)} />

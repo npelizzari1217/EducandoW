@@ -181,7 +181,7 @@ export default function InstitutionsPage() {
   const validateForm = useCallback((): boolean => {
     const errs: FieldErrors = {};
     if (!form.name.trim()) errs.name = 'El nombre es obligatorio';
-    if (form.selectedLevels.size === 0) errs.selectedLevels = 'Seleccioná al menos un nivel';
+    if (form.selectedLevels.size === 0) errs.selectedLevels = 'Seleccioná al menos un nivel educativo para que los módulos de Secretarios y Académico funcionen correctamente';
     if (form.header_color && !HEX_REGEX.test(form.header_color)) errs.header_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.header_text_color && !HEX_REGEX.test(form.header_text_color)) errs.header_text_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.body_text_color && !HEX_REGEX.test(form.body_text_color)) errs.body_text_color = 'Debe ser un hex válido (#RRGGBB)';

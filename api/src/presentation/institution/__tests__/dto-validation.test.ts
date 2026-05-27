@@ -128,4 +128,19 @@ describe('CreateInstitutionFullSchema — Branding & SMTP validation', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  // ── levels validation ────────────────────────────────────
+
+  it('rejects institution without any educational level', () => {
+    const result = CreateInstitutionFullSchema.safeParse({
+      name: 'Escuela Test',
+      institution_levels: [],
+      levels: [],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('Sin niveles'))).toBe(true);
+    }
+  });
 });
