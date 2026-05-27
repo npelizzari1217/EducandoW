@@ -16,8 +16,8 @@ Write-Host "  Stopped." -ForegroundColor Green
 
 # ── 2. Verify build exists ──────────────────────────────────────────────
 Write-Host "[2/4] Verifying build..." -ForegroundColor Yellow
-if (-not (Test-Path "$PROJECT_DIR\api\dist\src\main.js")) {
-    Write-Host "  ERROR: api\dist\src\main.js not found. Run deploy.ps1 first." -ForegroundColor Red
+if (-not (Test-Path "$PROJECT_DIR\api\dist\main.js")) {
+    Write-Host "  ERROR: api\dist\main.js not found. Run deploy.ps1 first." -ForegroundColor Red
     exit 1
 }
 Write-Host "  Build found." -ForegroundColor Green
@@ -33,7 +33,7 @@ if (Test-Path "$PROJECT_DIR\packages\domain\dist") {
 # ── 4. Start with pm2 ────────────────────────────────────────────────────
 Write-Host "[4/4] Starting API on port $API_PORT..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR
-pm2 start api\dist\src\main.js --name $API_NAME --env production
+pm2 start api\dist\main.js --name $API_NAME --env production
 pm2 save
 
 Write-Host "" -ForegroundColor Cyan
