@@ -179,6 +179,9 @@ async function main() {
   console.log('✅ ROOT user ready: npelizzari@gmail.com');
   console.log('   Roles: ROOT — acceso total al sistema');
   console.log('   Solo ROOT puede crear/eliminar instituciones');
+
+  // ── Garantizar niveles para instituciones activas ────────
+  await ensureInstitutionLevels(prisma);
 }
 
 export async function seedAttendanceStatuses(prisma: any) {
@@ -199,6 +202,41 @@ export async function seedAttendanceStatuses(prisma: any) {
   }
 
   console.log('✅ Attendance statuses seeded');
+}
+
+// ── Ensure every active institution has at least one level ──────
+export async function ensureInstitutionLevels(prisma: any) {
+  const missing = await prisma.$queryRawUnsafe<{ id: string }[]>(`
+    SELECT i.id
+    FROM institutions i
+    LEFT JOIN institution_levels il ON il.institution_id = i.id
+    WHERE i.active = true AND il.id IS NULL
+  `);
+
+  if (missing.length === 0) {
+    console.log('✅ All active institutions already have levels');
+    return;
+  }
+
+  for (const row of missing) {
+    await prisma.institutionLevel.upsert({
+      where: {
+        institutionId_level_modality: {
+          institutionId: row.id,
+          level: 2,   // Primario
+          modality: 0, // Común
+        },
+      },
+      create: {
+        institutionId: row.id,
+        level: 2,
+        modality: 0,
+      },
+      update: {}, // no-op — ya existe, no hacer nada
+    });
+  }
+
+  console.log(`✅ Assigned Primario Común (level=2) to ${missing.length} institution(s)`);
 }
 
 export async function seedGradeScales(prisma: any) {
