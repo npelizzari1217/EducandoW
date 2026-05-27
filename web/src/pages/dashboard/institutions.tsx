@@ -10,8 +10,8 @@ import { PEDAGOGICAL_LEVELS, LEVEL_LABELS } from '@/constants/levels';
 import type { LevelOption } from '@/constants/levels';
 
 interface InstitutionLevelEntry {
-  level: number;
-  modality: number;
+  level: string;
+  modality: string;
 }
 
 interface InstitutionRow {
@@ -61,7 +61,7 @@ type FieldErrors = Partial<Record<keyof InstitutionForm, string>>;
 function indicesToInstitutionLevels(indices: Set<number>): InstitutionLevelEntry[] {
   return Array.from(indices).map((i) => {
     const opt = PEDAGOGICAL_LEVELS[i];
-    return { level: opt.levelCode, modality: opt.modalityCode };
+    return { level: String(opt.levelCode), modality: String(opt.modalityCode) };
   });
 }
 
@@ -70,7 +70,7 @@ function institutionLevelsToIndices(levels: InstitutionLevelEntry[]): Set<number
   const indices = new Set<number>();
   for (const il of levels) {
     const idx = PEDAGOGICAL_LEVELS.findIndex(
-      (opt) => opt.levelCode === il.level && opt.modalityCode === il.modality,
+      (opt) => opt.levelCode === Number(il.level) && opt.modalityCode === Number(il.modality),
     );
     if (idx !== -1) indices.add(idx);
   }
