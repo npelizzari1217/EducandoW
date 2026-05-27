@@ -59,6 +59,14 @@ export class TenantMiddleware implements NestMiddleware {
       }
     }
 
+    // ── ROOT bypass — super admin accede sin institución ────
+    if (user && user.roles?.includes('ROOT')) {
+      return TenantContext.run(
+        { prismaClient: null, dbName: null, institutionId: null },
+        () => next(),
+      );
+    }
+
     if (!user || !user.dbName) {
       throw new ForbiddenException(
         'Acceso a datos de institución no autorizado: dbName no disponible en el token',
