@@ -25,7 +25,7 @@ export class TenantMiddleware implements NestMiddleware {
     const path = req.originalUrl || req.path;
 
     // ── Health check — always pass through ──────────────────
-    if (path === '/v1/health' || path === '/health' || path === '/') {
+    if (path.includes('/health') || path === '/') {
       return TenantContext.run(
         { prismaClient: null, dbName: null, institutionId: null },
         () => next(),
