@@ -313,9 +313,11 @@ export default function InstitutionsPage() {
     const success = await del(deleteTarget.id);
     if (success) {
       setDeleteTarget(null);
+      alert(`Institución "${deleteTarget.name}" eliminada correctamente.`);
       reload();
     } else {
       setDeleteTarget(null);
+      alert('Error al eliminar la institución. Intentá de nuevo.');
     }
   };
 
