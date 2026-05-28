@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -204,10 +205,14 @@ export default function StudentsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div><h1 className="page-title">Estudiantes</h1><p className="page-subtitle">Gestión de alumnos</p></div>
+      <PremiumHeader
+        title="Estudiantes"
+        subtitle="Gestión de alumnos"
+        icon="🎓"
+        stats={[{ label: 'estudiantes', value: String(adminData.length) }]}
+      >
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
-      </div>
+      </PremiumHeader>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
         <div>

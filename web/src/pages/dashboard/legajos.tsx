@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/auth-context';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -180,15 +181,15 @@ export default function LegajosPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Legajos de Alumnos</h1>
-          <p className="page-subtitle">Ficha completa del alumno: datos, matrículas, calificaciones y asistencia</p>
-        </div>
+      <PremiumHeader
+        title="Legajos de Alumnos"
+        subtitle="Ficha completa del alumno: datos, matrículas, calificaciones y asistencia"
+        icon="📄"
+      >
         {selectedStudent && (
           <Button variant="action" onClick={handlePrint} title="Imprimir legajo">🖨 Imprimir</Button>
         )}
-      </div>
+      </PremiumHeader>
 
       {/* Búsqueda */}
       {!selectedStudent && (
@@ -347,7 +348,7 @@ export default function LegajosPage() {
           body * { visibility: hidden; }
           .legajo-content, .legajo-content * { visibility: visible; }
           .legajo-content { position: absolute; left: 0; top: 0; width: 100%; padding: 1rem; }
-          .page-header { visibility: visible; position: absolute; left: 0; top: 0; }
+          .mph-header { display: none; }
           button { display: none; }
         }
       `}</style>

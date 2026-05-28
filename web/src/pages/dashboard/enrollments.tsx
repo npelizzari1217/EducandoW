@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -36,10 +37,13 @@ export default function EnrollmentsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div><h1 className="page-title">Inscripciones</h1></div>
+      <PremiumHeader
+        title="Inscripciones"
+        icon="📝"
+        stats={[{ label: 'inscripciones', value: String(data.length) }]}
+      >
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nueva inscripción'}</Button>
-      </div>
+      </PremiumHeader>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
         <Input label="Estudiante ID" value={filters.studentId} onChange={e => setFilters({...filters, studentId: e.target.value})} placeholder="Buscar por estudiante" />
