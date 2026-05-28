@@ -4,7 +4,7 @@ import { z } from 'zod';
 const upper = (s: string) => s.toUpperCase().trim();
 const nameField = z.string().min(1).max(200).transform(upper);
 const lastNameField = z.string().min(1).max(100).transform(upper);
-const dniField = z.string().min(7).max(9).regex(/^\d+$/, 'El DNI debe contener solo números');
+const dniField = z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI debe ser alfanumérico en mayúscula sin símbolos').transform(upper);
 const codeField = z.string().min(1).max(50).transform(upper);
 const textField = z.string().min(1).max(200).transform((s: string) => s.trim());
 const gradeField = z.string().min(1).max(50).transform((s: string) => s.trim());
@@ -57,6 +57,9 @@ export const CreateStudentSchema = z.object({
   birthDate: z.string().optional(),
   guardianName: nameField.optional(),
   guardianPhone: z.string().max(50).optional(),
+  motherName: nameField.optional(),
+  fatherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI del padre debe ser alfanumérico en mayúscula sin símbolos').transform(upper).optional(),
+  motherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI de la madre debe ser alfanumérico en mayúscula sin símbolos').transform(upper).optional(),
   institutionId: uuidField,
 });
 export type CreateStudentDTO = z.infer<typeof CreateStudentSchema>;
@@ -69,6 +72,8 @@ export const CreateTeacherSchema = z.object({
   phone: z.string().max(50).optional(),
   title: nameField.optional(),
   institutionId: uuidField,
+  password: z.string().min(6, 'Mínimo 6 caracteres').max(128).optional(),
+  active: z.boolean().optional().default(true),
 });
 export type CreateTeacherDTO = z.infer<typeof CreateTeacherSchema>;
 

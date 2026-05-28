@@ -59,8 +59,32 @@ export class TenantMiddleware implements NestMiddleware {
       }
     }
 
-    // ── ROOT bypass — super admin accede sin institución ────
+    // ── ROOT bypass — super admin con institutionId en query param ────
     if (user && user.roles?.includes('ROOT')) {
+      const qInstitutionId = req.query?.institutionId as string | undefined;
+
+      if (qInstitutionId) {
+        // Resolve institution from master DB and build tenant client
+        const masterClient = this.prismaService.getMasterClient();
+        const institution = await masterClient.institution.findUnique({
+          where: { id: qInstitutionId },
+          select: { active: true, id: true, dbName: true },
+        });
+
+        if (institution && institution.active !== false && institution.dbName) {
+          const tenantClient = this.prismaService.getTenantClient(institution.dbName);
+          return TenantContext.run(
+            {
+              prismaClient: tenantClient,
+              dbName: institution.dbName,
+              institutionId: institution.id,
+            },
+            () => next(),
+          );
+        }
+      }
+
+      // No institutionId provided (or institution not found) — pass through with null client
       return TenantContext.run(
         { prismaClient: null, dbName: null, institutionId: null },
         () => next(),

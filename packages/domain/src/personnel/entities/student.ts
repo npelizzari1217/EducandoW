@@ -11,6 +11,9 @@ export interface StudentProps {
   birthDate?: Date;
   guardianName?: string;
   guardianPhone?: string;
+  motherName?: string;
+  fatherDni?: string;
+  motherDni?: string;
   address?: string;
   phone?: string;
   photoUrl?: string;
@@ -61,6 +64,18 @@ export class Student {
 
   get guardianPhone(): string | undefined {
     return this.props.guardianPhone;
+  }
+
+  get motherName(): string | undefined {
+    return this.props.motherName;
+  }
+
+  get fatherDni(): string | undefined {
+    return this.props.fatherDni;
+  }
+
+  get motherDni(): string | undefined {
+    return this.props.motherDni;
   }
 
   get address(): string | undefined {

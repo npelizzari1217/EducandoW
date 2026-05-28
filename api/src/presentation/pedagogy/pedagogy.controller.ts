@@ -3,6 +3,7 @@ import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
+import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import * as DTO from './dto/pedagogy.dto';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 
@@ -127,6 +128,7 @@ export class PedagogyController {
 
   @Get('study-plans') @Roles('ADMIN','MANAGER','TEACHER')
   async listPlans(@Query('level') l?: string) {
+    const institutionId = TenantContext.getInstitutionId();
     const plans = await this.listPlansUC.execute(l ? parseInt(l, 10) : undefined);
     return {
       data: plans.map((p) => ({
@@ -136,6 +138,7 @@ export class PedagogyController {
         modality: p.modality,
         academicYear: p.academicYear,
         active: p.active,
+        institutionId: institutionId ?? undefined,
       })),
     };
   }
@@ -153,6 +156,7 @@ export class PedagogyController {
         modality: p.modality,
         academicYear: p.academicYear,
         active: p.active,
+        institutionId: TenantContext.getInstitutionId() ?? undefined,
         courses: planCourses.map((c) => ({
           id: c.id,
           courseSectionId: c.courseSectionId,

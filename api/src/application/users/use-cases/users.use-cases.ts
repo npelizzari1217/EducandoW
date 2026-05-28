@@ -170,6 +170,7 @@ export class UpdateUserUseCase {
     input: {
       email?: string;
       name?: string;
+      password?: string;
       institutionId?: string | null;
       level?: number | null;
       modality?: number | null;
@@ -215,6 +216,9 @@ export class UpdateUserUseCase {
     const data: Record<string, unknown> = {};
     if (input.email !== undefined) data.email = input.email;
     if (input.name !== undefined) data.name = input.name;
+    if (input.password !== undefined && input.password.length > 0) {
+      data.passwordHash = await bcrypt.hash(input.password, 10);
+    }
     if (input.institutionId !== undefined) data.institutionId = input.institutionId;
     if (input.level !== undefined) data.level = input.level;
     if (input.modality !== undefined) data.modality = input.modality;

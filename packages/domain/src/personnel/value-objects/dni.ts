@@ -5,9 +5,9 @@ export class Dni {
   private constructor(private readonly value: string) {}
 
   static create(value: string): Result<Dni, ValidationError> {
-    const cleaned = value.replace(/[.-]/g, '').trim();
-    if (!/^\d{7,8}$/.test(cleaned)) {
-      return err(new ValidationError('DNI must be 7 or 8 digits'));
+    const cleaned = value.toUpperCase().trim();
+    if (!/^[A-Z0-9]{6,12}$/.test(cleaned)) {
+      return err(new ValidationError('DNI must be 6–12 alphanumeric characters (uppercase, no symbols)'));
     }
     return ok(new Dni(cleaned));
   }

@@ -136,7 +136,7 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: '', password: '', name: '', institutionId: '',
-    level: '', roles: [] as string[],
+    level: '', role: '' as string, active: true,
   });
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -148,20 +148,15 @@ export default function UsersPage() {
   }, []);
 
   const resetForm = () => {
-    setForm({ email: '', password: '', name: '', institutionId: '', level: '', roles: [] });
+    setForm({ email: '', password: '', name: '', institutionId: '', level: '', role: '', active: true });
     setEditingId(null);
     setShowForm(false);
     setCreateError('');
     setUpdateError('');
   };
 
-  const toggleRole = (role: string) => {
-    setForm(prev => ({
-      ...prev,
-      roles: prev.roles.includes(role)
-        ? prev.roles.filter(r => r !== role)
-        : [...prev.roles, role],
-    }));
+  const setRole = (role: string) => {
+    setForm(prev => ({ ...prev, role }));
   };
 
   const handleCreate = async () => {
@@ -171,7 +166,8 @@ export default function UsersPage() {
       name: form.name,
       institutionId: form.institutionId || undefined,
       level: form.level ? parseInt(form.level) : undefined,
-      roles: form.roles.length > 0 ? form.roles : undefined,
+      roles: form.role ? [form.role] : undefined,
+      active: form.active,
     };
     const ok = await create(body);
     if (ok) { resetForm(); reload(); }
@@ -184,21 +180,27 @@ export default function UsersPage() {
       name: form.name,
       institutionId: form.institutionId || null,
       level: form.level ? parseInt(form.level) : null,
-      roles: form.roles,
+      roles: form.role ? [form.role] : undefined,
+      active: form.active,
     };
+    if (form.password) body.password = form.password;
     const ok = await update(editingId, body);
     if (ok) { resetForm(); reload(); }
   };
 
   const startEdit = (u: UserRow) => {
     setEditingId(u.id);
+    const primaryRole = u.roles && u.roles.length > 0
+      ? u.roles.reduce((best, r) => (ROLE_HIERARCHY[r] ?? -1) > (ROLE_HIERARCHY[best] ?? -1) ? r : best, u.roles[0])
+      : '';
     setForm({
       email: u.email,
       password: '',
       name: u.name,
       institutionId: u.institutionId ?? '',
       level: u.level != null ? String(u.level) : '',
-      roles: u.roles ?? [],
+      role: primaryRole,
+      active: u.active,
     });
     setShowForm(true);
   };
@@ -273,9 +275,14 @@ export default function UsersPage() {
               <Input label="Nombre" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
               <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
             </div>
-            {!editingId && (
-              <Input label="Contraseña" type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required placeholder="Mínimo 6 caracteres" />
-            )}
+            <Input
+              label={editingId ? 'Contraseña (opcional)' : 'Contraseña'}
+              type="password"
+              value={form.password}
+              onChange={e => setForm({ ...form, password: e.target.value })}
+              required={!editingId}
+              placeholder={editingId ? 'Dejar vacío para no cambiar' : 'Mínimo 6 caracteres'}
+            />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
@@ -314,14 +321,15 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {/* Roles — ahora con etiquetas y jerarquía visible */}
+            {/* Roles — radio buttons, un solo rol por usuario */}
             <div>
               <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
-                Roles (jerarquía)
+                Rol (jerarquía)
               </label>
               <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
                 {KNOWN_ROLES.map(role => {
                   const rank = ROLE_HIERARCHY[role];
+                  const selected = form.role === role;
                   return (
                     <label
                       key={role}
@@ -329,12 +337,20 @@ export default function UsersPage() {
                         display: 'flex', alignItems: 'center', gap: '0.25rem',
                         fontSize: 'var(--text-sm)', padding: '0.25rem 0.5rem',
                         borderRadius: 'var(--radius-sm)',
-                        border: `1px solid ${form.roles.includes(role) ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                        background: form.roles.includes(role) ? 'var(--color-primary-soft, #e8f0fe)' : 'transparent',
+                        border: `1px solid ${selected ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        background: selected ? 'var(--color-primary-soft, rgba(99,102,241,0.15))' : 'transparent',
+                        color: 'var(--color-text)',
                         cursor: 'pointer',
                       }}
                     >
-                      <input type="checkbox" checked={form.roles.includes(role)} onChange={() => toggleRole(role)} />
+                      <input
+                        type="radio"
+                        name="userRole"
+                        value={role}
+                        checked={selected}
+                        onChange={() => setRole(role)}
+                        style={{ accentColor: 'var(--color-primary)' }}
+                      />
                       {roleLabel(role)}
                       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
                         ({rank != null ? rank : '?'})
@@ -344,6 +360,17 @@ export default function UsersPage() {
                 })}
               </div>
             </div>
+
+            {/* Estado activo/inactivo */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)', cursor: 'pointer', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={form.active}
+                onChange={e => setForm({ ...form, active: e.target.checked })}
+                style={{ accentColor: 'var(--color-primary)', width: '1rem', height: '1rem' }}
+              />
+              <span style={{ fontWeight: 500 }}>Activo</span>
+            </label>
 
             <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
               {editingId ? 'Guardar cambios' : 'Crear usuario'}

@@ -14,6 +14,7 @@ interface StudyPlan {
   modality: number;
   academicYear: string;
   active: boolean;
+  institutionId?: string;
 }
 
 interface PlanCourse {
@@ -76,12 +77,24 @@ export default function StudyPlansPage() {
   const { config } = useInstitution();
   const isRoot = user?.roles?.includes('ROOT');
 
-  const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans');
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
+  const [institutions, setInstitutions] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (isRoot) {
+      apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
+    }
+  }, [isRoot]);
+
+  const tenantQueryParams = institutionId ? { institutionId } : undefined;
+
+  const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans', tenantQueryParams);
   const { del } = useApiDelete('/study-plans');
-  const { creating, createError, create } = useApiCreate<{ name: string; level: number; academicYear: string }>('/study-plans');
-  const { update } = useApiUpdate<StudyPlan>('/study-plans');
-  const { updateError: courseUpdateError, update: patchCourse } = useApiUpdate('/course-sections');
-  const { updateError: subjectUpdateError, update: patchSubject } = useApiUpdate('/subjects');
+  const { creating, createError, create } = useApiCreate<{ name: string; level: number; academicYear: string }>('/study-plans', tenantQueryParams);
+  const { update } = useApiUpdate<StudyPlan>('/study-plans', tenantQueryParams);
+  const { updateError: courseUpdateError, update: patchCourse } = useApiUpdate('/course-sections', tenantQueryParams);
+  const { updateError: subjectUpdateError, update: patchSubject } = useApiUpdate('/subjects', tenantQueryParams);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', level: '', academicYear: String(new Date().getFullYear()) });
@@ -118,8 +131,7 @@ export default function StudyPlansPage() {
 
   const loadAvailableCourses = async () => {
     try {
-      const params = config?.id ? `?institutionId=${config.id}` : '';
-      const res = await apiClient.get(`/course-sections${params}`);
+      const res = await apiClient.get('/course-sections', { params: tenantQueryParams });
       setAvailableCourses(res.data?.data ?? []);
     } catch { setAvailableCourses([]); }
   };
@@ -169,7 +181,7 @@ export default function StudyPlansPage() {
       setExpandedPlans(newSet);
       loadAvailableCourses();
       try {
-        const res = await apiClient.get(`/study-plans/${planId}/courses`);
+        const res = await apiClient.get(`/study-plans/${planId}/courses`, { params: tenantQueryParams });
         setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
       } catch {
         setPlanCourses(prev => ({ ...prev, [planId]: [] }));
@@ -179,7 +191,7 @@ export default function StudyPlansPage() {
 
   const refreshPlanCourses = async (planId: string) => {
     try {
-      const res = await apiClient.get(`/study-plans/${planId}/courses`);
+      const res = await apiClient.get(`/study-plans/${planId}/courses`, { params: tenantQueryParams });
       setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
     } catch { /* plan has no courses */ }
   };
@@ -194,7 +206,7 @@ export default function StudyPlansPage() {
       newSet.add(planCourseId);
       setExpandedPlanCourses(newSet);
       try {
-        const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`);
+        const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`, { params: tenantQueryParams });
         setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
       } catch {
         setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: [] }));
@@ -204,7 +216,7 @@ export default function StudyPlansPage() {
 
   const refreshPlanCourseSubjects = async (planCourseId: string) => {
     try {
-      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`);
+      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`, { params: tenantQueryParams });
       setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
     } catch { /* course has no subjects */ }
   };
@@ -213,7 +225,7 @@ export default function StudyPlansPage() {
   const addCourseToPlan = async (planId: string) => {
     if (!selectedCourse) return;
     try {
-      await apiClient.post(`/study-plans/${planId}/courses`, { courseSectionId: selectedCourse });
+      await apiClient.post(`/study-plans/${planId}/courses`, { courseSectionId: selectedCourse }, { params: tenantQueryParams });
       setSelectedCourse('');
       refreshPlanCourses(planId);
     } catch (e: unknown) {
@@ -232,10 +244,10 @@ export default function StudyPlansPage() {
         academicYear: plan.academicYear,
         studyPlanId: plan.id,
       };
-      const courseRes = await apiClient.post('/course-sections', body);
+      const courseRes = await apiClient.post('/course-sections', body, { params: tenantQueryParams });
       const newCourseId = courseRes.data?.data?.id;
       if (!newCourseId) throw new Error('No se pudo crear el curso');
-      await apiClient.post(`/study-plans/${plan.id}/courses`, { courseSectionId: newCourseId });
+      await apiClient.post(`/study-plans/${plan.id}/courses`, { courseSectionId: newCourseId }, { params: tenantQueryParams });
       setShowCourseForm(null);
       setCourseForm({ grade: '', division: '' });
       refreshPlanCourses(plan.id);
@@ -266,7 +278,7 @@ export default function StudyPlansPage() {
   const handleDeleteCourse = async (planId: string, courseSectionId: string) => {
     if (!window.confirm('¿Eliminar este curso definitivamente?')) return;
     try {
-      await apiClient.delete(`/course-sections/${courseSectionId}`);
+      await apiClient.delete(`/course-sections/${courseSectionId}`, { params: tenantQueryParams });
       refreshPlanCourses(planId);
     } catch (e: unknown) {
       alert(extractErrorMessage(e) || 'Error al eliminar curso');
@@ -282,11 +294,11 @@ export default function StudyPlansPage() {
         name: subjectForm.name,
         level: LEVEL_DTO_CODE[plan.level] || 'PRIMARIO',
         modality: subjectForm.modality,
-        institutionId: config?.id || '',
-      });
+        institutionId: institutionId || config?.id || '',
+      }, { params: tenantQueryParams });
       const newSubjId = subjRes.data?.data?.id;
       if (!newSubjId) throw new Error('No se pudo crear la materia');
-      await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, { subjectId: newSubjId });
+      await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, { subjectId: newSubjId }, { params: tenantQueryParams });
       setShowSubjectForm(null);
       setSubjectForm({ name: '', modality: 'COMUN' });
       refreshPlanCourseSubjects(planCourseId);
@@ -314,7 +326,7 @@ export default function StudyPlansPage() {
   const handleDeleteSubject = async (planCourseId: string, subjectId: string) => {
     if (!window.confirm('¿Eliminar esta materia definitivamente?')) return;
     try {
-      await apiClient.delete(`/subjects/${subjectId}`);
+      await apiClient.delete(`/subjects/${subjectId}`, { params: tenantQueryParams });
       refreshPlanCourseSubjects(planCourseId);
     } catch (e: unknown) {
       alert(extractErrorMessage(e) || 'Error al eliminar materia');
@@ -368,6 +380,7 @@ export default function StudyPlansPage() {
         }
         .badge-year { background: #f1f5f9; color: #475569; }
         .badge-count { background: #ede9fe; color: #6d28d9; }
+        .badge-institution { background: #fff7ed; color: #c2410c; }
 
         /* ── Course list container ── */
         .plan-courses {
@@ -482,7 +495,20 @@ export default function StudyPlansPage() {
           <h1>Planes de Estudio</h1>
           <p>Gestión curricular — planes, cursos y materias</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+          {isRoot && (
+            <div>
+              <label style={{ fontSize: '0.75rem', fontWeight: 500, marginBottom: '0.2rem', display: 'block', color: '#64748b' }}>Institución</label>
+              <select
+                value={institutionId}
+                onChange={e => setInstitutionId(e.target.value)}
+                style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.82rem', background: '#fff', color: '#334155', minWidth: '180px' }}
+              >
+                <option value="">Seleccionar institución</option>
+                {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+              </select>
+            </div>
+          )}
           <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
           <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
             {showForm ? 'Cancelar' : '+ Nuevo plan'}
@@ -537,6 +563,11 @@ export default function StudyPlansPage() {
                     {LEVEL_LABELS[plan.level] || plan.level}
                   </span>
                   <span className="badge badge-year">{plan.academicYear}</span>
+                  {isRoot && plan.institutionId && (
+                    <span className="badge badge-institution">
+                      {institutions.find(i => i.id === plan.institutionId)?.name ?? plan.institutionId}
+                    </span>
+                  )}
                 </div>
                 <div className="plan-actions no-print" onClick={e => e.stopPropagation()}>
                   <Button variant="action" size="sm" onClick={() => startEditPlan(plan)}>Editar</Button>

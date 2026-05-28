@@ -124,7 +124,7 @@ export class StudentController {
 
   // ── Helper ─────────────────────────────────────────────────
 
-  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; address?: string; phone?: string; photoUrl?: string; institutionId: string }) {
+  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; address?: string; phone?: string; photoUrl?: string; institutionId: string }) {
     return {
       id: s.id.get(),
       firstName: s.firstName,
@@ -135,6 +135,9 @@ export class StudentController {
       birthDate: s.birthDate?.toISOString?.() ?? s.birthDate,
       guardianName: s.guardianName,
       guardianPhone: s.guardianPhone,
+      motherName: s.motherName,
+      fatherDni: s.fatherDni,
+      motherDni: s.motherDni,
       address: s.address,
       phone: s.phone,
       photoUrl: s.photoUrl,

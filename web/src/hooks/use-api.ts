@@ -54,24 +54,24 @@ export function useApiDelete(url: string) {
   return { deleting, del };
 }
 
-export function useApiCreate<T>(url: string) {
+export function useApiCreate<T>(url: string, queryParams?: Record<string, string>) {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const create = async (body: T) => {
     setCreating(true); setCreateError('');
-    try { await apiClient.post(url, body); return true; }
+    try { await apiClient.post(url, body, { params: queryParams }); return true; }
     catch (e: unknown) { setCreateError(extractErrorMessage(e)); return false; }
     finally { setCreating(false); }
   };
   return { creating, createError, create, setCreateError };
 }
 
-export function useApiUpdate<T>(url: string) {
+export function useApiUpdate<T>(url: string, queryParams?: Record<string, string>) {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState('');
   const update = async (id: string, body: Partial<T>) => {
     setUpdating(true); setUpdateError('');
-    try { await apiClient.patch(`${url}/${id}`, body); return true; }
+    try { await apiClient.patch(`${url}/${id}`, body, { params: queryParams }); return true; }
     catch (e: unknown) { setUpdateError(extractErrorMessage(e)); return false; }
     finally { setUpdating(false); }
   };
