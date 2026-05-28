@@ -18,8 +18,8 @@ export interface TeacherProps {
 export class Teacher {
   private constructor(private props: TeacherProps) {}
 
-  static create(props: Omit<TeacherProps, 'id' | 'active' | 'deletedAt'>): Teacher {
-    return new Teacher({ ...props, id: Id.create(), active: true });
+  static create(props: Omit<TeacherProps, 'id' | 'deletedAt'> & { active?: boolean }): Teacher {
+    return new Teacher({ ...props, id: Id.create(), active: props.active ?? true });
   }
 
   static reconstruct(props: TeacherProps): Teacher {

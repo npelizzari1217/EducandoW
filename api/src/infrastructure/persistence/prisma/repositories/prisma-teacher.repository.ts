@@ -54,6 +54,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
+        active: teacher.active,
       },
       update: {
         firstName: teacher.firstName,
@@ -62,6 +63,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
+        active: teacher.active,
       },
     });
   }

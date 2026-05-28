@@ -20,6 +20,9 @@ model Student {
   birthDate     DateTime?
   guardianName  String?
   guardianPhone String?
+  motherName    String?
+  fatherDni     String?
+  motherDni     String?
   address       String?
   phone         String?
   photoUrl      String?

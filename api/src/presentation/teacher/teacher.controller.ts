@@ -44,7 +44,7 @@ export class TeacherController {
   async get(@Param('id') id: string) {
     const t = await this.getUC.execute(id);
     if (!t) return { data: null };
-    return { data: { id: t.id.get(), firstName: t.firstName, lastName: t.lastName, dni: t.dni.get(), email: t.email.get(), phone: t.phone, title: t.title, institutionId: t.institutionId } };
+    return { data: { id: t.id.get(), firstName: t.firstName, lastName: t.lastName, dni: t.dni.get(), email: t.email.get(), phone: t.phone, title: t.title, institutionId: t.institutionId, active: t.active } };
   }
 
   @Patch(':id')

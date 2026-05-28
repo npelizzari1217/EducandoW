@@ -103,12 +103,17 @@ export default function StudentsPage() {
     isStaff && !isTutor && !isStudent ? { institutionId } : undefined,
   );
   const { deleting, del } = useApiDelete('/students');
-  const { creating, createError, create } = useApiCreate('/students');
+  const { creating, createError, create } = useApiCreate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', institutionId: institutionId });
+  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+  const [formError, setFormError] = useState('');
 
   const handleCreate = async () => {
-    const ok = await create({ ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, email: form.email || undefined, institutionId: institutionId });
+    setFormError('');
+    if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
+    if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
+    if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
+    const ok = await create({ ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, motherDni: form.motherDni || undefined, email: form.email || undefined, institutionId: institutionId });
     if (ok) { setShowForm(false); adminReload(); }
   };
 
@@ -232,17 +237,42 @@ export default function StudentsPage() {
 
       {showForm && (
         <Card title="Nuevo estudiante" className="mt-md">
-          {createError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{createError}</div>}
+          {(formError || createError) && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{formError || createError}</div>}
           <div className="flex flex-col gap-md">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-              <Input label="Nombre" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} required />
-              <Input label="Apellido" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} required />
+              <Input label="Nombre" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value.toUpperCase()})} required />
+              <Input label="Apellido" value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value.toUpperCase()})} required />
             </div>
-            <Input label="DNI" value={form.dni} onChange={e => setForm({...form, dni: e.target.value})} required />
+            <div>
+              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+              {isRoot ? (
+                <select
+                  value={form.institutionId || institutionId}
+                  onChange={e => setForm({...form, institutionId: e.target.value})}
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}
+                >
+                  <option value="">Seleccionar institución</option>
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
+                  disabled
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }}
+                />
+              )}
+            </div>
+            <Input label="DNI" value={form.dni} onChange={e => setForm({...form, dni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} required />
             <Input label="Email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
             <Input label="Fecha de nacimiento" type="date" value={form.birthDate} onChange={e => setForm({...form, birthDate: e.target.value})} />
-            <Input label="Nombre del tutor" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
-            <Input label="Teléfono del tutor" value={form.guardianPhone} onChange={e => setForm({...form, guardianPhone: e.target.value})} />
+            <Input label="Nombre completo del Padre" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
+            <Input label="Teléfono del Padre" value={form.guardianPhone} onChange={e => setForm({...form, guardianPhone: e.target.value})} />
+            <Input label="DNI del Padre" value={form.fatherDni} onChange={e => setForm({...form, fatherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
+            <Input label="Nombre completo de la Madre" value={form.motherName} onChange={e => setForm({...form, motherName: e.target.value})} />
+            <Input label="DNI de la Madre" value={form.motherDni} onChange={e => setForm({...form, motherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
             <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear estudiante</Button>
           </div>
         </Card>

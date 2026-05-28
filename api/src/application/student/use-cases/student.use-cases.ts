@@ -10,6 +10,9 @@ export interface CreateStudentInput {
   birthDate?: string;
   guardianName?: string;
   guardianPhone?: string;
+  motherName?: string;
+  fatherDni?: string;
+  motherDni?: string;
   institutionId: string;
 }
 
@@ -39,6 +42,9 @@ export class CreateStudentUseCase {
       birthDate: input.birthDate ? new Date(input.birthDate) : undefined,
       guardianName: input.guardianName,
       guardianPhone: input.guardianPhone,
+      motherName: input.motherName,
+      fatherDni: input.fatherDni,
+      motherDni: input.motherDni,
       institutionId: input.institutionId,
     });
 
@@ -91,6 +97,9 @@ export interface PatchStudentInput {
   birthDate?: string;
   guardianName?: string;
   guardianPhone?: string;
+  motherName?: string;
+  fatherDni?: string;
+  motherDni?: string;
   address?: string;
   phone?: string;
   photoUrl?: string;
@@ -180,6 +189,9 @@ export class PatchStudentUseCase {
       birthDate: body.birthDate !== undefined ? new Date(body.birthDate as string) : student.birthDate,
       guardianName: body.guardianName !== undefined ? (body.guardianName as string) : student.guardianName,
       guardianPhone: body.guardianPhone !== undefined ? (body.guardianPhone as string) : student.guardianPhone,
+      motherName: body.motherName !== undefined ? (body.motherName as string) : student.motherName,
+      fatherDni: body.fatherDni !== undefined ? (body.fatherDni as string) : student.fatherDni,
+      motherDni: body.motherDni !== undefined ? (body.motherDni as string) : student.motherDni,
       address: body.address !== undefined ? (body.address as string) : student.address,
       phone: body.phone !== undefined ? (body.phone as string) : student.phone,
       photoUrl: body.photoUrl !== undefined ? (body.photoUrl as string) : student.photoUrl,

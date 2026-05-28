@@ -9,6 +9,8 @@ export interface CreateTeacherInput {
   phone?: string;
   title?: string;
   institutionId: string;
+  password?: string;
+  active?: boolean;
 }
 
 @Injectable()
@@ -33,6 +35,7 @@ export class CreateTeacherUseCase {
       phone: input.phone,
       title: input.title,
       institutionId: input.institutionId,
+      active: input.active ?? true,
     });
 
     await this.repo.save(teacher);
@@ -92,7 +95,7 @@ export class UpdateTeacherUseCase {
       phone: body.phone !== undefined ? (body.phone as string | undefined) : teacher.phone,
       title: body.title !== undefined ? (body.title as string | undefined) : teacher.title,
       institutionId: teacher.institutionId,
-      active: teacher.active,
+      active: body.active !== undefined ? (body.active as boolean) : teacher.active,
       deletedAt: teacher.deletedAt,
     });
 
