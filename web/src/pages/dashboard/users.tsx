@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -212,24 +213,16 @@ export default function UsersPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Usuarios</h1>
-          <p className="page-subtitle">
-            Gestión de usuarios del sistema
-            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', display: 'block' }}>
-              {isRoot
-                ? 'Root — acceso total a todos los usuarios'
-                : myHighestRole
-                  ? `Tu rol: ${roleLabel(myHighestRole)} (jerarquía ${myRank}) — solo podés gestionar usuarios de jerarquía inferior`
-                  : 'Sin rol asignado'}
-            </span>
-          </p>
-        </div>
+      <PremiumHeader
+        title="Usuarios"
+        subtitle={`Gestión de usuarios del sistema${isRoot ? ' — Root: acceso total a todos los usuarios' : myHighestRole ? ` — Tu rol: ${roleLabel(myHighestRole)} (jerarquía ${myRank})` : ''}`}
+        icon="👥"
+        stats={[{ label: 'usuarios', value: String(data.length) }]}
+      >
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : 'Nuevo usuario'}
         </Button>
-      </div>
+      </PremiumHeader>
 
       {/* Filtros */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>

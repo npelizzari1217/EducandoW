@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
+import PremiumHeader from '../../components/ui/premium-header';
 import apiClient from '../../api/client';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
@@ -334,17 +335,24 @@ export default function InstitutionsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Instituciones</h1>
-          <p className="page-subtitle">Gestioná las instituciones educativas</p>
-        </div>
+      <PremiumHeader
+        title="Instituciones"
+        subtitle="Gestioná las instituciones educativas"
+        icon="🏛"
+        stats={[{ label: 'instituciones', value: String(data.length) }]}
+      >
         {user?.role === 'ROOT' && (
-          <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { if (showForm) { clearForm(); } else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); } }}>
+          <Button
+            variant={showForm ? 'danger-soft' : 'success-soft'}
+            onClick={() => {
+              if (showForm) { clearForm(); }
+              else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); }
+            }}
+          >
             {showForm ? 'Cancelar' : 'Nueva institución'}
           </Button>
         )}
-      </div>
+      </PremiumHeader>
 
       {showForm && (
         <Card title={editingId ? 'Editar institución' : 'Nueva institución'} className="mt-md">

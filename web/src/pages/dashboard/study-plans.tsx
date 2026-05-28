@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -339,14 +340,6 @@ export default function StudyPlansPage() {
         /* ── Page layout ── */
         .study-plans-page { max-width: 960px; margin: 0 auto; }
 
-        /* ── Header ── */
-        .sp-header {
-          display: flex; justify-content: space-between; align-items: flex-start;
-          margin-bottom: 1.5rem;
-        }
-        .sp-header h1 { font-size: 1.5rem; font-weight: 700; margin: 0; color: #1a1a2e; }
-        .sp-header p { font-size: 0.85rem; color: #64748b; margin: 0.25rem 0 0 0; }
-
         /* ── Plan Card ── */
         .plan-card {
           background: #fff;
@@ -490,31 +483,30 @@ export default function StudyPlansPage() {
       `}</style>
 
       {/* ── Header ── */}
-      <div className="sp-header">
-        <div>
-          <h1>Planes de Estudio</h1>
-          <p>Gestión curricular — planes, cursos y materias</p>
-        </div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
-          {isRoot && (
-            <div>
-              <label style={{ fontSize: '0.75rem', fontWeight: 500, marginBottom: '0.2rem', display: 'block', color: '#64748b' }}>Institución</label>
-              <select
-                value={institutionId}
-                onChange={e => setInstitutionId(e.target.value)}
-                style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.82rem', background: '#fff', color: '#334155', minWidth: '180px' }}
-              >
-                <option value="">Seleccionar institución</option>
-                {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
-              </select>
-            </div>
-          )}
-          <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
-          <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
-            {showForm ? 'Cancelar' : '+ Nuevo plan'}
-          </Button>
-        </div>
-      </div>
+      <PremiumHeader
+        title="Planes de Estudio"
+        subtitle="Gestión curricular — planes, cursos y materias"
+        icon="📋"
+        stats={[{ label: 'planes', value: String(plans.length) }]}
+      >
+        {isRoot && (
+          <div>
+            <label style={{ fontSize: '0.75rem', fontWeight: 500, marginBottom: '0.2rem', display: 'block', color: 'rgba(255,255,255,0.55)' }}>Institución</label>
+            <select
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+              style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', fontSize: '0.82rem', background: 'rgba(255,255,255,0.1)', color: '#fff', minWidth: '180px' }}
+            >
+              <option value="">Seleccionar institución</option>
+              {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+            </select>
+          </div>
+        )}
+        <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          {showForm ? 'Cancelar' : '+ Nuevo plan'}
+        </Button>
+      </PremiumHeader>
 
       {/* ── Form: nuevo plan ── */}
       {showForm && (
