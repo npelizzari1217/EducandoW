@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
@@ -105,17 +105,44 @@ export default function StudentsPage() {
   );
   const { deleting, del } = useApiDelete('/students');
   const { creating, createError, create } = useApiCreate('/students', institutionId ? { institutionId } : undefined);
+  const { updating, updateError, update } = useApiUpdate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
   const [formError, setFormError] = useState('');
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     setFormError('');
     if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
     if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
     if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
-    const ok = await create({ ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, motherDni: form.motherDni || undefined, email: form.email || undefined, institutionId: institutionId });
-    if (ok) { setShowForm(false); adminReload(); }
+    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, motherDni: form.motherDni || undefined, email: form.email || undefined, institutionId: institutionId };
+    if (editingId) {
+      const ok = await update(editingId, body);
+      if (ok) { resetForm(); adminReload(); }
+    } else {
+      const ok = await create(body);
+      if (ok) { resetForm(); adminReload(); }
+    }
+  };
+
+  const startEdit = (s: { id: string; firstName: string; lastName: string; dni: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string }) => {
+    setEditingId(s.id);
+    setForm({
+      firstName: s.firstName, lastName: s.lastName, dni: s.dni,
+      email: s.email ?? '', birthDate: s.birthDate ?? '',
+      guardianName: s.guardianName ?? '', guardianPhone: s.guardianPhone ?? '',
+      motherName: s.motherName ?? '', fatherDni: s.fatherDni ?? '', motherDni: s.motherDni ?? '',
+      institutionId: institutionId,
+    });
+    setShowForm(true);
+  };
+
+  const resetForm = () => {
+    setForm({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+    setEditingId(null);
+    setShowForm(false);
+    setFormError('');
   };
 
   // ── Render: STUDENT mode ──────────────────────────────────
@@ -211,7 +238,7 @@ export default function StudentsPage() {
         icon="🎓"
         stats={[{ label: 'estudiantes', value: String(adminData.length) }]}
       >
-        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
       </PremiumHeader>
 
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
@@ -241,8 +268,8 @@ export default function StudentsPage() {
       </div>
 
       {showForm && (
-        <Card title="Nuevo estudiante" className="mt-md">
-          {(formError || createError) && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{formError || createError}</div>}
+        <Card title={editingId ? 'Editar estudiante' : 'Nuevo estudiante'} className="mt-md">
+          {(formError || createError) && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{formError || createError || updateError}</div>}
           <div className="flex flex-col gap-md">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
               <Input label="Nombre" value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value.toUpperCase()})} required />
@@ -270,7 +297,7 @@ export default function StudentsPage() {
                 />
               )}
             </div>
-            <Input label="DNI" value={form.dni} onChange={e => setForm({...form, dni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} required />
+            <Input label="DNI" value={form.dni} onChange={e => setForm({...form, dni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} required disabled={!!editingId} />
             <Input label="Email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
             <Input label="Fecha de nacimiento" type="date" value={form.birthDate} onChange={e => setForm({...form, birthDate: e.target.value})} />
             <Input label="Nombre completo del Padre" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
@@ -278,14 +305,14 @@ export default function StudentsPage() {
             <Input label="DNI del Padre" value={form.fatherDni} onChange={e => setForm({...form, fatherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
             <Input label="Nombre completo de la Madre" value={form.motherName} onChange={e => setForm({...form, motherName: e.target.value})} />
             <Input label="DNI de la Madre" value={form.motherDni} onChange={e => setForm({...form, motherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
-            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear estudiante</Button>
+            <Button variant="success-soft" onClick={handleSave} loading={creating || updating}>{editingId ? 'Guardar cambios' : 'Crear estudiante'}</Button>
           </div>
         </Card>
       )}
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <div style={{ display: 'flex', gap: 'var(--space-xs)' }}><Button variant="action" size="sm" onClick={() => startEdit(s as { id: string; firstName: string; lastName: string; dni: string })}>Editar</Button><Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button></div> }]}
           data={adminData}
           emptyMessage={adminLoading ? 'Cargando...' : 'No hay estudiantes'}
         />

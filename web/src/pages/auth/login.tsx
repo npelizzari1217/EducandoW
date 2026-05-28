@@ -47,7 +47,7 @@ export default function LoginPage() {
         {/* Brand */}
         <div className="login-brand">
           <img className="login-logo" src="/EducandoW4_02.jpeg" alt="EducandoW" />
-          <h1 className="login-title">EducandoW</h1>
+          <h1 className="login-title">Soft Administrativo Pedagógico</h1>
           <p className="login-subtitle">Administración Pedagógica</p>
         </div>
 
