@@ -71,7 +71,8 @@ export class TenantMiddleware implements NestMiddleware {
           select: { active: true, id: true, dbName: true },
         });
 
-        if (institution && institution.active !== false && institution.dbName) {
+        if (institution && institution.dbName) {
+          // ROOT bypasses active check — super admin accesses all institutions
           const tenantClient = this.prismaService.getTenantClient(institution.dbName);
           return TenantContext.run(
             {
