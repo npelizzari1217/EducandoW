@@ -59,7 +59,8 @@ export class LoginUseCase {
       if (!institution) {
         return err(new ValidationError('Institución no encontrada'));
       }
-      if (institution.active === false) {
+      // ROOT users bypass institution active check — they're super admins above all institutions
+      if (!user.roles.includes('ROOT') && institution.active === false) {
         return err(new ValidationError('La institución se encuentra inactiva'));
       }
       dbName = institution.dbName ?? `educandow_${user.institutionId}`;
