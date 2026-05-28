@@ -489,24 +489,28 @@ export default function StudyPlansPage() {
         icon="📋"
         stats={[{ label: 'planes', value: String(plans.length) }]}
       >
-        {isRoot && (
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 500, marginBottom: '0.2rem', display: 'block', color: 'rgba(255,255,255,0.55)' }}>Institución</label>
-            <select
-              value={institutionId}
-              onChange={e => setInstitutionId(e.target.value)}
-              style={{ padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', fontSize: '0.82rem', background: 'rgba(255,255,255,0.1)', color: '#fff', minWidth: '180px' }}
-            >
-              <option value="">Seleccionar institución</option>
-              {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
-            </select>
-          </div>
-        )}
         <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : '+ Nuevo plan'}
         </Button>
       </PremiumHeader>
+
+      {/* ── Filtro de institución ── */}
+      {isRoot && (
+        <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+            <select
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            >
+              <option value="">Seleccionar institución</option>
+              {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* ── Form: nuevo plan ── */}
       {showForm && (
