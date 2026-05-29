@@ -20,6 +20,9 @@ function toResponse(inst: Institution) {
     header_color: inst.headerColor?.get() ?? null,
     header_text_color: inst.headerTextColor?.get() ?? null,
     body_text_color: inst.bodyTextColor?.get() ?? null,
+    body_color: inst.bodyColor?.get() ?? null,
+    footer_color: inst.footerColor?.get() ?? null,
+    footer_text_color: inst.footerTextColor?.get() ?? null,
     smtp_host: inst.smtpHost ?? null,
     smtp_user: inst.smtpUser ?? null,
     smtp_encryption: inst.smtpEncryption ?? null,
@@ -31,6 +34,10 @@ function toResponse(inst: Institution) {
     active: inst.active ?? true,
     db_name: inst.dbName ?? null,
     levels: inst.levels.map((l) => l.toCode()),
+    institution_levels: inst.institutionLevels.map((il) => ({
+      level: il.level,
+      modality: il.modality,
+    })),
     created_at: inst.createdAt?.toISOString() ?? null,
     updated_at: inst.updatedAt?.toISOString() ?? null,
   };
@@ -77,6 +84,9 @@ describe('toResponse (controller response mapper)', () => {
       headerColor: undefined,
       headerTextColor: undefined,
       bodyTextColor: undefined,
+      bodyColor: undefined,
+      footerColor: undefined,
+      footerTextColor: undefined,
       smtpHost: 'smtp.example.com',
       smtpUser: 'mailer@example.com',
       smtpPass: 'secret',
@@ -95,20 +105,14 @@ describe('toResponse (controller response mapper)', () => {
       'id', 'name', 'cue', 'ministry_reg', 'address', 'city', 'postal_code',
       'country', 'phone', 'website', 'contact_email', 'logo_url',
       'header_color', 'header_text_color', 'body_text_color',
+      'body_color', 'footer_color', 'footer_text_color',
       'smtp_host', 'smtp_user', 'smtp_encryption', 'smtp_port',
       'send_email', 'send_messages', 'socket_host', 'socket_port',
-      'active', 'db_name', 'levels', 'created_at', 'updated_at',
+      'active', 'db_name', 'levels', 'institution_levels', 'created_at', 'updated_at',
     ];
 
-    // 28 keys total (27 listed above — wait let me count)
-    // id(1), name(2), cue(3), ministry_reg(4), address(5), city(6), postal_code(7),
-    // country(8), phone(9), website(10), contact_email(11), logo_url(12),
-    // header_color(13), header_text_color(14), body_text_color(15),
-    // smtp_host(16), smtp_user(17), smtp_encryption(18), smtp_port(19),
-    // send_email(20), send_messages(21), socket_host(22), socket_port(23),
-    // active(24), db_name(25), levels(26), created_at(27), updated_at(28)
-    // That's 28 keys — but they represent all institution data fields
-    // The "25 fields" count refers to the entity fields (levels is one field)
+    // 31 keys total — institution_levels was missing from old test
+    // The entity now has 28 fields (including the 3 new print config colors)
 
     for (const key of expectedKeys) {
       expect(Object.keys(response)).toContain(key);

@@ -29,7 +29,14 @@ export default function TeachersPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
+    apiClient.get('/institutions').then(r => {
+      const list = r.data?.data ?? [];
+      setInstitutions(list);
+      if (isRoot && !institutionId && list.length > 0) {
+        setInstitutionId(list[0].id);
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async () => {
@@ -89,15 +96,22 @@ export default function TeachersPage() {
       <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
         <div>
           <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Filtrar por institución</label>
-          <select
-            className="input"
-            value={institutionId}
-            onChange={e => setInstitutionId(e.target.value)}
-            disabled={!isRoot}
-          >
-            <option value="">Todas</option>
-            {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
-          </select>
+          {isRoot ? (
+            <select
+              className="input"
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+            >
+              {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionId)?.name || institutionId}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
         </div>
         <Button variant="ghost" onClick={reload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
       </div>

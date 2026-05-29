@@ -1,6 +1,8 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Req, HttpCode, HttpStatus, UseGuards,
+  UseInterceptors, UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { AuthenticatedRequest } from '../../infrastructure/auth/guards/auth.guard';
@@ -15,6 +17,8 @@ import {
   PrintInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
 import type { Institution } from '@educandow/domain';
+import type { FileStoragePort } from '../../application/shared/ports/file-storage.port';
+import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local-disk-storage.adapter';
 
 function toResponse(inst: Institution) {
   return {
@@ -33,6 +37,9 @@ function toResponse(inst: Institution) {
     header_color: inst.headerColor?.get() ?? null,
     header_text_color: inst.headerTextColor?.get() ?? null,
     body_text_color: inst.bodyTextColor?.get() ?? null,
+    body_color: inst.bodyColor?.get() ?? null,
+    footer_color: inst.footerColor?.get() ?? null,
+    footer_text_color: inst.footerTextColor?.get() ?? null,
     smtp_host: inst.smtpHost ?? null,
     smtp_user: inst.smtpUser ?? null,
     smtp_encryption: inst.smtpEncryption ?? null,
@@ -56,6 +63,8 @@ function toResponse(inst: Institution) {
 @Controller('institutions')
 @UseGuards(AuthGuard, RolesGuard)
 export class InstitutionController {
+  private readonly fileStorage: FileStoragePort;
+
   constructor(
     private readonly createUC: CreateInstitutionUseCase,
     private readonly listUC: ListInstitutionsUseCase,
@@ -64,7 +73,9 @@ export class InstitutionController {
     private readonly getMeUC: GetMeUseCase,
     private readonly updateUC: UpdateInstitutionUseCase,
     private readonly printUC: PrintInstitutionUseCase,
-  ) {}
+  ) {
+    this.fileStorage = new LocalDiskStorageAdapter();
+  }
 
   @Post()
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'CREATE' })
@@ -146,5 +157,42 @@ export class InstitutionController {
     const result = await this.deleteUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();
     return;
+  }
+
+  @Post(':id/logo')
+  @Roles('ROOT', { module: 'INSTITUTIONS', action: 'UPDATE' })
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Solo se permiten imágenes PNG, JPG, WebP o SVG'), false);
+      }
+    },
+  }))
+  async uploadLogo(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new Error('No se recibió ningún archivo');
+
+    // Verificar que la institución existe
+    const inst = await this.getUC.execute(id);
+    if (!inst) throw new Error('Institución no encontrada');
+
+    // Guardar archivo — reemplaza si ya existe
+    const stored = await this.fileStorage.store('institutions', id, {
+      buffer: file.buffer,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+    });
+
+    // Actualizar logoUrl en la DB
+    const result = await this.updateUC.execute(id, { logo_url: stored.publicPath });
+    if (result.isErr()) throw result.unwrapErr();
+
+    return { data: stored };
   }
 }

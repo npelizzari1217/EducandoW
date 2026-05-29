@@ -1,8 +1,11 @@
 import { useState } from 'react';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import PremiumHeader from '../../components/ui/premium-header';
+import ModulePrintView from '../../components/reports/ModulePrintView';
+import { buildBranding } from '../../components/reports/PremiumPrintReport';
 
 // ── Tipos ─────────────────────────────────────────────────
 
@@ -49,6 +52,7 @@ function moduleDescription(code: string): string {
 // ── Componente ────────────────────────────────────────────
 
 export default function ModulesPage() {
+  const { config } = useInstitution();
   const { data, loading, reload } = useApiList<Module>('/modules');
   const { deleting, del } = useApiDelete('/modules');
   const { creating, createError, create, setCreateError } = useApiCreate('/modules');
@@ -57,6 +61,7 @@ export default function ModulesPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ code: '', name: '', active: true });
+  const [showPrint, setShowPrint] = useState(false);
 
   const resetForm = () => {
     setForm({ code: '', name: '', active: true });
@@ -82,6 +87,21 @@ export default function ModulesPage() {
     setForm({ code: m.code, name: m.name, active: m.active });
     setShowForm(true);
   };
+
+  if (showPrint) {
+    return (
+      <ModulePrintView
+        branding={buildBranding(config)}
+        modules={data.map(m => ({
+          code: m.code,
+          name: m.name,
+          description: moduleDescription(m.code),
+          active: m.active,
+        }))}
+        onClose={() => setShowPrint(false)}
+      />
+    );
+  }
 
   return (
     <div className="modules-page">
@@ -194,7 +214,8 @@ export default function ModulesPage() {
           { label: 'Última actualización', value: data.length > 0 ? new Date(Math.max(...data.map(m => new Date(m.updatedAt).getTime()))).toLocaleDateString('es-AR') : '—' },
         ]}
       >
-        <button className="mph-btn mph-btn-print no-print" onClick={() => window.print()}>🖨 Imprimir</button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)}>🖨 Imprimir</button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)} style={{ background: '#fef2f2', color: '#dc2626' }}>📄 PDF</button>
         <button className={`mph-btn ${showForm ? 'mph-btn-cancel' : 'mph-btn-primary'} no-print`} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? '✕ Cancelar' : '+ Nuevo módulo'}
         </button>

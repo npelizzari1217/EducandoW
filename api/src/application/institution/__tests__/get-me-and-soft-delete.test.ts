@@ -20,6 +20,9 @@ function makeMockInstitution(overrides: Partial<Record<string, unknown>> = {}) {
     headerColor: { get: () => '#1a56db' },
     headerTextColor: { get: () => '#ffffff' },
     bodyTextColor: { get: () => '#333333' },
+    bodyColor: { get: () => '#f8fafc' },
+    footerColor: { get: () => '#1e293b' },
+    footerTextColor: { get: () => '#ffffff' },
     smtpHost: 'smtp.gmail.com',
     smtpUser: 'notifications@school.edu',
     smtpPass: 'secret-smtp-password',
@@ -116,6 +119,9 @@ describe('GetMeUseCase', () => {
       expect(i.headerColor).toBeDefined();
       expect(i.headerTextColor).toBeDefined();
       expect(i.bodyTextColor).toBeDefined();
+      expect(i.bodyColor).toBeDefined();
+      expect(i.footerColor).toBeDefined();
+      expect(i.footerTextColor).toBeDefined();
       expect(i.smtpHost).toBeDefined();
       expect(i.smtpUser).toBeDefined();
       expect(i.smtpPass).toBeDefined(); // domain entity has it

@@ -8,12 +8,14 @@ import {
 } from '../../application/institution/use-cases/institution.use-cases';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
+import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local-disk-storage.adapter';
 
 @Module({
   imports: [AuthModule],
   controllers: [InstitutionController],
   providers: [
     PrismaService,
+    LocalDiskStorageAdapter,
     {
       provide: PrismaInstitutionRepository,
       useFactory: (prisma) => new PrismaInstitutionRepository(prisma),

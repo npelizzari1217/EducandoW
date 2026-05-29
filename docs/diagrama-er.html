@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EducandoW — Diagrama Entidad-Relación</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 40px 20px;
+  }
+  h1 { text-align: center; font-size: 28px; margin-bottom: 8px; color: #f0f6fc; }
+  .subtitle { text-align: center; color: #8b949e; margin-bottom: 40px; font-size: 14px; }
+  h2 {
+    font-size: 20px;
+    color: #58a6ff;
+    margin: 40px 0 16px 0;
+    padding-left: 12px;
+    border-left: 3px solid #58a6ff;
+  }
+  .diagram-container {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  .diagram-container svg { max-width: 100%; height: auto; }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .stat-box {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+  .stat-box .number { font-size: 36px; font-weight: 700; color: #58a6ff; }
+  .stat-box .label { font-size: 13px; color: #8b949e; margin-top: 4px; }
+  .cross-ref {
+    background: #1a1a2e;
+    border: 1px solid #30363d;
+    border-left: 3px solid #d2a8ff;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    margin-top: 24px;
+  }
+  .cross-ref h3 { color: #d2a8ff; font-size: 15px; margin-bottom: 8px; }
+  .cross-ref code {
+    background: #30363d;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: #f0f6fc;
+  }
+  .cross-ref .arrow { color: #d2a8ff; margin: 0 8px; }
+</style>
+</head>
+<body>
+
+<h1>📊 EducandoW — Diagrama de Base de Datos</h1>
+<p class="subtitle">30 tablas · Doble base: Master (institucional) + Tenant (pedagógica)</p>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-box">
+    <div class="number">10</div>
+    <div class="label">Tablas Master</div>
+  </div>
+  <div class="stat-box">
+    <div class="number">20</div>
+    <div class="label">Tablas Tenant</div>
+  </div>
+  <div class="stat-box">
+    <div class="number">2</div>
+    <div class="label">Bases de datos</div>
+  </div>
+  <div class="stat-box">
+    <div class="number">35+</div>
+    <div class="label">Relaciones FK</div>
+  </div>
+</div>
+
+<!-- Cross-reference -->
+<div class="cross-ref">
+  <h3>🔗 Conexión entre bases</h3>
+  <p>
+    <code>master.users.id</code>
+    <span class="arrow">━━━━━▶</span>
+    <code>tenant.students.userId</code>
+  </p>
+  <p style="margin-top:6px;">
+    <code>master.users.id</code>
+    <span class="arrow">━━━━━▶</span>
+    <code>tenant.student_guardians.userId</code>
+  </p>
+  <p style="margin-top:6px;">
+    <code>master.institutions.db_name</code>
+    <span class="arrow">──▶</span>
+    <code>conexión a la base tenant correcta</code>
+  </p>
+</div>
+
+<!-- Master DB -->
+<h2>🔒 BASE MASTER — Gestión Institucional, Usuarios y RBAC</h2>
+<div class="diagram-container">
+  <pre class="mermaid">
+erDiagram
+    institutions ||--o{ institution_levels : "niveles"
+    institutions ||--o{ users : "usuarios"
+    institutions ||--o{ refresh_tokens : "tokens"
+
+    users ||--o{ refresh_tokens : ""
+    users ||--o{ user_roles : "roles"
+    users ||--o{ user_modules : "overrides"
+
+    roles ||--o{ user_roles : ""
+    roles ||--o{ role_modules : "permisos"
+    modules ||--o{ role_modules : ""
+    modules ||--o{ user_modules : ""
+
+    institutions {
+        uuid id PK
+        string name
+        string cue UK
+        string db_name UK
+        bool active
+    }
+
+    institution_levels {
+        uuid id PK
+        uuid institutionId FK
+        int level
+        int modality
+        bool active
+    }
+
+    users {
+        uuid id PK
+        string email UK
+        string password
+        string name
+        uuid institutionId FK
+        int level
+        int modality
+    }
+
+    refresh_tokens {
+        uuid id PK
+        string token UK
+        uuid userId FK
+        uuid institutionId FK
+        datetime expiresAt
+    }
+
+    roles {
+        uuid id PK
+        string name UK
+        string description
+    }
+
+    user_roles {
+        uuid id PK
+        uuid userId FK
+        uuid roleId FK
+    }
+
+    modules {
+        uuid id PK
+        string code UK
+        string name
+    }
+
+    module_actions {
+        uuid id PK
+        string code UK
+        string name
+    }
+
+    role_modules {
+        uuid id PK
+        uuid roleId FK
+        uuid moduleId FK
+        string[] actions
+    }
+
+    user_modules {
+        uuid id PK
+        uuid userId FK
+        uuid moduleId FK
+        string[] actions
+    }
+  </pre>
+</div>
+
+<!-- Tenant DB -->
+<h2>📚 BASE TENANT — Datos Pedagógicos por Institución</h2>
+<div class="diagram-container">
+  <pre class="mermaid">
+erDiagram
+    students ||--o{ student_guardians : "tutores"
+    students ||--o{ enrollments : "matriculas"
+    students ||--o{ notas : "notas"
+    students ||--o{ notas_trimestrales : "finales"
+    students ||--o{ attendances : "asistencia"
+
+    academic_cycles ||--o{ enrollments : ""
+    academic_cycles ||--o{ attendances : ""
+
+    teachers ||--o{ subject_assignments : "cursos"
+
+    subjects ||--o{ subject_assignments : ""
+    subjects ||--o{ attendances : "materia"
+    subjects ||--o{ study_plan_subjects : ""
+
+    course_sections ||--o{ subject_assignments : ""
+    course_sections ||--o{ attendances : ""
+    course_sections ||--o{ study_plan_courses : ""
+
+    subject_assignments ||--o{ evaluaciones : ""
+    subject_assignments ||--o{ notas_trimestrales : ""
+
+    evaluaciones ||--o{ notas : ""
+
+    grade_scales ||--o{ grade_scale_values : "valores"
+    grade_scale_values ||--o{ notas : "escala"
+
+    periodos_evaluacion ||--o{ notas_trimestrales : ""
+
+    attendance_statuses ||--o{ attendances : "estado"
+
+    study_plans ||--o{ study_plan_courses : ""
+    study_plan_courses ||--o{ study_plan_subjects : ""
+
+    students {
+        uuid id PK
+        string firstName
+        string lastName
+        string dni UK
+        string userId
+    }
+
+    student_guardians {
+        uuid studentId FK
+        uuid userId FK
+        enum relationship
+    }
+
+    teachers {
+        uuid id PK
+        string firstName
+        string lastName
+        string dni UK
+        string email
+    }
+
+    academic_cycles {
+        uuid id PK
+        string name
+        int level
+        int modality
+        date startDate
+        date endDate
+    }
+
+    enrollments {
+        uuid id PK
+        uuid studentId FK
+        uuid cycleId FK
+        int level
+        string academicYear
+        string grade
+        string division
+        string status
+    }
+
+    subjects {
+        uuid id PK
+        string name
+        int level
+        int modality
+    }
+
+    course_sections {
+        uuid id PK
+        string name
+        string grade
+        string division
+        int level
+        string academicYear
+    }
+
+    subject_assignments {
+        uuid id PK
+        uuid subjectId FK
+        uuid teacherId FK
+        uuid courseSectionId FK
+    }
+
+    grade_scales {
+        uuid id PK
+        string name
+        int level
+        float minValue
+        float maxValue
+        bool isConceptual
+    }
+
+    grade_scale_values {
+        uuid id PK
+        uuid scaleId FK
+        string code
+        string label
+        bool isApproved
+    }
+
+    evaluaciones {
+        uuid id PK
+        uuid assignmentId FK
+        string title
+        datetime evaluationDate
+        float weight
+    }
+
+    notas {
+        uuid id PK
+        uuid evaluationId FK
+        uuid studentId FK
+        float numericValue
+        bool isApproved
+    }
+
+    notas_trimestrales {
+        uuid id PK
+        uuid studentId FK
+        uuid assignmentId FK
+        uuid periodId FK
+        float finalGrade
+    }
+
+    periodos_evaluacion {
+        uuid id PK
+        string name
+        string academicYear
+        date startDate
+        date endDate
+    }
+
+    attendance_statuses {
+        uuid id PK
+        string code UK
+        string description
+        float absenceValue
+    }
+
+    attendances {
+        uuid id PK
+        uuid studentId FK
+        uuid courseSectionId FK
+        uuid subjectId FK
+        uuid cycleId FK
+        uuid statusId FK
+        date date
+    }
+
+    study_plans {
+        uuid id PK
+        string name
+        int level
+        string academicYear
+    }
+
+    study_plan_courses {
+        uuid id PK
+        uuid studyPlanId FK
+        uuid courseSectionId FK
+    }
+
+    study_plan_subjects {
+        uuid id PK
+        uuid studyPlanCourseId FK
+        uuid subjectId FK
+        int hoursPerWeek
+    }
+  </pre>
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'dark',
+  themeVariables: {
+    fontFamily: '-apple-system, Segoe UI, sans-serif',
+    primaryColor: '#1f6feb',
+    primaryTextColor: '#c9d1d9',
+    primaryBorderColor: '#30363d',
+    lineColor: '#58a6ff',
+    secondaryColor: '#161b22',
+    tertiaryColor: '#0d1117'
+  },
+  er: { useMaxWidth: false }
+});
+</script>
+
+</body>
+</html>

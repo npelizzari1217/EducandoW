@@ -8,6 +8,8 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
+import UserPrintView from '../../components/reports/UserPrintView';
+import { buildBranding } from '../../components/reports/PremiumPrintReport';
 
 // ── Tipos ─────────────────────────────────────────────────
 
@@ -123,6 +125,7 @@ export default function UsersPage() {
 
   const [institutionFilter, setInstitutionFilter] = useState(userInstitutionId);
   const [includeInactive, setIncludeInactive] = useState(false);
+  const [showPrint, setShowPrint] = useState(false);
 
   const params: Record<string, string> = {};
   if (institutionFilter) params.institutionId = institutionFilter;
@@ -211,6 +214,23 @@ export default function UsersPage() {
     return canManageUser(myRoles, targetRoles);
   };
 
+  if (showPrint) {
+    return (
+      <UserPrintView
+        branding={buildBranding(config)}
+        users={data.map(u => ({
+          name: u.name,
+          email: u.email,
+          institution: u.institutionName ?? (u.institutionId ? `ID: ${u.institutionId}` : '-'),
+          role: roleHierarchyLabel(u.roles ?? []),
+          level: levelLabel(u.level),
+          active: u.active,
+        }))}
+        onClose={() => setShowPrint(false)}
+      />
+    );
+  }
+
   return (
     <div>
       <PremiumHeader
@@ -219,6 +239,8 @@ export default function UsersPage() {
         icon="👥"
         stats={[{ label: 'usuarios', value: String(data.length) }]}
       >
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)}>🖨 Imprimir</button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)} style={{ background: '#fef2f2', color: '#dc2626' }}>📄 PDF</button>
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : 'Nuevo usuario'}
         </Button>

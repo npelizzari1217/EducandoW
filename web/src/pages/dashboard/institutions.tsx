@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -150,6 +150,10 @@ export default function InstitutionsPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [deleteTarget, setDeleteTarget] = useState<InstitutionRow | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState('');
+  const [imgFailed, setImgFailed] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Collapsible section state
   const [sections, setSections] = useState({
@@ -162,6 +166,26 @@ export default function InstitutionsPage() {
 
   const toggleSection = (key: keyof typeof sections) =>
     setSections((s) => ({ ...s, [key]: !s[key] }));
+
+  /** Resuelve la URL del logo. En dev usa el proxy, en prod usa VITE_API_URL. */
+  const resolveLogoUrl = (url: string): string => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    // Path local: en dev el proxy maneja /uploads, en prod usa el host de la API
+    const apiBase = (import.meta.env.VITE_API_URL as string) || '';
+    if (apiBase && apiBase.startsWith('http')) {
+      const host = apiBase.replace(/\/v1\/?$/, '');
+      return `${host}${url}`;
+    }
+    return url; // dev: proxy handles it, prod same-origin
+  };
+
+  // Resetear imgFailed cuando cambia la URL del logo
+  const prevLogoRef = useRef(form.logo_url);
+  if (prevLogoRef.current !== form.logo_url) {
+    prevLogoRef.current = form.logo_url;
+    if (imgFailed) setImgFailed(false);
+  }
 
   const toggleLevel = (optIndex: number) =>
     setForm((f) => {
@@ -191,6 +215,30 @@ export default function InstitutionsPage() {
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   }, [form]);
+
+  const handleLogoUpload = async (institutionId: string, file: File) => {
+    setUploadingLogo(true);
+    setLogoError('');
+    setImgFailed(false);
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const { data } = await apiClient.post(`/institutions/${institutionId}/logo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const publicPath = data?.data?.publicPath;
+      if (publicPath) {
+        setForm((f) => ({ ...f, logo_url: publicPath }));
+      } else {
+        setLogoError('El servidor no devolvió la ruta del logo');
+      }
+    } catch (e: unknown) {
+      const msg = extractErrorMessage(e);
+      setLogoError(msg || 'Error al subir el logo. Verificá el formato y tamaño.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const buildPayload = useCallback(() => {
     const p: Record<string, unknown> = {
@@ -401,7 +449,83 @@ export default function InstitutionsPage() {
           <SectionHeader title="Branding" expanded={sections.branding} onToggle={() => toggleSection('branding')} />
           {sections.branding && (
             <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
-              <Input label="URL del Logo" value={form.logo_url} onChange={(e) => update('logo_url', e.target.value)} placeholder="https://cdn.example.com/logo.png" />
+              <div>
+                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>Logo de la Institución</label>
+
+                {/* Fila: preview + botón */}
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+                  {/* Imagen con su propio recuadro */}
+                  {form.logo_url && !imgFailed ? (
+                    <img
+                      key={form.logo_url}
+                      src={resolveLogoUrl(form.logo_url)}
+                      alt="Logo de la institución"
+                      style={{
+                        width: 96, height: 96, flexShrink: 0,
+                        objectFit: 'contain', borderRadius: 8,
+                        border: '1px solid #e2e8f0', background: '#fff', padding: 4,
+                      }}
+                      onError={() => setImgFailed(true)}
+                    />
+                  ) : (
+                    <div style={{
+                      width: 96, height: 96, flexShrink: 0, borderRadius: 8,
+                      border: form.logo_url ? '1px solid #fecaca' : '2px dashed #e2e8f0', background: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: form.logo_url ? '#dc2626' : '#94a3b8', fontSize: form.logo_url ? '1.5rem' : '2rem',
+                    }}>
+                      {form.logo_url ? '🖼' : '🏫'}
+                    </div>
+                  )}
+
+                  {/* Texto + botón a la derecha */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'center', minHeight: 96 }}>
+                    {form.logo_url && (
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '0.15rem' }}>Logo actual</div>
+                        <div style={{ wordBreak: 'break-all', maxWidth: 260 }}>{form.logo_url}</div>
+                      </div>
+                    )}
+                    {!form.logo_url && (
+                      <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
+                        Sin logo — subí uno o ingresá una URL
+                      </div>
+                    )}
+                    {editingId && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file && editingId) handleLogoUpload(editingId, file);
+                            if (e.target) e.target.value = '';
+                          }}
+                        />
+                        <Button
+                          variant="action"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          loading={uploadingLogo}
+                        >
+                          {uploadingLogo ? 'Subiendo...' : '📁 Subir Logo'}
+                        </Button>
+                        <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                          PNG, JPG, WebP, SVG — máx. 5 MB
+                        </span>
+                      </div>
+                      {logoError && (
+                        <div style={{ fontSize: '0.72rem', color: '#dc2626', fontWeight: 500 }}>{logoError}</div>
+                      )}
+                    </div>
+                    )}
+                  </div>
+                </div>
+                <Input label="O ingresá una URL" value={form.logo_url} onChange={(e) => update('logo_url', e.target.value)} placeholder="https://cdn.example.com/logo.png" />
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-md)' }}>
                 <div className="field">
                   <label className="field-label">Color Header</label>

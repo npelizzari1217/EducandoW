@@ -7,7 +7,7 @@ import { EducationalModalityCode } from '../../../shared/value-objects/education
 
 const IL = (level: EducationalLevelCode, modality: EducationalModalityCode = EducationalModalityCode.COMUN): InstitutionLevelEntry => ({ level, modality });
 
-describe('Institution (25 fields)', () => {
+describe('Institution (28 fields)', () => {
   it('create() applies correct defaults', () => {
     const inst = Institution.create({
       name: 'Escuela 123',
@@ -48,6 +48,9 @@ describe('Institution (25 fields)', () => {
     expect(inst.headerColor).toBeUndefined();
     expect(inst.headerTextColor).toBeUndefined();
     expect(inst.bodyTextColor).toBeUndefined();
+    expect(inst.bodyColor).toBeUndefined();
+    expect(inst.footerColor).toBeUndefined();
+    expect(inst.footerTextColor).toBeUndefined();
     expect(inst.smtpHost).toBeUndefined();
     expect(inst.smtpUser).toBeUndefined();
     expect(inst.smtpPass).toBeUndefined();
@@ -88,7 +91,7 @@ describe('Institution (25 fields)', () => {
     expect(inst.smtpPort).toBe(587);
   });
 
-  it('reconstruct() restores all 25 fields from persistence', () => {
+  it('reconstruct() restores all 28 fields from persistence', () => {
     const now = new Date();
     const inst = Institution.reconstruct({
       id: { get: () => 'inst-1', equals: () => false } as any,
@@ -106,6 +109,9 @@ describe('Institution (25 fields)', () => {
       headerColor: HexColor.reconstruct('#1a56db'),
       headerTextColor: HexColor.reconstruct('#ffffff'),
       bodyTextColor: HexColor.reconstruct('#333333'),
+      bodyColor: HexColor.reconstruct('#f8fafc'),
+      footerColor: HexColor.reconstruct('#1e293b'),
+      footerTextColor: HexColor.reconstruct('#ffffff'),
       smtpHost: 'smtp.gmail.com',
       smtpUser: 'notifications@colegio.edu.ar',
       smtpPass: 'encrypted-pass',
@@ -146,6 +152,9 @@ describe('Institution (25 fields)', () => {
     expect(inst.headerColor?.get()).toBe('#1a56db');
     expect(inst.headerTextColor?.get()).toBe('#ffffff');
     expect(inst.bodyTextColor?.get()).toBe('#333333');
+    expect(inst.bodyColor?.get()).toBe('#f8fafc');
+    expect(inst.footerColor?.get()).toBe('#1e293b');
+    expect(inst.footerTextColor?.get()).toBe('#ffffff');
 
     // SMTP
     expect(inst.smtpHost).toBe('smtp.gmail.com');

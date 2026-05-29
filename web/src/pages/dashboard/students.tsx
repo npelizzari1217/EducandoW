@@ -8,6 +8,8 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
+import StudentPrintView from '../../components/reports/StudentPrintView';
+import { buildBranding } from '../../components/reports/PremiumPrintReport';
 
 interface Institution { id: string; name: string; }
 
@@ -110,6 +112,7 @@ export default function StudentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
   const [formError, setFormError] = useState('');
+  const [showPrint, setShowPrint] = useState(false);
 
   const handleSave = async () => {
     setFormError('');
@@ -230,6 +233,26 @@ export default function StudentsPage() {
 
   // ── Render: ADMIN/STAFF mode (default) ────────────────────
 
+  if (showPrint) {
+    return (
+      <StudentPrintView
+        branding={buildBranding(config)}
+        students={adminData.map(s => ({
+          firstName: s.firstName,
+          lastName: s.lastName,
+          dni: s.dni,
+          grade: '-',
+          division: '-',
+          status: 'ACTIVE',
+          enrollmentYear: String(new Date().getFullYear()),
+          guardianName: '-',
+          guardianPhone: '-',
+        }))}
+        onClose={() => setShowPrint(false)}
+      />
+    );
+  }
+
   return (
     <div>
       <PremiumHeader
@@ -238,6 +261,8 @@ export default function StudentsPage() {
         icon="🎓"
         stats={[{ label: 'estudiantes', value: String(adminData.length) }]}
       >
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)}>🖨 Imprimir</button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)} style={{ background: '#fef2f2', color: '#dc2626' }}>📄 PDF</button>
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>{showForm ? 'Cancelar' : 'Nuevo estudiante'}</Button>
       </PremiumHeader>
 

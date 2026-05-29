@@ -18,6 +18,9 @@ export interface InstitutionConfig {
   header_color: string | null;
   header_text_color: string | null;
   body_text_color: string | null;
+  body_color: string | null;
+  footer_color: string | null;
+  footer_text_color: string | null;
   smtp_host: string | null;
   smtp_user: string | null;
   smtp_encryption: string | null;
@@ -49,6 +52,9 @@ const DEFAULT_CONFIG: InstitutionConfig = {
   header_color: null,
   header_text_color: null,
   body_text_color: null,
+  body_color: null,
+  footer_color: null,
+  footer_text_color: null,
   smtp_host: null,
   smtp_user: null,
   smtp_encryption: null,

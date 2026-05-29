@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
+import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
+import StudyPlanPrintView from '../../components/reports/StudyPlanPrintView';
+import { StudyPlanDetailPrintLoader } from '../../components/reports/StudyPlanDetailPrintView';
+import { buildBranding } from '../../components/reports/PremiumPrintReport';
+import { LEVEL_CATALOG } from '../../constants/levels';
 
 interface StudyPlan {
   id: string;
@@ -48,10 +52,6 @@ const LEVEL_LABELS: Record<number, string> = {
   1: 'Inicial', 2: 'Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
 };
 
-const LEVEL_DTO_CODE: Record<number, string> = {
-  1: 'INICIAL', 2: 'PRIMARIO', 3: 'SECUNDARIO', 4: 'TERCIARIO', 9: 'ADMINISTRACION',
-};
-
 const LEVEL_OPTIONS = [
   { value: '1', label: 'Inicial' },
   { value: '2', label: 'Primario' },
@@ -83,9 +83,15 @@ export default function StudyPlansPage() {
   const [institutions, setInstitutions] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
-    if (isRoot) {
-      apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
-    }
+    apiClient.get('/institutions').then(r => {
+      const list = r.data?.data ?? [];
+      setInstitutions(list);
+      // ROOT: default a la primera institución
+      if (isRoot && !institutionId && list.length > 0) {
+        setInstitutionId(list[0].id);
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRoot]);
 
   const tenantQueryParams = institutionId ? { institutionId } : undefined;
@@ -94,8 +100,8 @@ export default function StudyPlansPage() {
   const { del } = useApiDelete('/study-plans');
   const { creating, createError, create } = useApiCreate<{ name: string; level: number; academicYear: string }>('/study-plans', tenantQueryParams);
   const { update } = useApiUpdate<StudyPlan>('/study-plans', tenantQueryParams);
-  const { updateError: courseUpdateError, update: patchCourse } = useApiUpdate('/course-sections', tenantQueryParams);
-  const { updateError: subjectUpdateError, update: patchSubject } = useApiUpdate('/subjects', tenantQueryParams);
+  useApiUpdate('/course-sections', tenantQueryParams); // kept for consistency, used by apiClient directly
+  useApiUpdate('/subjects', tenantQueryParams);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: '', level: '', academicYear: String(new Date().getFullYear()) });
@@ -122,6 +128,10 @@ export default function StudyPlansPage() {
   const [showSubjectForm, setShowSubjectForm] = useState<string | null>(null); // planCourseId
   const [subjectForm, setSubjectForm] = useState({ name: '', modality: 'COMUN' });
   const [subjectFormLoading, setSubjectFormLoading] = useState(false);
+  const [subjectFormError, setSubjectFormError] = useState('');
+  const [courseFormError, setCourseFormError] = useState('');
+  const [showPrint, setShowPrint] = useState(false);
+  const [detailPrintPlanId, setDetailPrintPlanId] = useState<string | null>(null);
 
   const userLevel = user?.level;
   const defaultLevel = userLevel && userLevel >= 1 && userLevel <= 4 ? String(userLevel) : '';
@@ -129,6 +139,11 @@ export default function StudyPlansPage() {
   useEffect(() => {
     if (defaultLevel) setForm(f => ({ ...f, level: defaultLevel }));
   }, [defaultLevel]);
+
+  useEffect(() => {
+    loadAvailableCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [institutionId]);
 
   const loadAvailableCourses = async () => {
     try {
@@ -169,170 +184,231 @@ export default function StudyPlansPage() {
     reload();
   };
 
-  const handlePrint = () => window.print();
-
-  // ── Toggle plan (acordeón) ──
-  const togglePlan = async (planId: string) => {
-    const newSet = new Set(expandedPlans);
-    if (newSet.has(planId)) {
-      newSet.delete(planId);
-      setExpandedPlans(newSet);
-    } else {
-      newSet.add(planId);
-      setExpandedPlans(newSet);
-      loadAvailableCourses();
-      try {
-        const res = await apiClient.get(`/study-plans/${planId}/courses`, { params: tenantQueryParams });
-        setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
-      } catch {
-        setPlanCourses(prev => ({ ...prev, [planId]: [] }));
-      }
-    }
-  };
-
-  const refreshPlanCourses = async (planId: string) => {
+  // ── Fetch helpers (sin toggle, solo refrescan datos) ──
+  const fetchPlanCourses = async (planId: string) => {
     try {
-      const res = await apiClient.get(`/study-plans/${planId}/courses`, { params: tenantQueryParams });
+      const res = await apiClient.get(`/study-plans/${planId}/courses`);
       setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
-    } catch { /* plan has no courses */ }
+    } catch { /* ignore */ }
   };
 
-  // ── Toggle plan-course (materias) ──
-  const togglePlanCourseSubjects = async (planCourseId: string) => {
-    const newSet = new Set(expandedPlanCourses);
-    if (newSet.has(planCourseId)) {
-      newSet.delete(planCourseId);
-      setExpandedPlanCourses(newSet);
-    } else {
-      newSet.add(planCourseId);
-      setExpandedPlanCourses(newSet);
-      try {
-        const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`, { params: tenantQueryParams });
-        setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
-      } catch {
-        setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: [] }));
-      }
-    }
-  };
-
-  const refreshPlanCourseSubjects = async (planCourseId: string) => {
+  const fetchCourseSubjects = async (planCourseId: string) => {
     try {
-      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`, { params: tenantQueryParams });
+      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`);
       setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
-    } catch { /* course has no subjects */ }
+    } catch { /* ignore */ }
   };
 
-  // ── Curso: agregar existente ──
-  const addCourseToPlan = async (planId: string) => {
-    if (!selectedCourse) return;
-    try {
-      await apiClient.post(`/study-plans/${planId}/courses`, { courseSectionId: selectedCourse }, { params: tenantQueryParams });
-      setSelectedCourse('');
-      refreshPlanCourses(planId);
-    } catch (e: unknown) {
-      alert(extractErrorMessage(e) || 'Error al agregar curso');
+  // ── Toggle plan expansion: fetch courses ──
+  const togglePlan = async (planId: string) => {
+    const next = new Set(expandedPlans);
+    if (next.has(planId)) {
+      next.delete(planId);
+      setExpandedPlans(next);
+    } else {
+      next.add(planId);
+      setExpandedPlans(next);
+      await fetchPlanCourses(planId);
     }
   };
 
-  // ── Curso: crear nuevo ──
+  // ── Toggle course expansion: fetch subjects ──
+  const togglePlanCourseSubjects = async (planCourseId: string) => {
+    const next = new Set(expandedPlanCourses);
+    if (next.has(planCourseId)) {
+      next.delete(planCourseId);
+      setExpandedPlanCourses(next);
+    } else {
+      next.add(planCourseId);
+      setExpandedPlanCourses(next);
+      await fetchCourseSubjects(planCourseId);
+    }
+  };
+
+  // ── Create course inline ──
   const handleCreateCourseInline = async (plan: StudyPlan) => {
+    setCourseFormLoading(true);
+    setCourseFormError('');
     try {
-      setCourseFormLoading(true);
-      const body: Record<string, unknown> = {
-        grade: courseForm.grade || undefined,
-        division: courseForm.division || undefined,
-        level: LEVEL_DTO_CODE[plan.level] || 'PRIMARIO',
+      // 1. Create the course section
+      const courseRes = await apiClient.post('/course-sections', {
+        name: `${courseForm.grade || plan.academicYear} ${courseForm.division || ''}`.trim(),
+        grade: courseForm.grade,
+        division: courseForm.division,
+        level: (() => {
+          const compositeCode = plan.level * 10 + (plan.modality ?? 0);
+          return LEVEL_CATALOG.find(e => e.code === compositeCode)?.name ?? 'PRIMARIO';
+        })(),
+        modality: ({
+          0: 'COMUN', 1: 'TALLERES', 2: 'BILINGÜISMO', 9: 'TODOS',
+        } as Record<number, string>)[plan.modality ?? 0] ?? 'COMUN',
         academicYear: plan.academicYear,
-        studyPlanId: plan.id,
-      };
-      const courseRes = await apiClient.post('/course-sections', body, { params: tenantQueryParams });
-      const newCourseId = courseRes.data?.data?.id;
-      if (!newCourseId) throw new Error('No se pudo crear el curso');
-      await apiClient.post(`/study-plans/${plan.id}/courses`, { courseSectionId: newCourseId }, { params: tenantQueryParams });
-      setShowCourseForm(null);
-      setCourseForm({ grade: '', division: '' });
-      refreshPlanCourses(plan.id);
-    } catch (e: unknown) {
-      alert(extractErrorMessage(e) || 'Error al crear curso');
-    } finally {
-      setCourseFormLoading(false);
+        institutionId: institutionId || undefined,
+      }, { params: tenantQueryParams });
+      const courseId = courseRes.data?.data?.id;
+      if (courseId) {
+        // 2. Link to study plan
+        await apiClient.post(`/study-plans/${plan.id}/courses`, {
+          courseSectionId: courseId,
+        });
+        setShowCourseForm(null);
+        setCourseForm({ grade: '', division: '' });
+        // Refresh courses (sin colapsar el árbol)
+        fetchPlanCourses(plan.id);
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.error?.message || e?.message || 'Error al crear el curso';
+      setCourseFormError(msg);
     }
+    finally { setCourseFormLoading(false); }
   };
 
-  // ── Curso: editar ──
+  // ── Edit course ──
   const handleEditCourse = (pc: PlanCourse) => {
-    setEditingCourse({ courseSectionId: pc.courseSectionId, grade: pc.courseGrade || '', division: pc.courseDivision || '' });
+    setEditingCourse({
+      courseSectionId: pc.courseSectionId,
+      grade: pc.courseGrade ?? '',
+      division: pc.courseDivision ?? '',
+    });
   };
 
   const handleSaveCourse = async (planId: string) => {
     if (!editingCourse.courseSectionId) return;
-    const ok = await patchCourse(editingCourse.courseSectionId, {
-      grade: editingCourse.grade || undefined,
-      division: editingCourse.division || undefined,
-    });
-    if (!ok) { alert(courseUpdateError || 'Error al actualizar curso'); return; }
-    setEditingCourse({ courseSectionId: null, grade: '', division: '' });
-    refreshPlanCourses(planId);
+    try {
+      await apiClient.patch(`/course-sections/${editingCourse.courseSectionId}`, {
+        grade: editingCourse.grade,
+        division: editingCourse.division,
+        name: `${editingCourse.grade} ${editingCourse.division}`.trim(),
+      });
+      setEditingCourse({ courseSectionId: null, grade: '', division: '' });
+      // Refresh (sin colapsar el árbol)
+      fetchPlanCourses(planId);
+    } catch { /* ignore */ }
   };
 
-  // ── Curso: eliminar ──
   const handleDeleteCourse = async (planId: string, courseSectionId: string) => {
-    if (!window.confirm('¿Eliminar este curso definitivamente?')) return;
     try {
-      await apiClient.delete(`/course-sections/${courseSectionId}`, { params: tenantQueryParams });
-      refreshPlanCourses(planId);
-    } catch (e: unknown) {
-      alert(extractErrorMessage(e) || 'Error al eliminar curso');
-    }
+      await apiClient.delete(`/study-plans/${planId}/courses/${courseSectionId}`);
+      fetchPlanCourses(planId);
+    } catch { /* ignore */ }
   };
 
-  // ── Materia: crear ──
+  // ── Create subject inline ──
   const handleCreateSubjectInline = async (planCourseId: string, plan: StudyPlan) => {
-    if (!subjectForm.name) return;
+    setSubjectFormLoading(true);
+    setSubjectFormError('');
     try {
-      setSubjectFormLoading(true);
-      const subjRes = await apiClient.post('/subjects', {
+      // 1. Create the subject
+      const LEVEL_MAP: Record<number, string> = { 1: 'INICIAL', 2: 'PRIMARIO', 3: 'SECUNDARIO', 4: 'TERCIARIO', 9: 'ADMINISTRACION' };
+      const subRes = await apiClient.post('/subjects', {
         name: subjectForm.name,
-        level: LEVEL_DTO_CODE[plan.level] || 'PRIMARIO',
-        modality: subjectForm.modality,
-        institutionId: institutionId || config?.id || '',
-      }, { params: tenantQueryParams });
-      const newSubjId = subjRes.data?.data?.id;
-      if (!newSubjId) throw new Error('No se pudo crear la materia');
-      await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, { subjectId: newSubjId }, { params: tenantQueryParams });
-      setShowSubjectForm(null);
-      setSubjectForm({ name: '', modality: 'COMUN' });
-      refreshPlanCourseSubjects(planCourseId);
-    } catch (e: unknown) {
-      alert(extractErrorMessage(e) || 'Error al crear materia');
-    } finally {
-      setSubjectFormLoading(false);
+        level: LEVEL_MAP[plan.level] ?? 'SECUNDARIO',
+        modality: subjectForm.modality || 'COMUN',
+        institutionId: institutionId || undefined,
+      });
+      const subjectId = subRes.data?.data?.id;
+      if (subjectId) {
+        // 2. Link to plan course
+        await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, {
+          subjectId,
+          hoursPerWeek: 4,
+        });
+        setShowSubjectForm(null);
+        setSubjectForm({ name: '', modality: 'COMUN' });
+        // Refresh subjects (sin colapsar)
+        fetchCourseSubjects(planCourseId);
+        // Also refresh plan courses to update subjectCount (sin colapsar)
+        const planId = Object.entries(planCourses).find(([, courses]) =>
+          courses.some(c => c.id === planCourseId)
+        )?.[0];
+        if (planId) fetchPlanCourses(planId);
+      }
+    } catch (e: any) {
+      const msg = e?.response?.data?.error?.message || e?.message || 'Error al crear la materia';
+      setSubjectFormError(msg);
     }
+    finally { setSubjectFormLoading(false); }
   };
 
-  // ── Materia: editar ──
+  // ── Edit subject ──
   const handleEditSubject = (ps: PlanCourseSubject) => {
-    setEditingSubject({ subjectId: ps.subjectId, name: ps.subjectName || '' });
+    setEditingSubject({
+      subjectId: ps.subjectId,
+      name: ps.subjectName ?? '',
+    });
   };
 
   const handleSaveSubject = async (planCourseId: string) => {
     if (!editingSubject.subjectId) return;
-    const ok = await patchSubject(editingSubject.subjectId, { name: editingSubject.name });
-    if (!ok) { alert(subjectUpdateError || 'Error al actualizar materia'); return; }
-    setEditingSubject({ subjectId: null, name: '' });
-    refreshPlanCourseSubjects(planCourseId);
+    try {
+      await apiClient.patch(`/subjects/${editingSubject.subjectId}`, {
+        name: editingSubject.name,
+      });
+      setEditingSubject({ subjectId: null, name: '' });
+      fetchCourseSubjects(planCourseId);
+    } catch { /* ignore */ }
   };
 
-  // ── Materia: eliminar ──
   const handleDeleteSubject = async (planCourseId: string, subjectId: string) => {
-    if (!window.confirm('¿Eliminar esta materia definitivamente?')) return;
     try {
-      await apiClient.delete(`/subjects/${subjectId}`, { params: tenantQueryParams });
-      refreshPlanCourseSubjects(planCourseId);
-    } catch (e: unknown) {
-      alert(extractErrorMessage(e) || 'Error al eliminar materia');
-    }
+      await apiClient.delete(`/study-plan-courses/${planCourseId}/subjects/${subjectId}`);
+      fetchCourseSubjects(planCourseId);
+      const planId = Object.entries(planCourses).find(([, courses]) =>
+        courses.some(c => c.id === planCourseId)
+      )?.[0];
+      if (planId) fetchPlanCourses(planId);
+    } catch { /* ignore */ }
   };
+
+  // ── Add existing course to plan ──
+  const addCourseToPlan = async (planId: string) => {
+    if (!selectedCourse) return;
+    try {
+      await apiClient.post(`/study-plans/${planId}/courses`, {
+        courseSectionId: selectedCourse,
+      });
+      setSelectedCourse('');
+      fetchPlanCourses(planId);
+    } catch { /* ignore */ }
+  };
+
+  if (detailPrintPlanId) {
+    const plan = plans.find(p => p.id === detailPrintPlanId);
+    if (plan) {
+      return (
+        <StudyPlanDetailPrintLoader
+          branding={buildBranding(config)}
+          planId={plan.id}
+          planName={plan.name}
+          planLevel={String(plan.level)}
+          planModality={String(plan.modality)}
+          planYear={plan.academicYear}
+          onClose={() => setDetailPrintPlanId(null)}
+        />
+      );
+    }
+  }
+
+  if (showPrint) {
+    return (
+      <StudyPlanPrintView
+        branding={buildBranding(config)}
+        studyPlans={plans.map(p => {
+          const courses = planCourses[p.id] ?? [];
+          return {
+            name: p.name,
+            level: String(p.level),
+            modality: String(p.modality),
+            academicYear: p.academicYear,
+            coursesCount: courses.length,
+            subjectsCount: courses.reduce((sum, c) => sum + (c.subjectCount ?? 0), 0),
+            active: p.active,
+          };
+        })}
+        onClose={() => setShowPrint(false)}
+      />
+    );
+  }
 
   return (
     <div className="study-plans-page">
@@ -489,28 +565,35 @@ export default function StudyPlansPage() {
         icon="📋"
         stats={[{ label: 'planes', value: String(plans.length) }]}
       >
-        <Button variant="action" onClick={handlePrint}>🖨 Imprimir</Button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)}>🖨 Imprimir</button>
+        <button className="mph-btn mph-btn-print no-print" onClick={() => setShowPrint(true)} style={{ background: '#fef2f2', color: '#dc2626' }}>📄 PDF</button>
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
           {showForm ? 'Cancelar' : '+ Nuevo plan'}
         </Button>
       </PremiumHeader>
 
       {/* ── Filtro de institución ── */}
-      {isRoot && (
-        <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
-          <div>
-            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+      <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+          {isRoot ? (
             <select
               value={institutionId}
               onChange={e => setInstitutionId(e.target.value)}
               style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             >
-              <option value="">Seleccionar institución</option>
               {institutions.map(inst => <option key={inst.id} value={inst.id}>{inst.name}</option>)}
             </select>
-          </div>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
         </div>
-      )}
+      </div>
 
       {/* ── Form: nuevo plan ── */}
       {showForm && (
@@ -566,6 +649,7 @@ export default function StudyPlansPage() {
                   )}
                 </div>
                 <div className="plan-actions no-print" onClick={e => e.stopPropagation()}>
+                  <Button variant="ghost" size="sm" onClick={() => { togglePlan(plan.id); setDetailPrintPlanId(plan.id); }} title="Imprimir plan detallado">🖨</Button>
                   <Button variant="action" size="sm" onClick={() => startEditPlan(plan)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDeletePlan(plan.id)}>Eliminar</Button>
                 </div>
@@ -600,6 +684,7 @@ export default function StudyPlansPage() {
                       onClick={() => {
                         setShowCourseForm(showCourseForm === plan.id ? null : plan.id);
                         setCourseForm({ grade: '', division: '' });
+                        setCourseFormError('');
                       }}
                     >
                       {showCourseForm === plan.id ? 'Cancelar' : '+ Nuevo'}
@@ -625,6 +710,9 @@ export default function StudyPlansPage() {
                       <div className="context-hint">
                         Hereda: {LEVEL_LABELS[plan.level]} — {plan.academicYear}
                       </div>
+                      {courseFormError && (
+                        <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>{courseFormError}</div>
+                      )}
                     </div>
                   )}
 
@@ -686,6 +774,7 @@ export default function StudyPlansPage() {
                                   onClick={() => {
                                     setShowSubjectForm(showSubjectForm === pc.id ? null : pc.id);
                                     setSubjectForm({ name: '', modality: 'COMUN' });
+                                    setSubjectFormError('');
                                   }}
                                 >
                                   {showSubjectForm === pc.id ? 'Cancelar' : '+ Nueva'}
@@ -711,6 +800,9 @@ export default function StudyPlansPage() {
                                     </Button>
                                   </div>
                                   <div className="context-hint">Nivel: {LEVEL_LABELS[plan.level]}</div>
+                                  {subjectFormError && (
+                                    <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>{subjectFormError}</div>
+                                  )}
                                 </div>
                               )}
 

@@ -24,6 +24,9 @@ describe('CreateInstitutionUseCase', () => {
     header_color: '#1a56db',
     header_text_color: '#ffffff',
     body_text_color: '#333333',
+    body_color: '#f8fafc',
+    footer_color: '#1e293b',
+    footer_text_color: '#ffffff',
     smtp_host: 'smtp.gmail.com',
     smtp_user: 'notifications@school.edu',
     smtp_pass: 'secure-password',
@@ -52,6 +55,9 @@ describe('CreateInstitutionUseCase', () => {
       expect(inst.smtpHost).toBe('smtp.gmail.com');
       expect(inst.smtpPort).toBe(587);
       expect(inst.headerColor?.get()).toBe('#1a56db');
+      expect(inst.bodyColor?.get()).toBe('#f8fafc');
+      expect(inst.footerColor?.get()).toBe('#1e293b');
+      expect(inst.footerTextColor?.get()).toBe('#ffffff');
     }
   });
 

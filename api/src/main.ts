@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 import { loadEnvConfig } from './infrastructure/config/env.config';
 import cookieParser from 'cookie-parser';
@@ -9,9 +11,12 @@ async function bootstrap() {
   const config = loadEnvConfig();
   const logger = new Logger('Bootstrap');
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.setGlobalPrefix('v1');
+
+  // ── Static files (uploaded logos, documents) ──
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   // ── Swagger / OpenAPI ─────────────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()

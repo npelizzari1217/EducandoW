@@ -26,6 +26,9 @@ export interface InstitutionProps {
   headerColor?: HexColor;
   headerTextColor?: HexColor;
   bodyTextColor?: HexColor;
+  bodyColor?: HexColor;
+  footerColor?: HexColor;
+  footerTextColor?: HexColor;
   smtpHost?: string;
   smtpUser?: string;
   smtpPass?: string;
@@ -71,6 +74,9 @@ export class Institution {
       headerColor: props.headerColor,
       headerTextColor: props.headerTextColor,
       bodyTextColor: props.bodyTextColor,
+      bodyColor: props.bodyColor,
+      footerColor: props.footerColor,
+      footerTextColor: props.footerTextColor,
       smtpHost: props.smtpHost,
       smtpUser: props.smtpUser,
       smtpPass: props.smtpPass,
@@ -152,6 +158,18 @@ export class Institution {
 
   get bodyTextColor(): HexColor | undefined {
     return this.props.bodyTextColor;
+  }
+
+  get bodyColor(): HexColor | undefined {
+    return this.props.bodyColor;
+  }
+
+  get footerColor(): HexColor | undefined {
+    return this.props.footerColor;
+  }
+
+  get footerTextColor(): HexColor | undefined {
+    return this.props.footerTextColor;
   }
 
   // ── SMTP ───────────────────────────────────────────────

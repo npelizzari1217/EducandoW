@@ -27,7 +27,14 @@ export default function EnrollmentsPage() {
   const [form, setForm] = useState({ studentId: '', institutionId: filters.institutionId, level: 'INICIAL', academicYear: String(new Date().getFullYear()), grade: '', division: '' });
 
   useEffect(() => {
-    apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
+    apiClient.get('/institutions').then(r => {
+      const list = r.data?.data ?? [];
+      setInstitutions(list);
+      if (isRoot && !filters.institutionId && list.length > 0) {
+        setFilters(prev => ({ ...prev, institutionId: list[0].id }));
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async () => {

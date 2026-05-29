@@ -27,6 +27,9 @@ export interface CreateInstitutionInput {
   header_color?: string;
   header_text_color?: string;
   body_text_color?: string;
+  body_color?: string;
+  footer_color?: string;
+  footer_text_color?: string;
   smtp_host?: string;
   smtp_user?: string;
   smtp_pass?: string;
@@ -56,6 +59,9 @@ export interface UpdateInstitutionInput {
   header_color?: string;
   header_text_color?: string;
   body_text_color?: string;
+  body_color?: string;
+  footer_color?: string;
+  footer_text_color?: string;
   smtp_host?: string;
   smtp_user?: string;
   smtp_pass?: string;
@@ -129,6 +135,24 @@ export class CreateInstitutionUseCase {
     if (bodyTextColor && 'isErr' in bodyTextColor && bodyTextColor.isErr())
       return err(bodyTextColor.unwrapErr());
 
+    const bodyColor = input.body_color
+      ? HexColor.create(input.body_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
+      : undefined;
+    if (bodyColor && 'isErr' in bodyColor && bodyColor.isErr())
+      return err(bodyColor.unwrapErr());
+
+    const footerColor = input.footer_color
+      ? HexColor.create(input.footer_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
+      : undefined;
+    if (footerColor && 'isErr' in footerColor && footerColor.isErr())
+      return err(footerColor.unwrapErr());
+
+    const footerTextColor = input.footer_text_color
+      ? HexColor.create(input.footer_text_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
+      : undefined;
+    if (footerTextColor && 'isErr' in footerTextColor && footerTextColor.isErr())
+      return err(footerTextColor.unwrapErr());
+
     // Parse optional Cue
     const cue = input.cue
       ? Cue.create(input.cue) as { unwrap(): Cue } | { isErr(): boolean; unwrapErr(): ValidationError }
@@ -151,6 +175,9 @@ export class CreateInstitutionUseCase {
       headerColor: headerColor ? (headerColor as { unwrap(): HexColor }).unwrap() : undefined,
       headerTextColor: headerTextColor ? (headerTextColor as { unwrap(): HexColor }).unwrap() : undefined,
       bodyTextColor: bodyTextColor ? (bodyTextColor as { unwrap(): HexColor }).unwrap() : undefined,
+      bodyColor: bodyColor ? (bodyColor as { unwrap(): HexColor }).unwrap() : undefined,
+      footerColor: footerColor ? (footerColor as { unwrap(): HexColor }).unwrap() : undefined,
+      footerTextColor: footerTextColor ? (footerTextColor as { unwrap(): HexColor }).unwrap() : undefined,
       smtpHost: input.smtp_host,
       smtpUser: input.smtp_user,
       smtpPass: input.smtp_pass,
@@ -317,6 +344,27 @@ export class UpdateInstitutionUseCase {
       bodyTextColor = result.unwrap();
     }
 
+    let bodyColor = existing.bodyColor;
+    if (input.body_color !== undefined) {
+      const result = HexColor.create(input.body_color);
+      if (result.isErr()) return err(result.unwrapErr());
+      bodyColor = result.unwrap();
+    }
+
+    let footerColor = existing.footerColor;
+    if (input.footer_color !== undefined) {
+      const result = HexColor.create(input.footer_color);
+      if (result.isErr()) return err(result.unwrapErr());
+      footerColor = result.unwrap();
+    }
+
+    let footerTextColor = existing.footerTextColor;
+    if (input.footer_text_color !== undefined) {
+      const result = HexColor.create(input.footer_text_color);
+      if (result.isErr()) return err(result.unwrapErr());
+      footerTextColor = result.unwrap();
+    }
+
     // Parse optional Cue
     let cue = existing.cue;
     if (input.cue !== undefined) {
@@ -356,6 +404,9 @@ export class UpdateInstitutionUseCase {
       headerColor,
       headerTextColor,
       bodyTextColor,
+      bodyColor,
+      footerColor,
+      footerTextColor,
       smtpHost: input.smtp_host !== undefined ? input.smtp_host : existing.smtpHost,
       smtpUser: input.smtp_user !== undefined ? input.smtp_user : existing.smtpUser,
       smtpPass: input.smtp_pass !== undefined ? input.smtp_pass : existing.smtpPass,
