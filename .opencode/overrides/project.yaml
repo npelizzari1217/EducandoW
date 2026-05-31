@@ -53,6 +53,10 @@ workflows:
     skip_phases:
       - none
     require_apply_plan: true
+    # TODO EL trabajo se hace vía subagentes SDD.
+    # El orquestador NUNCA implementa inline — solo coordina, delega y verifica.
+    # Esto mantiene el contexto del orquestador mínimo y cada subagente arranca fresco.
+    all_changes_require_sdd: true
 
   deploy:
     manual_only: true
