@@ -23,10 +23,23 @@ export class UsersController {
     private readonly deleteUC: DeleteUserUseCase,
   ) {}
 
+  private getUser(req: Request) {
+    return (req as AuthenticatedRequest).user;
+  }
+
   /** Extrae los roles del usuario autenticado desde el request. */
   private getCreatorRoles(req: Request): string[] {
-    const user = (req as AuthenticatedRequest).user;
-    return user?.roles ?? [];
+    return this.getUser(req)?.roles ?? [];
+  }
+
+  /** Extrae el institutionId del usuario autenticado. */
+  private getCreatorInstitutionId(req: Request): string | undefined {
+    return this.getUser(req)?.institutionId ?? undefined;
+  }
+
+  /** Extrae los módulos del usuario autenticado desde el JWT. */
+  private getCreatorModules(req: Request): { moduleCode: string; actions: string[] }[] {
+    return this.getUser(req)?.modules ?? [];
   }
 
   @Get()
@@ -60,6 +73,9 @@ export class UsersController {
       modality: body.modality,
       roles,
       creatorRoles: this.getCreatorRoles(req),
+      creatorInstitutionId: this.getCreatorInstitutionId(req),
+      moduleAccess: body.moduleAccess,
+      creatorModules: this.getCreatorModules(req),
     });
   }
 
@@ -70,7 +86,7 @@ export class UsersController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateUserSchema)) body: UpdateUserDTO,
   ) {
-    return this.updateUC.execute(id, body, this.getCreatorRoles(req));
+    return this.updateUC.execute(id, body, this.getCreatorRoles(req), this.getCreatorInstitutionId(req), this.getCreatorModules(req));
   }
 
   @Delete(':id')

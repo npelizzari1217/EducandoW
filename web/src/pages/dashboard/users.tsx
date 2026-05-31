@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
@@ -10,6 +10,8 @@ import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
 import UserPrintView from '../../components/reports/UserPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
+import ModuleAccessGrid from '../../components/users/module-access-grid';
+import type { ModuleAccessItem } from '../../components/users/module-access-grid';
 
 // ── Tipos ─────────────────────────────────────────────────
 
@@ -33,6 +35,16 @@ interface UserRow {
 interface Institution {
   id: string;
   name: string;
+}
+
+interface ModuleInfo {
+  id: string;
+  code: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+  actions: string[];
 }
 
 // ── Constantes ────────────────────────────────────────────
@@ -136,6 +148,25 @@ export default function UsersPage() {
   const { creating, createError, create, setCreateError } = useApiCreate('/users');
   const { updating, updateError, update, setUpdateError } = useApiUpdate('/users');
 
+  // Módulos del sistema
+  const { data: moduleList } = useApiList<ModuleInfo>('/modules', {});
+
+  // Estado del grid de acceso a módulos
+  const [moduleAccess, setModuleAccess] = useState<ModuleAccessItem[]>([]);
+
+  // Módulos disponibles para asignar:
+  // - ROOT: todos los módulos del sistema
+  // - no-ROOT: solo los módulos que el creador tiene asignados
+  const availableModules = useMemo(() => {
+    if (!moduleList || moduleList.length === 0) return [];
+    if (isRoot) return moduleList;
+    const creatorModules = user?.modules ?? [];
+    if (creatorModules.length === 0) return [];
+    return moduleList.filter((m) =>
+      creatorModules.some((um) => um.moduleCode === m.code),
+    );
+  }, [moduleList, isRoot, user?.modules]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -157,6 +188,7 @@ export default function UsersPage() {
     setShowForm(false);
     setCreateError('');
     setUpdateError('');
+    setModuleAccess([]);
   };
 
   const setRole = (role: string) => {
@@ -168,11 +200,12 @@ export default function UsersPage() {
       email: form.email,
       password: form.password,
       name: form.name,
-      institutionId: form.institutionId || undefined,
       level: form.level ? parseInt(form.level) : undefined,
       roles: form.role ? [form.role] : undefined,
       active: form.active,
+      moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
     };
+    if (isRoot) body.institutionId = form.institutionId || undefined;
     const ok = await create(body);
     if (ok) { resetForm(); reload(); }
   };
@@ -182,11 +215,12 @@ export default function UsersPage() {
     const body: Record<string, unknown> = {
       email: form.email,
       name: form.name,
-      institutionId: form.institutionId || null,
       level: form.level ? parseInt(form.level) : null,
       roles: form.role ? [form.role] : undefined,
       active: form.active,
+      moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
     };
+    if (isRoot) body.institutionId = form.institutionId || null;
     if (form.password) body.password = form.password;
     const ok = await update(editingId, body);
     if (ok) { resetForm(); reload(); }
@@ -206,6 +240,13 @@ export default function UsersPage() {
       role: primaryRole,
       active: u.active,
     });
+    // Pre-cargar módulos del usuario editado si vienen en la respuesta
+    const rawModules = (u as Record<string, unknown>).modules;
+    if (Array.isArray(rawModules)) {
+      setModuleAccess(rawModules as ModuleAccessItem[]);
+    } else {
+      setModuleAccess([]);
+    }
     setShowForm(true);
   };
 
@@ -264,7 +305,7 @@ export default function UsersPage() {
           ) : (
             <input
               type="text"
-              value={institutions.find(i => i.id === institutionFilter)?.name || config.name || institutionFilter}
+              value={institutions.find(i => i.id === institutionFilter)?.name || config.name || ''}
               disabled
               style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             />
@@ -315,7 +356,7 @@ export default function UsersPage() {
                 ) : (
                   <input
                     type="text"
-                    value={institutions.find(i => i.id === form.institutionId)?.name || user?.institutionId || ''}
+                    value={institutions.find(i => i.id === form.institutionId)?.name || config.name || ''}
                     disabled
                     style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)' }}
                   />
@@ -375,6 +416,25 @@ export default function UsersPage() {
                 })}
               </div>
             </div>
+
+            {/* Módulos del usuario — grid de checkboxes por módulo y acción */}
+            {moduleList.length > 0 && (
+              <div>
+                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
+                  Módulos del usuario
+                  {!isRoot && (
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>
+                      (solo tus módulos asignados)
+                    </span>
+                  )}
+                </label>
+                <ModuleAccessGrid
+                  availableModules={availableModules.map(m => ({ code: m.code, name: m.name, actions: m.actions }))}
+                  value={moduleAccess}
+                  onChange={setModuleAccess}
+                />
+              </div>
+            )}
 
             {/* Estado activo/inactivo */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)', cursor: 'pointer', userSelect: 'none' }}>

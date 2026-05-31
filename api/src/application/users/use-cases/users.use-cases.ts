@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
 import { EmailAlreadyExistsError, canManageUser, canViewUser } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
+import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ interface UserRow {
   updatedAt: Date;
   userRoles?: { role: { id: string; name: string; description: string } }[];
   institution?: { id: string; name: string } | null;
+  userModules?: { module: { code: string; name: string }; actions: string[] }[];
 }
 
 function userToResponse(u: UserRow) {
@@ -38,6 +40,11 @@ function userToResponse(u: UserRow) {
     lockedUntil: u.lockedUntil?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
+    modules: (u.userModules ?? []).map((um) => ({
+      moduleCode: um.module.code,
+      moduleName: um.module.name,
+      actions: um.actions,
+    })),
   };
 }
 
@@ -64,6 +71,7 @@ export class ListUsersUseCase {
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
+        userModules: { include: { module: { select: { code: true, name: true } } } },
       },
       orderBy: { name: 'asc' },
     });
@@ -95,6 +103,9 @@ export class CreateUserUseCase {
     modality?: number;
     roles?: string[];
     creatorRoles: string[];
+    creatorInstitutionId?: string;
+    moduleAccess?: ModuleAccessItem[];
+    creatorModules?: ModuleAccessItem[];
   }) {
     const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
@@ -114,6 +125,11 @@ export class CreateUserUseCase {
       }
     }
 
+    // Forzar institutionId del creador si no es ROOT
+    const institutionId = isRoot
+      ? (input.institutionId ?? null)
+      : (input.creatorInstitutionId ?? null);
+
     // Hash password
     const passwordHash = await bcrypt.hash(input.password, 10);
 
@@ -123,13 +139,14 @@ export class CreateUserUseCase {
         email: input.email,
         name: input.name,
         passwordHash,
-        institutionId: input.institutionId ?? null,
+        institutionId,
         level: input.level ?? null,
         modality: input.modality ?? null,
       },
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
+        userModules: { include: { module: { select: { code: true, name: true } } } },
       },
     });
 
@@ -146,12 +163,37 @@ export class CreateUserUseCase {
       }
     }
 
+    // Asignar módulos directos (user_modules)
+    if (input.moduleAccess !== undefined) {
+      const filtered = isRoot
+        ? input.moduleAccess
+        : filterModuleAccess(input.moduleAccess, input.creatorModules ?? []);
+
+      if (filtered.length > 0) {
+        const modules = await client.module.findMany({
+          where: { code: { in: filtered.map((f) => f.moduleCode) }, active: true, deletedAt: null },
+        });
+
+        await client.userModule.createMany({
+          data: filtered.map((f) => {
+            const mod = modules.find((m) => m.code === f.moduleCode);
+            return {
+              userId: user.id,
+              moduleId: mod!.id,
+              actions: f.actions,
+            };
+          }),
+        });
+      }
+    }
+
     // Refrescar
     const final = await client.user.findUnique({
       where: { id: user.id },
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
+        userModules: { include: { module: { select: { code: true, name: true } } } },
       },
     });
 
@@ -176,17 +218,31 @@ export class UpdateUserUseCase {
       modality?: number | null;
       roles?: string[];
       active?: boolean;
+      moduleAccess?: ModuleAccessItem[];
     },
     creatorRoles: string[],
+    creatorInstitutionId?: string,
+    creatorModules: ModuleAccessItem[] = [],
   ) {
     const client = this.prisma.getMasterClient();
     const isRoot = creatorRoles.includes('ROOT');
 
     const existing = await client.user.findUnique({
       where: { id },
-      include: { userRoles: { include: { role: true } }, institution: { select: { id: true, name: true } } },
+      include: {
+        userRoles: { include: { role: true } },
+        institution: { select: { id: true, name: true } },
+        userModules: { include: { module: { select: { code: true, name: true } } } },
+      },
     });
     if (!existing) return { data: null };
+
+    // Verificar que un no-ROOT no pueda editar usuarios de otra institución
+    if (!isRoot && creatorInstitutionId && existing.institutionId !== creatorInstitutionId) {
+      throw new Error(
+        'No podés modificar usuarios de otra institución.',
+      );
+    }
 
     // Verificar jerarquía contra los roles ACTUALES del objetivo
     const existingRoles = (existing.userRoles ?? []).map((ur) => ur.role.name);
@@ -212,6 +268,11 @@ export class UpdateUserUseCase {
       if (conflict) throw new EmailAlreadyExistsError(input.email);
     }
 
+    // Forzar institutionId del creador si no es ROOT
+    const institutionId = isRoot
+      ? input.institutionId
+      : undefined; // no-ROOT no puede cambiar la institución del usuario editado
+
     // Actualizar campos
     const data: Record<string, unknown> = {};
     if (input.email !== undefined) data.email = input.email;
@@ -219,7 +280,7 @@ export class UpdateUserUseCase {
     if (input.password !== undefined && input.password.length > 0) {
       data.passwordHash = await bcrypt.hash(input.password, 10);
     }
-    if (input.institutionId !== undefined) data.institutionId = input.institutionId;
+    if (institutionId !== undefined) data.institutionId = institutionId;
     if (input.level !== undefined) data.level = input.level;
     if (input.modality !== undefined) data.modality = input.modality;
     if (input.active !== undefined) data.active = input.active;
@@ -244,12 +305,39 @@ export class UpdateUserUseCase {
       }
     }
 
+    // Sincronizar módulos directos (user_modules)
+    if (input.moduleAccess !== undefined) {
+      await client.userModule.deleteMany({ where: { userId: id } });
+
+      const filtered = isRoot
+        ? input.moduleAccess
+        : filterModuleAccess(input.moduleAccess, creatorModules);
+
+      if (filtered.length > 0) {
+        const modules = await client.module.findMany({
+          where: { code: { in: filtered.map((f) => f.moduleCode) }, active: true, deletedAt: null },
+        });
+
+        await client.userModule.createMany({
+          data: filtered.map((f) => {
+            const mod = modules.find((m) => m.code === f.moduleCode);
+            return {
+              userId: id,
+              moduleId: mod!.id,
+              actions: f.actions,
+            };
+          }),
+        });
+      }
+    }
+
     // Refrescar
     const updated = await client.user.findUnique({
       where: { id },
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
+        userModules: { include: { module: { select: { code: true, name: true } } } },
       },
     });
 

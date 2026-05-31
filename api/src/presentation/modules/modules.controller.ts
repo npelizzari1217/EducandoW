@@ -13,7 +13,6 @@ import {
 
 @Controller('modules')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('ROOT')
 export class ModulesController {
   constructor(
     private readonly listUC: ListModulesUseCase,
@@ -29,6 +28,7 @@ export class ModulesController {
   }
 
   @Post()
+  @Roles('ROOT')
   @HttpCode(HttpStatus.CREATED)
   async create(@Body(new ZodValidationPipe(CreateModuleSchema)) body: CreateModuleDTO) {
     const data = await this.createUC.execute(body);
@@ -36,6 +36,7 @@ export class ModulesController {
   }
 
   @Patch(':id')
+  @Roles('ROOT')
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateModuleSchema)) body: UpdateModuleDTO,
@@ -46,6 +47,7 @@ export class ModulesController {
   }
 
   @Delete(':id')
+  @Roles('ROOT')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);

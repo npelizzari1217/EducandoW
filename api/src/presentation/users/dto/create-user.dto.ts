@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+export const ModuleAccessSchema = z.object({
+  moduleCode: z.string().min(1),
+  actions: z.array(z.string()).min(1, 'Al menos una acción requerida'),
+});
+
 export const CreateUserSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Password mínimo 6 caracteres'),
@@ -9,6 +14,7 @@ export const CreateUserSchema = z.object({
   modality: z.number().int().min(0).max(9).optional(),
   roles: z.array(z.string()).min(1, 'Al menos un rol requerido').optional(),
   role: z.string().optional(), // Legacy: single role string
+  moduleAccess: z.array(ModuleAccessSchema).optional(),
 });
 
 export type CreateUserDTO = z.infer<typeof CreateUserSchema>;

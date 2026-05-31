@@ -5,11 +5,22 @@ import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma
 export class ListModulesUseCase {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(): Promise<{ id: string; code: string; name: string; active: boolean; createdAt: Date; updatedAt: Date }[]> {
-    const records = await this.prisma.getMasterClient().module.findMany({
-      where: { active: true, deletedAt: null },
-      orderBy: { code: 'asc' },
-    });
+  async execute(): Promise<{ id: string; code: string; name: string; active: boolean; createdAt: Date; updatedAt: Date; actions: string[] }[]> {
+    const client = this.prisma.getMasterClient();
+
+    const [records, actionRecords] = await Promise.all([
+      client.module.findMany({
+        where: { active: true, deletedAt: null },
+        orderBy: { code: 'asc' },
+      }),
+      client.moduleAction.findMany({
+        where: { active: true, deletedAt: null },
+        select: { code: true },
+      }),
+    ]);
+
+    const actions = actionRecords.map((a) => a.code);
+
     return records.map((r) => ({
       id: r.id,
       code: r.code,
@@ -17,6 +28,7 @@ export class ListModulesUseCase {
       active: r.active,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      actions,
     }));
   }
 }
