@@ -53,6 +53,7 @@ export function getHighestRoleRank(roles: string[]): number {
 /**
  * Verifica si el creador puede gestionar al usuario objetivo
  * basándose en la jerarquía de roles (no en el nivel educativo).
+ * Solo puede gestionar roles de jerarquía ESTRICTAMENTE INFERIOR.
  */
 export function canManageUser(creatorRoles: string[], targetRoles: string[]): boolean {
   // ROOT tiene acceso total
@@ -66,4 +67,20 @@ export function canManageUser(creatorRoles: string[], targetRoles: string[]): bo
 
   // La jerarquía del creador debe ser estrictamente superior
   return creatorRank > targetRank;
+}
+
+/**
+ * Verifica si un usuario puede VER a otro en un listado.
+ * A diferencia de canManageUser, permite ver usuarios del MISMO rango.
+ */
+export function canViewUser(viewerRoles: string[], targetRoles: string[]): boolean {
+  if (viewerRoles.includes('ROOT')) return true;
+
+  const viewerRank = getHighestRoleRank(viewerRoles);
+  const targetRank = getHighestRoleRank(targetRoles);
+
+  if (viewerRank < 0) return false;
+
+  // Puede ver usuarios de rango igual o inferior
+  return viewerRank >= targetRank;
 }

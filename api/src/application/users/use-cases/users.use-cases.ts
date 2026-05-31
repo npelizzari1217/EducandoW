@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { EmailAlreadyExistsError, canManageUser } from '@educandow/domain';
+import { EmailAlreadyExistsError, canManageUser, canViewUser } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 
 // ── Types ────────────────────────────────────────────────
@@ -68,12 +68,12 @@ export class ListUsersUseCase {
       orderBy: { name: 'asc' },
     });
 
-    // Filtrar por jerarquía de roles en memoria
+    // Filtrar por jerarquía de roles en memoria — listado permite ver usuarios del mismo rango
     const filtered = isRoot
       ? records
       : records.filter((u) => {
           const targetRoles = (u.userRoles ?? []).map((ur) => ur.role.name);
-          return canManageUser(options.creatorRoles, targetRoles);
+          return canViewUser(options.creatorRoles, targetRoles);
         });
 
     return { data: filtered.map((r) => userToResponse(r)) };

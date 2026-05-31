@@ -8,4 +8,4 @@ export type { UserRepository } from './repositories/user-repository';
 export type { RefreshTokenRepository, RefreshTokenData } from './repositories/refresh-token-repository';
 export { UserRegistered } from './events/user-registered';
 export { UserNotFoundError, EmailAlreadyExistsError, InvalidCredentialsError } from './errors/user.errors';
-export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser } from './role-hierarchy';
+export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser, canViewUser } from './role-hierarchy';
