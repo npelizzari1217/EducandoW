@@ -23,7 +23,7 @@ vi.mock('../../../context/auth-context', () => ({
 }));
 
 // ── Mock useInstitution (configurable per test) ──
-let mockLevels: number[] = [1, 2, 3, 4]; // match InstitutionConfig.levels: number[]
+let mockLevels: number[] = [10, 20, 30, 40]; // composite codes: 1=Inicial, 2=Primario, 3=Secundario, 4=Terciario
 let mockSendEmail = true;
 let mockSendMessages = true;
 
@@ -60,7 +60,7 @@ function renderSidebar() {
 describe('Sidebar filtering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLevels = [1, 2, 3, 4];
+    mockLevels = [10, 20, 30, 40];
     mockSendEmail = true;
     mockSendMessages = true;
   });
@@ -87,19 +87,113 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
     expect(screen.queryByText('Calificaciones parciales')).not.toBeInTheDocument();
     expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
+    // Level-specific items also hidden
+    expect(screen.queryByText('Salas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Carreras')).not.toBeInTheDocument();
   });
 
-  it('shows academic nav items when institution has at least one level', () => {
-    mockLevels = [1];
+  it('shows generic items + only Inicial level items when institution has only Inicial', () => {
+    mockLevels = [10];
+    (mockUser as any).role = 'ADMIN';
     renderSidebar();
 
+    // Generic items visible (any level exists)
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
-    expect(screen.getAllByText('Inscripciones').length).toBeGreaterThan(0);
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
+    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
     expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+
+    // Inicial items visible (levelId: 1, base level from Math.floor(10/10) = 1)
+    expect(screen.getByText('Salas')).toBeInTheDocument();
+    expect(screen.getByText('Informes Evolutivos')).toBeInTheDocument();
+    expect(screen.getByText('Planificaciones')).toBeInTheDocument();
+
+    // Primario items NOT visible
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+
+    // Secundario items NOT visible
+    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mesas de Examen')).not.toBeInTheDocument();
+
+    // Terciario items NOT visible
+    expect(screen.queryByText('Carreras')).not.toBeInTheDocument();
+
+    // Inicial sub-heading visible
+    expect(screen.getByText('Inicial')).toBeInTheDocument();
+    // Other sub-headings NOT visible
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
+    expect(screen.queryByText('Secundario')).not.toBeInTheDocument();
+    expect(screen.queryByText('Terciario')).not.toBeInTheDocument();
+  });
+
+  it('shows only Secundario level items when institution has only Secundario', () => {
+    mockLevels = [30];
+    (mockUser as any).role = 'ADMIN';
+    renderSidebar();
+
+    // Generic items visible
+    expect(screen.getByText('Estudiantes')).toBeInTheDocument();
+    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
+    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+
+    // Inicial NOT visible
+    expect(screen.queryByText('Salas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Informes Evolutivos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Planificaciones')).not.toBeInTheDocument();
+
+    // Primario NOT visible
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+
+    // Secundario visible
+    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
+
+    // Terciario NOT visible
+    expect(screen.queryByText('Carreras')).not.toBeInTheDocument();
+
+    // Secundario sub-heading visible
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    // Other sub-headings NOT visible
+    expect(screen.queryByText('Inicial')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
+    expect(screen.queryByText('Terciario')).not.toBeInTheDocument();
+  });
+
+  it('shows only Primario and Secundario items when institution has those two levels', () => {
+    mockLevels = [20, 30];
+    (mockUser as any).role = 'ADMIN';
+    renderSidebar();
+
+    // Generic items visible
+    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
+
+    // Inicial NOT visible
+    expect(screen.queryByText('Salas')).not.toBeInTheDocument();
+    expect(screen.queryByText('Informes Evolutivos')).not.toBeInTheDocument();
+    expect(screen.queryByText('Planificaciones')).not.toBeInTheDocument();
+
+    // Primario visible
+    expect(screen.getByText('Grados')).toBeInTheDocument();
+
+    // Secundario visible
+    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
+
+    // Terciario NOT visible
+    expect(screen.queryByText('Carreras')).not.toBeInTheDocument();
+
+    // Sub-headings: Nivel Primario and Secundario visible
+    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    // Others NOT visible
+    expect(screen.queryByText('Inicial')).not.toBeInTheDocument();
+    expect(screen.queryByText('Terciario')).not.toBeInTheDocument();
   });
 
   it('shows placeholder when levels array is empty and user is ADMIN', () => {
@@ -116,16 +210,26 @@ describe('Sidebar filtering', () => {
     (mockUser as any).role = 'ROOT';
     renderSidebar();
 
-    // ROOT sees all nav items (Estudiantes, Docentes, etc.) even without levels
+    // ROOT sees all nav items even without levels
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
+    // ROOT bypasses level filtering — all level items visible
+    expect(screen.getByText('Salas')).toBeInTheDocument();
+    expect(screen.getByText('Grados')).toBeInTheDocument();
+    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Carreras')).toBeInTheDocument();
+    // All 4 sub-headings visible for ROOT
+    expect(screen.getByText('Inicial')).toBeInTheDocument();
+    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    expect(screen.getByText('Terciario')).toBeInTheDocument();
     // Placeholder should NOT appear for ROOT
     expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Ir a configuración/i)).not.toBeInTheDocument();
   });
 
   it('does NOT show placeholder when levels exist', () => {
-    mockLevels = [1];
+    mockLevels = [10];
     renderSidebar();
 
     expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
@@ -169,10 +273,9 @@ describe('Sidebar filtering', () => {
   });
 
   it('shows all items when all levels and flags are active', () => {
-    // Use ROOT role so Módulos (ROOT-only) is visible.
     // Use ROOT role so Módulos (ROOT-only) and Instituciones are visible.
     (mockUser as any).role = 'ROOT';
-    mockLevels = [1, 2, 3, 4];
+    mockLevels = [10, 20, 30, 40];
     mockSendEmail = true;
     mockSendMessages = true;
     renderSidebar();
@@ -187,6 +290,21 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Módulos')).toBeInTheDocument();
     expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();
     expect(screen.getByText('WebSocket')).toBeInTheDocument();
+
+    // All level items visible
+    expect(screen.getByText('Salas')).toBeInTheDocument();
+    expect(screen.getByText('Grados')).toBeInTheDocument();
+    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Carreras')).toBeInTheDocument();
+
+    // All 4 sub-headings visible
+    expect(screen.getByText('Inicial')).toBeInTheDocument();
+    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    expect(screen.getByText('Terciario')).toBeInTheDocument();
+
+    // Two Inscripciones: Secretarios + Academico/Terciario
+    expect(screen.getAllByText('Inscripciones').length).toBe(2);
   });
 
   it('renders group labels (Secretarios, Académico, Sistema)', () => {
@@ -195,6 +313,24 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Secretarios')).toBeInTheDocument();
     expect(screen.getByText('Académico')).toBeInTheDocument();
     expect(screen.getByText('Sistema')).toBeInTheDocument();
+  });
+
+  it('does NOT render legacy level groups as top-level sidebar groups', () => {
+    renderSidebar();
+
+    // Old top-level groups (Inicial, Nivel Primario, Secundario, Terciario)
+    // should NOT exist as separate sidebar groups anymore.
+    // They are now sub-headings inside Académico.
+    // Verify the section labels exist inside the Academico group.
+    const sectionLabels = document.querySelectorAll('.sidebar-section-label');
+    expect(sectionLabels.length).toBe(4);
+
+    // Verify the labels have the right text
+    const labelTexts = Array.from(sectionLabels).map((el) => el.textContent);
+    expect(labelTexts).toContain('Inicial');
+    expect(labelTexts).toContain('Nivel Primario');
+    expect(labelTexts).toContain('Secundario');
+    expect(labelTexts).toContain('Terciario');
   });
 
   it('hides groups that have no visible items', () => {
@@ -212,5 +348,37 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Secretarios')).not.toBeInTheDocument();
     expect(screen.queryByText('Académico')).not.toBeInTheDocument();
     expect(screen.queryByText('Sistema')).not.toBeInTheDocument();
+  });
+
+  it('ROOT sees all items bypassing level filter even with partial levels', () => {
+    mockLevels = [10]; // Only Inicial configured
+    (mockUser as any).role = 'ROOT';
+    renderSidebar();
+
+    // ROOT sees ALL level items regardless of config
+    expect(screen.getByText('Salas')).toBeInTheDocument();       // Inicial (levelId: 1)
+    expect(screen.getByText('Grados')).toBeInTheDocument();      // Primario (levelId: 2)
+    expect(screen.getByText('Cursos')).toBeInTheDocument();      // Secundario (levelId: 3)
+    expect(screen.getByText('Carreras')).toBeInTheDocument();    // Terciario (levelId: 4)
+
+    // All 4 sub-headings visible
+    expect(screen.getByText('Inicial')).toBeInTheDocument();
+    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    expect(screen.getByText('Terciario')).toBeInTheDocument();
+  });
+
+  it('renders sub-heading labels only for levels with visible items', () => {
+    mockLevels = [10, 30]; // Inicial + Secundario
+    (mockUser as any).role = 'ADMIN';
+    renderSidebar();
+
+    // Active sub-headings
+    expect(screen.getByText('Inicial')).toBeInTheDocument();
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+
+    // Inactive sub-headings NOT rendered
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
+    expect(screen.queryByText('Terciario')).not.toBeInTheDocument();
   });
 });

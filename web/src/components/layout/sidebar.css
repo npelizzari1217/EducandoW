@@ -239,6 +239,17 @@
   flex-shrink: 0;
 }
 
+/* ── Level sub-headings inside sidebar groups ──────── */
+.sidebar-section-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  padding: var(--space-sm) var(--space-md) 2px;
+  margin-top: var(--space-xs);
+}
+
 /* ── Hamburger button ─────────────────────────────── */
 .hamburger-btn {
   position: fixed;
@@ -324,7 +335,8 @@
   .sidebar:not(.sidebar-open) .sidebar-placeholder-text,
   .sidebar:not(.sidebar-open) .sidebar-institution-name,
   .sidebar:not(.sidebar-open) .sidebar-group-label,
-  .sidebar:not(.sidebar-open) .sidebar-group-chevron {
+  .sidebar:not(.sidebar-open) .sidebar-group-chevron,
+  .sidebar:not(.sidebar-open) .sidebar-section-label {
     display: none;
   }
 

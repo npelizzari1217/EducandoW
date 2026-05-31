@@ -9,8 +9,16 @@ interface NavItem {
   path: string;
   roles?: string[];
   requiresLevel?: boolean;   // Show only when institution has at least one level
+  levelId?: number;          // 1=Inicial, 2=Nivel Primario, 3=Secundario, 4=Terciario
   featureFlag?: 'send_email' | 'send_messages'; // Show only when this flag is true
 }
+
+const LEVEL_LABELS: Record<number, string> = {
+  1: 'Inicial',
+  2: 'Nivel Primario',
+  3: 'Secundario',
+  4: 'Terciario',
+};
 
 interface NavGroupDef {
   id: string;
@@ -34,50 +42,27 @@ const navGroups: NavGroupDef[] = [
     ],
   },
   {
-    id: 'terciario',
-    label: 'Terciario',
-    icon: '📁',
-    items: [
-      { label: 'Carreras', path: '/terciario/carreras', requiresLevel: true },
-      { label: 'Inscripciones', path: '/terciario/inscripciones', requiresLevel: true },
-    ],
-  },
-  {
     id: 'academico',
     label: 'Académico',
     icon: '📁',
     items: [
+      // Generic — visible when any level exists
       { label: 'Alumnos por curso', path: '/students-by-course', requiresLevel: true },
       { label: 'Calificaciones parciales', path: '/grades', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', requiresLevel: true },
-    ],
-  },
-  {
-    id: 'nivel-primario',
-    label: 'Nivel Primario',
-    icon: '📁',
-    items: [
-      { label: 'Grados', path: '/primario/grados', requiresLevel: true },
-      { label: 'Calificaciones', path: '/primario/calificaciones', requiresLevel: true },
-    ],
-  },
-  {
-    id: 'secundario',
-    label: 'Secundario',
-    icon: '📁',
-    items: [
-      { label: 'Cursos', path: '/secundario/cursos', requiresLevel: true },
-      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', requiresLevel: true },
-    ],
-  },
-  {
-    id: 'inicial',
-    label: 'Inicial',
-    icon: '📁',
-    items: [
-      { label: 'Salas', path: '/inicial/salas', requiresLevel: true },
-      { label: 'Informes Evolutivos', path: '/inicial/informes', requiresLevel: true },
-      { label: 'Planificaciones', path: '/inicial/planificaciones', requiresLevel: true },
+      // Inicial (levelId: 1)
+      { label: 'Salas', path: '/inicial/salas', requiresLevel: true, levelId: 1 },
+      { label: 'Informes Evolutivos', path: '/inicial/informes', requiresLevel: true, levelId: 1 },
+      { label: 'Planificaciones', path: '/inicial/planificaciones', requiresLevel: true, levelId: 1 },
+      // Nivel Primario (levelId: 2)
+      { label: 'Grados', path: '/primario/grados', requiresLevel: true, levelId: 2 },
+      { label: 'Calificaciones', path: '/primario/calificaciones', requiresLevel: true, levelId: 2 },
+      // Secundario (levelId: 3)
+      { label: 'Cursos', path: '/secundario/cursos', requiresLevel: true, levelId: 3 },
+      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', requiresLevel: true, levelId: 3 },
+      // Terciario (levelId: 4)
+      { label: 'Carreras', path: '/terciario/carreras', requiresLevel: true, levelId: 4 },
+      { label: 'Inscripciones', path: '/terciario/inscripciones', requiresLevel: true, levelId: 4 },
     ],
   },
   {
@@ -101,6 +86,7 @@ interface SidebarProps {
 function makeFilterItem(
   user: { role: string } | null,
   hasLevels: boolean,
+  baseLevels: Set<number>,
   sendEmail: boolean,
   sendMessages: boolean,
 ) {
@@ -108,6 +94,9 @@ function makeFilterItem(
     if (item.roles && user && !item.roles.includes(user.role)) return false;
     // ROOT sees all items regardless of levels — they manage the whole system
     if (item.requiresLevel && !hasLevels && user?.role !== 'ROOT') return false;
+    // Level-specific filter: hide items for levels not configured
+    // ROOT bypasses this check — sees everything
+    if (item.levelId !== undefined && user?.role !== 'ROOT' && !baseLevels.has(item.levelId)) return false;
     if (item.featureFlag === 'send_email' && !sendEmail) return false;
     if (item.featureFlag === 'send_messages' && !sendMessages) return false;
     return true;
@@ -120,7 +109,8 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const navigate = useNavigate();
 
   const hasLevels = config.levels.length > 0;
-  const filterItem = makeFilterItem(user, hasLevels, config.send_email, config.send_messages);
+  const baseLevels = new Set(config.levels.map((code) => Math.floor(code / 10)));
+  const filterItem = makeFilterItem(user, hasLevels, baseLevels, config.send_email, config.send_messages);
 
   // Build visible groups (filter items, skip empty groups).
   const visibleGroups = navGroups
@@ -149,6 +139,23 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
       <span className="sidebar-link-text">{item.label}</span>
     </NavLink>
   );
+
+  function renderGroupItems(items: NavItem[]) {
+    let currentLevel: number | undefined;
+    const elements: React.ReactNode[] = [];
+    for (const item of items) {
+      if (item.levelId !== undefined && item.levelId !== currentLevel) {
+        currentLevel = item.levelId;
+        elements.push(
+          <div key={`section-${item.levelId}`} className="sidebar-section-label">
+            {LEVEL_LABELS[item.levelId]}
+          </div>,
+        );
+      }
+      elements.push(renderLink(item));
+    }
+    return elements;
+  }
 
   return (
     <aside
@@ -201,7 +208,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             label={group.label}
             icon={group.icon}
           >
-            {group.visibleItems.map(renderLink)}
+            {renderGroupItems(group.visibleItems)}
           </SidebarGroup>
         ))}
 
