@@ -36,7 +36,6 @@ export default function TeachersPage() {
         setInstitutionId(list[0].id);
       }
     }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCreate = async () => {

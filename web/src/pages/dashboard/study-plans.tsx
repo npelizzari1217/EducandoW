@@ -91,7 +91,6 @@ export default function StudyPlansPage() {
         setInstitutionId(list[0].id);
       }
     }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRoot]);
 
   const tenantQueryParams = institutionId ? { institutionId } : undefined;
@@ -142,7 +141,6 @@ export default function StudyPlansPage() {
 
   useEffect(() => {
     loadAvailableCourses();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [institutionId]);
 
   const loadAvailableCourses = async () => {
