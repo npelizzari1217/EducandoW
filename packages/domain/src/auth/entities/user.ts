@@ -16,6 +16,14 @@ export interface ModuleAccess {
   actions: string[];
 }
 
+/**
+ * Educational level entry for a user — mirrors InstitutionLevelEntry.
+ */
+export interface UserLevelEntry {
+  level: EducationalLevelCode;
+  modality: EducationalModalityCode;
+}
+
 export interface UserProps {
   id: Id;
   email: Email;
@@ -26,8 +34,18 @@ export interface UserProps {
   /** Module access entries loaded from userRoles → roleModules and userModules. */
   modules?: ModuleAccess[];
   institutionId?: string;
+  /**
+   * @deprecated Use `levels: UserLevelEntry[]` instead. Kept for backward compat
+   * during migration. Will be removed next release.
+   */
   level?: EducationalLevelCode;
+  /**
+   * @deprecated Use `levels: UserLevelEntry[]` instead. Kept for backward compat
+   * during migration. Will be removed next release.
+   */
   modality?: EducationalModalityCode;
+  /** Educational levels assigned to this user — replaces scalar level/modality. */
+  levels?: UserLevelEntry[];
   failedAttempts?: number;
   lockedUntil?: Date;
   active?: boolean;
@@ -53,6 +71,7 @@ export class User {
   ): User {
     const roles = props.roles ?? (props.role ? [props.role] : []);
     const modules = props.modules ?? [];
+    const levels = props.levels ?? [];
     return new User({
       id: Id.create(),
       email: props.email,
@@ -63,6 +82,7 @@ export class User {
       institutionId: props.institutionId,
       level: props.level,
       modality: props.modality,
+      levels,
       failedAttempts: 0,
       active: true,
       createdAt: new Date(),
@@ -92,8 +112,27 @@ export class User {
   get role(): string { return this.props.roles?.[0] ?? 'TEACHER'; }
 
   get institutionId(): string | undefined { return this.props.institutionId; }
-  get level(): EducationalLevelCode | undefined { return this.props.level; }
-  get modality(): EducationalModalityCode | undefined { return this.props.modality; }
+
+  /**
+   * Backward-compat accessor: returns the first entry's level code, or undefined.
+   * @deprecated Use `levels` array and `hasEducationalLevel()` instead.
+   */
+  get level(): EducationalLevelCode | undefined {
+    return this.props.levels?.[0]?.level ?? this.props.level;
+  }
+
+  /**
+   * Backward-compat accessor: returns the first entry's modality code, or undefined.
+   * @deprecated Use `levels` array instead.
+   */
+  get modality(): EducationalModalityCode | undefined {
+    return this.props.levels?.[0]?.modality ?? this.props.modality;
+  }
+
+  /** Educational levels assigned to this user. Returns a defensive copy. */
+  get levels(): UserLevelEntry[] {
+    return [...(this.props.levels ?? [])];
+  }
   get failedAttempts(): number { return this.props.failedAttempts ?? 0; }
   get lockedUntil(): Date | undefined { return this.props.lockedUntil; }
   get active(): boolean { return this.props.active ?? true; }
@@ -187,14 +226,51 @@ export class User {
     this.props.updatedAt = new Date();
   }
 
-  assignLevel(level: EducationalLevelCode): void {
-    this.props.level = level;
-    this.props.updatedAt = new Date();
+  /**
+   * Adds a level entry if not already present (deduplication by level+modality).
+   */
+  addLevel(level: EducationalLevelCode, modality: EducationalModalityCode): void {
+    if (!this.props.levels) {
+      this.props.levels = [];
+    }
+    if (!this.props.levels.some((l) => l.level === level && l.modality === modality)) {
+      this.props.levels.push({ level, modality });
+      this.props.updatedAt = new Date();
+    }
   }
 
-  assignModality(modality: EducationalModalityCode): void {
-    this.props.modality = modality;
-    this.props.updatedAt = new Date();
+  /**
+   * Checks whether the user has a specific level entry.
+   * When modality is omitted, matches any modality for the given level.
+   */
+  hasLevel(target: { level: EducationalLevelCode; modality?: EducationalModalityCode }): boolean {
+    const entries = this.props.levels ?? [];
+    if (target.modality !== undefined) {
+      return entries.some((l) => l.level === target.level && l.modality === target.modality);
+    }
+    return entries.some((l) => l.level === target.level);
+  }
+
+  /**
+   * Checks whether the user has any entry for the given base educational level
+   * (regardless of modality).
+   */
+  hasEducationalLevel(code: EducationalLevelCode): boolean {
+    return (this.props.levels ?? []).some((l) => l.level === code);
+  }
+
+  /**
+   * @deprecated Use `addLevel()` instead. This is a no-op for backward compat.
+   */
+  assignLevel(_level: EducationalLevelCode): void {
+    // no-op — levels are now managed via addLevel() and the levels array
+  }
+
+  /**
+   * @deprecated Use `addLevel()` instead. This is a no-op for backward compat.
+   */
+  assignModality(_modality: EducationalModalityCode): void {
+    // no-op — levels are now managed via addLevel() and the levels array
   }
 
   incrementFailedAttempts(): void {

@@ -88,6 +88,7 @@ model User {
   refreshTokens RefreshToken[]
   userRoles     UserRole[]
   userModules   UserModule[]
+  userLevels    UserLevel[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -194,4 +195,18 @@ model UserModule {
 
   @@unique([userId, moduleId])
   @@map("user_modules")
+}
+
+// ── User Educational Levels ──────────────────────────────────
+
+model UserLevel {
+  id       String @id @default(uuid())
+  userId   String
+  level    Int
+  modality Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, level, modality])
+  @@map("user_levels")
 }

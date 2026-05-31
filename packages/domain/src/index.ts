@@ -76,7 +76,7 @@ export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, Ti
 
 // Auth
 export { User } from './auth/entities/user';
-export type { UserRole, ModuleAccess } from './auth/entities/user';
+export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';
 export { Role } from './auth/entities/role';
 export { Module } from './auth/entities/module';
 export { ModuleAction } from './auth/entities/module-action';

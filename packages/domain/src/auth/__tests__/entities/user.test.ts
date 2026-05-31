@@ -115,9 +115,13 @@ describe('User', () => {
     expect(user.institutionId).toBe('inst-123');
   });
 
-  it('assignLevel sets the level', () => {
+  it('assignLevel is deprecated no-op (use addLevel instead)', () => {
     const user = User.create(validProps);
     user.assignLevel(EducationalLevelCode.SECUNDARIO);
+    // assignLevel is now a no-op — level is undefined unless levels array has entries
+    expect(user.level).toBeUndefined();
+    // Use addLevel() instead
+    user.addLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN);
     expect(user.level).toBe(EducationalLevelCode.SECUNDARIO);
   });
 
