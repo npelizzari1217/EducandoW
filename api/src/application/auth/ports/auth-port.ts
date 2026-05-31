@@ -9,6 +9,8 @@ export interface AuthPort {
     modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
     level?: number;
+    levels?: number[];
+    userLevels?: { level: number; modality: number }[];
     dbName?: string | null;
   }): string;
   verify(token: string): {
@@ -17,6 +19,8 @@ export interface AuthPort {
     modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
     level?: number;
+    levels?: number[];
+    userLevels?: { level: number; modality: number }[];
     dbName?: string | null;
   };
 }

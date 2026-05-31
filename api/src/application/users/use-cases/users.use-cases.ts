@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, DomainError } from '@educandow/domain';
+import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, ValidationError } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
 
@@ -68,7 +68,7 @@ export function userToResponse(u: UserRow) {
 export function validateLevelsSubset(
   userLevels: UserLevelEntry[],
   institutionLevels: InstitutionLevelEntry[],
-): Result<void, DomainError> {
+): Result<void, ValidationError> {
   const institutionSet = new Set(
     institutionLevels.map((l) => `${l.level}:${l.modality}`),
   );
@@ -81,7 +81,7 @@ export function validateLevelsSubset(
   }
 
   if (invalid.length > 0) {
-    return err(new DomainError(`Levels not in institution: ${invalid.join(', ')}`));
+    return err(new ValidationError(`Levels not in institution: ${invalid.join(', ')}`));
   }
 
   return ok(undefined);
