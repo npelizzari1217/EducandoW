@@ -36,6 +36,12 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', () => ({
     create: vi.fn().mockResolvedValue(true),
     setCreateError: vi.fn(),
   }),
+  useApiUpdate: () => ({
+    updating: false,
+    updateError: '',
+    update: vi.fn().mockResolvedValue(true),
+    setUpdateError: vi.fn(),
+  }),
 }));
 
 // ── Configurable auth mock (ROOT vs non-ROOT) ──
@@ -114,13 +120,13 @@ describe('StudentsPage — institución filter', () => {
 
     // Wait for the institutions fetch to complete and render
     await waitFor(() => {
-      expect(screen.getByText('Instituto A')).toBeInTheDocument();
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
 
-    // All three institutions should appear as options
-    expect(screen.getByText('Instituto A')).toBeInTheDocument();
-    expect(screen.getByText('Instituto B')).toBeInTheDocument();
-    expect(screen.getByText('Colegio C')).toBeInTheDocument();
+    // All three institutions should appear as options (may also appear in header)
+    expect(screen.getAllByText('Instituto A').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Instituto B').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Colegio C').length).toBeGreaterThan(0);
 
     // "Todas las instituciones" option should exist
     expect(screen.getByText('Todas las instituciones')).toBeInTheDocument();

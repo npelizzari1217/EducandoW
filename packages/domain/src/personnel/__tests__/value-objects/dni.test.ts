@@ -29,19 +29,19 @@ describe('Dni', () => {
       expect(r.unwrap().get()).toBe('12345678');
     });
 
-    it('rejects less than 7 digits', () => {
+    it('rejects less than 6 characters', () => {
       const r = Dni.create('12345');
       expect(r.isErr()).toBe(true);
-      expect(r.unwrapErr().message).toContain('7 or 8 digits');
+      expect(r.unwrapErr().message).toContain('6–12 alphanumeric');
     });
 
-    it('rejects more than 8 digits', () => {
-      const r = Dni.create('123456789');
+    it('rejects more than 12 characters', () => {
+      const r = Dni.create('1234567890123');
       expect(r.isErr()).toBe(true);
     });
 
-    it('rejects letters', () => {
-      const r = Dni.create('1234567A');
+    it('rejects symbols', () => {
+      const r = Dni.create('1234@678');
       expect(r.isErr()).toBe(true);
     });
 

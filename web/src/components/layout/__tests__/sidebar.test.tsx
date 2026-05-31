@@ -95,7 +95,7 @@ describe('Sidebar filtering', () => {
 
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
-    expect(screen.getByText('Inscripciones')).toBeInTheDocument();
+    expect(screen.getAllByText('Inscripciones').length).toBeGreaterThan(0);
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
     expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
