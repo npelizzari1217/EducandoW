@@ -25,7 +25,8 @@ export interface LoginResult {
     roles: string[];
     modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
-    level?: number;
+    levels?: number[];
+    userLevels?: { level: number; modality: number }[];
     dbName?: string | null;
   };
 }
@@ -66,12 +67,18 @@ export class LoginUseCase {
       dbName = institution.dbName ?? `educandow_${user.institutionId}`;
     }
 
+    const userLevels = user.levels;
+    const levels = userLevels.map((l) => l.level * 10 + l.modality);
+    const backCompatLevel = levels.length > 0 ? levels[0] : undefined;
+
     const accessToken = this.authPort.sign({
       sub: userId,
       roles: user.roles,
       modules: user.modules,
       institutionId: user.institutionId,
-      level: user.level,
+      level: backCompatLevel,
+      levels,
+      userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       dbName,
     });
 
@@ -93,7 +100,8 @@ export class LoginUseCase {
         roles: user.roles,
         modules: user.modules,
         institutionId: user.institutionId,
-        level: user.level,
+        levels,
+        userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
         dbName,
       },
     });

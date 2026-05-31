@@ -69,13 +69,12 @@ export class UsersController {
       password: body.password,
       name: body.name,
       institutionId: body.institutionId,
-      level: body.level,
-      modality: body.modality,
       roles,
       creatorRoles: this.getCreatorRoles(req),
       creatorInstitutionId: this.getCreatorInstitutionId(req),
       moduleAccess: body.moduleAccess,
       creatorModules: this.getCreatorModules(req),
+      levels: body.levels,
     });
   }
 

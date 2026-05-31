@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { EmailAlreadyExistsError, canManageUser, canViewUser } from '@educandow/domain';
+import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, DomainError } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
 
@@ -23,29 +23,68 @@ interface UserRow {
   userRoles?: { role: { id: string; name: string; description: string } }[];
   institution?: { id: string; name: string } | null;
   userModules?: { module: { code: string; name: string }; actions: string[] }[];
+  userLevels?: { level: number; modality: number }[];
 }
 
-function userToResponse(u: UserRow) {
+export function userToResponse(u: UserRow) {
+  const userLevels = (u.userLevels ?? []).map((ul) => ({
+    level: ul.level,
+    modality: ul.modality,
+  }));
+  const levels = userLevels.map((ul) => ul.level * 10 + ul.modality);
+
   return {
     id: u.id,
     email: u.email,
     name: u.name,
     institutionId: u.institutionId,
     institutionName: u.institution?.name ?? null,
-    level: u.level,
-    modality: u.modality,
     roles: (u.userRoles ?? []).map((ur) => ur.role.name),
     active: u.active,
     failedAttempts: u.failedAttempts,
     lockedUntil: u.lockedUntil?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
     updatedAt: u.updatedAt.toISOString(),
+    levels,
+    userLevels,
     modules: (u.userModules ?? []).map((um) => ({
       moduleCode: um.module.code,
       moduleName: um.module.name,
       actions: um.actions,
     })),
   };
+}
+
+// ── validateLevelsSubset ──────────────────────────────────
+
+/**
+ * Validates that every user level entry exists in the institution's level set.
+ * Returns Ok(undefined) if all user levels are a subset, or Err with the list
+ * of invalid entries.
+ *
+ * ROOT users should bypass this validation at the call site — this function
+ * is purely about institution-level membership.
+ */
+export function validateLevelsSubset(
+  userLevels: UserLevelEntry[],
+  institutionLevels: InstitutionLevelEntry[],
+): Result<void, DomainError> {
+  const institutionSet = new Set(
+    institutionLevels.map((l) => `${l.level}:${l.modality}`),
+  );
+
+  const invalid: string[] = [];
+  for (const ul of userLevels) {
+    if (!institutionSet.has(`${ul.level}:${ul.modality}`)) {
+      invalid.push(`${ul.level}:${ul.modality}`);
+    }
+  }
+
+  if (invalid.length > 0) {
+    return err(new DomainError(`Levels not in institution: ${invalid.join(', ')}`));
+  }
+
+  return ok(undefined);
 }
 
 // ── List ──────────────────────────────────────────────────
@@ -72,6 +111,7 @@ export class ListUsersUseCase {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
         userModules: { include: { module: { select: { code: true, name: true } } } },
+        userLevels: true,
       },
       orderBy: { name: 'asc' },
     });
@@ -99,13 +139,12 @@ export class CreateUserUseCase {
     password: string;
     name: string;
     institutionId?: string;
-    level?: number;
-    modality?: number;
     roles?: string[];
     creatorRoles: string[];
     creatorInstitutionId?: string;
     moduleAccess?: ModuleAccessItem[];
     creatorModules?: ModuleAccessItem[];
+    levels?: { level: number; modality: number }[];
   }) {
     const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
@@ -130,23 +169,55 @@ export class CreateUserUseCase {
       ? (input.institutionId ?? null)
       : (input.creatorInstitutionId ?? null);
 
+    // Validar levels contra institution_levels (ROOT bypass)
+    if (!isRoot && input.levels && input.levels.length > 0 && institutionId) {
+      const institution = await client.institution.findUnique({
+        where: { id: institutionId },
+        include: { levels: true },
+      });
+      if (institution?.levels) {
+        const validationResult = validateLevelsSubset(
+          input.levels.map((l) => ({
+            level: l.level as any,
+            modality: l.modality as any,
+          })),
+          institution.levels.map((il) => ({
+            level: il.level as any,
+            modality: il.modality as any,
+          })),
+        );
+        if (validationResult.isErr()) {
+          throw validationResult.unwrapErr();
+        }
+      }
+    }
+
     // Hash password
     const passwordHash = await bcrypt.hash(input.password, 10);
 
+    // Construir data para crear usuario
+    const createData: Record<string, unknown> = {
+      email: input.email,
+      name: input.name,
+      passwordHash,
+      institutionId,
+    };
+
+    // Nested userLevels create — mirrors institution repository pattern
+    if (input.levels !== undefined) {
+      createData.userLevels = {
+        create: input.levels.map((l) => ({ level: l.level, modality: l.modality })),
+      };
+    }
+
     // Crear usuario
     const user = await client.user.create({
-      data: {
-        email: input.email,
-        name: input.name,
-        passwordHash,
-        institutionId,
-        level: input.level ?? null,
-        modality: input.modality ?? null,
-      },
+      data: createData as any,
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
         userModules: { include: { module: { select: { code: true, name: true } } } },
+        userLevels: true,
       },
     });
 
@@ -194,6 +265,7 @@ export class CreateUserUseCase {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
         userModules: { include: { module: { select: { code: true, name: true } } } },
+        userLevels: true,
       },
     });
 
@@ -219,6 +291,7 @@ export class UpdateUserUseCase {
       roles?: string[];
       active?: boolean;
       moduleAccess?: ModuleAccessItem[];
+      levels?: { level: number; modality: number }[];
     },
     creatorRoles: string[],
     creatorInstitutionId?: string,
@@ -233,6 +306,7 @@ export class UpdateUserUseCase {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
         userModules: { include: { module: { select: { code: true, name: true } } } },
+        userLevels: true,
       },
     });
     if (!existing) return { data: null };
@@ -281,9 +355,46 @@ export class UpdateUserUseCase {
       data.passwordHash = await bcrypt.hash(input.password, 10);
     }
     if (institutionId !== undefined) data.institutionId = institutionId;
-    if (input.level !== undefined) data.level = input.level;
-    if (input.modality !== undefined) data.modality = input.modality;
     if (input.active !== undefined) data.active = input.active;
+
+    // Handle levels: present → replace, absent → don't touch, empty → clear
+    if (input.levels !== undefined) {
+      // Validate against institution levels (ROOT bypass)
+      if (!isRoot && input.levels.length > 0 && existing.institutionId) {
+        const institution = await client.institution.findUnique({
+          where: { id: existing.institutionId },
+          include: { levels: true },
+        });
+        if (institution?.levels) {
+          const validationResult = validateLevelsSubset(
+            input.levels.map((l) => ({
+              level: l.level as any,
+              modality: l.modality as any,
+            })),
+            institution.levels.map((il) => ({
+              level: il.level as any,
+              modality: il.modality as any,
+            })),
+          );
+          if (validationResult.isErr()) {
+            throw validationResult.unwrapErr();
+          }
+        }
+      }
+
+      if (input.levels.length > 0) {
+        // Replace: deleteMany + create
+        data.userLevels = {
+          deleteMany: {},
+          create: input.levels.map((l) => ({ level: l.level, modality: l.modality })),
+        };
+      } else {
+        // Clear: deleteMany only
+        data.userLevels = {
+          deleteMany: {},
+        };
+      }
+    }
 
     if (Object.keys(data).length > 0) {
       await client.user.update({ where: { id }, data });
@@ -338,6 +449,7 @@ export class UpdateUserUseCase {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
         userModules: { include: { module: { select: { code: true, name: true } } } },
+        userLevels: true,
       },
     });
 

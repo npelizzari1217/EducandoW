@@ -6,7 +6,10 @@ export interface JwtPayload {
   roles: string[];
   modules?: { moduleCode: string; actions: string[] }[];
   institutionId?: string;
+  /** @deprecated Use `levels` array instead. Kept for backward compat one release. */
   level?: number;
+  levels?: number[];
+  userLevels?: { level: number; modality: number }[];
   dbName?: string | null;
 }
 

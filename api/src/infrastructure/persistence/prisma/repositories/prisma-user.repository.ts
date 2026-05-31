@@ -29,6 +29,11 @@ interface UserRoleRow {
   };
 }
 
+interface UserLevelRow {
+  level: number;
+  modality: number;
+}
+
 interface UserRow {
   id: string;
   email: string;
@@ -45,6 +50,7 @@ interface UserRow {
   updatedAt: Date;
   userRoles?: UserRoleRow[];
   userModules?: UserModuleRow[];
+  userLevels?: UserLevelRow[];
 }
 
 @Injectable()
@@ -82,6 +88,9 @@ export class PrismaUserRepository implements UserRepository {
 
   async save(user: User): Promise<Result<User, Error>> {
     try {
+      const userLevels = user.levels;
+      const hasLevels = userLevels.length > 0;
+
       const record = await this.client.user.upsert({
         where: { id: user.id.get() },
         update: {
@@ -89,12 +98,16 @@ export class PrismaUserRepository implements UserRepository {
           name: user.name,
           passwordHash: user.passwordHash,
           institutionId: user.institutionId ?? null,
-          level: user.level ?? null,
-          modality: user.modality ?? null,
           failedAttempts: user.failedAttempts,
           lockedUntil: user.lockedUntil ?? null,
           active: user.active,
           deletedAt: user.deletedAt ?? null,
+          ...(hasLevels && {
+            userLevels: {
+              deleteMany: {},
+              create: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
+            },
+          }),
         },
         create: {
           id: user.id.get(),
@@ -102,12 +115,15 @@ export class PrismaUserRepository implements UserRepository {
           name: user.name,
           passwordHash: user.passwordHash,
           institutionId: user.institutionId ?? null,
-          level: user.level ?? null,
-          modality: user.modality ?? null,
           failedAttempts: user.failedAttempts,
           lockedUntil: user.lockedUntil ?? null,
           active: user.active,
           deletedAt: user.deletedAt ?? null,
+          ...(hasLevels && {
+            userLevels: {
+              create: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
+            },
+          }),
         },
         include: this.userInclude,
       });
@@ -134,6 +150,7 @@ export class PrismaUserRepository implements UserRepository {
       userModules: {
         include: { module: true },
       },
+      userLevels: true,
     };
   }
 
@@ -199,6 +216,10 @@ export class PrismaUserRepository implements UserRepository {
       institutionId: record.institutionId ?? undefined,
       level: record.level != null ? (record.level as EducationalLevelCode) : undefined,
       modality: record.modality != null ? (record.modality as EducationalModalityCode) : undefined,
+      levels: (record.userLevels ?? []).map((ul) => ({
+        level: ul.level as EducationalLevelCode,
+        modality: ul.modality as EducationalModalityCode,
+      })),
       failedAttempts: record.failedAttempts ?? 0,
       lockedUntil: record.lockedUntil ?? undefined,
       active: record.active ?? true,

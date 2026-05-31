@@ -106,7 +106,15 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(AuthGuard)
-  async me(@CurrentUser() user: { userId: string; roles: string[]; institutionId?: string; level?: number }) {
+  async me(@CurrentUser() user: {
+    userId: string;
+    roles: string[];
+    institutionId?: string;
+    level?: number;
+    levels?: number[];
+    userLevels?: { level: number; modality: number }[];
+    dbName?: string | null;
+  }) {
     return { data: user };
   }
 

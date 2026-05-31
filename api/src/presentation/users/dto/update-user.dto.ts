@@ -6,11 +6,17 @@ export const UpdateUserSchema = z.object({
   name: z.string().min(1).optional(),
   password: z.string().min(6).optional(),
   institutionId: z.string().uuid().optional().nullable(),
+  /** @deprecated Use `levels: [{level, modality}]` instead. Kept for backward compat. */
   level: z.number().int().min(1).max(9).optional().nullable(),
+  /** @deprecated Use `levels: [{level, modality}]` instead. Kept for backward compat. */
   modality: z.number().int().min(0).max(9).optional().nullable(),
   roles: z.array(z.string()).min(1).optional(),
   active: z.boolean().optional(),
   moduleAccess: z.array(ModuleAccessSchema).optional(),
+  levels: z.array(z.object({
+    level: z.number().int().min(1).max(9),
+    modality: z.number().int().min(0).max(9),
+  })).optional(),
 });
 
 export type UpdateUserDTO = z.infer<typeof UpdateUserSchema>;

@@ -54,6 +54,9 @@ export class RegisterUserUseCase {
       new UserRegistered(saved.id, saved.email, saved.name, saved.roles),
     );
 
+    const userLevels = saved.levels;
+    const levels = userLevels.map((l) => l.level * 10 + l.modality);
+
     return ok({
       id: saved.id.get(),
       email: saved.email.get(),
@@ -62,8 +65,10 @@ export class RegisterUserUseCase {
       roles: saved.roles,
       modules: saved.modules,
       institutionId: saved.institutionId,
-      level: saved.level,
-      modality: saved.modality,
+      level: levels.length > 0 ? levels[0] : undefined,
+      modality: userLevels.length > 0 ? userLevels[0].modality : undefined,
+      levels,
+      userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       createdAt: saved.createdAt.toISOString(),
     });
   }
