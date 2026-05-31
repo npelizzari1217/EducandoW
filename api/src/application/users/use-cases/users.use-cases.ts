@@ -114,13 +114,13 @@ export class CreateUserUseCase {
     const existing = await client.user.findUnique({ where: { email: input.email } });
     if (existing) throw new EmailAlreadyExistsError(input.email);
 
-    // Verificar jerarquía de roles: el creador debe tener jerarquía superior
+    // Verificar jerarquía de roles: el creador debe tener jerarquía igual o superior
     // a los roles que está asignando al nuevo usuario
     if (!isRoot && input.roles && input.roles.length > 0) {
-      if (!canManageUser(input.creatorRoles, input.roles)) {
+      if (!canViewUser(input.creatorRoles, input.roles)) {
         throw new Error(
           'No tenés jerarquía suficiente para crear un usuario con estos roles. ' +
-          'Solo podés asignar roles de jerarquía inferior al tuyo.',
+          'Solo podés asignar roles de jerarquía igual o inferior al tuyo.',
         );
       }
     }
@@ -253,11 +253,11 @@ export class UpdateUserUseCase {
       );
     }
 
-    // Si se están cambiando los roles, verificar que los nuevos también sean inferiores
+    // Si se están cambiando los roles, verificar que los nuevos sean iguales o inferiores
     if (!isRoot && input.roles && input.roles.length > 0) {
-      if (!canManageUser(creatorRoles, input.roles)) {
+      if (!canViewUser(creatorRoles, input.roles)) {
         throw new Error(
-          'No podés asignar roles de jerarquía igual o superior a la tuya.',
+          'No podés asignar roles de jerarquía superior a la tuya.',
         );
       }
     }

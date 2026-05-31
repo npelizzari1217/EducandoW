@@ -9,6 +9,9 @@ async function main() {
   const roles = [
     { id: 'r-root', name: 'ROOT', description: 'Super administrador — acceso total' },
     { id: 'r-admin', name: 'ADMIN', description: 'Administrador de institución' },
+    { id: 'r-director', name: 'DIRECTOR', description: 'Directivo' },
+    { id: 'r-secretario', name: 'SECRETARIO', description: 'Secretario' },
+    { id: 'r-preceptor', name: 'PRECEPTOR', description: 'Preceptor' },
     { id: 'r-mgr', name: 'MANAGER', description: 'Gestor académico' },
     { id: 'r-teach', name: 'TEACHER', description: 'Docente' },
     { id: 'r-tutor', name: 'TUTOR', description: 'Padre/Madre/Tutor legal' },
@@ -82,6 +85,18 @@ async function main() {
       moduleIds: ['m-students', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance'],
       actions: ALL_ACTIONS,
     },
+    'r-director': {
+      moduleIds: ['m-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance'],
+      actions: ALL_ACTIONS,
+    },
+    'r-secretario': {
+      moduleIds: ['m-students', 'm-reports', 'm-enrollments', 'm-attendance', 'm-grades'],
+      actions: ALL_ACTIONS,
+    },
+    'r-preceptor': {
+      moduleIds: ['m-students', 'm-attendance'],
+      actions: [],
+    },
     'r-teach': {
       moduleIds: ['m-students', 'm-grades', 'm-attendance'],
       actions: [],
@@ -121,8 +136,15 @@ async function main() {
     'm-inst': ['READ', 'UPDATE'],
   };
 
+  // PRECEPTOR: students(READ), attendance(CREATE, READ)
+  const preceptorActions: Record<string, string[]> = {
+    'm-students': ['READ'],
+    'm-attendance': ['CREATE', 'READ'],
+  };
+
   const customActions: Record<string, Record<string, string[]>> = {
     'r-admin': adminActions,
+    'r-preceptor': preceptorActions,
     'r-teach': teacherActions,
     'r-tutor': tutorActions,
     'r-student': studentActions,
