@@ -12,6 +12,8 @@ import UserPrintView from '../../components/reports/UserPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import ModuleAccessGrid from '../../components/users/module-access-grid';
 import type { ModuleAccessItem } from '../../components/users/module-access-grid';
+import { LEVEL_CATALOG, LEVEL_LABELS as CATALOG_LABELS } from '../../constants/levels';
+import type { LevelOption } from '../../constants/levels';
 
 // ── Tipos ─────────────────────────────────────────────────
 
@@ -24,6 +26,8 @@ interface UserRow {
   institutionName: string | null;
   level: number | null;
   modality: number | null;
+  levels?: number[];
+  userLevels?: { level: number; modality: number }[];
   roles: string[];
   active: boolean;
   failedAttempts: number;
@@ -171,7 +175,8 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
     email: '', password: '', name: '', institutionId: '',
-    level: '', role: '' as string, active: true,
+    selectedLevels: new Set<number>(),
+    role: '' as string, active: true,
   });
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -182,8 +187,33 @@ export default function UsersPage() {
     }).catch(() => {});
   }, []);
 
+  // ── Niveles educativos agrupados ──────────────────────
+  const LEVELS_GROUPED = useMemo(() => {
+    const groupLabels: Record<number, string> = {
+      1: 'Inicial', 2: 'Nivel Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
+    };
+    const grouped: Map<number, { label: string; options: Array<{ idx: number; opt: LevelOption }> }> = new Map();
+    for (let i = 0; i < LEVEL_CATALOG.length; i++) {
+      const opt = LEVEL_CATALOG[i];
+      if (!grouped.has(opt.levelCode)) {
+        grouped.set(opt.levelCode, { label: groupLabels[opt.levelCode] ?? `Nivel ${opt.levelCode}`, options: [] });
+      }
+      grouped.get(opt.levelCode)!.options.push({ idx: i, opt });
+    }
+    return grouped;
+  }, []);
+
+  const toggleLevel = (idx: number) => {
+    setForm(f => {
+      const next = new Set(f.selectedLevels);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return { ...f, selectedLevels: next };
+    });
+  };
+
   const resetForm = () => {
-    setForm({ email: '', password: '', name: '', institutionId: '', level: '', role: '', active: true });
+    setForm({ email: '', password: '', name: '', institutionId: '', selectedLevels: new Set<number>(), role: '', active: true });
     setEditingId(null);
     setShowForm(false);
     setCreateError('');
@@ -200,11 +230,16 @@ export default function UsersPage() {
       email: form.email,
       password: form.password,
       name: form.name,
-      level: form.level ? parseInt(form.level) : undefined,
       roles: form.role ? [form.role] : undefined,
       active: form.active,
       moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
     };
+    if (form.selectedLevels.size > 0) {
+      body.levels = Array.from(form.selectedLevels).map(i => {
+        const opt = LEVEL_CATALOG[i];
+        return { level: opt.levelCode, modality: opt.modalityCode };
+      });
+    }
     if (isRoot) body.institutionId = form.institutionId || undefined;
     const ok = await create(body);
     if (ok) { resetForm(); reload(); }
@@ -215,11 +250,15 @@ export default function UsersPage() {
     const body: Record<string, unknown> = {
       email: form.email,
       name: form.name,
-      level: form.level ? parseInt(form.level) : null,
       roles: form.role ? [form.role] : undefined,
       active: form.active,
       moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
     };
+    // Always send levels: populated array or empty to clear
+    body.levels = Array.from(form.selectedLevels).map(i => {
+      const opt = LEVEL_CATALOG[i];
+      return { level: opt.levelCode, modality: opt.modalityCode };
+    });
     if (isRoot) body.institutionId = form.institutionId || null;
     if (form.password) body.password = form.password;
     const ok = await update(editingId, body);
@@ -231,12 +270,22 @@ export default function UsersPage() {
     const primaryRole = u.roles && u.roles.length > 0
       ? u.roles.reduce((best, r) => (ROLE_HIERARCHY[r] ?? -1) > (ROLE_HIERARCHY[best] ?? -1) ? r : best, u.roles[0])
       : '';
+    // Map userLevels detail back to LEVEL_CATALOG indices for checkbox pre-selection
+    const selectedLevels = new Set<number>();
+    if (u.userLevels && u.userLevels.length > 0) {
+      for (const ul of u.userLevels) {
+        const idx = LEVEL_CATALOG.findIndex(
+          opt => opt.levelCode === ul.level && opt.modalityCode === ul.modality,
+        );
+        if (idx !== -1) selectedLevels.add(idx);
+      }
+    }
     setForm({
       email: u.email,
       password: '',
       name: u.name,
       institutionId: u.institutionId ?? '',
-      level: u.level != null ? String(u.level) : '',
+      selectedLevels,
       role: primaryRole,
       active: u.active,
     });
@@ -264,7 +313,9 @@ export default function UsersPage() {
           email: u.email,
           institution: u.institutionName ?? (u.institutionId ? `ID: ${u.institutionId}` : '-'),
           role: roleHierarchyLabel(u.roles ?? []),
-          level: levelLabel(u.level),
+          level: u.userLevels?.length
+            ? u.userLevels.map(ul => CATALOG_LABELS[ul.level * 10 + ul.modality] ?? `Nivel ${ul.level}/${ul.modality}`).join(', ')
+            : (u.level != null ? levelLabel(u.level) : '-'),
           active: u.active,
         }))}
         onClose={() => setShowPrint(false)}
@@ -339,7 +390,7 @@ export default function UsersPage() {
               required={!editingId}
               placeholder={editingId ? 'Dejar vacío para no cambiar' : 'Mínimo 6 caracteres'}
             />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 'var(--space-md)' }}>
               <div>
                 <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
                 {isRoot ? (
@@ -362,18 +413,42 @@ export default function UsersPage() {
                   />
                 )}
               </div>
-              <div>
-                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel educativo</label>
-                <select
-                  value={form.level}
-                  onChange={e => setForm({ ...form, level: e.target.value })}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}
-                >
-                  <option value="">Sin nivel</option>
-                  {Object.entries(LEVEL_LABELS).map(([code, label]) => (
-                    <option key={code} value={code}>{label}</option>
-                  ))}
-                </select>
+            </div>
+
+            {/* Niveles educativos — checkbox grid agrupado por nivel base */}
+            <div>
+              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
+                Niveles educativos
+              </label>
+              <div className="flex flex-col gap-md" style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface-alt, #f8fafc)' }}>
+                {Array.from(LEVELS_GROUPED.entries()).map(([levelCode, group]) => (
+                  <div key={levelCode}>
+                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {group.label}
+                    </div>
+                    <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
+                      {group.options.map(({ idx, opt }) => (
+                        <label
+                          key={opt.code}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            fontSize: 'var(--text-sm)', cursor: 'pointer',
+                            padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                            background: form.selectedLevels.has(idx) ? 'var(--color-primary-soft, rgba(99,102,241,0.12))' : 'transparent',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.selectedLevels.has(idx)}
+                            onChange={() => toggleLevel(idx)}
+                            style={{ accentColor: 'var(--color-primary)' }}
+                          />
+                          {opt.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -461,7 +536,33 @@ export default function UsersPage() {
             { key: 'name', header: 'Nombre' },
             { key: 'email', header: 'Email' },
             { key: 'institutionName', header: 'Institución', render: (u: UserRow) => u.institutionName ?? '-' },
-            { key: 'level', header: 'Nivel educativo', render: (u: UserRow) => levelLabel(u.level) },
+            {
+              key: 'levels', header: 'Niveles educativos',
+              render: (u: UserRow) => {
+                const detail = u.userLevels ?? [];
+                if (detail.length > 0) {
+                  return (
+                    <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                      {detail.map(ul => {
+                        const code = ul.level * 10 + ul.modality;
+                        const label = CATALOG_LABELS[code] ?? `Nivel ${ul.level}/${ul.modality}`;
+                        return (
+                          <span key={code} style={{
+                            display: 'inline-block', padding: '1px 6px',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--color-primary-soft, rgba(99,102,241,0.12))',
+                            color: 'var(--color-primary)', fontSize: 'var(--text-xs)', fontWeight: 500,
+                          }}>{label}</span>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+                // Fallback to old scalar level
+                if (u.level != null) return levelLabel(u.level);
+                return '-';
+              },
+            },
             {
               key: 'roles', header: 'Rol (jerarquía)',
               render: (u: UserRow) => {

@@ -201,7 +201,7 @@ describe('Sidebar filtering', () => {
     (mockUser as any).role = 'ADMIN';
     renderSidebar();
 
-    expect(screen.getByText(/Configurá los niveles educativos/i)).toBeInTheDocument();
+    expect(screen.getByText(/No tenés niveles educativos asignados/i)).toBeInTheDocument();
     expect(screen.getByText(/Ir a configuración/i)).toBeInTheDocument();
   });
 
@@ -224,7 +224,7 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     expect(screen.getByText('Terciario')).toBeInTheDocument();
     // Placeholder should NOT appear for ROOT
-    expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No tenés niveles educativos asignados/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Ir a configuración/i)).not.toBeInTheDocument();
   });
 
@@ -232,7 +232,7 @@ describe('Sidebar filtering', () => {
     mockLevels = [10];
     renderSidebar();
 
-    expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No tenés niveles educativos asignados/i)).not.toBeInTheDocument();
   });
 
   it('does NOT show placeholder for non-admin roles when levels empty', () => {
@@ -240,7 +240,7 @@ describe('Sidebar filtering', () => {
     (mockUser as any).role = 'MANAGER';
     renderSidebar();
 
-    expect(screen.queryByText(/Configurá los niveles educativos/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No tenés niveles educativos asignados/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Ir a configuración/i)).not.toBeInTheDocument();
   });
 

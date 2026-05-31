@@ -108,9 +108,15 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { config } = useInstitution();
   const navigate = useNavigate();
 
-  const hasLevels = config.levels.length > 0;
-  const baseLevels = new Set(config.levels.map((code) => Math.floor(code / 10)));
-  const filterItem = makeFilterItem(user, hasLevels, baseLevels, config.send_email, config.send_messages);
+  // Derive base levels from user's JWT levels (primary), fall back to institution config.
+  // Composite codes from JWT: level*10+modality → base level = Math.floor(code/10).
+  const userBaseLevels = new Set((user?.levels ?? []).map((code) => Math.floor(code / 10)));
+  const institutionBaseLevels = new Set(config.levels.map((code) => Math.floor(code / 10)));
+
+  const effectiveBaseLevels = userBaseLevels.size > 0 ? userBaseLevels : institutionBaseLevels;
+  const hasLevels = effectiveBaseLevels.size > 0;
+
+  const filterItem = makeFilterItem(user, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
 
   // Build visible groups (filter items, skip empty groups).
   const visibleGroups = navGroups
@@ -216,7 +222,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
           <div className="sidebar-placeholder sidebar-placeholder-warning">
             <span className="sidebar-placeholder-icon">⚠</span>
             <span className="sidebar-placeholder-text">
-              Configurá los niveles educativos de tu institución para acceder a todas las secciones
+              No tenés niveles educativos asignados. Configurá los niveles en tu institución o contactá a un administrador para que te asigne niveles.
             </span>
             <NavLink to="/institutions" className="sidebar-placeholder-link">
               Ir a configuración
