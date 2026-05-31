@@ -145,6 +145,11 @@ export class TenantMiddleware implements NestMiddleware {
     // Docs / swagger
     if (path.startsWith('/docs')) return true;
 
+    // Master DB entities — no tenant DB needed
+    if (path.startsWith('/users')) return true;
+    if (path.startsWith('/roles')) return true;
+    if (path.startsWith('/modules')) return true;
+
     // Institution CRUD (master DB)
     if (path === '/institutions' || path === '/institutions/') return true;
     if (path.startsWith('/institutions/')) {
