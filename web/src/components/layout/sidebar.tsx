@@ -34,6 +34,15 @@ const navGroups: NavGroupDef[] = [
     ],
   },
   {
+    id: 'terciario',
+    label: 'Terciario',
+    icon: '📁',
+    items: [
+      { label: 'Carreras', path: '/terciario/carreras', requiresLevel: true },
+      { label: 'Inscripciones', path: '/terciario/inscripciones', requiresLevel: true },
+    ],
+  },
+  {
     id: 'academico',
     label: 'Académico',
     icon: '📁',
@@ -41,6 +50,34 @@ const navGroups: NavGroupDef[] = [
       { label: 'Alumnos por curso', path: '/students-by-course', requiresLevel: true },
       { label: 'Calificaciones parciales', path: '/grades', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', requiresLevel: true },
+    ],
+  },
+  {
+    id: 'nivel-primario',
+    label: 'Nivel Primario',
+    icon: '📁',
+    items: [
+      { label: 'Grados', path: '/primario/grados', requiresLevel: true },
+      { label: 'Calificaciones', path: '/primario/calificaciones', requiresLevel: true },
+    ],
+  },
+  {
+    id: 'secundario',
+    label: 'Secundario',
+    icon: '📁',
+    items: [
+      { label: 'Cursos', path: '/secundario/cursos', requiresLevel: true },
+      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', requiresLevel: true },
+    ],
+  },
+  {
+    id: 'inicial',
+    label: 'Inicial',
+    icon: '📁',
+    items: [
+      { label: 'Salas', path: '/inicial/salas', requiresLevel: true },
+      { label: 'Informes Evolutivos', path: '/inicial/informes', requiresLevel: true },
+      { label: 'Planificaciones', path: '/inicial/planificaciones', requiresLevel: true },
     ],
   },
   {

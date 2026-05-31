@@ -17,6 +17,15 @@ import ModulesPage from './pages/dashboard/modules';
 import UsersPage from './pages/dashboard/users';
 import LegajosPage from './pages/dashboard/legajos';
 import StudyPlansPage from './pages/dashboard/study-plans';
+import SalasPage from './niveles/inicial/salas/page';
+import InformesPage from './niveles/inicial/informes/page';
+import PlanificacionesPage from './niveles/inicial/planificaciones/page';
+import GradosPage from './niveles/primario/grados/page';
+import CalificacionesPrimarioPage from './niveles/primario/calificaciones/page';
+import CursosPage from './niveles/secundario/cursos/page';
+import MesasExamenPage from './niveles/secundario/mesas-examen/page';
+import CarrerasPage from './niveles/terciario/carreras/page';
+import InscripcionesPage from './niveles/terciario/inscripciones/page';
 
 function App() {
   return (
@@ -39,6 +48,19 @@ function App() {
               <Route path="/users" element={<UsersPage />} />
               <Route path="/legajos" element={<LegajosPage />} />
               <Route path="/study-plans" element={<StudyPlansPage />} />
+              {/* Inicial */}
+              <Route path="/inicial/salas" element={<SalasPage />} />
+              <Route path="/inicial/informes" element={<InformesPage />} />
+              <Route path="/inicial/planificaciones" element={<PlanificacionesPage />} />
+              {/* Primario */}
+              <Route path="/primario/grados" element={<GradosPage />} />
+              <Route path="/primario/calificaciones" element={<CalificacionesPrimarioPage />} />
+              {/* Secundario */}
+              <Route path="/secundario/cursos" element={<CursosPage />} />
+              <Route path="/secundario/mesas-examen" element={<MesasExamenPage />} />
+              {/* Terciario */}
+              <Route path="/terciario/carreras" element={<CarrerasPage />} />
+              <Route path="/terciario/inscripciones" element={<InscripcionesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

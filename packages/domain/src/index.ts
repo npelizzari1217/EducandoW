@@ -46,6 +46,34 @@ export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepos
 export type { AcademicCycleRepository } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';
 
+// Nivel Inicial
+export { Sala, InformeEvolutivo, Planificacion } from './inicial';
+export type { SalaProps, CreateSalaProps, InformeEvolutivoProps, CreateInformeEvolutivoProps, AreaDesarrolloProps, PlanificacionProps, CreatePlanificacionProps, SecuenciaDidacticaProps } from './inicial';
+export { AgeGroup, Turno, Periodo } from './inicial';
+export type { AgeGroupValue, TurnoValue, PeriodoValue } from './inicial';
+export type { SalaRepository, SalaFilters, InformeRepository, InformeFilters, PlanificacionRepository, PlanificacionFilters } from './inicial';
+
+// Primario
+export { Grado, CalificacionPrimario } from './primario';
+export type { GradoProps, CreateGradoInput, CalificacionPrimarioProps, CreateCalificacionPrimarioInput } from './primario';
+export { GradoNumero, Division, Trimestre } from './primario';
+export type { GradoNumeroValue, DivisionValue, TrimestreValue } from './primario';
+export type { GradoRepository, CalificacionPrimarioRepository } from './primario';
+
+// Secundario
+export { Curso, MesaExamen, RegimenAcademico } from './secundario';
+export type { CursoProps, CreateCursoInput, MesaExamenProps, MesaExamenInscripcionProps, CreateMesaExamenInput, RegimenAcademicoProps, CreateRegimenAcademicoInput } from './secundario';
+export { Orientacion, TurnoExamen, CondicionAlumno } from './secundario';
+export type { OrientacionCode, TurnoExamenCode, CondicionAlumnoCode } from './secundario';
+export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository } from './secundario';
+
+// Terciario
+export { Carrera, InscripcionMateria, ActaExamen, Titulo } from './terciario';
+export type { CarreraProps, InscripcionMateriaProps, CorrelativaRequerida, ActaExamenProps, ActaExamenNota, TituloProps } from './terciario';
+export { RegimenMateria, EstadoInscripcion, EstadoTitulo, CondicionExamen } from './terciario';
+export type { RegimenMateriaValue, EstadoInscripcionValue, EstadoTituloValue, CondicionExamenValue } from './terciario';
+export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, TituloRepository } from './terciario';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess } from './auth/entities/user';

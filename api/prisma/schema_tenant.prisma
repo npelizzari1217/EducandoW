@@ -31,11 +31,19 @@ model Student {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  enrollments       Enrollment[]
-  notas             Nota[]
-  notasTrimestrales NotaTrimestral[]
-  attendances       Attendance[]
-  guardians         StudentGuardian[]
+  enrollments             Enrollment[]
+  notas                   Nota[]
+  notasTrimestrales       NotaTrimestral[]
+  attendances             Attendance[]
+  guardians               StudentGuardian[]
+  salaEnrollments         SalaEnrollment[]
+  informesEvolutivos      InformeEvolutivo[]
+  calificacionesPrimario  CalificacionPrimario[]
+  calificacionesSecundario CalificacionSecundario[]
+  mesaExamenInscripciones MesaExamenInscripcion[]
+  inscripcionesMateria    InscripcionMateria[]
+  actaExamenNotas         ActaExamenNota[]
+  titulos                 Titulo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -80,6 +88,11 @@ model Teacher {
   deletedAt DateTime?
 
   subjectAssignments SubjectAssignment[]
+  salas              Sala[]
+  grados             Grado[]
+  cursos             Curso[]
+  mesasExamen        MesaExamen[]
+  actasExamen        ActaExamen[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -153,9 +166,14 @@ model Subject {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  subjectAssignments  SubjectAssignment[]
-  attendances         Attendance[]
-  studyPlanSubjects   StudyPlanSubject[]
+  subjectAssignments       SubjectAssignment[]
+  attendances              Attendance[]
+  studyPlanSubjects        StudyPlanSubject[]
+  calificacionesPrimario   CalificacionPrimario[]
+  calificacionesSecundario CalificacionSecundario[]
+  mesasExamen              MesaExamen[]
+  regimenAcademico         RegimenAcademico[]
+  materiasCarrera          MateriaCarrera[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -176,9 +194,11 @@ model CourseSection {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  attendances         Attendance[]
-  subjectAssignments  SubjectAssignment[]
-  studyPlanCourses    StudyPlanCourse[]
+  attendances        Attendance[]
+  subjectAssignments SubjectAssignment[]
+  studyPlanCourses   StudyPlanCourse[]
+  grados             Grado[]
+  cursos             Curso[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -450,4 +470,436 @@ model StudyPlanSubject {
   @@unique([studyPlanCourseId, subjectId])
   @@index([studyPlanCourseId])
   @@map("study_plan_subjects")
+}
+
+// ── Inicial ────────────────────────────────────────────────
+
+model Sala {
+  id           String   @id @default(uuid())
+  name         String
+  ageGroup     Int                    @map("age_group")   // 3, 4 o 5
+  turno        String                 @map("turno")       // "MAÑANA" | "TARDE"
+  capacity     Int
+  teacherId    String?                @map("teacher_id")
+  academicYear String                 @map("academic_year")
+  active       Boolean  @default(true)
+  deletedAt    DateTime?              @map("deleted_at")
+
+  teacher     Teacher?         @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  enrollments SalaEnrollment[]
+  informes    InformeEvolutivo[]
+  planificaciones Planificacion[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([academicYear])
+  @@index([ageGroup])
+  @@index([teacherId])
+  @@map("salas")
+}
+
+model SalaEnrollment {
+  id           String   @id @default(uuid())
+  studentId    String   @map("student_id")
+  salaId       String   @map("sala_id")
+  academicYear String   @map("academic_year")
+  enrolledAt   DateTime @default(now()) @map("enrolled_at")
+  active       Boolean  @default(true)
+  deletedAt    DateTime? @map("deleted_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sala    Sala    @relation(fields: [salaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, salaId, academicYear])
+  @@index([studentId])
+  @@index([salaId])
+  @@map("sala_enrollments")
+}
+
+model InformeEvolutivo {
+  id                    String   @id @default(uuid())
+  studentId             String   @map("student_id")
+  salaId                String   @map("sala_id")
+  periodo               String                      // "1T" | "2T" | "3T"
+  fecha                 DateTime
+  observacionesGenerales String? @map("observaciones_generales")
+  active                Boolean  @default(true)
+  deletedAt             DateTime? @map("deleted_at")
+
+  student Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  sala    Sala           @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  areas   AreaDesarrollo[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([studentId])
+  @@index([salaId])
+  @@index([periodo])
+  @@map("informes_evolutivos")
+}
+
+model AreaDesarrollo {
+  id         String @id @default(uuid())
+  informeId  String @map("informe_id")
+  area       String                    // "SOCIO_AFECTIVA"|"MOTRIZ"|"COGNITIVA"|"LENGUAJE"|"CREATIVA"
+  observacion String
+  valoracion String                    // "DESTACADO"|"LOGRADO"|"EN_PROCESO"|"NO_LOGRADO"
+
+  informe InformeEvolutivo @relation(fields: [informeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([informeId])
+  @@map("areas_desarrollo")
+}
+
+model Planificacion {
+  id           String   @id @default(uuid())
+  salaId       String   @map("sala_id")
+  semana       Int                      // 1..40
+  academicYear String   @map("academic_year")
+  active       Boolean  @default(true)
+  deletedAt    DateTime? @map("deleted_at")
+
+  sala        Sala                @relation(fields: [salaId], references: [id], onDelete: Cascade)
+  secuencias  SecuenciaDidactica[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([salaId])
+  @@index([academicYear])
+  @@map("planificaciones")
+}
+
+model SecuenciaDidactica {
+  id              String   @id @default(uuid())
+  planificacionId String   @map("planificacion_id")
+  nombre          String
+  area            String
+  actividades     String[]
+  recursos        String[]
+
+  planificacion Planificacion @relation(fields: [planificacionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([planificacionId])
+  @@map("secuencias_didacticas")
+}
+
+// ── Primario ───────────────────────────────────────────────
+
+model Grado {
+  id              String   @id @default(uuid())
+  courseSectionId String?  @map("course_section_id")
+  grade           Int                              // 1..6
+  division        String                           // "A"|"B"|"C"
+  teacherId       String?  @map("teacher_id")
+  academicYear    String   @map("academic_year")
+  active          Boolean  @default(true)
+  deletedAt       DateTime? @map("deleted_at")
+
+  courseSection CourseSection?        @relation(fields: [courseSectionId], references: [id], onDelete: SetNull)
+  teacher       Teacher?              @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  calificaciones CalificacionPrimario[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([academicYear])
+  @@index([teacherId])
+  @@index([courseSectionId])
+  @@map("grados")
+}
+
+model CalificacionPrimario {
+  id        String  @id @default(uuid())
+  studentId String  @map("student_id")
+  gradoId   String  @map("grado_id")
+  subjectId String  @map("subject_id")
+  trimestre String                    // "1T"|"2T"|"3T"
+  nota      Float                     // 1.0..10.0
+  concepto  String                    // "EXCELENTE"|"MUY_BUENO"|"BUENO"|"REGULAR"|"INSUFICIENTE"
+  aprobado  Boolean
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grado   Grado   @relation(fields: [gradoId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, gradoId, subjectId, trimestre])
+  @@index([studentId])
+  @@index([gradoId])
+  @@index([subjectId])
+  @@map("calificaciones_primario")
+}
+
+// ── Secundario ─────────────────────────────────────────────
+
+model Curso {
+  id              String   @id @default(uuid())
+  courseSectionId String?  @map("course_section_id")
+  year            Int                              // 1..6
+  division        String                           // "A"|"B"|"C"
+  orientacion     String?                          // "NATURALES"|"SOCIALES"|"ECONOMIA"|"ARTE"
+  academicYear    String   @map("academic_year")
+  active          Boolean  @default(true)
+  deletedAt       DateTime? @map("deleted_at")
+
+  courseSection    CourseSection?           @relation(fields: [courseSectionId], references: [id], onDelete: SetNull)
+  teacher          Teacher?                 @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  teacherId        String?                  @map("teacher_id")
+  calificaciones   CalificacionSecundario[]
+  regimenAcademico RegimenAcademico[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([academicYear])
+  @@index([courseSectionId])
+  @@map("cursos")
+}
+
+model CalificacionSecundario {
+  id             String  @id @default(uuid())
+  studentId      String  @map("student_id")
+  cursoId        String  @map("curso_id")
+  subjectId      String  @map("subject_id")
+  trimestre      String                       // "1T"|"2T"|"3T"
+  nota           Float                        // 1.0..10.0
+  condicion      String                       // "APROBADO"|"PREVIA"|"LIBRE"
+  notaDiciembre  Float?  @map("nota_diciembre")
+  notaFebrero    Float?  @map("nota_febrero")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  curso   Curso   @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, cursoId, subjectId, trimestre])
+  @@index([studentId])
+  @@index([cursoId])
+  @@index([subjectId])
+  @@map("calificaciones_secundario")
+}
+
+model MesaExamen {
+  id          String   @id @default(uuid())
+  subjectId   String   @map("subject_id")
+  fecha       DateTime
+  turno       String                    // "DICIEMBRE"|"FEBRERO"
+  presidenteId String  @map("presidente_id")
+  active      Boolean  @default(true)
+  deletedAt   DateTime? @map("deleted_at")
+
+  subject    Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  presidente Teacher               @relation(fields: [presidenteId], references: [id], onDelete: Restrict)
+  inscripciones MesaExamenInscripcion[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([subjectId])
+  @@index([fecha])
+  @@index([presidenteId])
+  @@map("mesas_examen")
+}
+
+model MesaExamenInscripcion {
+  id             String  @id @default(uuid())
+  mesaId         String  @map("mesa_id")
+  studentId      String  @map("student_id")
+  notaFinal      Float?  @map("nota_final")
+  condicionFinal String  @map("condicion_final") // "APROBADO"|"DESAPROBADO"|"AUSENTE"
+
+  mesa    MesaExamen @relation(fields: [mesaId], references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([mesaId, studentId])
+  @@index([mesaId])
+  @@index([studentId])
+  @@map("mesa_examen_inscripciones")
+}
+
+model RegimenAcademico {
+  id                     String  @id @default(uuid())
+  cursoId                String  @map("curso_id")
+  subjectId              String  @map("subject_id")
+  promocionDirecta       Boolean @map("promocion_directa")
+  requiereExamenFinal    Boolean @map("requiere_examen_final")
+  notaMinimaAprobacion   Float   @default(6) @map("nota_minima_aprobacion")
+
+  curso   Curso   @relation(fields: [cursoId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([cursoId, subjectId])
+  @@index([cursoId])
+  @@map("regimen_academico")
+}
+
+// ── Terciario ──────────────────────────────────────────────
+
+model Carrera {
+  id         String   @id @default(uuid())
+  name       String
+  titulo     String
+  duracion   Int
+  resolucion String?
+  active     Boolean  @default(true)
+  deletedAt  DateTime? @map("deleted_at")
+
+  materias MateriaCarrera[]
+  titulos  Titulo[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([name])
+  @@map("carreras")
+}
+
+model MateriaCarrera {
+  id           String  @id @default(uuid())
+  carreraId    String  @map("carrera_id")
+  subjectId    String  @map("subject_id")
+  anio         Int     @map("anio")
+  cuatrimestre String                    // "1C"|"2C"|"ANUAL"
+  horasCatedra Int     @map("horas_catedra")
+  regimen      String                    // "PROMOCIONAL"|"REGULAR"|"LIBRE"
+
+  carrera Carrera @relation(fields: [carreraId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  correlativas      Correlatividad[] @relation("MateriaCorrelativa")
+  correlativasDe    Correlatividad[] @relation("MateriaCorrelativaRequerida")
+  inscripciones     InscripcionMateria[]
+  actasExamen       ActaExamen[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([carreraId, subjectId, anio, cuatrimestre])
+  @@index([carreraId])
+  @@index([subjectId])
+  @@map("materias_carrera")
+}
+
+model Correlatividad {
+  id            String @id @default(uuid())
+  materiaId     String @map("materia_id")
+  correlativaId String @map("correlativa_id")
+  tipo          String                        // "CURSADA"|"FINAL"
+
+  materia     MateriaCarrera @relation("MateriaCorrelativa",         fields: [materiaId],     references: [id], onDelete: Cascade)
+  correlativa MateriaCarrera @relation("MateriaCorrelativaRequerida", fields: [correlativaId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([materiaId, correlativaId])
+  @@index([materiaId])
+  @@map("correlatividades")
+}
+
+model InscripcionMateria {
+  id              String  @id @default(uuid())
+  studentId       String  @map("student_id")
+  materiaCarreraId String @map("materia_carrera_id")
+  cuatrimestre    String
+  anioAcademico   String  @map("anio_academico")
+  estado          String                           // "INSCRIPTO"|"CURSANDO"|"REGULAR"|"APROBADO"|"LIBRE"
+  notaCursada     Float?  @map("nota_cursada")
+  notaFinal       Float?  @map("nota_final")
+
+  student       Student        @relation(fields: [studentId],        references: [id], onDelete: Cascade)
+  materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, materiaCarreraId, cuatrimestre, anioAcademico])
+  @@index([studentId])
+  @@index([materiaCarreraId])
+  @@map("inscripciones_materia")
+}
+
+model ActaExamen {
+  id              String   @id @default(uuid())
+  materiaCarreraId String  @map("materia_carrera_id")
+  fecha           DateTime
+  presidenteId    String   @map("presidente_id")
+  vocales         String[]
+  libro           String?
+  folio           String?
+  active          Boolean  @default(true)
+  deletedAt       DateTime? @map("deleted_at")
+
+  materiaCarrera MateriaCarrera  @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
+  presidente     Teacher         @relation(fields: [presidenteId],     references: [id], onDelete: Restrict)
+  notas          ActaExamenNota[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([materiaCarreraId])
+  @@index([fecha])
+  @@index([presidenteId])
+  @@map("actas_examen")
+}
+
+model ActaExamenNota {
+  id        String  @id @default(uuid())
+  actaId    String  @map("acta_id")
+  studentId String  @map("student_id")
+  nota      Float
+  condicion String                   // "APROBADO"|"DESAPROBADO"|"AUSENTE"
+
+  acta    ActaExamen @relation(fields: [actaId],    references: [id], onDelete: Cascade)
+  student Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([actaId, studentId])
+  @@index([actaId])
+  @@index([studentId])
+  @@map("acta_examen_notas")
+}
+
+model Titulo {
+  id           String    @id @default(uuid())
+  studentId    String    @map("student_id")
+  carreraId    String    @map("carrera_id")
+  fechaEgreso  DateTime? @map("fecha_egreso")
+  fechaEmision DateTime? @map("fecha_emision")
+  estado       String                          // "EN_TRAMITE"|"EMITIDO"|"ENTREGADO"
+  nroRegistro  String?   @map("nro_registro")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  carrera Carrera @relation(fields: [carreraId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, carreraId])
+  @@index([studentId])
+  @@index([carreraId])
+  @@map("titulos")
 }

@@ -30,7 +30,7 @@ Curricular management via Study Plans that group CourseSections and their associ
 
 ### Requirement: List Study Plans
 
-`GET /v1/study-plans` MUST return plans scoped to the user's institution. An optional `level` query parameter SHALL filter results. ROOT users MUST specify `institutionId` as a query parameter; non-ROOT users are scoped to their JWT `institutionId` automatically. `GET /v1/study-plans/:id/courses` MUST return course data including `courseGrade` and `courseDivision` fields for each course. The plan list MUST render each plan as a collapsible accordion. Multiple plans MAY be expanded simultaneously. Courses SHALL be collapsed by default; clicking a course toggles its subjects. Subjects SHALL be collapsed by default within each course. Chevron icons (▶) SHALL rotate 90° when expanded. All expansion state MUST be managed via a `Set<string>` of expanded IDs in React.
+`GET /v1/study-plans` MUST return plans scoped to the user's institution. An optional `level` query parameter SHALL filter results. ROOT users MUST specify `institutionId` as a query parameter, and the study-plan list UI MUST default that institution filter to the first option in the dropdown, not an empty or "all" value. Non-ROOT users SHALL see a disabled text input showing their institution name. `GET /v1/study-plans/:id/courses` MUST return course data including `courseGrade` and `courseDivision` fields for each course. The plan list MUST render each plan as a collapsible accordion. Multiple plans MAY be expanded simultaneously. Courses SHALL be collapsed by default; clicking a course toggles its subjects. Subjects SHALL be collapsed by default within each course. Chevron icons (▶) SHALL rotate 90° when expanded. All expansion state MUST be managed via a `Set<string>` of expanded IDs in React.
 
 #### Scenario: Non-ROOT lists plans for own institution
 
@@ -49,6 +49,20 @@ Curricular management via Study Plans that group CourseSections and their associ
 - GIVEN a ROOT user
 - WHEN `GET /v1/study-plans?institutionId=inst-1` is called
 - THEN plans for `inst-1` only are returned
+
+#### Scenario: ROOT defaults to the first institution in the dropdown
+
+- GIVEN a ROOT user and a loaded institution dropdown with multiple institutions
+- WHEN the study-plan list screen renders
+- THEN the institution filter MUST select the first institution by default
+- AND it MUST NOT default to an empty or "all" value
+
+#### Scenario: Non-ROOT sees a disabled institution name input
+
+- GIVEN a non-ROOT user assigned to "Inst A"
+- WHEN the study-plan list screen renders
+- THEN the institution filter MUST be shown as a disabled text input
+- AND it MUST display "Inst A"
 
 #### Scenario: Courses include grade and division
 

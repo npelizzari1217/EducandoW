@@ -10,6 +10,10 @@ import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
 import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
 import { ModulesModule } from './presentation/modules/modules.module';
 import { UsersModule } from './presentation/users/users.module';
+import { NivelInicialModule } from './presentation/nivel-inicial/nivel-inicial.module';
+import { NivelPrimarioModule } from './presentation/nivel-primario/nivel-primario.module';
+import { NivelSecundarioModule } from './presentation/nivel-secundario/nivel-secundario.module';
+import { NivelTerciarioModule } from './presentation/nivel-terciario/nivel-terciario.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -34,6 +38,10 @@ import { PrismaService } from './infrastructure/persistence/prisma/prisma.servic
     PedagogyModule,
     ModulesModule,
     UsersModule,
+    NivelInicialModule,
+    NivelPrimarioModule,
+    NivelSecundarioModule,
+    NivelTerciarioModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [

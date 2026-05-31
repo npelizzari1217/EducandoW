@@ -199,5 +199,72 @@ export const AddSubjectToPlanCourseSchema = z.object({
 });
 export type AddSubjectToPlanCourseDTO = z.infer<typeof AddSubjectToPlanCourseSchema>;
 
+// ── Terciario ──────────────────────────────────────────────
+
+export const CreateCarreraSchema = z.object({
+  name: z.string().min(1).max(200),
+  titulo: z.string().min(1).max(200),
+  duracion: z.number().int().min(1).max(10),
+  resolucion: z.string().max(100).optional(),
+});
+export type CreateCarreraDTO = z.infer<typeof CreateCarreraSchema>;
+
+export const UpdateCarreraSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  titulo: z.string().min(1).max(200).optional(),
+  duracion: z.number().int().min(1).max(10).optional(),
+  resolucion: z.string().max(100).optional(),
+});
+export type UpdateCarreraDTO = z.infer<typeof UpdateCarreraSchema>;
+
+export const CreateInscripcionSchema = z.object({
+  studentId: uuidField,
+  materiaCarreraId: uuidField,
+  cuatrimestre: z.enum(['1C', '2C', 'ANUAL']),
+  anioAcademico: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
+});
+export type CreateInscripcionDTO = z.infer<typeof CreateInscripcionSchema>;
+
+export const UpdateInscripcionEstadoSchema = z.object({
+  estado: z.enum(['INSCRIPTO', 'CURSANDO', 'REGULAR', 'APROBADO', 'LIBRE']),
+  notaCursada: z.number().min(0).max(10).optional(),
+  notaFinal: z.number().min(0).max(10).optional(),
+});
+export type UpdateInscripcionEstadoDTO = z.infer<typeof UpdateInscripcionEstadoSchema>;
+
+export const CreateActaExamenSchema = z.object({
+  materiaCarreraId: uuidField,
+  fecha: z.string(),
+  presidenteId: uuidField,
+  vocales: z.array(z.string()).min(0),
+  libro: z.string().max(50).optional(),
+  folio: z.string().max(50).optional(),
+});
+export type CreateActaExamenDTO = z.infer<typeof CreateActaExamenSchema>;
+
+export const RegistrarNotaSchema = z.object({
+  studentId: uuidField,
+  nota: z.number().min(0).max(10),
+  condicion: z.enum(['APROBADO', 'DESAPROBADO', 'AUSENTE']),
+});
+export type RegistrarNotaDTO = z.infer<typeof RegistrarNotaSchema>;
+
+export const CreateTituloSchema = z.object({
+  studentId: uuidField,
+  carreraId: uuidField,
+  fechaEgreso: z.string().optional(),
+  estado: z.enum(['EN_TRAMITE', 'EMITIDO', 'ENTREGADO']).optional().default('EN_TRAMITE'),
+  nroRegistro: z.string().max(100).optional(),
+});
+export type CreateTituloDTO = z.infer<typeof CreateTituloSchema>;
+
+export const UpdateTituloEstadoSchema = z.object({
+  estado: z.enum(['EN_TRAMITE', 'EMITIDO', 'ENTREGADO']),
+  nroRegistro: z.string().max(100).optional(),
+  fechaEmision: z.string().optional(),
+  fechaEgreso: z.string().optional(),
+});
+export type UpdateTituloEstadoDTO = z.infer<typeof UpdateTituloEstadoSchema>;
+
 // Legacy classes for controller compatibility
 export class RegisterRequest { email!: string; password!: string; name!: string; role?: string; institutionId?: string; }

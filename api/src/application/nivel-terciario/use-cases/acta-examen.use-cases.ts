@@ -1,0 +1,78 @@
+import { Injectable } from '@nestjs/common';
+import {
+  ok, err, Result, ValidationError, NotFoundError,
+  ActaExamen, CondicionExamen, ActaExamenRepository,
+} from '@educandow/domain';
+
+export interface CreateActaExamenInput {
+  materiaCarreraId: string;
+  fecha: string;
+  presidenteId: string;
+  vocales: string[];
+  libro?: string;
+  folio?: string;
+}
+
+export interface RegistrarNotaInput {
+  studentId: string;
+  nota: number;
+  condicion: string;
+}
+
+@Injectable()
+export class CreateActaExamenUC {
+  constructor(private readonly repo: ActaExamenRepository) {}
+
+  async execute(input: CreateActaExamenInput): Promise<Result<ActaExamen, ValidationError>> {
+    const acta = ActaExamen.create({
+      materiaCarreraId: input.materiaCarreraId,
+      fecha: new Date(input.fecha),
+      presidenteId: input.presidenteId,
+      vocales: input.vocales,
+      libro: input.libro,
+      folio: input.folio,
+    });
+    await this.repo.save(acta);
+    return ok(acta);
+  }
+}
+
+@Injectable()
+export class ListActasExamenUC {
+  constructor(private readonly repo: ActaExamenRepository) {}
+
+  async execute(materiaCarreraId?: string): Promise<ActaExamen[]> {
+    if (materiaCarreraId) return this.repo.findByMateriaCarrera(materiaCarreraId);
+    return this.repo.findAll();
+  }
+}
+
+@Injectable()
+export class GetActaExamenUC {
+  constructor(private readonly repo: ActaExamenRepository) {}
+
+  async execute(id: string): Promise<ActaExamen | null> {
+    return this.repo.findById(id);
+  }
+}
+
+@Injectable()
+export class RegistrarNotaUC {
+  constructor(private readonly repo: ActaExamenRepository) {}
+
+  async execute(actaId: string, input: RegistrarNotaInput): Promise<Result<void, NotFoundError | ValidationError>> {
+    const acta = await this.repo.findById(actaId);
+    if (!acta) return err(new NotFoundError('ActaExamen', actaId));
+
+    let condicion: CondicionExamen;
+    try {
+      condicion = CondicionExamen.create(input.condicion);
+    } catch (e) {
+      return err(new ValidationError((e as Error).message));
+    }
+
+    acta.registrarNota(input.studentId, input.nota, condicion);
+    await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get());
+    return ok(undefined);
+  }
+}
