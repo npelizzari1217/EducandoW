@@ -14,6 +14,16 @@ const mockRepo = {
   existsByName: vi.fn(),
 };
 
+const mockAdminService = {
+  createDatabase: vi.fn(),
+  dropDatabase: vi.fn(),
+  runTenantMigrations: vi.fn(),
+};
+
+const mockAdminUseCase = {
+  execute: vi.fn(),
+};
+
 describe('CreateInstitutionUseCase', () => {
   let useCase: CreateInstitutionUseCase;
 
@@ -39,7 +49,14 @@ describe('CreateInstitutionUseCase', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    useCase = new CreateInstitutionUseCase(mockRepo as any);
+    mockAdminService.createDatabase.mockResolvedValue(undefined);
+    mockAdminService.dropDatabase.mockResolvedValue(undefined);
+    mockAdminService.runTenantMigrations.mockResolvedValue(undefined);
+    useCase = new CreateInstitutionUseCase(
+      mockRepo as any,
+      mockAdminService as any,
+      mockAdminUseCase as any,
+    );
   });
 
   it('creates institution with valid SMTP + branding config', async () => {
@@ -50,7 +67,8 @@ describe('CreateInstitutionUseCase', () => {
     const result = await useCase.execute(validInput);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const inst = result.unwrap();
+      const output = result.unwrap();
+      const inst = output.institution;
       expect(inst.name).toBe('Escuela Nueva');
       expect(inst.smtpHost).toBe('smtp.gmail.com');
       expect(inst.smtpPort).toBe(587);
@@ -116,7 +134,8 @@ describe('CreateInstitutionUseCase', () => {
     });
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const inst = result.unwrap();
+      const output = result.unwrap();
+      const inst = output.institution;
       expect(inst.active).toBe(true);
       expect(inst.sendEmail).toBe(false);
       expect(inst.country).toBe('AR');
@@ -142,7 +161,8 @@ describe('CreateInstitutionUseCase', () => {
     const result = await useCase.execute(validInput);
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
-      const inst = result.unwrap();
+      const output = result.unwrap();
+      const inst = output.institution;
       expect(inst.dbName).toContain('educandow_');
     }
   });

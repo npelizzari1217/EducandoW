@@ -6,6 +6,8 @@ import {
   EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
 import type { SmtpEncryption } from '@educandow/domain';
+import type { PostgresAdminService } from '../../../infrastructure/persistence/postgres-admin.service';
+import { CreateInstitutionAdminUseCase } from './create-institution-admin.use-case';
 
 export interface InstitutionLevelInput {
   level: string;
@@ -39,9 +41,18 @@ export interface CreateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
+  admin_email?: string;
   institution_levels?: InstitutionLevelInput[];
   // Legacy — still accepted for backward compat
   levels?: string[];
+}
+
+export interface CreateInstitutionOutput {
+  institution: Institution;
+  admin?: {
+    email: string;
+    password: string;
+  };
 }
 
 export interface UpdateInstitutionInput {
@@ -84,9 +95,14 @@ function parseLevelName(name: string): Level | null {
 
 @Injectable()
 export class CreateInstitutionUseCase {
-  constructor(private readonly repo: InstitutionRepository) {}
+  constructor(
+    private readonly repo: InstitutionRepository,
+    private readonly adminService: PostgresAdminService,
+    private readonly adminUseCase: CreateInstitutionAdminUseCase,
+  ) {}
 
-  async execute(input: CreateInstitutionInput): Promise<Result<Institution, ValidationError>> {
+  async execute(input: CreateInstitutionInput): Promise<Result<CreateInstitutionOutput, ValidationError>> {
+    // ── Step 0: Validation ────────────────────────────────
     const alreadyExists = await this.repo.existsByName(input.name);
     if (alreadyExists) return err(new ValidationError('Ya existe una institución con ese nombre'));
 
@@ -96,7 +112,7 @@ export class CreateInstitutionUseCase {
       return err(new ValidationError('Debe especificar al menos un nivel educativo'));
     }
 
-    // Check CUE uniqueness
+    // Check CUE uniqueness (BEFORE any DB work)
     if (input.cue) {
       const existingByCue = await this.repo.findByCue(input.cue);
       if (existingByCue) {
@@ -190,8 +206,55 @@ export class CreateInstitutionUseCase {
       institutionLevels,
     });
 
-    await this.repo.save(institution);
-    return ok(institution);
+    const instId = institution.id.get();
+    const dbName = institution.dbName ?? `educandow_${instId}`;
+
+    // ── Step 1: Save master record ──────────────────────
+    let masterSaved = false;
+    let dbCreated = false;
+    let dbNameActual = dbName;
+
+    try {
+      await this.repo.save(institution);
+      masterSaved = true;
+
+      // ── Step 2: Create tenant database ────────────────
+      await this.adminService.createDatabase(dbNameActual);
+      dbCreated = true;
+
+      // ── Step 3: Run tenant migrations ─────────────────
+      await this.adminService.runTenantMigrations(dbNameActual);
+
+      // ── Step 4: Create admin user (if email provided) ─
+      let adminResult: { email: string; password: string } | undefined;
+      if (input.admin_email) {
+        adminResult = await this.adminUseCase.execute({
+          adminEmail: input.admin_email,
+          dbName: dbNameActual,
+          institutionId: instId,
+        });
+      }
+
+      return ok({
+        institution,
+        admin: adminResult,
+      });
+    } catch (error: any) {
+      // ── Rollback ──────────────────────────────────────
+      // Step 3 rollback: drop tenant DB
+      if (dbCreated) {
+        await this.adminService.dropDatabase(dbNameActual).catch(() => {});
+      }
+      // Step 2 rollback: delete master record
+      if (masterSaved) {
+        await this.repo.delete(instId).catch(() => {});
+      }
+      // Admin user is in master DB, deleted alongside institution record
+
+      return err(new ValidationError(
+        `Error al crear la institución: ${error?.message ?? 'Error desconocido'}`,
+      ));
+    }
   }
 }
 
@@ -199,8 +262,8 @@ export class CreateInstitutionUseCase {
 export class ListInstitutionsUseCase {
   constructor(private readonly repo: InstitutionRepository) {}
 
-  async execute(tenantId?: string): Promise<Institution[]> {
-    const all = await this.repo.findAll();
+  async execute(tenantId?: string, active?: boolean): Promise<Institution[]> {
+    const all = await this.repo.findAll(active);
     if (tenantId) {
       return all.filter((inst) => inst.id.get() === tenantId);
     }
@@ -296,6 +359,11 @@ export class UpdateInstitutionUseCase {
     // Authorization: only ROOT can change active
     if (caller && !caller.isRoot && input.active !== undefined) {
       return err(new ForbiddenError('Solo ROOT puede activar o desactivar una institución'));
+    }
+
+    // Authorization: ADMIN cannot change cue
+    if (caller && !caller.isRoot && input.cue !== undefined) {
+      return err(new ForbiddenError('Solo ROOT puede modificar el CUE de una institución'));
     }
 
     // Check CUE uniqueness if being changed

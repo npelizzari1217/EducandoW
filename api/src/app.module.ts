@@ -21,6 +21,7 @@ import { AppExceptionFilter } from './presentation/shared/filters/exception.filt
 import { ResponseInterceptor } from './presentation/shared/interceptors/response.interceptor';
 import { TenantMiddleware } from './infrastructure/auth/tenant.middleware';
 import { PrismaService } from './infrastructure/persistence/prisma/prisma.service';
+import { PostgresAdminService } from './infrastructure/persistence/postgres-admin.service';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { PrismaService } from './infrastructure/persistence/prisma/prisma.servic
     { provide: APP_INTERCEPTOR, useClass: ResponseInterceptor },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     PrismaService,
+    PostgresAdminService,
     TenantMiddleware,
   ],
 })

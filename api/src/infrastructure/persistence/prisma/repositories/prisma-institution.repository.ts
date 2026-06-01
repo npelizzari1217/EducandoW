@@ -57,9 +57,14 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
     return record ? this.toDomain(record) : null;
   }
 
-  async findAll(): Promise<Institution[]> {
+  async findAll(active?: boolean): Promise<Institution[]> {
+    const where: Record<string, unknown> = {};
+    if (active !== undefined) {
+      where.active = active;
+    }
+
     const records = await this.client.institution.findMany({
-      where: { active: true },
+      where,
       orderBy: { name: 'asc' },
       include: { levels: true },
     });

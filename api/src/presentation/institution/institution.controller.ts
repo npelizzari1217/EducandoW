@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Req, HttpCode, HttpStatus, UseGuards,
-  UseInterceptors, UploadedFile,
+  UseInterceptors, UploadedFile, Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
@@ -80,9 +80,15 @@ export class InstitutionController {
   @Post()
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateInstitutionSchema)) body: CreateInstitutionDTO) {
-    const result = await this.createUC.execute(body);
+    const result = await this.createUC.execute(body as any);
     if (result.isErr()) throw result.unwrapErr();
-    return { data: toResponse(result.unwrap()) };
+    const output = result.unwrap();
+    return {
+      data: {
+        ...toResponse(output.institution),
+        admin: output.admin ?? undefined,
+      },
+    };
   }
 
   @Get('me')
@@ -99,11 +105,20 @@ export class InstitutionController {
 
   @Get()
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'READ' })
-  async list(@Req() req: Request) {
+  async list(
+    @Req() req: Request,
+    @Query('active') active?: string,
+  ) {
     const user = (req as AuthenticatedRequest).user;
     const isRoot = user?.roles?.includes('ROOT');
     const tenantId = isRoot ? undefined : user?.institutionId ?? undefined;
-    const institutions = await this.listUC.execute(tenantId);
+
+    // Parse active query param: "true" → true, "false" → false, undefined → undefined
+    let activeFilter: boolean | undefined;
+    if (active === 'true') activeFilter = true;
+    else if (active === 'false') activeFilter = false;
+
+    const institutions = await this.listUC.execute(tenantId, activeFilter);
     return { data: institutions.map((i) => toResponse(i)) };
   }
 

@@ -60,6 +60,7 @@ const InstitutionFullBaseSchema = z.object({
   socket_port: portField,
   institution_levels: z.array(institutionLevelSchema).optional(),
   levels: z.array(levelNameEnum).optional(),
+  admin_email: z.string().email('Email inválido').optional(),
 });
 
 /** Create schema — requires at least one level via institution_levels or levels */

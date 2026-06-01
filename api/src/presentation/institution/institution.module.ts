@@ -6,8 +6,10 @@ import {
   DeleteInstitutionUseCase, GetMeUseCase, UpdateInstitutionUseCase,
   PrintInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
+import { CreateInstitutionAdminUseCase } from '../../application/institution/use-cases/create-institution-admin.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
+import { PostgresAdminService } from '../../infrastructure/persistence/postgres-admin.service';
 import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local-disk-storage.adapter';
 
 @Module({
@@ -15,7 +17,14 @@ import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local
   controllers: [InstitutionController],
   providers: [
     PrismaService,
+    PostgresAdminService,
     LocalDiskStorageAdapter,
+    {
+      provide: CreateInstitutionAdminUseCase,
+      useFactory: (prisma: PrismaService) =>
+        new CreateInstitutionAdminUseCase(prisma.getMasterClient()),
+      inject: [PrismaService],
+    },
     {
       provide: PrismaInstitutionRepository,
       useFactory: (prisma) => new PrismaInstitutionRepository(prisma),
@@ -24,8 +33,9 @@ import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local
     { provide: 'InstitutionRepository', useExisting: PrismaInstitutionRepository },
     {
       provide: CreateInstitutionUseCase,
-      useFactory: (r) => new CreateInstitutionUseCase(r),
-      inject: ['InstitutionRepository'],
+      useFactory: (r, adminSvc, adminUC) =>
+        new CreateInstitutionUseCase(r, adminSvc, adminUC),
+      inject: ['InstitutionRepository', PostgresAdminService, CreateInstitutionAdminUseCase],
     },
     {
       provide: ListInstitutionsUseCase,
