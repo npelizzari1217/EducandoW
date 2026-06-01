@@ -8,7 +8,7 @@ Defines how the sidebar renders pedagogical level sub-sections within Académico
 
 ### Requirement: Level Sub-Sections in Académico
 
-The sidebar MUST render level-specific items under sub-headings (Inicial, Nivel Primario, Secundario, Terciario) within the Académico group. Level sub-headings SHALL NOT appear as separate top-level groups. Sub-headings SHALL be static `<div>` elements with `.sidebar-subheading` class — never `<details>`.
+The sidebar MUST render level-specific items under sub-headings (Inicial, Nivel Primario, Secundario, Terciario) within the Académico group. Level sub-headings SHALL NOT appear as separate top-level sidebar groups. Sub-headings SHALL be static `<div>` elements with `.sidebar-section-label` class — never `<details>`.
 
 #### Scenario: Level items nested under Académico
 
@@ -76,35 +76,35 @@ ROOT users MUST see all level-specific items and sub-headings regardless of thei
 
 ### Requirement: Sub-Heading Visibility
 
-A level sub-heading MUST only appear when at least one visible item exists for that level.
+A level sub-heading MUST only appear when at least one visible item exists for that level after all filters are applied.
 
 #### Scenario: Empty sub-group hidden
 
 - GIVEN institution has only Inicial configured and user is NOT ROOT
 - WHEN Académico renders
-- THEN "Inicial" sub-heading appears (items exist)
-- AND Primario/Secundario/Terciario sub-headings do NOT appear (no visible items)
+- THEN "Inicial" sub-heading appears
+- AND Primario, Secundario, Terciario sub-headings do NOT appear
 
 #### Scenario: All items filtered removes sub-heading
 
-- GIVEN all items for a level are filtered by additional access rules
+- GIVEN all items for a level are filtered by module or level access rules
 - WHEN Académico renders
 - THEN that level's sub-heading does NOT appear
 
 ### Requirement: Generic Items Unaffected
 
-Generic Académico items (Alumnos por curso, Calificaciones parciales, Asistencia) MUST continue using existing `requiresLevel` logic — visible when ANY level exists.
+Generic Académico items (Alumnos por curso, Calificaciones parciales, Asistencia del día) MUST continue using existing `requiresLevel` logic — they appear when ANY level is present, with no `levelId` constraint.
 
 #### Scenario: Generic items with any level
 
-- GIVEN institution has `config.levels = [30]` and user is NOT ROOT
+- GIVEN a non-ROOT user with `baseLevels = {3}` (Secundario)
 - WHEN Académico renders
 - THEN generic `requiresLevel` items appear
 - AND only "Secundario" sub-heading appears
 
 #### Scenario: Generic items hidden without levels
 
-- GIVEN institution has `config.levels = []` and user is NOT ROOT
+- GIVEN a non-ROOT user with `baseLevels` empty
 - WHEN Académico renders
 - THEN generic `requiresLevel` items do NOT appear
 
@@ -118,8 +118,18 @@ The existing sidebar test suite SHALL continue to pass after restructure, with a
 - WHEN the test suite runs
 - THEN all tests pass with updated assertions for Académico sub-headings
 
+### Requirement: Tablet Collapsed Mode Hides Sub-Headings
+
+`.sidebar-section-label` elements MUST be hidden in tablet collapsed mode (56px icon-only state) using `display: none` via the `.sidebar:not(.sidebar-open) .sidebar-section-label` selector.
+
 #### Scenario: Tablet collapse hides sub-headings
 
-- GIVEN sidebar is in tablet collapsed (icon-only) mode
-- WHEN sub-headings are present
-- THEN sub-headings are hidden via `display: none`
+- GIVEN the sidebar is in tablet collapsed (56px icon-only) mode
+- WHEN sub-headings are present in the DOM
+- THEN sub-headings are not visible (`display: none`)
+
+#### Scenario: Tablet expanded shows sub-headings
+
+- GIVEN the sidebar is in tablet expanded (240px) mode
+- WHEN Académico is open and sub-headings are present
+- THEN sub-headings are visible

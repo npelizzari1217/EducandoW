@@ -8,31 +8,18 @@ Define the endpoint and frontend context that loads institution configuration at
 
 ### Requirement: GET /v1/institutions/me Endpoint
 
-A new endpoint `GET /v1/institutions/me` MUST return the full configuration of the institution associated with the authenticated user's JWT. The response MUST include all fields needed by the frontend: identification, contact, branding, notification toggles, SMTP metadata (excluding `smtp_pass`), config, and levels. (Ref: R11)
+A new endpoint `GET /v1/institutions/me` MUST return the full configuration of the institution associated with the authenticated user's JWT. The response MUST include all 25 fields needed by the frontend: identification (all 10 fields), contact, address, branding, notification toggles, SMTP metadata (excluding `smtp_pass`), config, and levels. (Ref: R11)
 
 #### Scenario: Returns full config for authenticated user
 
 - GIVEN an authenticated user with `institutionId: "abc-123"` belonging to "Colegio San Martín"
 - WHEN `GET /v1/institutions/me` is called
-- THEN the response is HTTP 200 with:
-  ```json
-  {
-    "id": "abc-123",
-    "name": "Colegio San Martín",
-    "logo_url": "...",
-    "header_color": "#1a56db",
-    "header_text_color": "#ffffff",
-    "body_text_color": "#333333",
-    "send_email": true,
-    "send_messages": false,
-    "socket_host": null,
-    "socket_port": null,
-    "active": true,
-    "levels": ["INICIAL", "PRIMARIO"],
-    "db_name": "educandow_abc-123",
-    ...other fields
-  }
-  ```
+- THEN the response is HTTP 200 and includes:
+  - Identity: `id`, `name`, `contact_email`, `phone`, `address`, `city`, `postal_code`, `country`, `website`, `ministry_reg`, `cue`
+  - Branding: `logo_url`, `header_color`, `header_text_color`, `body_text_color`
+  - Notifications: `send_email`, `send_messages`, `socket_host`, `socket_port`
+  - Lifecycle: `active`, `db_name`
+  - Config: `levels[]`
 - AND `smtp_pass` is NOT included in the response
 
 #### Scenario: User without institution receives 404
@@ -41,20 +28,43 @@ A new endpoint `GET /v1/institutions/me` MUST return the full configuration of t
 - WHEN `GET /v1/institutions/me` is called
 - THEN the response is HTTP 404 with an error indicating no institution is associated
 
+### Requirement: Dynamic CSS Theme from Branding Colors
+
+The frontend MUST apply institution branding colors as CSS custom properties on the document root. When `InstitutionContext` loads, it MUST set `--header-color`, `--header-text-color`, and `--body-text-color` from the institution's branding fields. When a field is `null`, the corresponding CSS variable MUST be set to its design-system default. (Ref: R12)
+
+#### Scenario: CSS variables applied on context load
+
+- GIVEN an institution with `header_color: "#1a56db"`, `header_text_color: "#ffffff"`, `body_text_color: "#333333"`
+- WHEN `InstitutionContext` loads and sets the theme
+- THEN `document.documentElement` has CSS variables `--header-color: #1a56db`, `--header-text-color: #ffffff`, `--body-text-color: #333333`
+
+#### Scenario: Null branding uses design-system defaults
+
+- GIVEN an institution with all branding fields `null`
+- WHEN `InstitutionContext` applies the theme
+- THEN CSS variables are set to the design-system defaults (not left unset)
+
+#### Scenario: Theme updates on institution PATCH
+
+- GIVEN a user updates `header_color` via `PATCH /v1/institutions/:id`
+- WHEN the frontend re-fetches institution config
+- THEN CSS variables are updated immediately without a full page reload
+
 ### Requirement: InstitutionContext in React
 
 The frontend MUST provide an `InstitutionContext` React context that:
 
 1. Calls `GET /v1/institutions/me` once after successful login
-2. Exposes `logo_url`, `header_color`, `header_text_color`, `body_text_color`, `send_email`, `send_messages`, `socket_host`, `socket_port`, `active`, and `levels[]` to all child components
-3. Persists for the duration of the session (until logout or token expiration)
+2. Exposes all 25 institution fields including `logo_url`, `header_color`, `header_text_color`, `body_text_color`, `send_email`, `send_messages`, `socket_host`, `socket_port`, `active`, `levels[]`, and all identity/address fields
+3. Applies CSS variables to the document root on load (see Dynamic CSS Theme requirement)
+4. Persists for the duration of the session (until logout or token expiration)
 
 #### Scenario: Context loads on login
 
 - GIVEN a user successfully authenticates
 - WHEN the app mounts the `InstitutionContext` provider
 - THEN it calls `GET /v1/institutions/me`
-- AND all children can read `header_color`, `logo_url`, `levels[]`, etc. from the context
+- AND all children can read `header_color`, `logo_url`, `levels[]`, `send_email`, etc. from the context
 
 #### Scenario: Context gracefully handles fetch failure
 
@@ -62,6 +72,29 @@ The frontend MUST provide an `InstitutionContext` React context that:
 - WHEN the `InstitutionContext` provider receives the error
 - THEN it MUST fall back to default values (empty `levels[]`, default colors, `send_email: false`, `send_messages: false`, `active: true`)
 - AND the application MUST NOT crash — it renders with sensible defaults
+
+### Requirement: Full 25-Field Institution Form
+
+The frontend institution create/edit form MUST expose all 25 mutable fields, grouped by section. The form MUST be gated by role: ROOT sees all fields including branding, SMTP, and `active`; ADMIN sees identity and contact fields only; ADMIN MUST NOT see `cue`, `active`, or SMTP fields.
+
+#### Scenario: ROOT sees all form sections
+
+- GIVEN a ROOT user opens the institution create/edit form
+- WHEN the form renders
+- THEN all sections are visible: Identity, Contact, Address, Branding, SMTP, Notifications
+
+#### Scenario: ADMIN sees restricted form sections
+
+- GIVEN an ADMIN user opens the institution edit form for their own institution
+- WHEN the form renders
+- THEN only Identity and Contact sections are visible
+- AND Branding, SMTP, `cue`, and `active` fields are NOT rendered
+
+#### Scenario: Form validation matches domain rules
+
+- GIVEN an ADMIN submitting the form with `contact_email: "invalid"`
+- WHEN the form is submitted
+- THEN client-side validation rejects with "Invalid email format" before calling the API
 
 ### Requirement: Active Levels Filter Navigation
 

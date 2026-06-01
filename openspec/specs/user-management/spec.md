@@ -276,3 +276,29 @@ The system MUST provide a page at `/users` with a table showing: name, email, in
 - GIVEN a SECRETARIO viewing the users table
 - WHEN a DIRECTOR row appears
 - THEN "Jerarquía superior" label is shown instead of action buttons (SECRETARIO rank 40 < DIRECTOR rank 50)
+
+### Requirement: Users UI Page — Profile Selector
+
+The user create/edit form MUST include a `ProfileSelector` dropdown positioned between the role selection and the `ModuleAccessGrid`. When a profile is selected from the dropdown, the system MUST fetch `GET /v1/profiles/:id/permissions`, convert the boolean matrix to `ModuleAccessItem[]` (canRead→READ, canCreate→CREATE, canEdit→UPDATE, canDelete→DELETE, canPrint→PRINT), and pre-fill the `ModuleAccessGrid` state. The user MAY override any pre-filled values before submitting. A clear/reset option MUST be available to remove the profile selection and reset the grid to empty. The `profileId` of the selected profile SHALL be included in the submit payload.
+
+(Previously: no profile selector; modules were manually selected via grid only.)
+
+#### Scenario: ProfileSelector pre-fills grid on selection
+
+- GIVEN a user on the create/edit form
+- WHEN they select "Docente Básico" from the ProfileSelector
+- THEN `GET /v1/profiles/:id/permissions` is called
+- AND the ModuleAccessGrid is populated with the profile's boolean matrix converted to checked cells
+
+#### Scenario: Manual override after profile selection is retained
+
+- GIVEN the user has selected a profile and the grid is pre-filled
+- WHEN they manually uncheck GRADES:READ in the grid
+- THEN the grid state reflects the manual change (profile pre-fill is not locked)
+
+#### Scenario: Clear profile resets grid
+
+- GIVEN a profile is selected and the grid is pre-filled
+- WHEN the user clicks "Limpiar" (clear/reset)
+- THEN the ProfileSelector shows no selection and the ModuleAccessGrid is cleared
+- AND no `profileId` is included in the submit payload

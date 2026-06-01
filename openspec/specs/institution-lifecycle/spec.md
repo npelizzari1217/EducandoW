@@ -6,15 +6,51 @@ Define the soft-delete mechanism and session blocking that controls institution 
 
 ## Requirements
 
+### Requirement: Extended Identity Fields
+
+The `Institution` entity MUST support the following additional identity and address fields. All are optional at creation time.
+
+| Field | Type | Constraint |
+|-------|------|-----------|
+| `contact_email` | `string?` | Replaces `email`. Valid email format if provided |
+| `phone` | `string?` | Max 30 chars |
+| `address` | `string?` | Max 255 chars |
+| `city` | `string?` | Max 100 chars |
+| `postal_code` | `string?` | Max 20 chars |
+| `country` | `string?` | Max 100 chars |
+| `ministry_reg` | `string?` | Max 100 chars |
+| `cue` | `string?` | UNIQUE per spec tenant-database; max 20 chars |
+| `website` | `string?` | Valid URL if provided, max 500 chars |
+
+#### Scenario: All identity fields accepted on creation
+
+- GIVEN a ROOT user submitting `POST /v1/institutions` with all 9 optional identity fields populated
+- WHEN the request is validated and persisted
+- THEN the institution is created with all fields stored as provided
+- AND the response includes every supplied field
+
+#### Scenario: contact_email replaces legacy email field
+
+- GIVEN a creation request with `contact_email: "admin@school.edu"`
+- WHEN the institution is persisted
+- THEN the stored field name is `contact_email`, not `email`
+- AND no `email` field exists on the Institution entity or DB column
+
+#### Scenario: Invalid email format rejected
+
+- GIVEN a request with `contact_email: "not-an-email"`
+- WHEN validation runs
+- THEN the system MUST reject it with a `ValidationError` indicating invalid email format
+
 ### Requirement: Create Institution
 
-`POST /v1/institutions` MUST create a new institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'CREATE' }` MAY create. (Ref: R9)
+`POST /v1/institutions` MUST create a new institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'CREATE' }` MAY create. (Ref: R9) The full 25-field model MUST be accepted; fields not provided default to `null` or their specified default.
 
 #### Scenario: ROOT creates an institution
 
 - GIVEN a ROOT user with INSTITUTIONS:CREATE
-- WHEN `POST /v1/institutions` with valid data
-- THEN the system returns HTTP 201 with created institution
+- WHEN `POST /v1/institutions` with valid data (any subset of 25 fields)
+- THEN the system returns HTTP 201 with the created institution including `db_name`
 
 #### Scenario: ADMIN cannot create
 
@@ -24,13 +60,19 @@ Define the soft-delete mechanism and session blocking that controls institution 
 
 ### Requirement: List Institutions with Tenant Filter
 
-`GET /v1/institutions` MUST return all institutions for ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }`. Non-ROOT MUST only see their own institution (JWT `institutionId`).
+`GET /v1/institutions` MUST return all institutions for ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }`. Non-ROOT MUST only see their own institution (JWT `institutionId`). The endpoint MUST support an optional `?active=true|false` query parameter to filter by `active` status; when the parameter is omitted, all institutions are returned regardless of active status.
 
 #### Scenario: ROOT lists all
 
 - GIVEN a ROOT user with INSTITUTIONS:READ
 - WHEN `GET /v1/institutions`
-- THEN the system returns HTTP 200 with all institutions
+- THEN the system returns HTTP 200 with all institutions (active and inactive)
+
+#### Scenario: ROOT filters by active=true
+
+- GIVEN multiple institutions, some with `active: false`
+- WHEN `GET /v1/institutions?active=true`
+- THEN only institutions with `active: true` are returned
 
 #### Scenario: Non-ROOT sees only own institution
 
@@ -46,13 +88,13 @@ Define the soft-delete mechanism and session blocking that controls institution 
 
 ### Requirement: Get Institution by ID
 
-`GET /v1/institutions/:id` MUST return a single institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }` MAY access.
+`GET /v1/institutions/:id` MUST return a single institution. Only ROOT with `{ module: 'INSTITUTIONS', action: 'READ' }` MAY access. The response MUST include all 25 fields (excluding `smtp_pass`).
 
 #### Scenario: ROOT gets by ID
 
 - GIVEN a ROOT user with INSTITUTIONS:READ
 - WHEN `GET /v1/institutions/:id` with valid UUID
-- THEN the system returns HTTP 200 with institution data
+- THEN the system returns HTTP 200 with full 25-field institution data
 
 #### Scenario: Not found returns null
 
@@ -68,7 +110,7 @@ Define the soft-delete mechanism and session blocking that controls institution 
 
 ### Requirement: Update Institution
 
-`PATCH /v1/institutions/:id` MUST use `@Roles('ROOT', 'ADMIN')`. ROOT MAY update any institution including `active`. ADMIN MAY only update their own institution (JWT `institutionId`) and MUST NOT change `active`. Non-existent returns `{ data: null }`.
+`PATCH /v1/institutions/:id` MUST use `@Roles('ROOT', 'ADMIN')`. ROOT MAY update any institution including `active`. ADMIN MAY only update their own institution (JWT `institutionId`) and MUST NOT change `active`. ADMIN MUST NOT change `cue`. Non-existent returns `{ data: null }`. The endpoint MUST accept any subset of the 25 mutable fields.
 
 #### Scenario: ROOT updates any institution
 
@@ -93,6 +135,12 @@ Define the soft-delete mechanism and session blocking that controls institution 
 - GIVEN an ADMIN editing own institution
 - WHEN `PATCH /v1/institutions/:id` with `{ active: false }`
 - THEN the system MUST return HTTP 403 — only ROOT MAY change `active`
+
+#### Scenario: ADMIN cannot change cue
+
+- GIVEN an ADMIN editing own institution
+- WHEN `PATCH /v1/institutions/:id` with `{ cue: "9999999" }`
+- THEN the system MUST return HTTP 403 — only ROOT MAY change `cue`
 
 #### Scenario: ROOT reactivates inactive institution
 

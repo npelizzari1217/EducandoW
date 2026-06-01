@@ -8,13 +8,19 @@ Define how the system routes database connections based on the tenant context in
 
 ### Requirement: JWT Includes dbName
 
-The JWT payload MUST include `dbName` (the tenant database name) and `institutionId`. These fields are set during login from the user's associated institution. (Ref: R4)
+The JWT payload MUST include `dbName` (the tenant database name) and `institutionId`. These fields are set during login from the user's associated institution. Login MUST also verify `active: true` before issuing any JWT — a user from an inactive institution MUST NOT receive a JWT. (Ref: R4, R15)
 
 #### Scenario: JWT payload contains tenant info
 
-- GIVEN a user with `institutionId: "abc-123"` and `dbName: "educandow_abc-123"` in the database
+- GIVEN a user with `institutionId: "abc-123"` and `dbName: "educandow_abc-123"` in the database and `active: true`
 - WHEN the user successfully authenticates
 - THEN the issued JWT contains `{ sub, role, institutionId: "abc-123", dbName: "educandow_abc-123" }`
+
+#### Scenario: Login rejected for inactive institution
+
+- GIVEN a user with valid credentials belonging to an institution where `active: false`
+- WHEN `POST /v1/auth/login` is submitted
+- THEN the system MUST return HTTP 403 and MUST NOT issue a JWT
 
 #### Scenario: User without institution gets no dbName
 
@@ -25,7 +31,7 @@ The JWT payload MUST include `dbName` (the tenant database name) and `institutio
 
 ### Requirement: PrismaService Dynamic Resolution
 
-`PrismaService` MUST function as a factory that maintains a `Map<dbName, PrismaClient>` cache. On each request, middleware extracts `dbName` from the JWT and provides the corresponding `PrismaClient` to repositories. (Ref: R7)
+`PrismaService` MUST function as a factory that maintains a `Map<dbName, PrismaClient>` cache. On each request, `TenantMiddleware` extracts `dbName` from the JWT and attaches the resolved `PrismaClient` to the request context for repositories to consume. A `PrismaClient` is lazily instantiated on first use for a given `dbName`. (Ref: R7)
 
 #### Scenario: Request routed to correct tenant DB
 
@@ -40,6 +46,13 @@ The JWT payload MUST include `dbName` (the tenant database name) and `institutio
 - WHEN the second request resolves its PrismaClient
 - THEN the factory returns the cached `PrismaClient` instance from the `Map`
 - AND a new connection is NOT created
+
+#### Scenario: First request for a tenant creates a new client
+
+- GIVEN the factory Map contains no entry for `educandow_9999`
+- WHEN a request with JWT `dbName: "educandow_9999"` arrives
+- THEN the factory lazily creates a new `PrismaClient` for `educandow_9999`
+- AND adds it to the Map for subsequent requests
 
 #### Scenario: dbName missing from JWT
 
@@ -61,7 +74,7 @@ Repositories that operate on master DB tables (`PrismaInstitutionRepository`, `P
 
 ### Requirement: Tenant Middleware
 
-A `TenantMiddleware` MUST extract `dbName` from the JWT payload and attach it to the request context. If the JWT is absent or `dbName` is null, requests to tenant-scoped endpoints MUST be rejected with 403. Requests to master-only endpoints (health, institution CRUD) proceed without `dbName`. (Ref: R9)
+A `TenantMiddleware` MUST extract `dbName` from the JWT payload and attach the resolved `PrismaClient` to the request context. If the JWT is absent or `dbName` is null, requests to tenant-scoped endpoints MUST be rejected with 403. Requests to master-only endpoints (health, institution CRUD, auth) proceed without `dbName`. (Ref: R9)
 
 #### Scenario: Health check works without JWT
 
@@ -74,3 +87,45 @@ A `TenantMiddleware` MUST extract `dbName` from the JWT payload and attach it to
 - GIVEN a JWT with `dbName: null`
 - WHEN a tenant-scoped endpoint like `GET /v1/students` is called
 - THEN the response is HTTP 403 with "No tenant context found"
+
+### Requirement: TenantMiddleware Active-Status Gate
+
+`TenantMiddleware` MUST check the institution's `active` field after resolving the tenant from JWT `dbName`. If `active: false`, the middleware MUST return HTTP 403 with "Institution is inactive" — this applies to every request reaching a tenant-scoped path, not just login. (Ref: R15)
+
+#### Scenario: Active=false blocks tenant request
+
+- GIVEN a user with a valid JWT for institution `abc-123` where `active: false`
+- WHEN a tenant-scoped request like `GET /v1/students` arrives
+- THEN `TenantMiddleware` checks `active` via the master DB
+- AND returns HTTP 403 with "Institution is inactive" before the request reaches the handler
+
+#### Scenario: Active=true allows tenant request
+
+- GIVEN a user with a valid JWT for institution `abc-123` where `active: true`
+- WHEN a tenant-scoped request arrives
+- THEN `TenantMiddleware` resolves the `PrismaClient` from the factory Map
+- AND the request proceeds to the handler
+
+#### Scenario: ROOT requests bypass active check
+
+- GIVEN a ROOT user with JWT `institutionId: null, dbName: null`
+- WHEN a master-only endpoint is called
+- THEN `TenantMiddleware` MUST NOT check any institution's `active` status
+- AND the request proceeds normally
+
+### Requirement: Middleware Route Scoping
+
+`TenantMiddleware` MUST be applied exclusively to tenant-scoped routes (e.g., `/v1/students/*`, `/v1/teachers/*`, `/v1/grades/*`). It MUST NOT be applied to master-only routes (`/v1/institutions/*`, `/v1/auth/*`, `/health`). The route mapping MUST be explicit in module configuration.
+
+#### Scenario: Master-only routes bypass TenantMiddleware
+
+- GIVEN a request to `POST /v1/institutions`
+- WHEN the NestJS middleware chain processes it
+- THEN `TenantMiddleware` does NOT execute for this request
+- AND the master `PrismaClient` is used directly
+
+#### Scenario: Tenant-scoped routes go through TenantMiddleware
+
+- GIVEN an authenticated request to `GET /v1/students`
+- WHEN the middleware chain processes it
+- THEN `TenantMiddleware` executes and resolves the tenant `PrismaClient` from JWT `dbName`
