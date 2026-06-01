@@ -25,7 +25,7 @@ export class ActaExamenController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateActaExamenSchema)) body: CreateActaExamenDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -33,14 +33,14 @@ export class ActaExamenController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async list(@Query('materiaCarreraId') materiaCarreraId?: string) {
     const items = await this.listUC.execute(materiaCarreraId);
     return { data: items.map((i) => this.map(i)) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async get(@Param('id') id: string) {
     const item = await this.getUC.execute(id);
     if (!item) return { data: null };
@@ -48,7 +48,7 @@ export class ActaExamenController {
   }
 
   @Post(':id/notas')
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async registrarNota(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(RegistrarNotaSchema)) body: RegistrarNotaDTO,

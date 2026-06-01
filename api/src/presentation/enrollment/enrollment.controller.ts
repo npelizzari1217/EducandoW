@@ -21,7 +21,7 @@ export class EnrollmentController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateEnrollmentSchema)) body: CreateEnrollmentDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -30,7 +30,7 @@ export class EnrollmentController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'READ' })
   async list(@Query('studentId') studentId: string, @Query('institutionId') institutionId: string) {
     if (studentId) {
       const enrollments = await this.listUC.executeByStudent(studentId);
@@ -44,7 +44,7 @@ export class EnrollmentController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'READ' })
   async get(@Param('id') id: string) {
     const e = await this.getUC.execute(id);
     if (!e) return { data: null };
@@ -52,7 +52,7 @@ export class EnrollmentController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);

@@ -31,7 +31,6 @@ function toDto(c: CalificacionPrimario) {
 
 @Controller('v1/primario/calificaciones')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('TEACHER', 'ADMIN', 'MANAGER')
 export class CalificacionController {
   constructor(
     private readonly createUC: CreateCalificacionUseCase,
@@ -41,6 +40,7 @@ export class CalificacionController {
   ) {}
 
   @Post()
+  @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateCalificacionSchema)) body: CreateCalificacionDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -48,6 +48,7 @@ export class CalificacionController {
   }
 
   @Get()
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async list(
     @Query('gradoId') gradoId?: string,
     @Query('studentId') studentId?: string,
@@ -57,6 +58,7 @@ export class CalificacionController {
   }
 
   @Get(':id')
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async get(@Param('id') id: string) {
     const calificacion = await this.getUC.execute(id);
     if (!calificacion) return { data: null };
@@ -64,6 +66,7 @@ export class CalificacionController {
   }
 
   @Patch(':id')
+  @Roles('ROOT', { module: 'GRADES', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateCalificacionSchema)) body: UpdateCalificacionDTO,

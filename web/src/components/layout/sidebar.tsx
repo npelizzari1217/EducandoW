@@ -7,7 +7,7 @@ import './sidebar.css';
 interface NavItem {
   label: string;
   path: string;
-  roles?: string[];
+  moduleCode?: string;
   requiresLevel?: boolean;   // Show only when institution has at least one level
   levelId?: number;          // 1=Inicial, 2=Nivel Primario, 3=Secundario, 4=Terciario
   featureFlag?: 'send_email' | 'send_messages'; // Show only when this flag is true
@@ -27,18 +27,22 @@ interface NavGroupDef {
   items: NavItem[];
 }
 
+function isRoot(user: { roles?: string[] } | null): boolean {
+  return user?.roles?.includes('ROOT') ?? false;
+}
+
 const navGroups: NavGroupDef[] = [
   {
     id: 'secretarios',
     label: 'Secretarios',
     icon: '📁',
     items: [
-      { label: 'Estudiantes', path: '/students', requiresLevel: true },
-      { label: 'Docentes', path: '/teachers', requiresLevel: true },
-      { label: 'Inscripciones', path: '/enrollments', requiresLevel: true },
-      { label: 'Legajos', path: '/legajos', requiresLevel: true },
-      { label: 'Planes de Estudio', path: '/study-plans', requiresLevel: true },
-      { label: 'Usuarios', path: '/users', roles: ['ROOT', 'ADMIN', 'MANAGER'] },
+      { label: 'Estudiantes', path: '/students', moduleCode: 'STUDENTS', requiresLevel: true },
+      { label: 'Docentes', path: '/teachers', moduleCode: 'TEACHERS', requiresLevel: true },
+      { label: 'Inscripciones', path: '/enrollments', moduleCode: 'ENROLLMENTS', requiresLevel: true },
+      { label: 'Legajos', path: '/legajos', moduleCode: 'STUDENTS', requiresLevel: true },
+      { label: 'Planes de Estudio', path: '/study-plans', moduleCode: 'STUDY_PLANS', requiresLevel: true },
+      { label: 'Usuarios', path: '/users', moduleCode: 'USERS' },
     ],
   },
   {
@@ -47,22 +51,22 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       // Generic — visible when any level exists
-      { label: 'Alumnos por curso', path: '/students-by-course', requiresLevel: true },
-      { label: 'Calificaciones parciales', path: '/grades', requiresLevel: true },
-      { label: 'Asistencia del día', path: '/attendance', requiresLevel: true },
+      { label: 'Alumnos por curso', path: '/students-by-course', moduleCode: 'COURSES', requiresLevel: true },
+      { label: 'Calificaciones parciales', path: '/grades', moduleCode: 'GRADES', requiresLevel: true },
+      { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
       // Inicial (levelId: 1)
-      { label: 'Salas', path: '/inicial/salas', requiresLevel: true, levelId: 1 },
-      { label: 'Informes Evolutivos', path: '/inicial/informes', requiresLevel: true, levelId: 1 },
-      { label: 'Planificaciones', path: '/inicial/planificaciones', requiresLevel: true, levelId: 1 },
+      { label: 'Salas', path: '/inicial/salas', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
+      { label: 'Informes Evolutivos', path: '/inicial/informes', moduleCode: 'REPORTS', requiresLevel: true, levelId: 1 },
+      { label: 'Planificaciones', path: '/inicial/planificaciones', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
       // Nivel Primario (levelId: 2)
-      { label: 'Grados', path: '/primario/grados', requiresLevel: true, levelId: 2 },
-      { label: 'Calificaciones', path: '/primario/calificaciones', requiresLevel: true, levelId: 2 },
+      { label: 'Grados', path: '/primario/grados', moduleCode: 'COURSES', requiresLevel: true, levelId: 2 },
+      { label: 'Calificaciones', path: '/primario/calificaciones', moduleCode: 'GRADES', requiresLevel: true, levelId: 2 },
       // Secundario (levelId: 3)
-      { label: 'Cursos', path: '/secundario/cursos', requiresLevel: true, levelId: 3 },
-      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', requiresLevel: true, levelId: 3 },
+      { label: 'Cursos', path: '/secundario/cursos', moduleCode: 'COURSES', requiresLevel: true, levelId: 3 },
+      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
       // Terciario (levelId: 4)
-      { label: 'Carreras', path: '/terciario/carreras', requiresLevel: true, levelId: 4 },
-      { label: 'Inscripciones', path: '/terciario/inscripciones', requiresLevel: true, levelId: 4 },
+      { label: 'Carreras', path: '/terciario/carreras', moduleCode: 'COURSES', requiresLevel: true, levelId: 4 },
+      { label: 'Inscripciones', path: '/terciario/inscripciones', moduleCode: 'ENROLLMENTS', requiresLevel: true, levelId: 4 },
     ],
   },
   {
@@ -70,8 +74,8 @@ const navGroups: NavGroupDef[] = [
     label: 'Sistema',
     icon: '📁',
     items: [
-      { label: 'Instituciones', path: '/institutions', roles: ['ROOT', 'ADMIN'] },
-      { label: 'Módulos', path: '/modules', roles: ['ROOT'] },
+      { label: 'Instituciones', path: '/institutions', moduleCode: 'INSTITUTIONS' },
+      { label: 'Módulos', path: '/modules' /* ROOT only — no moduleCode needed */ },
       { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
       { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
     ],
@@ -83,20 +87,37 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
+function hasModulePermission(
+  userModules: { moduleCode: string; actions: string[] }[] | undefined,
+  moduleCode: string,
+  action: string = 'READ',
+): boolean {
+  if (!userModules) return false;
+  return userModules.some(
+    (m) => m.moduleCode === moduleCode && m.actions.includes(action),
+  );
+}
+
 function makeFilterItem(
-  user: { role: string } | null,
+  user: { role: string; roles?: string[] } | null,
+  userModules: { moduleCode: string; actions: string[] }[] | undefined,
   hasLevels: boolean,
   baseLevels: Set<number>,
   sendEmail: boolean,
   sendMessages: boolean,
 ) {
   return (item: NavItem): boolean => {
-    if (item.roles && user && !item.roles.includes(user.role)) return false;
-    // ROOT sees all items regardless of levels — they manage the whole system
-    if (item.requiresLevel && !hasLevels && user?.role !== 'ROOT') return false;
-    // Level-specific filter: hide items for levels not configured
-    // ROOT bypasses this check — sees everything
-    if (item.levelId !== undefined && user?.role !== 'ROOT' && !baseLevels.has(item.levelId)) return false;
+    // Module-based filter: ROOT bypasses, non-ROOT must have moduleCode with READ
+    const root = isRoot(user);
+    if (item.moduleCode && !root) {
+      if (!hasModulePermission(userModules, item.moduleCode)) return false;
+    }
+    // Módulos item: visible only to ROOT (no moduleCode set)
+    if (item.path === '/modules' && !root) return false;
+    // ROOT sees all items regardless of levels
+    if (item.requiresLevel && !hasLevels && !root) return false;
+    // Level-specific filter
+    if (item.levelId !== undefined && !root && !baseLevels.has(item.levelId)) return false;
     if (item.featureFlag === 'send_email' && !sendEmail) return false;
     if (item.featureFlag === 'send_messages' && !sendMessages) return false;
     return true;
@@ -109,14 +130,13 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const navigate = useNavigate();
 
   // Derive base levels from user's JWT levels (primary), fall back to institution config.
-  // Composite codes from JWT: level*10+modality → base level = Math.floor(code/10).
   const userBaseLevels = new Set((user?.levels ?? []).map((code) => Math.floor(code / 10)));
   const institutionBaseLevels = new Set(config.levels.map((code) => Math.floor(code / 10)));
 
   const effectiveBaseLevels = userBaseLevels.size > 0 ? userBaseLevels : institutionBaseLevels;
   const hasLevels = effectiveBaseLevels.size > 0;
 
-  const filterItem = makeFilterItem(user, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
+  const filterItem = makeFilterItem(user, user?.modules, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
 
   // Build visible groups (filter items, skip empty groups).
   const visibleGroups = navGroups

@@ -25,7 +25,7 @@ export class InscripcionMateriaController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER', 'MANAGER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateInscripcionSchema)) body: CreateInscripcionDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -33,7 +33,7 @@ export class InscripcionMateriaController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'MANAGER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'READ' })
   async list(
     @Query('studentId') studentId?: string,
     @Query('materiaCarreraId') materiaCarreraId?: string,
@@ -43,7 +43,7 @@ export class InscripcionMateriaController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'MANAGER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'READ' })
   async get(@Param('id') id: string) {
     const item = await this.getUC.execute(id);
     if (!item) return { data: null };
@@ -51,7 +51,7 @@ export class InscripcionMateriaController {
   }
 
   @Patch(':id/estado')
-  @Roles('ADMIN', 'MANAGER', 'MANAGER')
+  @Roles('ROOT', { module: 'ENROLLMENTS', action: 'UPDATE' })
   async updateEstado(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateInscripcionEstadoSchema)) body: UpdateInscripcionEstadoDTO,

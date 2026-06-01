@@ -24,7 +24,6 @@ import { MesaExamen, MesaExamenInscripcionProps } from '@educandow/domain';
 
 @Controller('v1/secundario/mesas-examen')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('ADMIN', 'MANAGER')
 export class MesaExamenController {
   constructor(
     private readonly createUC: CreateMesaExamenUseCase,
@@ -35,6 +34,7 @@ export class MesaExamenController {
   ) {}
 
   @Post()
+  @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateMesaExamenSchema)) body: CreateMesaExamenDTO) {
     const result = await this.createUC.execute({
       ...body,
@@ -45,12 +45,14 @@ export class MesaExamenController {
   }
 
   @Get()
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async list(@Query('subjectId') subjectId?: string) {
     const mesas = await this.listUC.execute(subjectId);
     return { data: mesas.map(toDto) };
   }
 
   @Get(':id')
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async get(@Param('id') id: string) {
     const result = await this.getUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();
@@ -58,6 +60,7 @@ export class MesaExamenController {
   }
 
   @Post(':id/inscripciones')
+  @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async inscribirAlumno(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(InscribirAlumnoSchema)) body: InscribirAlumnoDTO,
@@ -68,6 +71,7 @@ export class MesaExamenController {
   }
 
   @Get(':id/inscripciones')
+  @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async listInscripciones(@Param('id') id: string) {
     const result = await this.listInscripcionesUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();

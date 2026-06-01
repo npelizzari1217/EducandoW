@@ -23,7 +23,7 @@ export class PlanificacionController {
   ) {}
 
   @Post()
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreatePlanificacionSchema)) body: CreatePlanificacionDTO) {
     const result = await this.createUC.execute({
       salaId: body.salaId,
@@ -36,7 +36,7 @@ export class PlanificacionController {
   }
 
   @Get()
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'READ' })
   async list(
     @Query('salaId') salaId?: string,
     @Query('semana') semana?: string,
@@ -51,7 +51,7 @@ export class PlanificacionController {
   }
 
   @Patch(':id')
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdatePlanificacionSchema)) body: UpdatePlanificacionDTO,

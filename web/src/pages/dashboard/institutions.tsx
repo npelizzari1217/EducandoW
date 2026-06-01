@@ -155,6 +155,11 @@ export default function InstitutionsPage() {
   const [imgFailed, setImgFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
+  const userModules = user?.modules ?? [];
+  const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
+    isRoot || userModules.some(m => m.moduleCode === moduleCode && actions.some(a => m.actions.includes(a)));
+
   // Collapsible section state
   const [sections, setSections] = useState({
     identificacion: true,
@@ -389,7 +394,7 @@ export default function InstitutionsPage() {
         icon="🏛"
         stats={[{ label: 'instituciones', value: String(data.length) }]}
       >
-        {user?.role === 'ROOT' && (
+        {hasModuleAction('INSTITUTIONS', 'CREATE') && (
           <Button
             variant={showForm ? 'danger-soft' : 'success-soft'}
             onClick={() => {
@@ -646,17 +651,18 @@ export default function InstitutionsPage() {
               key: 'actions',
               header: '',
               render: (i: Record<string, unknown>) => {
-                const isRoot = user?.role === 'ROOT';
-                const isAdmin = user?.role === 'ADMIN';
-                if (!isRoot && !isAdmin) return null;
+                const canEdit = hasModuleAction('INSTITUTIONS', 'READ', 'UPDATE');
+                const canPrint = hasModuleAction('INSTITUTIONS', 'PRINT');
+                const canDelete = hasModuleAction('INSTITUTIONS', 'DELETE');
+                if (!canEdit) return null;
                 const row = i as unknown as InstitutionRow;
                 return (
                   <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <Button variant="action" size="sm" onClick={() => handleEdit(row)}>Editar</Button>
-                    {isRoot && (
+                    {canPrint && (
                       <Button variant="action" size="sm" onClick={() => handlePrint(row)} loading={printing}>Imprimir</Button>
                     )}
-                    {isRoot && (
+                    {canDelete && (
                       <Button variant="danger-soft" size="sm" onClick={() => setDeleteTarget(row)}>Eliminar</Button>
                     )}
                   </div>

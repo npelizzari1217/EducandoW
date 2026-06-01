@@ -25,7 +25,7 @@ export class TituloController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'REPORTS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateTituloSchema)) body: CreateTituloDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -33,14 +33,14 @@ export class TituloController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async list(@Query('studentId') studentId?: string) {
     const items = await this.listUC.execute(studentId);
     return { data: items.map((i) => this.map(i)) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async get(@Param('id') id: string) {
     const item = await this.getUC.execute(id);
     if (!item) return { data: null };
@@ -48,7 +48,7 @@ export class TituloController {
   }
 
   @Patch(':id/estado')
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'REPORTS', action: 'UPDATE' })
   async updateEstado(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateTituloEstadoSchema)) body: UpdateTituloEstadoDTO,

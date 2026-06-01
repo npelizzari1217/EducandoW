@@ -32,7 +32,6 @@ function toDto(g: Grado) {
 
 @Controller('v1/primario/grados')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('ADMIN', 'MANAGER')
 export class GradoController {
   constructor(
     private readonly createUC: CreateGradoUseCase,
@@ -43,6 +42,7 @@ export class GradoController {
   ) {}
 
   @Post()
+  @Roles('ROOT', { module: 'COURSES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateGradoSchema)) body: CreateGradoDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -50,12 +50,14 @@ export class GradoController {
   }
 
   @Get()
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async list(@Query('academicYear') academicYear?: string) {
     const grados = await this.listUC.execute(academicYear);
     return { data: grados.map(toDto) };
   }
 
   @Get(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async get(@Param('id') id: string) {
     const grado = await this.getUC.execute(id);
     if (!grado) return { data: null };
@@ -63,6 +65,7 @@ export class GradoController {
   }
 
   @Patch(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateGradoSchema)) body: UpdateGradoDTO,
@@ -73,6 +76,7 @@ export class GradoController {
   }
 
   @Delete(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);

@@ -38,13 +38,13 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
               <Route path="/" element={<DashboardPage />} />
-              <Route path="/institutions" element={<ProtectedRoute roles={['ROOT', 'ADMIN']}><InstitutionsPage /></ProtectedRoute>} />
+              <Route path="/institutions" element={<ProtectedRoute moduleCode="INSTITUTIONS" action="READ"><InstitutionsPage /></ProtectedRoute>} />
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/enrollments" element={<EnrollmentsPage />} />
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
-              <Route path="/modules" element={<ProtectedRoute roles={['ROOT']}><ModulesPage /></ProtectedRoute>} />
+              <Route path="/modules" element={<ProtectedRoute moduleCode="MODULES" action="READ"><ModulesPage /></ProtectedRoute>} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/legajos" element={<LegajosPage />} />
               <Route path="/study-plans" element={<StudyPlansPage />} />

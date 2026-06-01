@@ -22,7 +22,6 @@ import { RegimenAcademico } from '@educandow/domain';
 
 @Controller('v1/secundario/regimen-academico')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('ADMIN', 'MANAGER')
 export class RegimenAcademicoController {
   constructor(
     private readonly createUC: CreateRegimenAcademicoUseCase,
@@ -31,6 +30,7 @@ export class RegimenAcademicoController {
   ) {}
 
   @Post()
+  @Roles('ROOT', { module: 'COURSES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateRegimenSchema)) body: CreateRegimenDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -38,6 +38,7 @@ export class RegimenAcademicoController {
   }
 
   @Get(':cursoId/:subjectId')
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async get(@Param('cursoId') cursoId: string, @Param('subjectId') subjectId: string) {
     const result = await this.getUC.executeByCursoAndSubject(cursoId, subjectId);
     if (result.isErr()) throw result.unwrapErr();
@@ -45,6 +46,7 @@ export class RegimenAcademicoController {
   }
 
   @Patch(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateRegimenSchema)) body: UpdateRegimenDTO,

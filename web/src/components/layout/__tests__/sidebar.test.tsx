@@ -4,12 +4,53 @@ import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../sidebar';
 
 // ── Mock useAuth ──
+const adminModules = [
+  { moduleCode: 'INSTITUTIONS', actions: ['READ', 'UPDATE'] },
+  { moduleCode: 'USERS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'STUDENTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'TEACHERS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'REPORTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'STUDY_PLANS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'CLASSROOMS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+  { moduleCode: 'SUBJECTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
+  { moduleCode: 'COURSES', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
+  { moduleCode: 'ENROLLMENTS', actions: ['READ', 'CREATE', 'DELETE'] },
+  { moduleCode: 'GRADES', actions: ['READ', 'CREATE', 'DELETE'] },
+  { moduleCode: 'ATTENDANCE', actions: ['READ', 'CREATE', 'DELETE'] },
+];
+
 const mockUser = {
   id: 'user-1',
   email: 'test@school.edu',
   name: 'María Gómez',
   role: 'ADMIN' as const,
+  roles: ['ADMIN'],
+  modules: adminModules,
 };
+
+function setRole(role: string) {
+  (mockUser as any).role = role;
+  (mockUser as any).roles = [role];
+  if (role === 'ROOT') {
+    (mockUser as any).modules = undefined; // ROOT bypasses all
+  } else if (role === 'ADMIN') {
+    (mockUser as any).modules = adminModules;
+  } else if (role === 'MANAGER') {
+    (mockUser as any).modules = [
+      { moduleCode: 'STUDENTS', actions: ['READ'] },
+      { moduleCode: 'SUBJECTS', actions: ['READ'] },
+      { moduleCode: 'COURSES', actions: ['READ'] },
+      { moduleCode: 'ENROLLMENTS', actions: ['READ'] },
+      { moduleCode: 'GRADES', actions: ['READ'] },
+      { moduleCode: 'ATTENDANCE', actions: ['READ'] },
+      { moduleCode: 'STUDY_PLANS', actions: ['READ'] },
+      { moduleCode: 'CLASSROOMS', actions: ['READ'] },
+      { moduleCode: 'REPORTS', actions: ['READ'] },
+    ];
+  } else {
+    (mockUser as any).modules = [];
+  }
+}
 
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
@@ -63,6 +104,7 @@ describe('Sidebar filtering', () => {
     mockLevels = [10, 20, 30, 40];
     mockSendEmail = true;
     mockSendMessages = true;
+    setRole('ADMIN');
   });
 
   it('always shows Dashboard link regardless of levels', () => {
@@ -96,7 +138,7 @@ describe('Sidebar filtering', () => {
 
   it('shows generic items + only Inicial level items when institution has only Inicial', () => {
     mockLevels = [10];
-    (mockUser as any).role = 'ADMIN';
+    setRole('ADMIN');
     renderSidebar();
 
     // Generic items visible (any level exists)
@@ -133,7 +175,7 @@ describe('Sidebar filtering', () => {
 
   it('shows only Secundario level items when institution has only Secundario', () => {
     mockLevels = [30];
-    (mockUser as any).role = 'ADMIN';
+    setRole('ADMIN');
     renderSidebar();
 
     // Generic items visible
@@ -167,7 +209,7 @@ describe('Sidebar filtering', () => {
 
   it('shows only Primario and Secundario items when institution has those two levels', () => {
     mockLevels = [20, 30];
-    (mockUser as any).role = 'ADMIN';
+    setRole('ADMIN');
     renderSidebar();
 
     // Generic items visible
@@ -198,7 +240,7 @@ describe('Sidebar filtering', () => {
 
   it('shows placeholder when levels array is empty and user is ADMIN', () => {
     mockLevels = [];
-    (mockUser as any).role = 'ADMIN';
+    setRole('ADMIN');
     renderSidebar();
 
     expect(screen.getByText(/No tenés niveles educativos asignados/i)).toBeInTheDocument();
@@ -207,7 +249,7 @@ describe('Sidebar filtering', () => {
 
   it('does NOT show placeholder for ROOT — ROOT sees all items regardless of levels', () => {
     mockLevels = [];
-    (mockUser as any).role = 'ROOT';
+    setRole('ROOT');
     renderSidebar();
 
     // ROOT sees all nav items even without levels
@@ -237,7 +279,7 @@ describe('Sidebar filtering', () => {
 
   it('does NOT show placeholder for non-admin roles when levels empty', () => {
     mockLevels = [];
-    (mockUser as any).role = 'MANAGER';
+    setRole('MANAGER');
     renderSidebar();
 
     expect(screen.queryByText(/No tenés niveles educativos asignados/i)).not.toBeInTheDocument();
@@ -274,7 +316,7 @@ describe('Sidebar filtering', () => {
 
   it('shows all items when all levels and flags are active', () => {
     // Use ROOT role so Módulos (ROOT-only) and Instituciones are visible.
-    (mockUser as any).role = 'ROOT';
+    setRole('ROOT');
     mockLevels = [10, 20, 30, 40];
     mockSendEmail = true;
     mockSendMessages = true;
@@ -318,14 +360,9 @@ describe('Sidebar filtering', () => {
   it('does NOT render legacy level groups as top-level sidebar groups', () => {
     renderSidebar();
 
-    // Old top-level groups (Inicial, Nivel Primario, Secundario, Terciario)
-    // should NOT exist as separate sidebar groups anymore.
-    // They are now sub-headings inside Académico.
-    // Verify the section labels exist inside the Academico group.
     const sectionLabels = document.querySelectorAll('.sidebar-section-label');
     expect(sectionLabels.length).toBe(4);
 
-    // Verify the labels have the right text
     const labelTexts = Array.from(sectionLabels).map((el) => el.textContent);
     expect(labelTexts).toContain('Inicial');
     expect(labelTexts).toContain('Nivel Primario');
@@ -334,12 +371,10 @@ describe('Sidebar filtering', () => {
   });
 
   it('hides groups that have no visible items', () => {
-    // With no levels, disabled feature flags, and a non-privileged role,
-    // every group should end up empty.
     mockLevels = [];
     mockSendEmail = false;
     mockSendMessages = false;
-    (mockUser as any).role = 'USER';
+    setRole('USER');
 
     renderSidebar();
 
@@ -352,14 +387,14 @@ describe('Sidebar filtering', () => {
 
   it('ROOT sees all items bypassing level filter even with partial levels', () => {
     mockLevels = [10]; // Only Inicial configured
-    (mockUser as any).role = 'ROOT';
+    setRole('ROOT');
     renderSidebar();
 
     // ROOT sees ALL level items regardless of config
-    expect(screen.getByText('Salas')).toBeInTheDocument();       // Inicial (levelId: 1)
-    expect(screen.getByText('Grados')).toBeInTheDocument();      // Primario (levelId: 2)
-    expect(screen.getByText('Cursos')).toBeInTheDocument();      // Secundario (levelId: 3)
-    expect(screen.getByText('Carreras')).toBeInTheDocument();    // Terciario (levelId: 4)
+    expect(screen.getByText('Salas')).toBeInTheDocument();
+    expect(screen.getByText('Grados')).toBeInTheDocument();
+    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Carreras')).toBeInTheDocument();
 
     // All 4 sub-headings visible
     expect(screen.getByText('Inicial')).toBeInTheDocument();
@@ -370,7 +405,7 @@ describe('Sidebar filtering', () => {
 
   it('renders sub-heading labels only for levels with visible items', () => {
     mockLevels = [10, 30]; // Inicial + Secundario
-    (mockUser as any).role = 'ADMIN';
+    setRole('ADMIN');
     renderSidebar();
 
     // Active sub-headings

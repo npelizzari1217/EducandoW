@@ -28,7 +28,6 @@ import { Curso } from '@educandow/domain';
 
 @Controller('v1/secundario/cursos')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles('ADMIN', 'MANAGER')
 export class CursoController {
   constructor(
     private readonly createUC: CreateCursoUseCase,
@@ -39,6 +38,7 @@ export class CursoController {
   ) {}
 
   @Post()
+  @Roles('ROOT', { module: 'COURSES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateCursoSchema)) body: CreateCursoDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -46,12 +46,14 @@ export class CursoController {
   }
 
   @Get()
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async list(@Query('academicYear') academicYear?: string) {
     const cursos = await this.listUC.execute(academicYear);
     return { data: cursos.map(toDto) };
   }
 
   @Get(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async get(@Param('id') id: string) {
     const result = await this.getUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();
@@ -59,6 +61,7 @@ export class CursoController {
   }
 
   @Patch(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateCursoSchema)) body: UpdateCursoDTO,
@@ -69,6 +72,7 @@ export class CursoController {
   }
 
   @Delete(':id')
+  @Roles('ROOT', { module: 'COURSES', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     const result = await this.deleteUC.execute(id);

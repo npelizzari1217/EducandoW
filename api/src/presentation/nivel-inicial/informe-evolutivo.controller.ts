@@ -25,7 +25,7 @@ export class InformeEvolutivoController {
   ) {}
 
   @Post()
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'REPORTS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateInformeSchema)) body: CreateInformeDTO) {
     const input = {
       studentId: body.studentId,
@@ -47,7 +47,7 @@ export class InformeEvolutivoController {
   }
 
   @Get()
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async list(
     @Query('salaId') salaId?: string,
     @Query('studentId') studentId?: string,
@@ -58,7 +58,7 @@ export class InformeEvolutivoController {
   }
 
   @Get(':id')
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async get(@Param('id') id: string) {
     const result = await this.getUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();
@@ -66,7 +66,7 @@ export class InformeEvolutivoController {
   }
 
   @Patch(':id')
-  @Roles('TEACHER', 'ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'REPORTS', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateInformeSchema)) body: UpdateInformeDTO,

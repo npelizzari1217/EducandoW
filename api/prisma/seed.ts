@@ -39,6 +39,8 @@ async function main() {
     { id: 'm-grades', code: 'GRADES', name: 'Calificaciones' },
     { id: 'm-attendance', code: 'ATTENDANCE', name: 'Asistencia' },
     { id: 'm-reports', code: 'REPORTS', name: 'Reportes' },
+    { id: 'm-study-plans', code: 'STUDY_PLANS', name: 'Planes de estudio' },
+    { id: 'm-classrooms', code: 'CLASSROOMS', name: 'Salas y aulas' },
   ];
 
   for (const m of modules) {
@@ -78,19 +80,19 @@ async function main() {
       actions: ALL_ACTIONS,
     },
     'r-admin': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms'],
       actions: ALL_ACTIONS,
     },
     'r-mgr': {
-      moduleIds: ['m-students', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance'],
+      moduleIds: ['m-students', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms'],
       actions: ALL_ACTIONS,
     },
     'r-director': {
-      moduleIds: ['m-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms'],
       actions: ALL_ACTIONS,
     },
     'r-secretario': {
-      moduleIds: ['m-students', 'm-reports', 'm-enrollments', 'm-attendance', 'm-grades'],
+      moduleIds: ['m-students', 'm-reports', 'm-enrollments', 'm-attendance', 'm-grades', 'm-classrooms'],
       actions: ALL_ACTIONS,
     },
     'r-preceptor': {
@@ -98,7 +100,7 @@ async function main() {
       actions: [],
     },
     'r-teach': {
-      moduleIds: ['m-students', 'm-grades', 'm-attendance'],
+      moduleIds: ['m-students', 'm-grades', 'm-attendance', 'm-classrooms'],
       actions: [],
     },
     'r-tutor': {
@@ -111,11 +113,12 @@ async function main() {
     },
   };
 
-  // TEACHER: students(READ), grades(CREATE,READ), attendance(CREATE,READ)
+  // TEACHER: students(READ), grades(CREATE,READ), attendance(CREATE,READ), classrooms(READ)
   const teacherActions: Record<string, string[]> = {
     'm-students': ['READ'],
     'm-grades': ['CREATE', 'READ'],
     'm-attendance': ['CREATE', 'READ'],
+    'm-classrooms': ['READ'],
   };
 
   // TUTOR: students(READ), grades(READ), attendance(READ)

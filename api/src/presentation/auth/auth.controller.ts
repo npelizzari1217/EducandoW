@@ -59,7 +59,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'USERS', action: 'CREATE' })
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async register(@Body(new ZodValidationPipe(RegisterSchema)) body: RegisterDTO) {
     const result = await this.registerUserUseCase.execute({

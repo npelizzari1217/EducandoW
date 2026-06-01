@@ -49,7 +49,7 @@ export class StudentController {
   }
 
   @Get('search')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async search(@Query('q') q: string, @Query('institutionId') institutionId: string) {
     if (!q) return { data: [] };
     const students = await this.studentRepo.search(institutionId, q);
@@ -59,7 +59,7 @@ export class StudentController {
   // ── CRUD routes ───────────────────────────────────────────
 
   @Post()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateStudentSchema)) body: CreateStudentDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -79,14 +79,14 @@ export class StudentController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async list(@Query('institutionId') institutionId: string) {
     const students = await this.listUC.execute(institutionId);
     return { data: students.map((s) => this.mapStudent(s)) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async get(@Param('id') id: string) {
     const s = await this.getUC.execute(id);
     if (!s) return { data: null };
@@ -94,7 +94,7 @@ export class StudentController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);
@@ -103,7 +103,7 @@ export class StudentController {
   // ── Guardian routes ───────────────────────────────────────
 
   @Post(':id/guardians')
-  @Roles('ROOT', 'ADMIN')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
   async assignGuardian(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AssignGuardianSchema)) body: AssignGuardianDTO,
@@ -113,7 +113,7 @@ export class StudentController {
   }
 
   @Delete(':id/guardians/:guardianId')
-  @Roles('ROOT', 'ADMIN')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeGuardian(
     @Param('id') _id: string,

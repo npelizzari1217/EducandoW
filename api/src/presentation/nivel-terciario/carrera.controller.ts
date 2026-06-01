@@ -23,7 +23,7 @@ export class CarreraController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'COURSES', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateCarreraSchema)) body: CreateCarreraDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -31,14 +31,14 @@ export class CarreraController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'ROOT', 'MANAGER')
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async list() {
     const carreras = await this.listUC.execute();
     return { data: carreras.map((c) => this.map(c)) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'ROOT', 'MANAGER')
+  @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async get(@Param('id') id: string) {
     const carrera = await this.getUC.execute(id);
     if (!carrera) return { data: null };
@@ -46,7 +46,7 @@ export class CarreraController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'COURSES', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateCarreraSchema)) body: UpdateCarreraDTO,
@@ -57,7 +57,7 @@ export class CarreraController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'MANAGER', 'ROOT')
+  @Roles('ROOT', { module: 'COURSES', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);

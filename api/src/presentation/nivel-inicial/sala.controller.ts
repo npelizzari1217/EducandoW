@@ -27,7 +27,7 @@ export class SalaController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateSalaSchema)) body: CreateSalaDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -36,7 +36,7 @@ export class SalaController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'READ' })
   async list(
     @Query('academicYear') academicYear?: string,
     @Query('ageGroup') ageGroup?: string,
@@ -53,7 +53,7 @@ export class SalaController {
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'READ' })
   async get(@Param('id') id: string) {
     const result = await this.getUC.execute(id);
     if (result.isErr()) throw result.unwrapErr();
@@ -61,7 +61,7 @@ export class SalaController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'UPDATE' })
   async update(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateSalaSchema)) body: UpdateSalaDTO,
@@ -76,7 +76,7 @@ export class SalaController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'CLASSROOMS', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     const result = await this.deleteUC.execute(id);

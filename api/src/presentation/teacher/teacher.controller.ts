@@ -24,7 +24,7 @@ export class TeacherController {
   ) {}
 
   @Post()
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'TEACHERS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateTeacherSchema)) body: CreateTeacherDTO) {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
@@ -33,14 +33,14 @@ export class TeacherController {
   }
 
   @Get()
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'TEACHERS', action: 'READ' })
   async list(@Query('institutionId') institutionId: string) {
     const teachers = await this.listUC.execute(institutionId);
     return { data: teachers.map((t: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; email: { get(): string }; fullName: string }) => ({ id: t.id.get(), firstName: t.firstName, lastName: t.lastName, dni: t.dni.get(), email: t.email.get(), fullName: t.fullName })) };
   }
 
   @Get(':id')
-  @Roles('ADMIN', 'MANAGER', 'TEACHER')
+  @Roles('ROOT', { module: 'TEACHERS', action: 'READ' })
   async get(@Param('id') id: string) {
     const t = await this.getUC.execute(id);
     if (!t) return { data: null };
@@ -48,7 +48,7 @@ export class TeacherController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ROOT', { module: 'TEACHERS', action: 'UPDATE' })
   async patch(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateTeacherSchema)) body: UpdateTeacherDTO,
@@ -58,7 +58,7 @@ export class TeacherController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN')
+  @Roles('ROOT', { module: 'TEACHERS', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);
