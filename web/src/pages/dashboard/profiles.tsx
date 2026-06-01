@@ -65,9 +65,8 @@ export function moduleAccessToBooleans(items: ModuleAccessItem[], modules: Modul
     codeToId[m.code] = m.id;
   }
   return items
-    .filter((item) => codeToId[item.moduleCode])
     .map((item) => ({
-      moduleId: codeToId[item.moduleCode],
+      moduleId: codeToId[item.moduleCode] || '',
       canRead: item.actions.includes('READ'),
       canCreate: item.actions.includes('CREATE'),
       canEdit: item.actions.includes('UPDATE'),
