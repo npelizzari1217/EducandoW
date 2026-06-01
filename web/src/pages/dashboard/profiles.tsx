@@ -64,14 +64,16 @@ export function moduleAccessToBooleans(items: ModuleAccessItem[], modules: Modul
   for (const m of modules) {
     codeToId[m.code] = m.id;
   }
-  return items.map((item) => ({
-    moduleId: codeToId[item.moduleCode] || '',
-    canRead: item.actions.includes('READ'),
-    canCreate: item.actions.includes('CREATE'),
-    canEdit: item.actions.includes('UPDATE'),
-    canDelete: item.actions.includes('DELETE'),
-    canPrint: item.actions.includes('PRINT'),
-  }));
+  return items
+    .filter((item) => codeToId[item.moduleCode])
+    .map((item) => ({
+      moduleId: codeToId[item.moduleCode],
+      canRead: item.actions.includes('READ'),
+      canCreate: item.actions.includes('CREATE'),
+      canEdit: item.actions.includes('UPDATE'),
+      canDelete: item.actions.includes('DELETE'),
+      canPrint: item.actions.includes('PRINT'),
+    }));
 }
 
 // ── Componente ────────────────────────────────────────────
@@ -154,6 +156,11 @@ export default function ProfilesPage() {
   const handleSave = useCallback(async () => {
     if (!formName.trim()) {
       setSaveError('El nombre es obligatorio');
+      return;
+    }
+
+    if (allModules.length === 0) {
+      setSaveError('Cargando módulos del sistema...');
       return;
     }
 
