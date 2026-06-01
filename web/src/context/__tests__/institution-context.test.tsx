@@ -34,6 +34,9 @@ const mockInstitutionData = {
   header_color: '#1a56db',
   header_text_color: '#ffffff',
   body_text_color: '#333333',
+  body_color: '#f5f5f5',
+  footer_color: '#1e293b',
+  footer_text_color: '#cbd5e1',
   smtp_host: 'smtp.gmail.com',
   smtp_user: 'notifications@school.edu',
   smtp_encryption: 'TLS',
@@ -222,6 +225,9 @@ describe('InstitutionContext', () => {
     expect(c.header_color).toBe('#1a56db');
     expect(c.header_text_color).toBe('#ffffff');
     expect(c.body_text_color).toBe('#333333');
+    expect(c.body_color).toBe('#f5f5f5');
+    expect(c.footer_color).toBe('#1e293b');
+    expect(c.footer_text_color).toBe('#cbd5e1');
     expect(c.smtp_host).toBe('smtp.gmail.com');
     expect(c.smtp_user).toBe('notifications@school.edu');
     expect(c.smtp_encryption).toBe('TLS');
@@ -235,5 +241,79 @@ describe('InstitutionContext', () => {
     expect(c.levels).toEqual(['INICIAL', 'PRIMARIO']);
     expect(c.created_at).toBeTruthy();
     expect(c.updated_at).toBeTruthy();
+  });
+
+  it('applies institution branding colors as CSS custom properties on :root', async () => {
+    localStorage.setItem('accessToken', 'fake-token');
+    const brandedData = {
+      ...mockInstitutionData,
+      header_color: '#ff0000',
+      header_text_color: '#ffffff',
+      body_text_color: '#0000ff',
+      body_color: '#f0f0f0',
+      footer_color: '#333333',
+      footer_text_color: '#cccccc',
+    };
+    (apiClient.get as any).mockResolvedValue({ data: { data: brandedData } });
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--header-color')).toBe('#ff0000');
+    expect(root.style.getPropertyValue('--header-text-color')).toBe('#ffffff');
+    expect(root.style.getPropertyValue('--body-text-color')).toBe('#0000ff');
+    expect(root.style.getPropertyValue('--body-bg-color')).toBe('#f0f0f0');
+    expect(root.style.getPropertyValue('--footer-color')).toBe('#333333');
+    expect(root.style.getPropertyValue('--footer-text-color')).toBe('#cccccc');
+  });
+
+  it('removes CSS custom properties when no branding colors present', async () => {
+    localStorage.setItem('accessToken', 'fake-token');
+    // No branding colors
+    const noBrandData = {
+      ...mockInstitutionData,
+      header_color: null,
+      header_text_color: null,
+      body_text_color: null,
+      body_color: null,
+      footer_color: null,
+      footer_text_color: null,
+    };
+    (apiClient.get as any).mockResolvedValue({ data: { data: noBrandData } });
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const root = document.documentElement;
+    expect(root.style.getPropertyValue('--header-color')).toBe('');
+  });
+
+  it('removes CSS custom properties when institution is cleared on logout', async () => {
+    localStorage.setItem('accessToken', 'fake-token');
+    const brandedData = { ...mockInstitutionData, header_color: '#ff0000', body_color: '#f0f0f0' };
+    (apiClient.get as any).mockResolvedValue({ data: { data: brandedData } });
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(document.documentElement.style.getPropertyValue('--header-color')).toBe('#ff0000');
+
+    // Simulate logout
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('auth:logout'));
+    });
+
+    expect(document.documentElement.style.getPropertyValue('--header-color')).toBe('');
+    expect(document.documentElement.style.getPropertyValue('--body-bg-color')).toBe('');
   });
 });

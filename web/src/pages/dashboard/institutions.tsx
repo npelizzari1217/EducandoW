@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { useAuth } from '../../context/auth-context';
-import { useApiList, useApiDelete, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
+import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import apiClient from '../../api/client';
 import { Card } from '../../components/ui/card';
@@ -41,6 +41,9 @@ interface InstitutionForm {
   header_color: string;
   header_text_color: string;
   body_text_color: string;
+  body_color: string;
+  footer_color: string;
+  footer_text_color: string;
   smtp_host: string;
   smtp_user: string;
   smtp_pass: string;
@@ -50,6 +53,7 @@ interface InstitutionForm {
   send_messages: boolean;
   socket_host: string;
   socket_port: string;
+  active: boolean;
   // Track selected level options by their index in PEDAGOGICAL_LEVELS
   selectedLevels: Set<number>; // indexes into PEDAGOGICAL_LEVELS
 }
@@ -103,6 +107,9 @@ const EMPTY_FORM: InstitutionForm = {
   header_color: '',
   header_text_color: '',
   body_text_color: '',
+  body_color: '',
+  footer_color: '',
+  footer_text_color: '',
   smtp_host: '',
   smtp_user: '',
   smtp_pass: '',
@@ -112,6 +119,7 @@ const EMPTY_FORM: InstitutionForm = {
   send_messages: false,
   socket_host: '',
   socket_port: '',
+  active: true,
   selectedLevels: new Set<number>([0]), // Default: INICIAL (index 0)
 };
 
@@ -141,7 +149,6 @@ export default function InstitutionsPage() {
   const { user } = useAuth();
   const { data, loading, reload } = useApiList<InstitutionRow>('/institutions');
   const { deleting, del } = useApiDelete('/institutions');
-  const { creating, createError, create, setCreateError } = useApiCreate('/institutions');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<InstitutionForm>(EMPTY_FORM);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -154,6 +161,11 @@ export default function InstitutionsPage() {
   const [logoError, setLogoError] = useState('');
   const [imgFailed, setImgFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Local create states (replacing useApiCreate to capture response data)
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [adminCredentials, setAdminCredentials] = useState<{ email: string; password: string } | null>(null);
 
   const isRoot = user?.roles?.includes('ROOT') ?? false;
   const userModules = user?.modules ?? [];
@@ -215,6 +227,9 @@ export default function InstitutionsPage() {
     if (form.header_color && !HEX_REGEX.test(form.header_color)) errs.header_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.header_text_color && !HEX_REGEX.test(form.header_text_color)) errs.header_text_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.body_text_color && !HEX_REGEX.test(form.body_text_color)) errs.body_text_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.body_color && !HEX_REGEX.test(form.body_color)) errs.body_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.footer_color && !HEX_REGEX.test(form.footer_color)) errs.footer_color = 'Debe ser un hex válido (#RRGGBB)';
+    if (form.footer_text_color && !HEX_REGEX.test(form.footer_text_color)) errs.footer_text_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.smtp_port && (isNaN(Number(form.smtp_port)) || Number(form.smtp_port) < 1 || Number(form.smtp_port) > 65535)) errs.smtp_port = 'Debe ser entre 1 y 65535';
     if (form.socket_port && (isNaN(Number(form.socket_port)) || Number(form.socket_port) < 1 || Number(form.socket_port) > 65535)) errs.socket_port = 'Debe ser entre 1 y 65535';
     setFieldErrors(errs);
@@ -252,11 +267,13 @@ export default function InstitutionsPage() {
       country: form.country || 'AR',
       send_email: form.send_email,
       send_messages: form.send_messages,
+      active: form.active,
     };
     const optionalStrings: (keyof InstitutionForm)[] = [
       'cue', 'ministry_reg', 'address', 'city', 'postal_code',
       'phone', 'website', 'contact_email', 'logo_url',
       'header_color', 'header_text_color', 'body_text_color',
+      'body_color', 'footer_color', 'footer_text_color',
       'smtp_host', 'smtp_user', 'smtp_pass', 'smtp_encryption',
       'socket_host',
     ];
@@ -271,8 +288,26 @@ export default function InstitutionsPage() {
 
   const handleCreate = async () => {
     if (!validateForm()) return;
-    const ok = await create(buildPayload());
-    if (ok) { setShowForm(false); setForm(EMPTY_FORM); setFieldErrors({}); reload(); }
+    setCreating(true); setCreateError(''); setAdminCredentials(null);
+    try {
+      const { data: res } = await apiClient.post('/institutions', buildPayload());
+      if (res.data?.admin) {
+        setAdminCredentials({
+          email: res.data.admin.email,
+          password: res.data.admin.password,
+        });
+        // Form stays open to show credentials — user dismisses manually
+      } else {
+        setShowForm(false);
+        setForm(EMPTY_FORM);
+        setFieldErrors({});
+        reload();
+      }
+    } catch (e: unknown) {
+      setCreateError(extractErrorMessage(e) || 'Error al crear institución');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleEdit = async (row: InstitutionRow) => {
@@ -308,6 +343,9 @@ export default function InstitutionsPage() {
           header_color: inst.header_color ?? '',
           header_text_color: inst.header_text_color ?? '',
           body_text_color: inst.body_text_color ?? '',
+          body_color: inst.body_color ?? '',
+          footer_color: inst.footer_color ?? '',
+          footer_text_color: inst.footer_text_color ?? '',
           smtp_host: inst.smtp_host ?? '',
           smtp_user: inst.smtp_user ?? '',
           smtp_pass: '',
@@ -317,10 +355,11 @@ export default function InstitutionsPage() {
           send_messages: inst.send_messages ?? false,
           socket_host: inst.socket_host ?? '',
           socket_port: inst.socket_port != null ? String(inst.socket_port) : '',
+          active: inst.active ?? true,
           selectedLevels: selectedIndices,
         });
         setShowForm(true);
-        setSections({ identificacion: true, contacto: true, branding: true, smtp: true, notificaciones: true });
+        setSections({ identificacion: true, contacto: true, branding: isRoot, smtp: isRoot, notificaciones: true });
       }
     } catch (e: unknown) {
       setSaveError(extractErrorMessage(e) || 'Error al cargar datos de la institución');
@@ -384,6 +423,7 @@ export default function InstitutionsPage() {
     setSaveError('');
     setCreateError('');
     setFieldErrors({});
+    setAdminCredentials(null);
   };
 
   return (
@@ -399,7 +439,7 @@ export default function InstitutionsPage() {
             variant={showForm ? 'danger-soft' : 'success-soft'}
             onClick={() => {
               if (showForm) { clearForm(); }
-              else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); }
+              else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setCreateError(''); setFieldErrors({}); setAdminCredentials(null); }
             }}
           >
             {showForm ? 'Cancelar' : 'Nueva institución'}
@@ -421,6 +461,84 @@ export default function InstitutionsPage() {
               {errorMessage}
             </div>
           )}
+
+          {/* ── Admin credentials (one-time display after creation) ── */}
+          {adminCredentials && (
+            <div style={{
+              background: '#dcfce7',
+              border: '1px solid #22c55e',
+              borderRadius: 'var(--radius-md)',
+              padding: 'var(--space-md)',
+              marginBottom: 'var(--space-md)',
+            }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--text-base)', marginBottom: '0.5rem', color: '#16a34a' }}>
+                Institución creada exitosamente
+              </div>
+              <p style={{ margin: '0 0 0.75rem 0', fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                Estas credenciales se muestran <strong>una sola vez</strong>. Copialas ahora.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 600, minWidth: 80, fontSize: 'var(--text-sm)' }}>Admin email:</span>
+                  <code style={{
+                    background: '#f8fafc',
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-sm)',
+                    fontFamily: 'monospace',
+                    flex: 1,
+                  }}>{adminCredentials.email}</code>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(adminCredentials.email).catch(() => {});
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontWeight: 600, minWidth: 80, fontSize: 'var(--text-sm)' }}>Password:</span>
+                  <code style={{
+                    background: '#f8fafc',
+                    padding: '0.35rem 0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-sm)',
+                    fontFamily: 'monospace',
+                    flex: 1,
+                  }}>{adminCredentials.password}</code>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(adminCredentials.password).catch(() => {});
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                </div>
+              </div>
+              <div style={{ marginTop: 'var(--space-md)', display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="success-soft"
+                  onClick={() => {
+                    setShowForm(false);
+                    setForm(EMPTY_FORM);
+                    setFieldErrors({});
+                    setAdminCredentials(null);
+                    reload();
+                  }}
+                >
+                  Entendido, cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Form sections (hidden when showing admin credentials) ── */}
+          {!adminCredentials && (
+          <>
 
           {/* ── Identificación ── */}
           <SectionHeader title="Identificación" expanded={sections.identificacion} onToggle={() => toggleSection('identificacion')} />
@@ -450,7 +568,9 @@ export default function InstitutionsPage() {
             </div>
           )}
 
-          {/* ── Branding ── */}
+          {/* ── Branding (ROOT only) ── */}
+          {isRoot && (
+          <>
           <SectionHeader title="Branding" expanded={sections.branding} onToggle={() => toggleSection('branding')} />
           {sections.branding && (
             <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
@@ -557,10 +677,40 @@ export default function InstitutionsPage() {
                   {fieldErrors.body_text_color && <span className="field-error">{fieldErrors.body_text_color}</span>}
                 </div>
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-md)' }}>
+                <div className="field">
+                  <label className="field-label">Color Fondo</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="color" value={form.body_color || '#f5f5f5'} onChange={(e) => update('body_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
+                    <input className="input" value={form.body_color} onChange={(e) => update('body_color', e.target.value)} placeholder="#f5f5f5" style={{ flex: 1 }} />
+                  </div>
+                  {fieldErrors.body_color && <span className="field-error">{fieldErrors.body_color}</span>}
+                </div>
+                <div className="field">
+                  <label className="field-label">Color Footer</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="color" value={form.footer_color || '#1e293b'} onChange={(e) => update('footer_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
+                    <input className="input" value={form.footer_color} onChange={(e) => update('footer_color', e.target.value)} placeholder="#1e293b" style={{ flex: 1 }} />
+                  </div>
+                  {fieldErrors.footer_color && <span className="field-error">{fieldErrors.footer_color}</span>}
+                </div>
+                <div className="field">
+                  <label className="field-label">Color Texto Footer</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="color" value={form.footer_text_color || '#cbd5e1'} onChange={(e) => update('footer_text_color', e.target.value)} style={{ width: 40, height: 36, border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} />
+                    <input className="input" value={form.footer_text_color} onChange={(e) => update('footer_text_color', e.target.value)} placeholder="#cbd5e1" style={{ flex: 1 }} />
+                  </div>
+                  {fieldErrors.footer_text_color && <span className="field-error">{fieldErrors.footer_text_color}</span>}
+                </div>
+              </div>
             </div>
           )}
+          </>
+          )}
 
-          {/* ── SMTP ── */}
+          {/* ── SMTP (ROOT only) ── */}
+          {isRoot && (
+          <>
           <SectionHeader title="SMTP" expanded={sections.smtp} onToggle={() => toggleSection('smtp')} />
           {sections.smtp && (
             <div className="flex flex-col gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
@@ -587,6 +737,21 @@ export default function InstitutionsPage() {
                   </label>
                 </div>
               </div>
+            </div>
+          )}
+          </>
+          )}
+
+          {/* ── Estado (ROOT only) ── */}
+          {isRoot && (
+            <div style={{ marginBottom: 'var(--space-lg)' }}>
+              <div style={{ borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-md)', padding: '0.5rem 0', fontWeight: 600, fontSize: 'var(--text-base)' }}>
+                Estado
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
+                <input type="checkbox" checked={form.active} onChange={(e) => update('active', e.target.checked)} />
+                <span style={{ fontSize: 'var(--text-sm)' }}>{form.active ? 'Institución activa' : 'Institución inactiva'}</span>
+              </label>
             </div>
           )}
 
@@ -630,6 +795,8 @@ export default function InstitutionsPage() {
               <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear institución</Button>
             )}
           </div>
+          </>
+          )}
         </Card>
       )}
 

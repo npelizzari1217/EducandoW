@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './sidebar';
 import { ThemeToggle } from '../ui/theme-toggle';
+import { useInstitution } from '../../context/institution-context';
 import './sidebar.css';
 
 function isDesktop() {
@@ -14,6 +15,22 @@ function isDesktop() {
 
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
+  const { config } = useInstitution();
+
+  // Sync institution theme attribute on :root for opt-in theming
+  useEffect(() => {
+    const root = document.documentElement;
+    const hasBranding = !!(
+      config.header_color ||
+      config.body_color ||
+      config.footer_color
+    );
+    if (hasBranding) {
+      root.setAttribute('data-theme-institution', '');
+    } else {
+      root.removeAttribute('data-theme-institution');
+    }
+  }, [config.header_color, config.body_color, config.footer_color]);
 
   // Auto-responsive: close sidebar when shrinking below desktop, open when expanding
   useEffect(() => {

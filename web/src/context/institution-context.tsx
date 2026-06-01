@@ -118,6 +118,33 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
     fetchConfig();
   }, [fetchConfig]);
 
+  // Apply institution branding colors as CSS custom properties on :root
+  useEffect(() => {
+    const root = document.documentElement;
+
+    const applyColor = (varName: string, color: string | null) => {
+      if (color) {
+        root.style.setProperty(varName, color);
+      } else {
+        root.style.removeProperty(varName);
+      }
+    };
+
+    applyColor('--header-color', config.header_color);
+    applyColor('--header-text-color', config.header_text_color);
+    applyColor('--body-text-color', config.body_text_color);
+    applyColor('--body-bg-color', config.body_color);
+    applyColor('--footer-color', config.footer_color);
+    applyColor('--footer-text-color', config.footer_text_color);
+  }, [
+    config.header_color,
+    config.header_text_color,
+    config.body_text_color,
+    config.body_color,
+    config.footer_color,
+    config.footer_text_color,
+  ]);
+
   // Listen for auth login/logout events
   useEffect(() => {
     const handleLogin = () => { fetchConfig(); };

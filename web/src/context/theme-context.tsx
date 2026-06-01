@@ -53,3 +53,26 @@ export function useTheme() {
   if (!ctx) throw new Error('useTheme must be used within ThemeProvider');
   return ctx;
 }
+
+/**
+ * Read institution branding colors from CSS custom properties set on :root.
+ * Returns null for each color if the variable is not set.
+ * This is intended for programmatic access — components should prefer
+ * `var(--header-color)` via CSS for automatic reactivity.
+ */
+export function getInstitutionColors() {
+  if (typeof document === 'undefined') return {};
+  const root = document.documentElement;
+  const get = (name: string): string | null => {
+    const val = root.style.getPropertyValue(name);
+    return val || null;
+  };
+  return {
+    headerColor: get('--header-color'),
+    headerTextColor: get('--header-text-color'),
+    bodyTextColor: get('--body-text-color'),
+    bodyBgColor: get('--body-bg-color'),
+    footerColor: get('--footer-color'),
+    footerTextColor: get('--footer-text-color'),
+  };
+}
