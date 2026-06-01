@@ -44,6 +44,39 @@ export function profileToModuleAccess(
     }));
 }
 
+// ── Shared helper: normalize profile permissions to N entries ──
+
+export interface NormalizedPermission {
+  moduleId: string;
+  moduleCode: string;
+  moduleName: string;
+  canRead: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canPrint: boolean;
+}
+
+function normalizePermissions(
+  allModules: { id: string; code: string; name: string }[],
+  existingPermissions: { moduleId: string; canRead: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean; canPrint: boolean }[],
+): NormalizedPermission[] {
+  const permMap = new Map(existingPermissions.map((p) => [p.moduleId, p]));
+  return allModules.map((mod) => {
+    const perm = permMap.get(mod.id);
+    return {
+      moduleId: mod.id,
+      moduleCode: mod.code,
+      moduleName: mod.name,
+      canRead: perm?.canRead ?? false,
+      canCreate: perm?.canCreate ?? false,
+      canEdit: perm?.canEdit ?? false,
+      canDelete: perm?.canDelete ?? false,
+      canPrint: perm?.canPrint ?? false,
+    };
+  });
+}
+
 // ── List ─────────────────────────────────────────────────
 
 @Injectable()
@@ -52,11 +85,15 @@ export class ListProfilesUseCase {
 
   async execute() {
     const client = this.prisma.getMasterClient();
-    const records = await client.profile.findMany({
+    const raw = await client.profile.findMany({
       where: { active: true },
       include: { _count: { select: { permissions: true } } },
       orderBy: { name: 'asc' },
     });
+    const records = raw.map(({ _count, ...rest }) => ({
+      ...rest,
+      assignedModuleCount: _count.permissions,
+    }));
     return { data: records };
   }
 }
@@ -69,16 +106,30 @@ export class GetProfileUseCase {
 
   async execute(id: string) {
     const client = this.prisma.getMasterClient();
-    const record = await client.profile.findUnique({
-      where: { id },
-      include: {
-        permissions: {
-          include: { module: { select: { id: true, code: true, name: true } } },
+
+    const [record, allModules] = await Promise.all([
+      client.profile.findUnique({
+        where: { id },
+        include: {
+          permissions: true,
         },
+      }),
+      client.module.findMany({
+        where: { active: true, deletedAt: null },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    if (!record || !record.active) return { data: null };
+
+    const normalized = normalizePermissions(allModules, record.permissions);
+
+    return {
+      data: {
+        ...record,
+        permissions: normalized,
       },
-    });
-    if (!record) return { data: null };
-    return { data: record };
+    };
   }
 }
 
@@ -105,6 +156,8 @@ export class UpdateProfileUseCase {
 
   async execute(id: string, name: string) {
     const client = this.prisma.getMasterClient();
+    const existing = await client.profile.findUnique({ where: { id } });
+    if (!existing) return { data: null };
     const record = await client.profile.update({
       where: { id },
       data: { name },
@@ -141,36 +194,17 @@ export class GetProfilePermissionsUseCase {
   async execute(profileId: string) {
     const client = this.prisma.getMasterClient();
 
-    // Fetch ALL active modules
-    const allModules = await client.module.findMany({
-      where: { active: true, deletedAt: null },
-      orderBy: { name: 'asc' },
-    });
+    const [allModules, existingPermissions] = await Promise.all([
+      client.module.findMany({
+        where: { active: true, deletedAt: null },
+        orderBy: { name: 'asc' },
+      }),
+      client.profileModulePermission.findMany({
+        where: { profileId },
+      }),
+    ]);
 
-    // Fetch existing permissions for this profile
-    const existingPermissions = await client.profileModulePermission.findMany({
-      where: { profileId },
-    });
-
-    // Build map of moduleId → permission
-    const permMap = new Map(existingPermissions.map((p) => [p.moduleId, p]));
-
-    // Build result: for every module, return booleans (default false)
-    const permissions = allModules.map((mod) => {
-      const perm = permMap.get(mod.id);
-      return {
-        moduleId: mod.id,
-        moduleCode: mod.code,
-        moduleName: mod.name,
-        canRead: perm?.canRead ?? false,
-        canCreate: perm?.canCreate ?? false,
-        canEdit: perm?.canEdit ?? false,
-        canDelete: perm?.canDelete ?? false,
-        canPrint: perm?.canPrint ?? false,
-      };
-    });
-
-    return { data: permissions };
+    return { data: normalizePermissions(allModules, existingPermissions) };
   }
 }
 

@@ -76,9 +76,9 @@ async function main() {
 
   // ── Seed profiles ───────────────────────────────────────
   const profiles = [
-    { id: 'p-admin', name: 'Administrador' },
-    { id: 'p-teacher', name: 'Docente' },
-    { id: 'p-preceptor', name: 'Preceptor' },
+    { id: 'p-admin', name: 'Admin Completo' },
+    { id: 'p-teacher', name: 'Docente Básico' },
+
   ];
 
   for (const p of profiles) {
@@ -93,7 +93,7 @@ async function main() {
   // ── Seed profile permissions ────────────────────────────
   const profilePermissions: { id: string; profileId: string; moduleId: string; canRead: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean; canPrint: boolean }[] = [];
 
-  // Administrador: all modules, all booleans true
+  // Admin Completo: all modules, all booleans true
   for (const mid of ALL_MODULE_IDS) {
     profilePermissions.push({
       id: `pp-admin-${mid}`,
@@ -107,42 +107,17 @@ async function main() {
     });
   }
 
-  // Docente: STUDENTS(READ), TEACHERS(READ), GRADES(READ,CREATE,UPDATE), ATTENDANCE(READ,CREATE,UPDATE), REPORTS(READ), COURSES(READ), SUBJECTS(READ), CLASSROOMS(READ)
+  // Docente Básico: STUDENTS(READ), GRADES(READ,CREATE,UPDATE), ATTENDANCE(READ,CREATE,UPDATE)
   const teacherProfilePerms: Record<string, Partial<typeof profilePermissions[0]>> = {
     'm-students': { canRead: true },
-    'm-teachers': { canRead: true },
     'm-grades': { canRead: true, canCreate: true, canEdit: true },
     'm-attendance': { canRead: true, canCreate: true, canEdit: true },
-    'm-reports': { canRead: true },
-    'm-courses': { canRead: true },
-    'm-subjects': { canRead: true },
-    'm-classrooms': { canRead: true },
   };
 
   for (const [mid, perms] of Object.entries(teacherProfilePerms)) {
     profilePermissions.push({
       id: `pp-teacher-${mid}`,
       profileId: 'p-teacher',
-      moduleId: mid,
-      canRead: perms.canRead ?? false,
-      canCreate: perms.canCreate ?? false,
-      canEdit: perms.canEdit ?? false,
-      canDelete: perms.canDelete ?? false,
-      canPrint: perms.canPrint ?? false,
-    });
-  }
-
-  // Preceptor: STUDENTS(READ), ATTENDANCE(READ,CREATE,UPDATE), COURSES(READ)
-  const preceptorProfilePerms: Record<string, Partial<typeof profilePermissions[0]>> = {
-    'm-students': { canRead: true },
-    'm-attendance': { canRead: true, canCreate: true, canEdit: true },
-    'm-courses': { canRead: true },
-  };
-
-  for (const [mid, perms] of Object.entries(preceptorProfilePerms)) {
-    profilePermissions.push({
-      id: `pp-preceptor-${mid}`,
-      profileId: 'p-preceptor',
       moduleId: mid,
       canRead: perms.canRead ?? false,
       canCreate: perms.canCreate ?? false,

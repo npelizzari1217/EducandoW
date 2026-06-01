@@ -206,7 +206,7 @@ export default function ProfilesPage() {
 
   const columns = useMemo(() => [
     { key: 'name', header: 'Nombre' },
-    { key: 'moduleCount', header: 'Módulos', render: (p: any) => p._count?.permissions ?? 0 },
+    { key: 'moduleCount', header: 'Módulos', render: (p: any) => p.assignedModuleCount ?? 0 },
     {
       key: 'actions',
       header: '',

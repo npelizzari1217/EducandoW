@@ -75,6 +75,7 @@ export class UsersController {
       moduleAccess: body.moduleAccess,
       creatorModules: this.getCreatorModules(req),
       levels: body.levels,
+      profileId: body.profileId,
     });
   }
 
