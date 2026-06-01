@@ -9,6 +9,13 @@ export class Cue {
     if (!trimmed || trimmed.length === 0) {
       return err(new ValidationError('CUE cannot be empty'));
     }
+    if (trimmed.length > 20) {
+      return err(
+        new ValidationError(
+          `CUE must not exceed 20 characters (got ${trimmed.length})`,
+        ),
+      );
+    }
     if (!/^[A-Z0-9]+$/.test(trimmed)) {
       return err(
         new ValidationError(

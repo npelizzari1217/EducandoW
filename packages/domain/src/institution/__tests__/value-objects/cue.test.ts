@@ -58,4 +58,33 @@ describe('Cue', () => {
     const cue = Cue.reconstruct('ABC123');
     expect(cue.toString()).toBe('ABC123');
   });
+
+  // ── Max 20 char validation ──────────────────────────────────────────
+
+  it('create() returns Ok for exactly 20 characters', () => {
+    const cue20 = '1234567890ABCDEFGHIJ'; // 20 chars
+    const result = Cue.create(cue20);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().get()).toBe(cue20);
+  });
+
+  it('create() returns Ok for shorter CUE (under 20 chars)', () => {
+    const result = Cue.create('ABC123');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().get()).toBe('ABC123');
+  });
+
+  it('create() returns Err for CUE longer than 20 characters', () => {
+    const tooLong = '1234567890ABCDEFGHIJK'; // 21 chars
+    const result = Cue.create(tooLong);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toContain('20');
+  });
+
+  it('create() returns Err for CUE significantly over 20 chars', () => {
+    const wayTooLong = 'A'.repeat(50);
+    const result = Cue.create(wayTooLong);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toContain('20');
+  });
 });

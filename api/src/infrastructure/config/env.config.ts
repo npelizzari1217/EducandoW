@@ -13,11 +13,10 @@ export interface EnvConfig {
 
 export function loadEnvConfig(): EnvConfig {
   const encryptionKey = process.env.ENCRYPTION_KEY ?? '';
-  const nodeEnv = process.env.NODE_ENV ?? 'development';
 
-  // In production, validate encryption key length (32 bytes for AES-256)
-  if (nodeEnv === 'production' && encryptionKey && Buffer.byteLength(encryptionKey, 'utf8') !== 32) {
-    throw new Error('ENCRYPTION_KEY must be exactly 32 bytes in production');
+  // ENCRYPTION_KEY is required in ALL environments (32 bytes for AES-256)
+  if (!encryptionKey || Buffer.byteLength(encryptionKey, 'utf8') !== 32) {
+    throw new Error('ENCRYPTION_KEY must be exactly 32 bytes');
   }
 
   return {
