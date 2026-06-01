@@ -3,6 +3,7 @@ import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma
 import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, ValidationError } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
+import { profileToModuleAccess } from '../../profiles/use-cases/profiles.use-cases';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export class CreateUserUseCase {
     moduleAccess?: ModuleAccessItem[];
     creatorModules?: ModuleAccessItem[];
     levels?: { level: number; modality: number }[];
+    profileId?: string;
   }) {
     const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
@@ -201,6 +203,11 @@ export class CreateUserUseCase {
       institutionId,
     };
 
+    // Include profileId if provided
+    if (input.profileId) {
+      createData.profileId = input.profileId;
+    }
+
     // Nested userLevels create — mirrors institution repository pattern
     if (input.levels !== undefined) {
       createData.userLevels = {
@@ -232,8 +239,44 @@ export class CreateUserUseCase {
       }
     }
 
-    // Asignar módulos directos (user_modules)
+    // Asignar módulos desde perfil (profileId)
+    if (input.profileId) {
+      const profilePerms = await client.profileModulePermission.findMany({
+        where: { profileId: input.profileId },
+        include: { module: { select: { code: true } } },
+      });
+
+      if (profilePerms.length > 0) {
+        const profileAccess = profileToModuleAccess(profilePerms as any);
+        const filtered = isRoot
+          ? profileAccess
+          : filterModuleAccess(profileAccess, input.creatorModules ?? []);
+
+        if (filtered.length > 0) {
+          const modules = await client.module.findMany({
+            where: { code: { in: filtered.map((f) => f.moduleCode) }, active: true, deletedAt: null },
+          });
+
+          await client.userModule.createMany({
+            data: filtered.map((f) => {
+              const mod = modules.find((m) => m.code === f.moduleCode);
+              return {
+                userId: user.id,
+                moduleId: mod!.id,
+                actions: f.actions,
+              };
+            }),
+          });
+        }
+      }
+    }
+
+    // Asignar módulos directos (user_modules) — manual override
     if (input.moduleAccess !== undefined) {
+      // If profile modules were created, delete them first (manual overrides)
+      if (input.profileId) {
+        await client.userModule.deleteMany({ where: { userId: user.id } });
+      }
       const filtered = isRoot
         ? input.moduleAccess
         : filterModuleAccess(input.moduleAccess, input.creatorModules ?? []);
@@ -288,6 +331,7 @@ export class UpdateUserUseCase {
       active?: boolean;
       moduleAccess?: ModuleAccessItem[];
       levels?: { level: number; modality: number }[];
+      profileId?: string | null;
     },
     creatorRoles: string[],
     creatorInstitutionId?: string,
@@ -352,6 +396,7 @@ export class UpdateUserUseCase {
     }
     if (institutionId !== undefined) data.institutionId = institutionId;
     if (input.active !== undefined) data.active = input.active;
+    if (input.profileId !== undefined) data.profileId = input.profileId;
 
     // Handle levels: present → replace, absent → don't touch, empty → clear
     if (input.levels !== undefined) {
@@ -412,8 +457,46 @@ export class UpdateUserUseCase {
       }
     }
 
+    // Sincronizar módulos desde perfil (profileId)
+    if (input.profileId !== undefined) {
+      // Clear existing user modules when profile changes
+      await client.userModule.deleteMany({ where: { userId: id } });
+
+      if (input.profileId) {
+        const profilePerms = await client.profileModulePermission.findMany({
+          where: { profileId: input.profileId },
+          include: { module: { select: { code: true } } },
+        });
+
+        if (profilePerms.length > 0) {
+          const profileAccess = profileToModuleAccess(profilePerms as any);
+          const filtered = isRoot
+            ? profileAccess
+            : filterModuleAccess(profileAccess, creatorModules);
+
+          if (filtered.length > 0) {
+            const modules = await client.module.findMany({
+              where: { code: { in: filtered.map((f) => f.moduleCode) }, active: true, deletedAt: null },
+            });
+
+            await client.userModule.createMany({
+              data: filtered.map((f) => {
+                const mod = modules.find((m) => m.code === f.moduleCode);
+                return {
+                  userId: id,
+                  moduleId: mod!.id,
+                  actions: f.actions,
+                };
+              }),
+            });
+          }
+        }
+      }
+    }
+
     // Sincronizar módulos directos (user_modules)
     if (input.moduleAccess !== undefined) {
+      // If profile modules were created, delete them first (manual overrides)
       await client.userModule.deleteMany({ where: { userId: id } });
 
       const filtered = isRoot

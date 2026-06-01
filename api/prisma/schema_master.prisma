@@ -70,12 +70,44 @@ model InstitutionLevel {
 
 // ── Auth ───────────────────────────────────────────────────
 
+model Profile {
+  id        String   @id @default(uuid())
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions ProfileModulePermission[]
+  users       User[]
+
+  @@map("profiles")
+}
+
+model ProfileModulePermission {
+  id        String  @id @default(uuid())
+  profileId String
+  moduleId  String
+  canRead   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  canPrint  Boolean @default(false)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  module  Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, moduleId])
+  @@map("profile_module_permissions")
+}
+
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
   passwordHash  String   @map("password")
   name          String
   institutionId String?
+  profileId     String?
 
   failedAttempts Int       @default(0)
   lockedUntil    DateTime?
@@ -83,6 +115,7 @@ model User {
   deletedAt      DateTime?
 
   institution   Institution?   @relation(fields: [institutionId], references: [id])
+  profile       Profile?       @relation(fields: [profileId], references: [id])
   refreshTokens RefreshToken[]
   userRoles     UserRole[]
   userModules   UserModule[]
@@ -151,8 +184,9 @@ model Module {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  roleModules RoleModule[]
-  userModules UserModule[]
+  roleModules              RoleModule[]
+  userModules              UserModule[]
+  profileModulePermissions ProfileModulePermission[]
 
   @@map("modules")
 }

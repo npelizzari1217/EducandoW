@@ -14,6 +14,7 @@ import { NivelInicialModule } from './presentation/nivel-inicial/nivel-inicial.m
 import { NivelPrimarioModule } from './presentation/nivel-primario/nivel-primario.module';
 import { NivelSecundarioModule } from './presentation/nivel-secundario/nivel-secundario.module';
 import { NivelTerciarioModule } from './presentation/nivel-terciario/nivel-terciario.module';
+import { ProfilesModule } from './presentation/profiles/profiles.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -42,6 +43,7 @@ import { PrismaService } from './infrastructure/persistence/prisma/prisma.servic
     NivelPrimarioModule,
     NivelSecundarioModule,
     NivelTerciarioModule,
+    ProfilesModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [

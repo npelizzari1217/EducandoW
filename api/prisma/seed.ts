@@ -74,6 +74,108 @@ async function main() {
   const ALL_ACTIONS = ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'];
   const ALL_MODULE_IDS = modules.map((m) => m.id);
 
+  // ── Seed profiles ───────────────────────────────────────
+  const profiles = [
+    { id: 'p-admin', name: 'Administrador' },
+    { id: 'p-teacher', name: 'Docente' },
+    { id: 'p-preceptor', name: 'Preceptor' },
+  ];
+
+  for (const p of profiles) {
+    await prisma.profile.upsert({
+      where: { id: p.id },
+      create: p,
+      update: { name: p.name },
+    });
+  }
+  console.log('✅ Profiles seeded');
+
+  // ── Seed profile permissions ────────────────────────────
+  const profilePermissions: { id: string; profileId: string; moduleId: string; canRead: boolean; canCreate: boolean; canEdit: boolean; canDelete: boolean; canPrint: boolean }[] = [];
+
+  // Administrador: all modules, all booleans true
+  for (const mid of ALL_MODULE_IDS) {
+    profilePermissions.push({
+      id: `pp-admin-${mid}`,
+      profileId: 'p-admin',
+      moduleId: mid,
+      canRead: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+      canPrint: true,
+    });
+  }
+
+  // Docente: STUDENTS(READ), TEACHERS(READ), GRADES(READ,CREATE,UPDATE), ATTENDANCE(READ,CREATE,UPDATE), REPORTS(READ), COURSES(READ), SUBJECTS(READ), CLASSROOMS(READ)
+  const teacherProfilePerms: Record<string, Partial<typeof profilePermissions[0]>> = {
+    'm-students': { canRead: true },
+    'm-teachers': { canRead: true },
+    'm-grades': { canRead: true, canCreate: true, canEdit: true },
+    'm-attendance': { canRead: true, canCreate: true, canEdit: true },
+    'm-reports': { canRead: true },
+    'm-courses': { canRead: true },
+    'm-subjects': { canRead: true },
+    'm-classrooms': { canRead: true },
+  };
+
+  for (const [mid, perms] of Object.entries(teacherProfilePerms)) {
+    profilePermissions.push({
+      id: `pp-teacher-${mid}`,
+      profileId: 'p-teacher',
+      moduleId: mid,
+      canRead: perms.canRead ?? false,
+      canCreate: perms.canCreate ?? false,
+      canEdit: perms.canEdit ?? false,
+      canDelete: perms.canDelete ?? false,
+      canPrint: perms.canPrint ?? false,
+    });
+  }
+
+  // Preceptor: STUDENTS(READ), ATTENDANCE(READ,CREATE,UPDATE), COURSES(READ)
+  const preceptorProfilePerms: Record<string, Partial<typeof profilePermissions[0]>> = {
+    'm-students': { canRead: true },
+    'm-attendance': { canRead: true, canCreate: true, canEdit: true },
+    'm-courses': { canRead: true },
+  };
+
+  for (const [mid, perms] of Object.entries(preceptorProfilePerms)) {
+    profilePermissions.push({
+      id: `pp-preceptor-${mid}`,
+      profileId: 'p-preceptor',
+      moduleId: mid,
+      canRead: perms.canRead ?? false,
+      canCreate: perms.canCreate ?? false,
+      canEdit: perms.canEdit ?? false,
+      canDelete: perms.canDelete ?? false,
+      canPrint: perms.canPrint ?? false,
+    });
+  }
+
+  for (const pp of profilePermissions) {
+    await prisma.profileModulePermission.upsert({
+      where: { profileId_moduleId: { profileId: pp.profileId, moduleId: pp.moduleId } },
+      create: {
+        id: pp.id,
+        profileId: pp.profileId,
+        moduleId: pp.moduleId,
+        canRead: pp.canRead,
+        canCreate: pp.canCreate,
+        canEdit: pp.canEdit,
+        canDelete: pp.canDelete,
+        canPrint: pp.canPrint,
+      },
+      update: {
+        canRead: pp.canRead,
+        canCreate: pp.canCreate,
+        canEdit: pp.canEdit,
+        canDelete: pp.canDelete,
+        canPrint: pp.canPrint,
+      },
+    });
+  }
+  console.log('✅ Profile permissions seeded');
+
   const roleModules: Record<string, { moduleIds: string[]; actions: string[] }> = {
     'r-root': {
       moduleIds: ALL_MODULE_IDS,

@@ -119,3 +119,45 @@ INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
 INSERT INTO role_modules (id, role_id, module_id, actions) VALUES
   ('rm-r-preceptor-m-students', 'r-preceptor', 'm-students', ARRAY['READ']),
   ('rm-r-preceptor-m-attendance', 'r-preceptor', 'm-attendance', ARRAY['CREATE','READ']);
+
+-- ============================================================================
+-- Profiles: Permission Templates
+-- ============================================================================
+
+-- Profiles
+INSERT INTO profiles (id, name) VALUES
+  ('p-admin', 'Administrador'),
+  ('p-teacher', 'Docente'),
+  ('p-preceptor', 'Preceptor');
+
+-- Administrador: todos los módulos, todos los permisos
+INSERT INTO profile_module_permissions (id, "profileId", "moduleId", "canRead", "canCreate", "canEdit", "canDelete", "canPrint") VALUES
+  ('pp-admin-inst', 'p-admin', 'm-inst', true, true, true, true, true),
+  ('pp-admin-users', 'p-admin', 'm-users', true, true, true, true, true),
+  ('pp-admin-students', 'p-admin', 'm-students', true, true, true, true, true),
+  ('pp-admin-teachers', 'p-admin', 'm-teachers', true, true, true, true, true),
+  ('pp-admin-subjects', 'p-admin', 'm-subjects', true, true, true, true, true),
+  ('pp-admin-courses', 'p-admin', 'm-courses', true, true, true, true, true),
+  ('pp-admin-enrollments', 'p-admin', 'm-enrollments', true, true, true, true, true),
+  ('pp-admin-grades', 'p-admin', 'm-grades', true, true, true, true, true),
+  ('pp-admin-attendance', 'p-admin', 'm-attendance', true, true, true, true, true),
+  ('pp-admin-reports', 'p-admin', 'm-reports', true, true, true, true, true),
+  ('pp-admin-study-plans', 'p-admin', 'm-study-plans', true, true, true, true, true),
+  ('pp-admin-classrooms', 'p-admin', 'm-classrooms', true, true, true, true, true);
+
+-- Docente: STUDENTS(READ), TEACHERS(READ), GRADES(READ,CREATE,UPDATE), ATTENDANCE(READ,CREATE,UPDATE), REPORTS(READ), COURSES(READ), SUBJECTS(READ), CLASSROOMS(READ)
+INSERT INTO profile_module_permissions (id, "profileId", "moduleId", "canRead", "canCreate", "canEdit", "canDelete", "canPrint") VALUES
+  ('pp-teacher-students', 'p-teacher', 'm-students', true, false, false, false, false),
+  ('pp-teacher-teachers', 'p-teacher', 'm-teachers', true, false, false, false, false),
+  ('pp-teacher-grades', 'p-teacher', 'm-grades', true, true, true, false, false),
+  ('pp-teacher-attendance', 'p-teacher', 'm-attendance', true, true, true, false, false),
+  ('pp-teacher-reports', 'p-teacher', 'm-reports', true, false, false, false, false),
+  ('pp-teacher-courses', 'p-teacher', 'm-courses', true, false, false, false, false),
+  ('pp-teacher-subjects', 'p-teacher', 'm-subjects', true, false, false, false, false),
+  ('pp-teacher-classrooms', 'p-teacher', 'm-classrooms', true, false, false, false, false);
+
+-- Preceptor: STUDENTS(READ), ATTENDANCE(READ,CREATE,UPDATE), COURSES(READ)
+INSERT INTO profile_module_permissions (id, "profileId", "moduleId", "canRead", "canCreate", "canEdit", "canDelete", "canPrint") VALUES
+  ('pp-preceptor-students', 'p-preceptor', 'm-students', true, false, false, false, false),
+  ('pp-preceptor-attendance', 'p-preceptor', 'm-attendance', true, true, true, false, false),
+  ('pp-preceptor-courses', 'p-preceptor', 'm-courses', true, false, false, false, false);

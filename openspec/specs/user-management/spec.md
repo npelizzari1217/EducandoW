@@ -51,7 +51,7 @@ CRUD operations for system users with role-hierarchy-based access control. Educa
 
 ### Requirement: Create User
 
-`POST /v1/users` MUST create a new user. Required fields: `email` (valid email), `password` (min 6 chars), `name` (non-empty). Optional: `institutionId` (UUID), `levels` (array of `{ level: 1–9, modality: 0–9 }`), `roles` (array of role strings, min 1), `moduleAccess` (array of `{ moduleCode: string, actions: string[] }`). The creator's highest role rank MUST be strictly greater than every assigned role's rank. ROOT bypasses this check. If `moduleAccess` is provided, the system MUST persist entries in `user_modules`. Non-ROOT creators SHALL only assign modules they possess; modules outside the creator's scope MUST be silently filtered. `moduleAccess: []` SHALL remove all `user_modules` for the user. The `levels` array, when provided, MUST be persisted as rows in `user_levels` (`userId`, `level`, `modality`). `levels: []` SHALL remove all `user_levels` for the user. Absent `levels` SHALL NOT modify existing `user_levels`.
+`POST /v1/users` MUST create a new user. Required fields: `email` (valid email), `password` (min 6 chars), `name` (non-empty). Optional: `institutionId` (UUID), `levels` (array of `{ level: 1–9, modality: 0–9 }`), `roles` (array of role strings, min 1), `moduleAccess` (array of `{ moduleCode: string, actions: string[] }`), `profileId` (UUID string). The creator's highest role rank MUST be strictly greater than every assigned role's rank. ROOT bypasses this check. If `moduleAccess` is provided, the system MUST persist entries in `user_modules`. Non-ROOT creators SHALL only assign modules they possess; modules outside the creator's scope MUST be silently filtered. `moduleAccess: []` SHALL remove all `user_modules` for the user. The `levels` array, when provided, MUST be persisted as rows in `user_levels` (`userId`, `level`, `modality`). `levels: []` SHALL remove all `user_levels` for the user. Absent `levels` SHALL NOT modify existing `user_levels`. If `profileId` is provided, the system MUST load the profile's `ProfileModulePermission` rows (boolean matrix), convert booleans to `String[] actions` (canRead→READ, canCreate→CREATE, canEdit→UPDATE, canDelete→DELETE, canPrint→PRINT), and create corresponding `UserModule` records. If both `profileId` and `moduleAccess` are provided, `moduleAccess` SHALL take precedence per-module — entries in `moduleAccess` override the profile's permissions for matching modules, while non-overlapping modules retain profile values. The `profileId` value SHALL be persisted on the User record.
 
 (Previously: single `level` (1–9) and `modality` (0–9) scalar fields on the user record.)
 
@@ -122,9 +122,33 @@ CRUD operations for system users with role-hierarchy-based access control. Educa
 - WHEN `POST /v1/users` with `{ email, password, name, roles: ["TEACHER"], institutionId: X, levels: [{ level: 2, modality: 0 }, { level: 3, modality: 1 }] }`
 - THEN the user is created successfully with those user_levels
 
+#### Scenario: Create user with profileId generates user_modules from profile
+
+- GIVEN a profile "Docente" with permissions: STUDENTS(canRead=true), GRADES(canRead=true, canCreate=true)
+- WHEN `POST /v1/users` with `{ email, password, name, roles: ["TEACHER"], profileId: "<profile-uuid>" }`
+- THEN the user is created
+- AND `user_modules` entries for STUDENTS:READ, GRADES:READ, GRADES:CREATE are persisted
+- AND the user record has `profileId` set to the provided UUID
+- AND `filterModuleAccess()` is applied (non-ROOT creators SHALL only pass modules they possess)
+
+#### Scenario: Create user with profileId and manual moduleAccess — manual overrides
+
+- GIVEN a profile "Docente" with permissions: STUDENTS(canRead=true), GRADES(canRead=true, canCreate=true)
+- WHEN `POST /v1/users` with `{ email, password, name, roles: ["TEACHER"], profileId: "<profile-uuid>", moduleAccess: [{ moduleCode: "STUDENTS", actions: ["READ", "CREATE"] }] }`
+- THEN STUDENTS entries from profile are replaced by manual `moduleAccess` (STUDENTS:READ + STUDENTS:CREATE)
+- AND GRADES entries from profile remain (GRADES:READ, GRADES:CREATE)
+- AND `profileId` is still persisted on the user record
+
+#### Scenario: Create user without profileId works as before
+
+- GIVEN a ROOT user
+- WHEN `POST /v1/users` with `{ email, password, name, roles: ["TEACHER"] }` (no `profileId`)
+- THEN the user is created with no `profileId` and no `user_modules` (unless `moduleAccess` is provided)
+- AND behavior is identical to pre-profile implementation
+
 ### Requirement: Update User
 
-`PATCH /v1/users/:id` MUST allow partial updates. Creator's rank MUST be strictly higher than the target's current highest role rank. If `roles` is provided, creator's rank MUST also be strictly higher than every new role's rank. ROOT bypasses all checks. If `moduleAccess` is provided, the system MUST replace all `user_modules` for that user with the new set (after filtering unauthorized modules for non-ROOT). `moduleAccess: []` SHALL remove all `user_modules`. Absent `moduleAccess` SHALL NOT modify existing `user_modules`. If `levels` is provided, the system MUST replace all `user_levels` for that user with the new set. `levels: []` SHALL remove all `user_levels`. Absent `levels` SHALL NOT modify existing `user_levels`. Non-existent user returns `{ data: null }`.
+`PATCH /v1/users/:id` MUST allow partial updates. Creator's rank MUST be strictly higher than the target's current highest role rank. If `roles` is provided, creator's rank MUST also be strictly higher than every new role's rank. ROOT bypasses all checks. If `moduleAccess` is provided, the system MUST replace all `user_modules` for that user with the new set (after filtering unauthorized modules for non-ROOT). `moduleAccess: []` SHALL remove all `user_modules`. Absent `moduleAccess` SHALL NOT modify existing `user_modules`. If `levels` is provided, the system MUST replace all `user_levels` for that user with the new set. `levels: []` SHALL remove all `user_levels`. Absent `levels` SHALL NOT modify existing `user_levels`. If `profileId` is provided, the system SHALL load the profile's permissions, convert booleans→actions, delete ALL existing `UserModule` records for the user, and create new ones from the profile. If both `profileId` and `moduleAccess` are provided, `moduleAccess` SHALL take precedence per-module over profile values. Setting `profileId` to `null` SHALL remove the profile association but SHALL NOT delete existing `user_modules` (unless `moduleAccess` is explicitly provided). Absent `profileId` SHALL NOT modify the existing `profileId` on the user record. Non-existent user returns `{ data: null }`.
 
 (Previously: single `level` and `modality` scalars patched directly on the user row; no `user_levels` table.)
 
@@ -199,6 +223,21 @@ CRUD operations for system users with role-hierarchy-based access control. Educa
 - GIVEN a ROOT user
 - WHEN `PATCH /v1/users/:id` with `{ levels: [{ level: 9, modality: 9 }] }` regardless of institution levels
 - THEN the update succeeds — ROOT is not constrained by institution levels
+
+#### Scenario: Update user with new profileId replaces user_modules
+
+- GIVEN a user with existing `user_modules` from profile "Docente" and `profileId` set
+- WHEN `PATCH /v1/users/:id` with `{ profileId: "<new-profile-uuid>" }`
+- THEN all existing `user_modules` are deleted
+- AND new `user_modules` are created from the new profile's permissions
+- AND the user's `profileId` is updated to the new UUID
+
+#### Scenario: Update user with profileId null removes association
+
+- GIVEN a user with `profileId` set
+- WHEN `PATCH /v1/users/:id` with `{ profileId: null }`
+- THEN the user's `profileId` is set to `null`
+- AND existing `user_modules` remain unchanged (no deletion)
 
 ### Requirement: Soft-Delete User
 

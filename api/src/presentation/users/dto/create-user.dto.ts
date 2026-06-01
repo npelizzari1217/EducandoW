@@ -17,6 +17,7 @@ export const CreateUserSchema = z.object({
     level: z.number().int().min(1).max(9),
     modality: z.number().int().min(0).max(9),
   })).optional(),
+  profileId: z.string().uuid().optional(),
 });
 
 export type CreateUserDTO = z.infer<typeof CreateUserSchema>;
