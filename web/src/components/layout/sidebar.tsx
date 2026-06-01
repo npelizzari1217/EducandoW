@@ -130,12 +130,11 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { config } = useInstitution();
   const navigate = useNavigate();
 
-  // Derive base levels from user's JWT levels (primary), fall back to institution config.
+  // Derive base levels exclusively from the user's JWT levels. No fallback to institution config.
   const userBaseLevels = new Set((user?.levels ?? []).map((code) => Math.floor(code / 10)));
-  const institutionBaseLevels = new Set(config.levels.map((code) => Math.floor(code / 10)));
 
-  const effectiveBaseLevels = userBaseLevels.size > 0 ? userBaseLevels : institutionBaseLevels;
-  const hasLevels = effectiveBaseLevels.size > 0;
+  const effectiveBaseLevels = userBaseLevels;
+  const hasLevels = userBaseLevels.size > 0;
 
   const filterItem = makeFilterItem(user, user?.modules, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
 
