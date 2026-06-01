@@ -15,6 +15,7 @@ import EnrollmentsPage from './pages/dashboard/enrollments';
 import { GradesPage, AttendancePage } from './pages/dashboard/pedagogy-pages';
 import ModulesPage from './pages/dashboard/modules';
 import UsersPage from './pages/dashboard/users';
+import ProfilesPage from './pages/dashboard/profiles';
 import LegajosPage from './pages/dashboard/legajos';
 import StudyPlansPage from './pages/dashboard/study-plans';
 import SalasPage from './niveles/inicial/salas/page';
@@ -45,6 +46,7 @@ function App() {
               <Route path="/grades" element={<GradesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/modules" element={<ProtectedRoute moduleCode="MODULES" action="READ"><ModulesPage /></ProtectedRoute>} />
+              <Route path="/profiles" element={<ProtectedRoute moduleCode="USERS" action="READ"><ProfilesPage /></ProtectedRoute>} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/legajos" element={<LegajosPage />} />
               <Route path="/study-plans" element={<StudyPlansPage />} />

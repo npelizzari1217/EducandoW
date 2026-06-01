@@ -75,6 +75,7 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       { label: 'Instituciones', path: '/institutions', moduleCode: 'INSTITUTIONS' },
+      { label: 'Perfiles', path: '/profiles', moduleCode: 'USERS' },
       { label: 'Módulos', path: '/modules' /* ROOT only — no moduleCode needed */ },
       { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
       { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },

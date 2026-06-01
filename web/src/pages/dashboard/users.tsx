@@ -166,13 +166,21 @@ export default function UsersPage() {
     email: '', password: '', name: '', institutionId: '',
     selectedLevels: new Set<number>(),
     role: '' as string, active: true,
+    profileId: '' as string,
   });
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [availableProfiles, setAvailableProfiles] = useState<any[]>([]);
 
   useEffect(() => {
     apiClient.get('/institutions').then(r => {
       setInstitutions(r.data?.data ?? []);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    apiClient.get('/profiles').then(r => {
+      setAvailableProfiles(r.data?.data ?? []);
     }).catch(() => {});
   }, []);
 
@@ -202,7 +210,7 @@ export default function UsersPage() {
   };
 
   const resetForm = () => {
-    setForm({ email: '', password: '', name: '', institutionId: '', selectedLevels: new Set<number>(), role: '', active: true });
+    setForm({ email: '', password: '', name: '', institutionId: '', selectedLevels: new Set<number>(), role: '', active: true, profileId: '' });
     setEditingId(null);
     setShowForm(false);
     setCreateError('');
@@ -214,6 +222,33 @@ export default function UsersPage() {
     setForm(prev => ({ ...prev, role }));
   };
 
+  const handleProfileChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const pid = e.target.value;
+    setForm(prev => ({ ...prev, profileId: pid }));
+    if (!pid) {
+      setModuleAccess([]);
+      return;
+    }
+    try {
+      const { data: permData } = await apiClient.get(`/profiles/${pid}/permissions`);
+      const perms = permData.data || [];
+      // Convert booleans to ModuleAccessItem[]
+      const items: ModuleAccessItem[] = perms
+        .filter((p: any) => p.canRead || p.canCreate || p.canEdit || p.canDelete || p.canPrint)
+        .map((p: any) => ({
+          moduleCode: p.moduleCode,
+          actions: [
+            ...(p.canRead ? ['READ' as const] : []),
+            ...(p.canCreate ? ['CREATE' as const] : []),
+            ...(p.canEdit ? ['UPDATE' as const] : []),
+            ...(p.canDelete ? ['DELETE' as const] : []),
+            ...(p.canPrint ? ['PRINT' as const] : []),
+          ],
+        }));
+      setModuleAccess(items);
+    } catch { /* ignore */ }
+  };
+
   const handleCreate = async () => {
     const body: Record<string, unknown> = {
       email: form.email,
@@ -222,6 +257,7 @@ export default function UsersPage() {
       roles: form.role ? [form.role] : undefined,
       active: form.active,
       moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
+      profileId: form.profileId || undefined,
     };
     if (form.selectedLevels.size > 0) {
       body.levels = Array.from(form.selectedLevels).map(i => {
@@ -242,6 +278,7 @@ export default function UsersPage() {
       roles: form.role ? [form.role] : undefined,
       active: form.active,
       moduleAccess: moduleAccess.length > 0 ? moduleAccess : undefined,
+      profileId: form.profileId || undefined,
     };
     // Always send levels: populated array or empty to clear
     body.levels = Array.from(form.selectedLevels).map(i => {
@@ -277,6 +314,7 @@ export default function UsersPage() {
       selectedLevels,
       role: primaryRole,
       active: u.active,
+      profileId: '',
     });
     // Pre-cargar módulos del usuario editado si vienen en la respuesta
     const rawModules = (u as Record<string, unknown>).modules;
@@ -479,6 +517,25 @@ export default function UsersPage() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* Perfil predefinido */}
+            <div className="form-group">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Perfil predefinido (opcional)
+              </label>
+              <select
+                value={form.profileId}
+                onChange={handleProfileChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+              >
+                <option value="">Sin perfil (manual)</option>
+                {availableProfiles.map((p: any) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p._count?.permissions ?? 0} módulos)
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Módulos del usuario — grid de checkboxes por módulo y acción */}

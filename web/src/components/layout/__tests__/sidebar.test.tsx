@@ -328,6 +328,7 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Instituciones')).toBeInTheDocument();
+    expect(screen.getByText('Perfiles')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
     expect(screen.getByText('Módulos')).toBeInTheDocument();
     expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();
@@ -368,6 +369,21 @@ describe('Sidebar filtering', () => {
     expect(labelTexts).toContain('Nivel Primario');
     expect(labelTexts).toContain('Secundario');
     expect(labelTexts).toContain('Terciario');
+  });
+
+  it('shows Perfiles link when user has USERS module with READ', () => {
+    setRole('ADMIN');
+    renderSidebar();
+
+    expect(screen.getByText('Perfiles')).toBeInTheDocument();
+  });
+
+  it('hides Perfiles link when user lacks USERS module', () => {
+    mockLevels = [10];
+    setRole('MANAGER'); // MANAGER only has READ for specific modules, not USERS
+    renderSidebar();
+
+    expect(screen.queryByText('Perfiles')).not.toBeInTheDocument();
   });
 
   it('hides groups that have no visible items', () => {
