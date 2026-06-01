@@ -18,7 +18,7 @@ import {
   UpsertPermissionsUseCase,
 } from '../../application/profiles/use-cases/profiles.use-cases';
 
-@Controller('v1/profiles')
+@Controller('profiles')
 @UseGuards(AuthGuard, RolesGuard)
 export class ProfilesController {
   constructor(
