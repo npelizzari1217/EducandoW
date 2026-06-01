@@ -34,17 +34,7 @@ export interface UserProps {
   /** Module access entries loaded from userRoles → roleModules and userModules. */
   modules?: ModuleAccess[];
   institutionId?: string;
-  /**
-   * @deprecated Use `levels: UserLevelEntry[]` instead. Kept for backward compat
-   * during migration. Will be removed next release.
-   */
-  level?: EducationalLevelCode;
-  /**
-   * @deprecated Use `levels: UserLevelEntry[]` instead. Kept for backward compat
-   * during migration. Will be removed next release.
-   */
-  modality?: EducationalModalityCode;
-  /** Educational levels assigned to this user — replaces scalar level/modality. */
+  /** Educational levels assigned to this user. */
   levels?: UserLevelEntry[];
   failedAttempts?: number;
   lockedUntil?: Date;
@@ -80,8 +70,6 @@ export class User {
       roles,
       modules,
       institutionId: props.institutionId,
-      level: props.level,
-      modality: props.modality,
       levels,
       failedAttempts: 0,
       active: true,
@@ -112,22 +100,6 @@ export class User {
   get role(): string { return this.props.roles?.[0] ?? 'TEACHER'; }
 
   get institutionId(): string | undefined { return this.props.institutionId; }
-
-  /**
-   * Backward-compat accessor: returns the first entry's level code, or undefined.
-   * @deprecated Use `levels` array and `hasEducationalLevel()` instead.
-   */
-  get level(): EducationalLevelCode | undefined {
-    return this.props.levels?.[0]?.level ?? this.props.level;
-  }
-
-  /**
-   * Backward-compat accessor: returns the first entry's modality code, or undefined.
-   * @deprecated Use `levels` array instead.
-   */
-  get modality(): EducationalModalityCode | undefined {
-    return this.props.levels?.[0]?.modality ?? this.props.modality;
-  }
 
   /** Educational levels assigned to this user. Returns a defensive copy. */
   get levels(): UserLevelEntry[] {
@@ -257,20 +229,6 @@ export class User {
    */
   hasEducationalLevel(code: EducationalLevelCode): boolean {
     return (this.props.levels ?? []).some((l) => l.level === code);
-  }
-
-  /**
-   * @deprecated Use `addLevel()` instead. This is a no-op for backward compat.
-   */
-  assignLevel(_level: EducationalLevelCode): void {
-    // no-op — levels are now managed via addLevel() and the levels array
-  }
-
-  /**
-   * @deprecated Use `addLevel()` instead. This is a no-op for backward compat.
-   */
-  assignModality(_modality: EducationalModalityCode): void {
-    // no-op — levels are now managed via addLevel() and the levels array
   }
 
   incrementFailedAttempts(): void {

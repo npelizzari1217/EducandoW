@@ -129,36 +129,7 @@ describe('User educational levels', () => {
     });
   });
 
-  it('level compat getter returns first entry level code', () => {
-    const user = User.create({
-      ...validProps,
-      levels: [
-        { level: EducationalLevelCode.SECUNDARIO, modality: EducationalModalityCode.TALLERES },
-        { level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN },
-      ],
-    });
-
-    expect(user.level).toBe(EducationalLevelCode.SECUNDARIO);
-  });
-
-  it('level compat getter returns undefined for empty levels', () => {
-    const user = User.create({
-      ...validProps,
-      levels: [],
-    });
-
-    expect(user.level).toBeUndefined();
-    expect(user.modality).toBeUndefined();
-  });
-
-  it('level compat getter returns undefined when no levels provided', () => {
-    const user = User.create(validProps);
-
-    expect(user.level).toBeUndefined();
-    expect(user.modality).toBeUndefined();
-  });
-
-  it('reconstruct preserves levels and compat getters work', () => {
+  it('reconstruct preserves levels', () => {
     const id = Id.create();
     const createdAt = new Date('2024-01-01');
     const updatedAt = new Date('2024-06-01');
@@ -174,35 +145,7 @@ describe('User educational levels', () => {
     });
 
     expect(user.levels).toHaveLength(2);
-    expect(user.level).toBe(EducationalLevelCode.TERCIARIO);
-    expect(user.modality).toBe(EducationalModalityCode.BILINGÜISMO);
     expect(user.hasLevel({ level: EducationalLevelCode.TERCIARIO, modality: EducationalModalityCode.BILINGÜISMO })).toBe(true);
     expect(user.hasEducationalLevel(EducationalLevelCode.SECUNDARIO)).toBe(true);
-  });
-
-  it('assignLevel is a no-op with backward compat (deprecated)', () => {
-    const user = User.create({
-      ...validProps,
-      levels: [{ level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN }],
-    });
-
-    user.assignLevel(EducationalLevelCode.SECUNDARIO);
-
-    // levels should be unchanged (old behavior overridden)
-    expect(user.levels).toHaveLength(1);
-    expect(user.level).toBe(EducationalLevelCode.PRIMARIO);
-  });
-
-  it('assignModality is a no-op with backward compat (deprecated)', () => {
-    const user = User.create({
-      ...validProps,
-      levels: [{ level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN }],
-    });
-
-    user.assignModality(EducationalModalityCode.TALLERES);
-
-    // levels should be unchanged (old behavior overridden)
-    expect(user.levels).toHaveLength(1);
-    expect(user.modality).toBe(EducationalModalityCode.COMUN);
   });
 });

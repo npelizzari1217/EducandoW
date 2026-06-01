@@ -115,14 +115,15 @@ describe('User', () => {
     expect(user.institutionId).toBe('inst-123');
   });
 
-  it('assignLevel is deprecated no-op (use addLevel instead)', () => {
+  it('addLevel adds educational level to user', () => {
     const user = User.create(validProps);
-    user.assignLevel(EducationalLevelCode.SECUNDARIO);
-    // assignLevel is now a no-op — level is undefined unless levels array has entries
-    expect(user.level).toBeUndefined();
-    // Use addLevel() instead
     user.addLevel(EducationalLevelCode.SECUNDARIO, EducationalModalityCode.COMUN);
-    expect(user.level).toBe(EducationalLevelCode.SECUNDARIO);
+    expect(user.levels).toHaveLength(1);
+    expect(user.levels[0]).toEqual({
+      level: EducationalLevelCode.SECUNDARIO,
+      modality: EducationalModalityCode.COMUN,
+    });
+    expect(user.hasLevel({ level: EducationalLevelCode.SECUNDARIO, modality: EducationalModalityCode.COMUN })).toBe(true);
   });
 
   it('reconstruct preserves all props', () => {
@@ -137,8 +138,9 @@ describe('User', () => {
         { moduleCode: 'GRADES', actions: ['READ', 'CREATE'] },
       ],
       institutionId: 'inst-1',
-      level: EducationalLevelCode.PRIMARIO,
-      modality: EducationalModalityCode.COMUN,
+      levels: [
+        { level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN },
+      ],
       createdAt,
       updatedAt,
     });
@@ -151,8 +153,11 @@ describe('User', () => {
     expect(user.hasPermission('STUDENTS', 'READ')).toBe(true);
     expect(user.hasPermission('GRADES', 'CREATE')).toBe(true);
     expect(user.institutionId).toBe('inst-1');
-    expect(user.level).toBe(EducationalLevelCode.PRIMARIO);
-    expect(user.modality).toBe(EducationalModalityCode.COMUN);
+    expect(user.levels).toHaveLength(1);
+    expect(user.levels[0]).toEqual({
+      level: EducationalLevelCode.PRIMARIO,
+      modality: EducationalModalityCode.COMUN,
+    });
     expect(user.createdAt).toEqual(createdAt);
     expect(user.updatedAt).toEqual(updatedAt);
   });

@@ -132,7 +132,7 @@ export default function StudyPlansPage() {
   const [showPrint, setShowPrint] = useState(false);
   const [detailPrintPlanId, setDetailPrintPlanId] = useState<string | null>(null);
 
-  const userLevel = user?.level;
+  const userLevel = user?.userLevels?.[0]?.level;
   const defaultLevel = userLevel && userLevel >= 1 && userLevel <= 4 ? String(userLevel) : '';
 
   useEffect(() => {

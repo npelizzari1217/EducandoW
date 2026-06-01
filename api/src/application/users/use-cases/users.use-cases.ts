@@ -12,8 +12,6 @@ interface UserRow {
   name: string;
   passwordHash: string;
   institutionId: string | null;
-  level: number | null;
-  modality: number | null;
   active: boolean;
   failedAttempts: number;
   lockedUntil: Date | null;
@@ -286,8 +284,6 @@ export class UpdateUserUseCase {
       name?: string;
       password?: string;
       institutionId?: string | null;
-      level?: number | null;
-      modality?: number | null;
       roles?: string[];
       active?: boolean;
       moduleAccess?: ModuleAccessItem[];

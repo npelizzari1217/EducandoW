@@ -55,7 +55,7 @@ export default function CourseSectionsPage() {
   const [form, setForm] = useState({ grade: '', division: '', level: '' });
 
   // Determinar si el nivel es fijo o seleccionable
-  const userLevel = user?.level;
+  const userLevel = user?.userLevels?.[0]?.level;
   useEffect(() => {
     if (userLevel && userLevel >= 1 && userLevel <= 4) {
       // Nivel específico — readonly

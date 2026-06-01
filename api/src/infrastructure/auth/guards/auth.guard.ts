@@ -7,8 +7,6 @@ export interface AuthenticatedUser {
   roles: string[];
   modules?: { moduleCode: string; actions: string[] }[];
   institutionId?: string;
-  /** @deprecated Use `levels` array instead. Kept for backward compat one release. */
-  level?: number;
   levels?: number[];
   userLevels?: { level: number; modality: number }[];
   dbName?: string | null;
@@ -40,7 +38,6 @@ export class AuthGuard implements CanActivate {
         roles: payload.roles,
         modules: payload.modules ?? [],
         institutionId: payload.institutionId,
-        level: payload.level,
         levels: payload.levels,
         userLevels: payload.userLevels,
         dbName: payload.dbName ?? null,

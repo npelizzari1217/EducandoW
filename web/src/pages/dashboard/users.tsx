@@ -24,8 +24,6 @@ interface UserRow {
   name: string;
   institutionId: string | null;
   institutionName: string | null;
-  level: number | null;
-  modality: number | null;
   levels?: number[];
   userLevels?: { level: number; modality: number }[];
   roles: string[];
@@ -79,10 +77,6 @@ const ROLE_LABELS: Record<string, string> = {
   STUDENT: 'Alumno',
 };
 
-const LEVEL_LABELS: Record<number, string> = {
-  1: 'Inicial', 2: 'Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
-};
-
 const KNOWN_ROLES = ['ROOT', 'ADMIN', 'DIRECTOR', 'SECRETARIO', 'PRECEPTOR', 'TEACHER', 'TUTOR', 'STUDENT'];
 
 // ── Helpers ───────────────────────────────────────────────
@@ -103,11 +97,6 @@ function canManageUser(creatorRoles: string[], targetRoles: string[]): boolean {
   const targetRank = getHighestRoleRank(targetRoles);
   if (creatorRank < 0) return false;
   return creatorRank > targetRank;
-}
-
-function levelLabel(code: number | null): string {
-  if (code == null) return '-';
-  return LEVEL_LABELS[code] ?? `Nivel ${code}`;
 }
 
 function roleLabel(role: string): string {
@@ -315,7 +304,7 @@ export default function UsersPage() {
           role: roleHierarchyLabel(u.roles ?? []),
           level: u.userLevels?.length
             ? u.userLevels.map(ul => CATALOG_LABELS[ul.level * 10 + ul.modality] ?? `Nivel ${ul.level}/${ul.modality}`).join(', ')
-            : (u.level != null ? levelLabel(u.level) : '-'),
+            : '-',
           active: u.active,
         }))}
         onClose={() => setShowPrint(false)}
@@ -558,8 +547,6 @@ export default function UsersPage() {
                     </div>
                   );
                 }
-                // Fallback to old scalar level
-                if (u.level != null) return levelLabel(u.level);
                 return '-';
               },
             },

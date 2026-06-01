@@ -9,10 +9,6 @@ export interface UserProfileDTO {
   /** Module access entries (merged role + user modules). */
   modules?: { moduleCode: string; actions: string[] }[];
   institutionId?: string;
-  /** @deprecated Use `levels` array instead. Kept for backward compat one release. */
-  level?: number;
-  /** @deprecated Use `levels` array instead. Kept for backward compat one release. */
-  modality?: number;
   levels?: number[];
   userLevels?: { level: number; modality: number }[];
   createdAt: string;

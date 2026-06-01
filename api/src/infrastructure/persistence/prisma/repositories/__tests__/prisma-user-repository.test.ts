@@ -19,8 +19,6 @@ function makePrismaUserRow(overrides: Record<string, unknown> = {}) {
     name: 'Test User',
     passwordHash: 'hashed-abc',
     institutionId: 'inst-1',
-    level: 2,
-    modality: 0,
     failedAttempts: 0,
     lockedUntil: null,
     active: true,
@@ -87,41 +85,30 @@ describe('PrismaUserRepository — toDomain with userLevels', () => {
     expect(user.levels).toHaveLength(0);
   });
 
-  it('still maps old level/modality through backward-compat getter when userLevels is empty', () => {
+  it('userLevels is the sole source for levels — deprecated scalar fields are ignored', () => {
     const row = makePrismaUserRow({
-      level: 1,
-      modality: 0,
       userLevels: [],
     });
 
     const toDomain = (repo as any).toDomain.bind(repo);
     const user: User = toDomain(row);
 
-    // Backward compat: level getter falls back to old scalar
-    expect(user.level).toBe(EducationalLevelCode.INICIAL);
-    expect(user.modality).toBe(EducationalModalityCode.COMUN);
-    // levels array should be populated from userLevels (empty)
+    // Levels come only from userLevels — deprecated scalar fields no longer exist
     expect(user.levels).toHaveLength(0);
   });
 
   it('handles undefined userLevels gracefully (levels defaults to empty)', () => {
-    const row = makePrismaUserRow({
-      level: null,
-      modality: null,
-    });
+    const row = makePrismaUserRow({});
     delete (row as any).userLevels;
 
     const toDomain = (repo as any).toDomain.bind(repo);
     const user: User = toDomain(row);
 
     expect(user.levels).toHaveLength(0);
-    expect(user.level).toBeUndefined();
   });
 
-  it('userLevels takes precedence over old level/modality in backward-compat getter', () => {
+  it('userLevels are correctly mapped to User entity', () => {
     const row = makePrismaUserRow({
-      level: 1,
-      modality: 0,
       userLevels: [
         { level: 4, modality: 2 },
       ],
@@ -130,9 +117,11 @@ describe('PrismaUserRepository — toDomain with userLevels', () => {
     const toDomain = (repo as any).toDomain.bind(repo);
     const user: User = toDomain(row);
 
-    // level getter prefers levels[0] over old scalar
-    expect(user.level).toBe(EducationalLevelCode.TERCIARIO);
     expect(user.levels).toHaveLength(1);
+    expect(user.levels[0]).toEqual({
+      level: EducationalLevelCode.TERCIARIO,
+      modality: EducationalModalityCode.BILINGÜISMO,
+    });
   });
 });
 

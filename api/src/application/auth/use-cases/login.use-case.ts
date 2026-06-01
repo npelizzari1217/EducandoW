@@ -21,7 +21,6 @@ export interface LoginResult {
     id: string;
     email: string;
     name: string;
-    role: string;
     roles: string[];
     modules?: { moduleCode: string; actions: string[] }[];
     institutionId?: string;
@@ -69,14 +68,12 @@ export class LoginUseCase {
 
     const userLevels = user.levels;
     const levels = userLevels.map((l) => l.level * 10 + l.modality);
-    const backCompatLevel = levels.length > 0 ? levels[0] : undefined;
 
     const accessToken = this.authPort.sign({
       sub: userId,
       roles: user.roles,
       modules: user.modules,
       institutionId: user.institutionId,
-      level: backCompatLevel,
       levels,
       userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       dbName,
@@ -96,7 +93,6 @@ export class LoginUseCase {
         id: userId,
         email: user.email.get(),
         name: user.name,
-        role: user.role,
         roles: user.roles,
         modules: user.modules,
         institutionId: user.institutionId,

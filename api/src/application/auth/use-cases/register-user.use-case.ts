@@ -65,8 +65,6 @@ export class RegisterUserUseCase {
       roles: saved.roles,
       modules: saved.modules,
       institutionId: saved.institutionId,
-      level: levels.length > 0 ? levels[0] : undefined,
-      modality: userLevels.length > 0 ? userLevels[0].modality : undefined,
       levels,
       userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       createdAt: saved.createdAt.toISOString(),

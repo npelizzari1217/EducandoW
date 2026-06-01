@@ -40,8 +40,6 @@ interface UserRow {
   name: string;
   passwordHash: string;
   institutionId: string | null;
-  level: number | null;
-  modality: number | null;
   failedAttempts: number;
   lockedUntil: Date | null;
   active: boolean;
@@ -214,8 +212,6 @@ export class PrismaUserRepository implements UserRepository {
       roles,
       modules,
       institutionId: record.institutionId ?? undefined,
-      level: record.level != null ? (record.level as EducationalLevelCode) : undefined,
-      modality: record.modality != null ? (record.modality as EducationalModalityCode) : undefined,
       levels: (record.userLevels ?? []).map((ul) => ({
         level: ul.level as EducationalLevelCode,
         modality: ul.modality as EducationalModalityCode,
