@@ -86,8 +86,8 @@ function setupApiMock() {
       return Promise.resolve({
         data: {
           data: [
-            { id: 'p1', name: 'Admin', _count: { permissions: 5 }, institutionId: null, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
-            { id: 'p2', name: 'Docente', _count: { permissions: 3 }, institutionId: null, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
+            { id: 'p1', name: 'Admin', _count: { permissions: 5 }, assignedModuleCount: 5, institutionId: null, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
+            { id: 'p2', name: 'Docente', _count: { permissions: 3 }, assignedModuleCount: 3, institutionId: null, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
           ],
         },
       });
@@ -106,7 +106,7 @@ function setupApiMock() {
     if (url === '/profiles/p1') {
       return Promise.resolve({
         data: {
-          data: { id: 'p1', name: 'Admin', institutionId: null, _count: { permissions: 5 }, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
+          data: { id: 'p1', name: 'Admin', institutionId: null, _count: { permissions: 5 }, assignedModuleCount: 5, createdAt: '2024-01-01', updatedAt: '2024-01-02' },
         },
       });
     }
