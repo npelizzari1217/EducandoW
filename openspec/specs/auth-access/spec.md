@@ -8,7 +8,9 @@ Authorization rules for the auth module. Establishes that role-based access cont
 
 ### Requirement: Role-Based Management Authorization
 
-Every user-management use case (list, create, update, soft-delete) MUST enforce `canManageUser` from the domain layer before operating on a target user. ROOT bypasses all hierarchy checks. The authorization check SHALL use the creator's roles (from the JWT) and the target's roles (from the database), evaluated via `getHighestRoleRank`. Educational level (`level` field) MUST NOT influence authorization decisions.
+Every user-management use case (list, create, update, soft-delete) MUST enforce `canManageUser` from the domain layer before operating on a target user. ROOT bypasses all hierarchy checks. The authorization check SHALL use the creator's roles (from the JWT) and the target's roles (from the database), evaluated via `getHighestRoleRank`. Educational level (`levels` array) MUST NOT influence authorization decisions.
+
+(Previously: text referenced singular `level` field; semantics unchanged — educational level does not affect authorization.)
 
 #### Scenario: Create enforces hierarchy
 
@@ -51,6 +53,35 @@ Every user-management use case (list, create, update, soft-delete) MUST enforce 
 - GIVEN a ROOT user performing any user-management operation
 - WHEN any use case evaluates `canManageUser`
 - THEN the ROOT check short-circuits and the operation proceeds regardless of target roles
+
+### Requirement: JWT Carries levels Array
+
+The JWT payload MUST include a `levels` field typed as `number[]` (array of composite codes, each computed as `level * 10 + modality`). The previous scalar `level: number` field MUST NOT be present in newly issued tokens. The `AuthenticatedUser` domain object MUST expose `levels: number[]` instead of `level: number`.
+
+#### Scenario: Login returns JWT with levels array
+
+- GIVEN a user with `user_levels` [(level=2, modality=0), (level=3, modality=1)]
+- WHEN the user authenticates via `POST /v1/auth/login`
+- THEN the issued JWT contains `levels: [20, 31]` and does NOT contain a `level` scalar field
+
+#### Scenario: User with no levels gets empty array in JWT
+
+- GIVEN a user with no `user_levels` rows
+- WHEN the user authenticates
+- THEN the issued JWT contains `levels: []`
+
+#### Scenario: Auth guard extracts levels into AuthenticatedUser
+
+- GIVEN a valid JWT with `levels: [20, 31]`
+- WHEN the auth guard processes an incoming request
+- THEN `req.user.levels` equals `[20, 31]`
+
+#### Scenario: GET /auth/me response includes levels array
+
+- GIVEN an authenticated user with `user_levels` [(level=1, modality=0)]
+- WHEN `GET /v1/auth/me` is called
+- THEN the response includes `levels: [10]` and `userLevels: [{ level: 1, modality: 0 }]`
+- AND the response does NOT include a scalar `level` field
 
 ### Requirement: Guard-Based Route Protection
 
