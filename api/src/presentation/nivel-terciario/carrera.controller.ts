@@ -1,9 +1,12 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateCarreraSchema, CreateCarreraDTO, UpdateCarreraSchema, UpdateCarreraDTO } from '../auth/dto/register.request';
 import {
@@ -12,7 +15,8 @@ import {
 import type { Carrera } from '@educandow/domain';
 
 @Controller('terciario/carreras')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.TERCIARIO)
 export class CarreraController {
   constructor(
     private readonly createUC: CreateCarreraUC,

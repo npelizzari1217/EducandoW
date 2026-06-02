@@ -12,6 +12,7 @@ import { PrismaRefreshTokenRepository } from '../../infrastructure/persistence/p
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { UserRegisteredHandler } from '../../infrastructure/event-bus/handlers/user-registered.handler';
 import { loadEnvConfig } from '../../infrastructure/config/env.config';
 
@@ -67,6 +68,7 @@ const env = loadEnvConfig();
     },
     AuthGuard,
     RolesGuard,
+    LevelsGuard,
     // ── Persistence ────────────────────────────────────────────────────
     PrismaService,
     {
@@ -102,6 +104,7 @@ const env = loadEnvConfig();
   exports: [
     AuthGuard,
     RolesGuard,
+    LevelsGuard,
     JwtAuthPort,
     'AuthPort',
     PrismaUserRepository,

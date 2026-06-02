@@ -7,9 +7,12 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateMesaExamenSchema, CreateMesaExamenDTO } from './dto/create-mesa-examen.dto';
 import { InscribirAlumnoSchema, InscribirAlumnoDTO } from './dto/inscribir-alumno.dto';
@@ -23,7 +26,8 @@ import {
 import { MesaExamen, MesaExamenInscripcionProps } from '@educandow/domain';
 
 @Controller('secundario/mesas-examen')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.SECUNDARIO)
 export class MesaExamenController {
   constructor(
     private readonly createUC: CreateMesaExamenUseCase,

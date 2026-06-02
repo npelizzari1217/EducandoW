@@ -11,9 +11,12 @@ import {
   HttpStatus,
   UseGuards,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateCursoSchema, CreateCursoDTO } from './dto/create-curso.dto';
 import { UpdateCursoSchema, UpdateCursoDTO } from './dto/update-curso.dto';
@@ -27,7 +30,8 @@ import {
 import { Curso } from '@educandow/domain';
 
 @Controller('secundario/cursos')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.SECUNDARIO)
 export class CursoController {
   constructor(
     private readonly createUC: CreateCursoUseCase,

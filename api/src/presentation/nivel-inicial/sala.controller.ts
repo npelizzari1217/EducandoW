@@ -1,9 +1,12 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateSalaSchema, type CreateSalaDTO } from './dto/create-sala.dto';
 import { UpdateSalaSchema, type UpdateSalaDTO } from './dto/update-sala.dto';
@@ -16,7 +19,8 @@ import {
 } from '../../application/nivel-inicial/use-cases/sala.use-cases';
 
 @Controller('inicial/salas')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.INICIAL)
 export class SalaController {
   constructor(
     private readonly createUC: CreateSalaUseCase,

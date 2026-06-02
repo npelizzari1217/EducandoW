@@ -2,9 +2,12 @@ import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
   HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateGradoSchema, CreateGradoDTO } from './dto/create-grado.dto';
 import { UpdateGradoSchema, UpdateGradoDTO } from './dto/update-grado.dto';
@@ -31,7 +34,8 @@ function toDto(g: Grado) {
 }
 
 @Controller('primario/grados')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.PRIMARIO)
 export class GradoController {
   constructor(
     private readonly createUC: CreateGradoUseCase,

@@ -7,9 +7,12 @@ import {
   Param,
   UseGuards,
 } from '@nestjs/common';
+import { EducationalLevelCode } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateRegimenSchema, CreateRegimenDTO } from './dto/create-regimen.dto';
 import { UpdateRegimenSchema, UpdateRegimenDTO } from './dto/update-regimen.dto';
@@ -21,7 +24,8 @@ import {
 import { RegimenAcademico } from '@educandow/domain';
 
 @Controller('secundario/regimen-academico')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, LevelsGuard)
+@Levels(EducationalLevelCode.SECUNDARIO)
 export class RegimenAcademicoController {
   constructor(
     private readonly createUC: CreateRegimenAcademicoUseCase,

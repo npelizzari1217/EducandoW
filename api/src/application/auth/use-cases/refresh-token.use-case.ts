@@ -45,10 +45,17 @@ export class RefreshTokenUseCase {
     const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     await this.refreshTokenRepo.create(stored.userId, newRefreshToken, refreshExpiresAt);
 
+    const userLevels = user.levels;
+    const levels = userLevels.map((l) => l.level * 10 + l.modality);
+
     const accessToken = this.jwtAuthPort.sign({
       sub: stored.userId,
       roles: user.roles,
       modules: user.modules,
+      institutionId: user.institutionId,
+      levels,
+      userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
+      dbName: null,
     });
 
     return ok({ accessToken, refreshToken: newRefreshToken });
