@@ -4,7 +4,7 @@ import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepos
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
 import { CycleCode, CycleDescription, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
-import type { CreateAcademicCycleInput, UpdateAcademicCycleInput } from '@educandow/domain';
+import type { UpdateAcademicCycleInput } from '@educandow/domain';
 
 const VALID_PEDAGOGICAL_LEVELS: EducationalLevelCode[] = [
   EducationalLevelCode.INICIAL,
