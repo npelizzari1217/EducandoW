@@ -16,9 +16,8 @@ The system MUST persist each `AcademicCycle` with the following fields:
 |-------|------|------------|
 | `id` | Int PK | autoincrement (replaces UUID PK) |
 | `uuid` | String | unique, public identifier |
-| `code` | String | 4 numeric digits, unique per tenant |
+| `code` | String | alphanumeric uppercase 1–15 chars, `^[A-Z0-9][A-Z0-9\-]{0,14}$`, unique per tenant |
 | `name` | String | required |
-| `description` | String | optional |
 | `level` | Enum | INICIAL \| PRIMARIO \| SECUNDARIO \| TERCIARIO |
 | `modality` | String | existing field, unchanged |
 | `startDate` | DateTime | required |
@@ -45,46 +44,41 @@ The system MUST persist each `AcademicCycle` with the following fields:
 
 ---
 
-### Requirement: Value Object — CycleCode
+### Requirement: Value Object — CycleCode (Alphanumeric Format)
 
-The system MUST validate `code` as exactly 4 numeric digits. The system MUST reject codes that contain non-numeric characters or have a length other than 4.
+The `code` field on an academic cycle MUST be an alphanumeric uppercase string of 1 to 15 characters matching `^[A-Z0-9][A-Z0-9\-]{0,14}$`. Lowercase letters MUST be rejected. The first character MUST be alphanumeric (no leading hyphen). Codes longer than 15 characters MUST be rejected. Existing 4-digit numeric codes remain valid as a subset of the new format.
 
-#### Scenario: Valid 4-digit code is accepted
+#### Scenario: Alphanumeric code accepted
 
-- GIVEN `code: "2024"`
-- WHEN `POST /v1/academic-cycles` is called
-- THEN the record is persisted with `code: "2024"`
+- GIVEN a valid JWT with role ADMIN
+- WHEN a cycle is created or updated with `code = "CICLO-2026-A"`
+- THEN the system SHALL accept the request and persist the code as-is
 
-#### Scenario: Non-numeric code is rejected
+#### Scenario: Lowercase code is normalized to uppercase
 
-- GIVEN `code: "20AB"`
-- WHEN `POST /v1/academic-cycles` is called
-- THEN the system returns HTTP 400 with `CycleCodeInvalidError`
-- AND no record is created
+- GIVEN a valid JWT with role ADMIN
+- WHEN a cycle is created with `code = "ciclo2026"`
+- THEN the system SHALL normalize the code to `"CICLO2026"` and persist it
+- AND the response SHALL include the normalized uppercase value
 
-#### Scenario: Code shorter or longer than 4 digits is rejected
+#### Scenario: Code exceeding 15 characters rejected
 
-- GIVEN `code: "24"` or `code: "20240"`
-- WHEN `POST /v1/academic-cycles` is called
-- THEN the system returns HTTP 400 with `CycleCodeInvalidError`
+- GIVEN a valid JWT with role ADMIN
+- WHEN a cycle is created or updated with a `code` of 16 or more characters
+- THEN the system SHALL return HTTP 422 with a validation error on `code`
 
----
+#### Scenario: Leading hyphen rejected
 
-### Requirement: Value Object — CycleDescription
+- GIVEN a valid JWT with role ADMIN
+- WHEN a cycle is created with `code = "-ABC"`
+- THEN the system SHALL return HTTP 422 with a validation error on `code`
 
-The system MUST reject an empty string or whitespace-only value for `description`. If `description` is not provided, it MAY be stored as `null`.
+#### Scenario: Legacy 4-digit numeric code still accepted
 
-#### Scenario: Valid description is stored
+- GIVEN a cycle that already has `code = "2025"`
+- WHEN it is retrieved via `GET /v1/academic-cycles`
+- THEN the response SHALL include `code = "2025"` without error
 
-- GIVEN `description: "Ciclo lectivo del año 2026"`
-- WHEN `POST /v1/academic-cycles` is called
-- THEN `description` is persisted as provided
-
-#### Scenario: Empty description is rejected
-
-- GIVEN `description: "  "`
-- WHEN `POST /v1/academic-cycles` is called
-- THEN the system returns HTTP 400 with `CycleDescriptionInvalidError`
 
 ---
 
@@ -92,14 +86,15 @@ The system MUST reject an empty string or whitespace-only value for `description
 
 The system SHALL expose `GET /v1/academic-cycles` that returns academic cycles filtered by `active` status, `level`, with optional pagination. Results SHALL be ordered by `startDate DESC`.
 
-Each cycle in the response SHALL include `uuid`, `code`, `name`, `description`, `level`, `modality`, `startDate`, `endDate`, `active`, and all 8 bimester date fields.
+Each cycle in the response SHALL include `uuid`, `code`, `name`, `level`, `modality`, `startDate`, `endDate`, `active`, and all 8 bimester date fields. The response MUST NOT include a `description` field in any cycle object.
 
 #### Scenario: Active cycles returned for level
 
 - GIVEN active academic cycles exist for level PRIMARIO
 - WHEN `GET /v1/academic-cycles?active=true&level=PRIMARIO` is called
 - THEN the response SHALL contain cycles where `active=true` and `level=PRIMARIO`
-- AND each cycle SHALL include `uuid`, `code`, `name`, `description`, bimester dates, `startDate`, `endDate`, `active`
+- AND each cycle SHALL include `uuid`, `code`, `name`, bimester dates, `startDate`, `endDate`, `active`
+- AND no cycle object SHALL include a `description` field
 
 #### Scenario: No active cycles for given filters
 
@@ -240,7 +235,7 @@ All endpoints SHALL require a valid JWT. Write endpoints SHALL require `@Roles('
 ### Requirement: AcademicCycle Management Frontend Page
 
 The system MUST provide a page at `/academic-cycles` with:
-- A filterable table: columns `code`, `name`, `description`, `level`, `active` (badge), `startDate`, `endDate`, action buttons (edit, toggle active, delete)
+- A filterable table: columns `code`, `name`, `level`, `active` (badge), `startDate`, `endDate`, action buttons (edit, toggle active, delete)
 - Filter controls: combobox for `level`, toggle for `active/inactive`
 - A create/edit form with all fields including the 8 bimester dates
 

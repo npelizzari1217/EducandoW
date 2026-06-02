@@ -15,7 +15,8 @@ The system SHALL expose `GET /v1/academic-cycles` that returns academic cycles f
 - GIVEN an institution has active academic cycles for level PRIMARIO
 - WHEN `GET /v1/academic-cycles?active=true&institutionId={id}&level=2` is called
 - THEN the response SHALL contain cycles where `active=true` and `level=2`
-- AND each cycle SHALL include `id`, `name`, `level`, `startDate`, `endDate`, `active`
+- AND each cycle SHALL include `id`, `code`, `name`, `level`, `startDate`, `endDate`, `active`
+- AND the response MUST NOT include a `description` field in any cycle object
 
 #### Scenario: No active cycles for given filters
 
