@@ -55,7 +55,7 @@ const navGroups: NavGroupDef[] = [
     items: [
       // Generic — visible when any level exists
       { label: 'Alumnos por curso', path: '/students-by-course', moduleCode: 'COURSES', requiresLevel: true },
-      { label: 'Calificaciones parciales', path: '/grades', moduleCode: 'GRADES', requiresLevel: true },
+      { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
       // Inicial (levelId: 1)
       { label: 'Salas', path: '/inicial/salas', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },

@@ -129,7 +129,7 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Inscripciones')).not.toBeInTheDocument();
     expect(screen.queryByText('Legajos')).not.toBeInTheDocument();
     expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
-    expect(screen.queryByText('Calificaciones parciales')).not.toBeInTheDocument();
+    expect(screen.queryByText('Notas y Calificaciones')).not.toBeInTheDocument();
     expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
     // Level-specific items also hidden
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
@@ -149,7 +149,7 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
     expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
-    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Inicial items visible (levelId: 1, base level from Math.floor(10/10) = 1)
@@ -183,7 +183,7 @@ describe('Sidebar filtering', () => {
     // Generic items visible
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
-    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Inicial NOT visible
@@ -327,7 +327,7 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
-    expect(screen.getByText('Calificaciones parciales')).toBeInTheDocument();
+    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Perfiles')).toBeInTheDocument();
@@ -423,7 +423,7 @@ describe('Sidebar filtering', () => {
     // No Académico group or items visible
     expect(screen.queryByText('Académico')).not.toBeInTheDocument();
     expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
-    expect(screen.queryByText('Calificaciones parciales')).not.toBeInTheDocument();
+    expect(screen.queryByText('Notas y Calificaciones')).not.toBeInTheDocument();
     expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
     expect(screen.queryByText('Grados')).not.toBeInTheDocument();
