@@ -84,36 +84,50 @@ export default function CourseCyclesPage() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          <label className="flex flex-col text-sm">
-            Nivel
-            <select value={filters.level} onChange={(e) => setFilters((f) => ({ ...f, level: e.target.value }))} className="border rounded p-1">
+        <div style={{ display: 'flex', gap: 'var(--space-lg)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
+            <select
+              value={filters.level}
+              onChange={(e) => setFilters((f) => ({ ...f, level: e.target.value }))}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '160px' }}
+            >
               <option value="">Todos</option>
               <option value="10">Inicial</option>
               <option value="20">Primario</option>
               <option value="30">Secundario</option>
               <option value="40">Terciario</option>
             </select>
-          </label>
-          <label className="flex flex-col text-sm">
-            Ciclo Lectivo
-            <select value={filters.cycleId} onChange={(e) => setFilters((f) => ({ ...f, cycleId: e.target.value }))} className="border rounded p-1">
+          </div>
+          <div>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Ciclo Lectivo</label>
+            <select
+              value={filters.cycleId}
+              onChange={(e) => setFilters((f) => ({ ...f, cycleId: e.target.value }))}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '200px' }}
+            >
               <option value="">Todos</option>
               {cycles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
-          </label>
-          <label className="flex flex-col text-sm">
-            Estado
-            <select value={filters.active} onChange={(e) => setFilters((f) => ({ ...f, active: e.target.value }))} className="border rounded p-1">
+          </div>
+          <div>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Estado</label>
+            <select
+              value={filters.active}
+              onChange={(e) => setFilters((f) => ({ ...f, active: e.target.value }))}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '140px' }}
+            >
               <option value="">Todos</option>
               <option value="true">Activo</option>
               <option value="false">Cerrado</option>
             </select>
-          </label>
-          <Button variant="secondary" onClick={() => { setShowGenerateModal(true); }}>Generar Cursos</Button>
-          <Button onClick={() => { setEditing(null); setShowForm(!showForm); }}>
-            {showForm ? 'Cancelar' : 'Nuevo Curso por Ciclo'}
-          </Button>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-md)', marginLeft: 'var(--space-sm)' }}>
+            <Button onClick={() => { setShowGenerateModal(true); }}>Generar Cursos</Button>
+            <Button onClick={() => { setEditing(null); setShowForm(!showForm); }}>
+              {showForm ? 'Cancelar' : 'Nuevo Curso por Ciclo'}
+            </Button>
+          </div>
         </div>
       </Card>
 
