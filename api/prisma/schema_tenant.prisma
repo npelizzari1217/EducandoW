@@ -164,7 +164,7 @@ model CourseCycle {
 
   course    CourseSection  @relation(fields: [courseId], references: [id])
   studyPlan StudyPlan      @relation(fields: [studyPlanId], references: [id])
-  cycle     AcademicCycle   @relation(fields: [cycleId], references: [id])
+  cycle     AcademicCycle   @relation(fields: [cycleId], references: [uuid])
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -191,7 +191,7 @@ model Enrollment {
   deletedAt DateTime?
 
   student Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  cycle   AcademicCycle? @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  cycle   AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -456,7 +456,7 @@ model Attendance {
   student       Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
   courseSection CourseSection    @relation(fields: [courseSectionId], references: [id])
   subject       Subject?         @relation(fields: [subjectId], references: [id])
-  cycle         AcademicCycle?   @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  cycle         AcademicCycle?   @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
   status        AttendanceStatus @relation(fields: [statusId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")

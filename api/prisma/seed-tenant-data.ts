@@ -42,14 +42,14 @@ async function main() {
 
   // Academic cycle
   const cycle = await p.academicCycle.create({
-    data: { name: 'Ciclo Lectivo 2026', level: 2, modality: 0, startDate: new Date('2026-03-01'), endDate: new Date('2026-12-15') },
+    data: { code: '2026', name: 'Ciclo Lectivo 2026', level: 2, modality: 0, startDate: new Date('2026-03-01'), endDate: new Date('2026-12-15') },
   });
   console.log('✅ Cycle');
 
   // Enrollment
   await p.enrollment.create({
     data: {
-      studentId: stu.id, cycleId: cycle.id,
+      studentId: stu.id, cycleId: cycle.uuid,
       level: 2, modality: 0, academicYear: '2026',
       grade: '5to', division: 'A', status: 'ACTIVE',
     },

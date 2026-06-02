@@ -104,7 +104,7 @@ export class CreateCourseCycleUseCase {
       return err(new NotFoundError('CourseSection', input.courseId));
     }
 
-    const cycle = await this.academicCycleRepo.findById(input.cycleId);
+    const cycle = await this.academicCycleRepo.findByUuid(input.cycleId);
     if (!cycle) {
       return err(new NotFoundError('AcademicCycle', input.cycleId));
     }
@@ -284,7 +284,7 @@ export class GenerateCourseCyclesUseCase {
     }
 
     // Validate academic cycle exists and is active
-    const cycle = await this.academicCycleRepo.findById(input.cycleId);
+    const cycle = await this.academicCycleRepo.findByUuid(input.cycleId);
     if (!cycle) {
       throw new NotFoundError('AcademicCycle', input.cycleId);
     }
