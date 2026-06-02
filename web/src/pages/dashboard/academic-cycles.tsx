@@ -148,7 +148,7 @@ export default function AcademicCyclesPage() {
 
       {/* Institution selector */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1 }}>
+        <div>
           <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
             Institución
           </label>
@@ -156,7 +156,7 @@ export default function AcademicCyclesPage() {
             <select
               value={institutionId}
               onChange={e => { setInstitutionId(e.target.value); }}
-              style={{ ...SELECT_STYLE, minWidth: '220px' }}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             >
               <option value="">Todas las instituciones</option>
               {institutions.map(inst => (
@@ -168,7 +168,7 @@ export default function AcademicCyclesPage() {
               type="text"
               value={instName}
               disabled
-              style={{ ...DISABLED_INPUT_STYLE, minWidth: '220px' }}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             />
           )}
         </div>
