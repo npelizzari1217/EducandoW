@@ -57,7 +57,19 @@ export class CreateStudentUseCase {
 export class ListStudentsUseCase {
   constructor(private readonly repo: StudentRepository) {}
 
-  async execute(institutionId: string): Promise<Student[]> {
+  async execute(institutionId: string, caller: CallerInfo): Promise<Student[]> {
+    // STUDENT role: only see themselves
+    if (caller.roles.includes('STUDENT')) {
+      const student = await this.repo.findByUserId(caller.userId);
+      return student ? [student] : [];
+    }
+
+    // TUTOR role: only see linked children
+    if (caller.roles.includes('TUTOR')) {
+      return this.repo.findByGuardianUserId(caller.userId);
+    }
+
+    // ADMIN / MANAGER / TEACHER / PRECEPTOR: see all
     return this.repo.findByInstitution(institutionId);
   }
 }

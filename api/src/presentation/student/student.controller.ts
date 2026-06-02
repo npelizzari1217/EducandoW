@@ -68,7 +68,7 @@ export class StudentController {
   }
 
   @Patch(':id')
-  @Roles({ module: 'STUDENTS', action: 'UPDATE' }, { module: 'STUDENTS', action: 'READ' })
+  @Roles({ module: 'STUDENTS', action: 'READ' })
   async patch(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateStudentSchema)) body: UpdateStudentDTO,
@@ -80,8 +80,11 @@ export class StudentController {
 
   @Get()
   @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
-  async list(@Query('institutionId') institutionId: string) {
-    const students = await this.listUC.execute(institutionId);
+  async list(
+    @Query('institutionId') institutionId: string,
+    @CurrentUser() user: { userId: string; roles: string[] },
+  ) {
+    const students = await this.listUC.execute(institutionId, { userId: user.userId, roles: user.roles });
     return { data: students.map((s) => this.mapStudent(s)) };
   }
 

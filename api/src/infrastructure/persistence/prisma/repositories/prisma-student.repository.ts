@@ -100,7 +100,13 @@ export class PrismaStudentRepository implements StudentRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.student.delete({ where: { id } }).catch(() => {});
+    await this.client.student.update({
+      where: { id },
+      data: {
+        active: false,
+        deletedAt: new Date(),
+      },
+    });
   }
 
   private toDomain(record: Record<string, unknown>): Student {

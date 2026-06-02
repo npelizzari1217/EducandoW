@@ -16,6 +16,7 @@
 export const ROLE_HIERARCHY: Record<string, number> = {
   ROOT: 99,
   ADMIN: 60,
+  MANAGER: 55,
   DIRECTOR: 50,
   SECRETARIO: 40,
   PRECEPTOR: 30,
@@ -28,6 +29,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
 export const ROLE_LABELS: Record<string, string> = {
   ROOT: 'Root',
   ADMIN: 'Administrador',
+  MANAGER: 'Gestor',
   DIRECTOR: 'Directivo',
   SECRETARIO: 'Secretario',
   PRECEPTOR: 'Preceptor',
