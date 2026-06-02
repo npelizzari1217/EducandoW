@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle, useToggleCourseCycleActive } from '../../hooks/useCourseCycles';
 import type { CourseCycle, CreateCourseCycleDto, UpdateCourseCycleDto } from '../../types/course-cycle';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -10,6 +12,8 @@ import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
 import GenerateCourseCyclesModal from '../../components/course-cycle/GenerateCourseCyclesModal';
 import apiClient from '../../api/client';
 
+interface Institution { id: string; name: string; }
+
 const LEVEL_LABELS: Record<number, string> = {
   10: 'Inicial', 11: 'Talleres Inicial', 12: 'Bilingüismo Inicial',
   20: 'Primario', 21: 'Talleres Primario', 22: 'Bilingüismo Primario',
@@ -18,26 +22,49 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 export default function CourseCyclesPage() {
+  const { user } = useAuth();
+  const { config } = useInstitution();
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
+
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+
   const [filters, setFilters] = useState({ level: '', cycleId: '', active: '' });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CourseCycle | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
 
-  const params: Record<string, string> = {};
-  if (filters.level) params.level = filters.level;
-  if (filters.cycleId) params.cycleId = filters.cycleId;
-  if (filters.active) params.active = filters.active;
+  const queryParams: Record<string, string> = {};
+  if (institutionId) queryParams.institutionId = institutionId;
+  if (filters.level) queryParams.level = filters.level;
+  if (filters.cycleId) queryParams.cycleId = filters.cycleId;
+  if (filters.active) queryParams.active = filters.active;
 
-  const { data, loading, reload } = useCourseCycles(Object.keys(params).length > 0 ? params : undefined);
+  const { data, loading, reload } = useCourseCycles(Object.keys(queryParams).length > 0 ? queryParams : undefined);
   const { creating, createError, create } = useCreateCourseCycle();
   const { updating, updateError, update } = useUpdateCourseCycle();
   const { deleting, del } = useDeleteCourseCycle();
   const { toggling, toggle } = useToggleCourseCycleActive();
 
+  // Fetch institutions for ROOT
+  useEffect(() => {
+    if (isRoot) {
+      apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
+    }
+  }, [isRoot]);
+
   const [cycles, setCycles] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
-    apiClient.get('/academic-cycles?limit=100').then((r) => setCycles(r.data?.data ?? []));
-  }, []);
+    const cycleParams: Record<string, string> = { limit: '100' };
+    if (institutionId) cycleParams.institutionId = institutionId;
+    apiClient.get('/academic-cycles', { params: cycleParams }).then((r) => setCycles(r.data?.data ?? []));
+  }, [institutionId]);
+
+  const handleInstitutionChange = (newId: string) => {
+    setInstitutionId(newId);
+    setFilters({ level: '', cycleId: '', active: '' });
+  };
 
   const handleCreate = async (data: CreateCourseCycleDto) => {
     const ok = await create(data as any);
@@ -81,6 +108,34 @@ export default function CourseCyclesPage() {
         title="Cursos por Ciclo"
         subtitle="Administrá los cursos de cada plan de estudio por ciclo lectivo"
       />
+
+      {/* Institution selector */}
+      <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)' }}>
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
+            Institución
+          </label>
+          {isRoot ? (
+            <select
+              value={institutionId}
+              onChange={(e) => handleInstitutionChange(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            >
+              <option value="">Todas las instituciones</option>
+              {institutions.map((inst) => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
+        </div>
+      </div>
 
       {/* Filters */}
       <Card className="p-4">
