@@ -176,8 +176,8 @@ export default function AcademicCyclesPage() {
 
       {/* Filters */}
       <Card className="p-4">
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
+        <div style={{ display: 'flex', gap: 'var(--space-lg)', alignItems: 'flex-end' }}>
+          <div style={{ minWidth: '240px' }}>
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
             <select
               style={SELECT_STYLE}
@@ -190,7 +190,7 @@ export default function AcademicCyclesPage() {
               ))}
             </select>
           </div>
-          <div className="flex-1">
+          <div style={{ minWidth: '200px' }}>
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Estado</label>
             <select
               style={SELECT_STYLE}
@@ -202,7 +202,7 @@ export default function AcademicCyclesPage() {
               <option value="false">Inactivos</option>
             </select>
           </div>
-          <Button variant="ghost" onClick={() => { setFilters({ level: '', active: '' }); reload(); }}>
+          <Button variant="ghost" onClick={() => { setFilters({ level: '', active: '' }); reload(); }} style={{ marginTop: '1.25rem' }}>
             Limpiar
           </Button>
         </div>
