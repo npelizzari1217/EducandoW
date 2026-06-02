@@ -42,6 +42,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Inscripciones', path: '/enrollments', moduleCode: 'ENROLLMENTS', requiresLevel: true },
       { label: 'Legajos', path: '/legajos', moduleCode: 'STUDENTS', requiresLevel: true },
       { label: 'Planes de Estudio', path: '/study-plans', moduleCode: 'STUDY_PLANS', requiresLevel: true },
+      { label: 'Cursos por Ciclo', path: '/course-cycles', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
       { label: 'Usuarios', path: '/users', moduleCode: 'USERS' },
     ],
   },

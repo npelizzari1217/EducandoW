@@ -27,6 +27,7 @@ import CursosPage from './niveles/secundario/cursos/page';
 import MesasExamenPage from './niveles/secundario/mesas-examen/page';
 import CarrerasPage from './niveles/terciario/carreras/page';
 import InscripcionesPage from './niveles/terciario/inscripciones/page';
+import CourseCyclesPage from './pages/dashboard/course-cycles';
 
 function App() {
   return (
@@ -63,6 +64,7 @@ function App() {
               {/* Terciario */}
               <Route path="/terciario/carreras" element={<CarrerasPage />} />
               <Route path="/terciario/inscripciones" element={<InscripcionesPage />} />
+              <Route path="/course-cycles" element={<CourseCyclesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

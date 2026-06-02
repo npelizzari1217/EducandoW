@@ -35,6 +35,12 @@ export { Enrollment } from './enrollment/entities';
 export type { EnrollmentStatus } from './enrollment/entities';
 export type { EnrollmentRepository } from './enrollment/repositories/enrollment-repository';
 
+// CourseCycle
+export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
+export type { CourseCycleProps, CreateCourseCycleInput, UpdateCourseCycleInput } from './course-cycle';
+export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult } from './course-cycle';
+export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFoundError, BimonthPeriodInvalidError, AcademicCycleClosedError } from './course-cycle';
+
 // Pedagogy
 export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue } from './pedagogy';
 export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps } from './pedagogy';

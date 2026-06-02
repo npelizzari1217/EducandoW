@@ -19,6 +19,7 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
 @Module({
   imports: [AuthModule],
   controllers: [PedagogyController],
+  exports: ['CourseSectionRepository', 'AcademicCycleRepository', 'StudyPlanRepository'],
   providers: [
     ...repos,
     ...tokens.map((t, i) => ({ provide: t, useExisting: repos[i] })),

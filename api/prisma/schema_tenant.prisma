@@ -115,8 +115,9 @@ model AcademicCycle {
 
   deletedAt DateTime?
 
-  enrollments Enrollment[]
-  attendances Attendance[]
+  enrollments  Enrollment[]
+  attendances  Attendance[]
+  courseCycles CourseCycle[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -124,6 +125,41 @@ model AcademicCycle {
   @@index([level])
   @@index([active])
   @@map("academic_cycles")
+}
+
+// ── Course Cycle ────────────────────────────────────────────
+
+model CourseCycle {
+  id             Int       @id @default(autoincrement())
+  uuid           String    @unique @default(uuid())
+  courseId       String
+  studyPlanId    String
+  cycleId        String
+  courseName     String
+  level          Int
+  active         Boolean   @default(true)
+  passingGrade   Float
+  promotionText  String?
+  firstBimStart  DateTime  @map("first_bim_start")
+  firstBimEnd    DateTime  @map("first_bim_end")
+  secondBimStart DateTime  @map("second_bim_start")
+  secondBimEnd   DateTime  @map("second_bim_end")
+  thirdBimStart  DateTime  @map("third_bim_start")
+  thirdBimEnd    DateTime  @map("third_bim_end")
+  fourthBimStart DateTime  @map("fourth_bim_start")
+  fourthBimEnd   DateTime  @map("fourth_bim_end")
+  lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
+  deletedAt      DateTime?
+
+  course    CourseSection  @relation(fields: [courseId], references: [id])
+  studyPlan StudyPlan      @relation(fields: [studyPlanId], references: [id])
+  cycle     AcademicCycle   @relation(fields: [cycleId], references: [id])
+
+  @@unique([courseId, cycleId])
+  @@index([cycleId])
+  @@index([studyPlanId])
+  @@index([level])
+  @@map("course_cycles")
 }
 
 // ── Enrollment ─────────────────────────────────────────────
@@ -199,6 +235,7 @@ model CourseSection {
   studyPlanCourses   StudyPlanCourse[]
   grados             Grado[]
   cursos             Curso[]
+  courseCycles       CourseCycle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -433,7 +470,8 @@ model StudyPlan {
   active       Boolean  @default(true)
   deletedAt    DateTime?
 
-  courses StudyPlanCourse[]
+  courses      StudyPlanCourse[]
+  courseCycles CourseCycle[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

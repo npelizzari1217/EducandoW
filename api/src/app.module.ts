@@ -15,6 +15,7 @@ import { NivelPrimarioModule } from './presentation/nivel-primario/nivel-primari
 import { NivelSecundarioModule } from './presentation/nivel-secundario/nivel-secundario.module';
 import { NivelTerciarioModule } from './presentation/nivel-terciario/nivel-terciario.module';
 import { ProfilesModule } from './presentation/profiles/profiles.module';
+import { CourseCycleModule } from './presentation/course-cycle/course-cycle.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -45,6 +46,7 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     NivelSecundarioModule,
     NivelTerciarioModule,
     ProfilesModule,
+    CourseCycleModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [
