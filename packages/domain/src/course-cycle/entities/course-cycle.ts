@@ -16,10 +16,10 @@ export interface CourseCycleProps {
   active: boolean;
   passingGrade: PassingGrade;
   promotionText: string | null;
-  firstBimonth: BimonthPeriod;
-  secondBimonth: BimonthPeriod;
-  thirdBimonth: BimonthPeriod;
-  fourthBimonth: BimonthPeriod;
+  firstBimonth: BimonthPeriod | null;
+  secondBimonth: BimonthPeriod | null;
+  thirdBimonth: BimonthPeriod | null;
+  fourthBimonth: BimonthPeriod | null;
   createdAt: Date;
   lastModifiedAt: Date;
   deletedAt?: Date | null;
@@ -33,20 +33,20 @@ export interface CreateCourseCycleInput {
   level: Level;
   passingGrade: PassingGrade;
   promotionText?: string | null;
-  firstBimonth: BimonthPeriod;
-  secondBimonth: BimonthPeriod;
-  thirdBimonth: BimonthPeriod;
-  fourthBimonth: BimonthPeriod;
+  firstBimonth?: BimonthPeriod | null;
+  secondBimonth?: BimonthPeriod | null;
+  thirdBimonth?: BimonthPeriod | null;
+  fourthBimonth?: BimonthPeriod | null;
 }
 
 export interface UpdateCourseCycleInput {
   courseName?: CourseName;
   passingGrade?: PassingGrade;
   promotionText?: string | null;
-  firstBimonth?: BimonthPeriod;
-  secondBimonth?: BimonthPeriod;
-  thirdBimonth?: BimonthPeriod;
-  fourthBimonth?: BimonthPeriod;
+  firstBimonth?: BimonthPeriod | null;
+  secondBimonth?: BimonthPeriod | null;
+  thirdBimonth?: BimonthPeriod | null;
+  fourthBimonth?: BimonthPeriod | null;
 }
 
 export class CourseCycle {
@@ -65,10 +65,10 @@ export class CourseCycle {
       active: true,
       passingGrade: input.passingGrade,
       promotionText: input.promotionText ?? null,
-      firstBimonth: input.firstBimonth,
-      secondBimonth: input.secondBimonth,
-      thirdBimonth: input.thirdBimonth,
-      fourthBimonth: input.fourthBimonth,
+      firstBimonth: input.firstBimonth ?? null,
+      secondBimonth: input.secondBimonth ?? null,
+      thirdBimonth: input.thirdBimonth ?? null,
+      fourthBimonth: input.fourthBimonth ?? null,
       createdAt: now,
       lastModifiedAt: now,
     });
@@ -118,19 +118,19 @@ export class CourseCycle {
     return this.props.promotionText;
   }
 
-  get firstBimonth(): BimonthPeriod {
+  get firstBimonth(): BimonthPeriod | null {
     return this.props.firstBimonth;
   }
 
-  get secondBimonth(): BimonthPeriod {
+  get secondBimonth(): BimonthPeriod | null {
     return this.props.secondBimonth;
   }
 
-  get thirdBimonth(): BimonthPeriod {
+  get thirdBimonth(): BimonthPeriod | null {
     return this.props.thirdBimonth;
   }
 
-  get fourthBimonth(): BimonthPeriod {
+  get fourthBimonth(): BimonthPeriod | null {
     return this.props.fourthBimonth;
   }
 

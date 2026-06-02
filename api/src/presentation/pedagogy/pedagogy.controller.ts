@@ -21,6 +21,11 @@ export class PedagogyController {
     private createNotaTrimestralUC: UC.CreateNotaTrimestralUC, private listNotasTrimestralesUC: UC.ListNotasTrimestralesUC, private deleteNotaTrimestralUC: UC.DeleteNotaTrimestralUC,
     private createAttUC: UC.CreateAttendanceUC, private listAttUC: UC.ListAttendanceUC, private deleteAttUC: UC.DeleteAttendanceUC,
     private listCyclesUC: UC.ListAcademicCyclesUC,
+    private getCycleUC: UC.GetAcademicCycleUC,
+    private createCycleUC: UC.CreateAcademicCycleUC,
+    private updateCycleUC: UC.UpdateAcademicCycleUC,
+    private deleteCycleUC: UC.DeleteAcademicCycleUC,
+    private toggleCycleUC: UC.ToggleAcademicCycleActiveUC,
     private createPlanUC: UC.CreateStudyPlanUC, private listPlansUC: UC.ListStudyPlansUC,
     private getPlanUC: UC.GetStudyPlanUC, private updatePlanUC: UC.UpdateStudyPlanUC, private deletePlanUC: UC.DeleteStudyPlanUC,
     private addCourseUC: UC.AddCourseToPlanUC, private removeCourseUC: UC.RemoveCourseFromPlanUC,
@@ -30,10 +35,83 @@ export class PedagogyController {
 
   // ── Academic Cycles ────────────────────────────────────
   @Get('academic-cycles') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
-  async getCycles(@Query('level') l?: string) {
+  async getCycles(@Query('level') l?: string, @Query('active') active?: string,
+                   @Query('page') page?: string, @Query('pageSize') pageSize?: string) {
     const level = l ? parseInt(l, 10) : undefined;
+    const hasFilters = active !== undefined || page !== undefined || pageSize !== undefined;
+
+    if (hasFilters) {
+      const result = await this.listCyclesUC.execute({
+        level,
+        active: active === 'true' ? true : active === 'false' ? false : undefined,
+        page: page ? parseInt(page, 10) : undefined,
+        pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      });
+      return {
+        data: result.data.map((c: any) => this.toCycleResponse(c)),
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+      };
+    }
+
     const cycles = await this.listCyclesUC.execute(level);
-    return { data: cycles.map((c) => ({ id: c.id.get(), name: c.name, level: c.level, modality: c.modality, startDate: c.startDate.toISOString(), endDate: c.endDate.toISOString(), active: c.active })) };
+    return { data: cycles.map((c: any) => this.toCycleResponse(c)) };
+  }
+
+  @Get('academic-cycles/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
+  async getCycle(@Param('uuid') uuid: string) {
+    const result = await this.getCycleUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toCycleResponse(result.unwrap()) };
+  }
+
+  @Post('academic-cycles') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async postCycle(@Body(new ZodValidationPipe(DTO.CreateAcademicCycleSchema)) b: DTO.CreateAcademicCycleDTO) {
+    const result = await this.createCycleUC.execute(b);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toCycleResponse(result.unwrap()) };
+  }
+
+  @Patch('academic-cycles/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async patchCycle(@Param('uuid') uuid: string, @Body(new ZodValidationPipe(DTO.UpdateAcademicCycleSchema)) b: DTO.UpdateAcademicCycleDTO) {
+    const result = await this.updateCycleUC.execute(uuid, b);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toCycleResponse(result.unwrap()) };
+  }
+
+  @Delete('academic-cycles/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' }) @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCycle(@Param('uuid') uuid: string) {
+    await this.deleteCycleUC.execute(uuid);
+  }
+
+  @Patch('academic-cycles/:uuid/toggle-active') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async toggleActive(@Param('uuid') uuid: string) {
+    const result = await this.toggleCycleUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toCycleResponse(result.unwrap()) };
+  }
+
+  private toCycleResponse(c: any) {
+    return {
+      uuid: c.uuid,
+      code: c.code.get ? c.code.get() : c.code,
+      name: c.name,
+      description: c.description,
+      level: c.level,
+      modality: c.modality,
+      startDate: c.startDate instanceof Date ? c.startDate.toISOString() : c.startDate,
+      endDate: c.endDate instanceof Date ? c.endDate.toISOString() : c.endDate,
+      active: c.active,
+      firstBimonthStart: c.firstBimonth?.start ? (c.firstBimonth.start instanceof Date ? c.firstBimonth.start.toISOString() : c.firstBimonth.start) : null,
+      firstBimonthEnd: c.firstBimonth?.end ? (c.firstBimonth.end instanceof Date ? c.firstBimonth.end.toISOString() : c.firstBimonth.end) : null,
+      secondBimonthStart: c.secondBimonth?.start ? (c.secondBimonth.start instanceof Date ? c.secondBimonth.start.toISOString() : c.secondBimonth.start) : null,
+      secondBimonthEnd: c.secondBimonth?.end ? (c.secondBimonth.end instanceof Date ? c.secondBimonth.end.toISOString() : c.secondBimonth.end) : null,
+      thirdBimonthStart: c.thirdBimonth?.start ? (c.thirdBimonth.start instanceof Date ? c.thirdBimonth.start.toISOString() : c.thirdBimonth.start) : null,
+      thirdBimonthEnd: c.thirdBimonth?.end ? (c.thirdBimonth.end instanceof Date ? c.thirdBimonth.end.toISOString() : c.thirdBimonth.end) : null,
+      fourthBimonthStart: c.fourthBimonth?.start ? (c.fourthBimonth.start instanceof Date ? c.fourthBimonth.start.toISOString() : c.fourthBimonth.start) : null,
+      fourthBimonthEnd: c.fourthBimonth?.end ? (c.fourthBimonth.end instanceof Date ? c.fourthBimonth.end.toISOString() : c.fourthBimonth.end) : null,
+    };
   }
 
   // ── Subjects ───────────────────────────────────────

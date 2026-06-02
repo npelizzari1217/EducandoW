@@ -1,3 +1,14 @@
+export interface BimonthDateSet {
+  firstBimonthStart: string | null;
+  firstBimonthEnd: string | null;
+  secondBimonthStart: string | null;
+  secondBimonthEnd: string | null;
+  thirdBimonthStart: string | null;
+  thirdBimonthEnd: string | null;
+  fourthBimonthStart: string | null;
+  fourthBimonthEnd: string | null;
+}
+
 export interface CourseCycle {
   uuid: string;
   courseId: string;
@@ -8,14 +19,8 @@ export interface CourseCycle {
   active: boolean;
   passingGrade: number;
   promotionText: string | null;
-  firstBimonthStart: string;
-  firstBimonthEnd: string;
-  secondBimonthStart: string;
-  secondBimonthEnd: string;
-  thirdBimonthStart: string;
-  thirdBimonthEnd: string;
-  fourthBimonthStart: string;
-  fourthBimonthEnd: string;
+  ownBimonthDates: BimonthDateSet;
+  effectiveBimonthDates: BimonthDateSet;
   lastModifiedAt: string;
 }
 

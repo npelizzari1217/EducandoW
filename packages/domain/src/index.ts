@@ -45,11 +45,13 @@ export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFo
 export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue } from './pedagogy';
 export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
-export type { AcademicCycleProps } from './pedagogy';
+export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
+export { CycleCode, CycleDescription } from './pedagogy';
+export { CycleCodeInvalidError, CycleDescriptionInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
 export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository } from './pedagogy';
-export type { AcademicCycleRepository } from './pedagogy';
+export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';
 
 // Nivel Inicial

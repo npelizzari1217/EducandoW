@@ -1,12 +1,6 @@
-# CourseCycle Specification
+# Delta for course-cycle
 
-## Purpose
-
-Vincula un Curso (`CourseSection`) con un `StudyPlan` y un `AcademicCycle` formando la entidad `CourseCycle`. Permite organizar, filtrar y cerrar los cursos por ciclo lectivo. Un ciclo cerrado (`active=false`) bloquea toda modificación propia y de sus dependencias.
-
----
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: CourseCycle Data Model
 

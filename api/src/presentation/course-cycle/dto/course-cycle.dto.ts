@@ -8,14 +8,14 @@ export const CreateCourseCycleSchema = z.object({
   level: z.string().min(1),
   passingGrade: z.number().min(1).max(10),
   promotionText: z.string().optional().nullable(),
-  firstBimonthStart: z.string().min(1),
-  firstBimonthEnd: z.string().min(1),
-  secondBimonthStart: z.string().min(1),
-  secondBimonthEnd: z.string().min(1),
-  thirdBimonthStart: z.string().min(1),
-  thirdBimonthEnd: z.string().min(1),
-  fourthBimonthStart: z.string().min(1),
-  fourthBimonthEnd: z.string().min(1),
+  firstBimonthStart: z.string().min(1).optional(),
+  firstBimonthEnd: z.string().min(1).optional(),
+  secondBimonthStart: z.string().min(1).optional(),
+  secondBimonthEnd: z.string().min(1).optional(),
+  thirdBimonthStart: z.string().min(1).optional(),
+  thirdBimonthEnd: z.string().min(1).optional(),
+  fourthBimonthStart: z.string().min(1).optional(),
+  fourthBimonthEnd: z.string().min(1).optional(),
 });
 
 export type CreateCourseCycleDto = z.infer<typeof CreateCourseCycleSchema>;

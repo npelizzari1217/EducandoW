@@ -105,15 +105,26 @@ model Teacher {
 // ── Academic Cycles ───────────────────────────────────────
 
 model AcademicCycle {
-  id        String   @id @default(uuid())
-  name      String
-  level     Int
-  modality  Int    @default(0)
-  startDate DateTime @map("start_date")
-  endDate   DateTime @map("end_date")
-  active    Boolean  @default(true)
+  id          Int       @id @default(autoincrement())
+  uuid        String    @unique @default(uuid())
+  code        String    @unique
+  name        String
+  description String?
+  level       Int
+  modality    Int       @default(0)
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  active      Boolean   @default(true)
+  deletedAt   DateTime?
 
-  deletedAt DateTime?
+  firstBimStart  DateTime? @map("first_bim_start")
+  firstBimEnd    DateTime? @map("first_bim_end")
+  secondBimStart DateTime? @map("second_bim_start")
+  secondBimEnd   DateTime? @map("second_bim_end")
+  thirdBimStart  DateTime? @map("third_bim_start")
+  thirdBimEnd    DateTime? @map("third_bim_end")
+  fourthBimStart DateTime? @map("fourth_bim_start")
+  fourthBimEnd   DateTime? @map("fourth_bim_end")
 
   enrollments  Enrollment[]
   attendances  Attendance[]
@@ -140,14 +151,14 @@ model CourseCycle {
   active         Boolean   @default(true)
   passingGrade   Float
   promotionText  String?
-  firstBimStart  DateTime  @map("first_bim_start")
-  firstBimEnd    DateTime  @map("first_bim_end")
-  secondBimStart DateTime  @map("second_bim_start")
-  secondBimEnd   DateTime  @map("second_bim_end")
-  thirdBimStart  DateTime  @map("third_bim_start")
-  thirdBimEnd    DateTime  @map("third_bim_end")
-  fourthBimStart DateTime  @map("fourth_bim_start")
-  fourthBimEnd   DateTime  @map("fourth_bim_end")
+  firstBimStart  DateTime? @map("first_bim_start")
+  firstBimEnd    DateTime? @map("first_bim_end")
+  secondBimStart DateTime? @map("second_bim_start")
+  secondBimEnd   DateTime? @map("second_bim_end")
+  thirdBimStart  DateTime? @map("third_bim_start")
+  thirdBimEnd    DateTime? @map("third_bim_end")
+  fourthBimStart DateTime? @map("fourth_bim_start")
+  fourthBimEnd   DateTime? @map("fourth_bim_end")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 

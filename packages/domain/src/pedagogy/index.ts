@@ -17,9 +17,16 @@ export type { AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity } fr
 export { GradeScale, GradeScaleValue } from './entities/grade-scale';
 export type { GradeScaleProps, GradeScaleValueProps } from './entities/grade-scale';
 export { AcademicCycle } from './entities/academic-cycle';
-export type { AcademicCycleProps } from './entities/academic-cycle';
+export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './entities/academic-cycle';
 export { StudyPlan } from './entities/study-plan';
 export type { StudyPlanProps } from './entities/study-plan';
+
+// Value Objects
+export { CycleCode } from './value-objects/cycle-code';
+export { CycleDescription } from './value-objects/cycle-description';
+
+// Errors
+export { CycleCodeInvalidError, CycleDescriptionInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './errors/academic-cycle.errors';
 
 export type { SubjectRepository } from './repositories/subject-repository';
 export type { CourseSectionRepository } from './repositories/course-section-repository';
@@ -30,5 +37,5 @@ export type { PeriodoEvaluacionRepository } from './repositories/periodo-evaluac
 export type { NotaTrimestralRepository } from './repositories/nota-trimestral-repository';
 export type { AttendanceRepository } from './repositories/attendance-repository';
 export type { GradeScaleRepository } from './repositories/grade-scale-repository';
-export type { AcademicCycleRepository } from './repositories/academic-cycle-repository';
+export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } from './repositories/academic-cycle-repository';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';

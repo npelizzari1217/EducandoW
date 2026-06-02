@@ -155,10 +155,10 @@ export class CourseCycleController {
     active: boolean;
     passingGrade: { get(): number };
     promotionText: string | null;
-    firstBimonth: { start: Date; end: Date };
-    secondBimonth: { start: Date; end: Date };
-    thirdBimonth: { start: Date; end: Date };
-    fourthBimonth: { start: Date; end: Date };
+    firstBimonth: { start: Date; end: Date } | null;
+    secondBimonth: { start: Date; end: Date } | null;
+    thirdBimonth: { start: Date; end: Date } | null;
+    fourthBimonth: { start: Date; end: Date } | null;
     lastModifiedAt: Date;
     deletedAt?: Date | null;
   }) {
@@ -172,14 +172,26 @@ export class CourseCycleController {
       active: cc.active,
       passingGrade: cc.passingGrade.get(),
       promotionText: cc.promotionText,
-      firstBimonthStart: cc.firstBimonth.start.toISOString(),
-      firstBimonthEnd: cc.firstBimonth.end.toISOString(),
-      secondBimonthStart: cc.secondBimonth.start.toISOString(),
-      secondBimonthEnd: cc.secondBimonth.end.toISOString(),
-      thirdBimonthStart: cc.thirdBimonth.start.toISOString(),
-      thirdBimonthEnd: cc.thirdBimonth.end.toISOString(),
-      fourthBimonthStart: cc.fourthBimonth.start.toISOString(),
-      fourthBimonthEnd: cc.fourthBimonth.end.toISOString(),
+      ownBimonthDates: {
+        firstBimonthStart: cc.firstBimonth?.start?.toISOString() ?? null,
+        firstBimonthEnd: cc.firstBimonth?.end?.toISOString() ?? null,
+        secondBimonthStart: cc.secondBimonth?.start?.toISOString() ?? null,
+        secondBimonthEnd: cc.secondBimonth?.end?.toISOString() ?? null,
+        thirdBimonthStart: cc.thirdBimonth?.start?.toISOString() ?? null,
+        thirdBimonthEnd: cc.thirdBimonth?.end?.toISOString() ?? null,
+        fourthBimonthStart: cc.fourthBimonth?.start?.toISOString() ?? null,
+        fourthBimonthEnd: cc.fourthBimonth?.end?.toISOString() ?? null,
+      },
+      effectiveBimonthDates: {
+        firstBimonthStart: cc.firstBimonth?.start?.toISOString() ?? null,
+        firstBimonthEnd: cc.firstBimonth?.end?.toISOString() ?? null,
+        secondBimonthStart: cc.secondBimonth?.start?.toISOString() ?? null,
+        secondBimonthEnd: cc.secondBimonth?.end?.toISOString() ?? null,
+        thirdBimonthStart: cc.thirdBimonth?.start?.toISOString() ?? null,
+        thirdBimonthEnd: cc.thirdBimonth?.end?.toISOString() ?? null,
+        fourthBimonthStart: cc.fourthBimonth?.start?.toISOString() ?? null,
+        fourthBimonthEnd: cc.fourthBimonth?.end?.toISOString() ?? null,
+      },
       lastModifiedAt: cc.lastModifiedAt.toISOString(),
     };
   }

@@ -47,10 +47,10 @@ describe('CourseCycle', () => {
       expect(cc.active).toBe(true);
       expect(cc.passingGrade.equals(passingGrade)).toBe(true);
       expect(cc.promotionText).toBe(promotionText);
-      expect(cc.firstBimonth.equals(firstBim)).toBe(true);
-      expect(cc.secondBimonth.equals(secondBim)).toBe(true);
-      expect(cc.thirdBimonth.equals(thirdBim)).toBe(true);
-      expect(cc.fourthBimonth.equals(fourthBim)).toBe(true);
+      expect(cc.firstBimonth!.equals(firstBim)).toBe(true);
+      expect(cc.secondBimonth!.equals(secondBim)).toBe(true);
+      expect(cc.thirdBimonth!.equals(thirdBim)).toBe(true);
+      expect(cc.fourthBimonth!.equals(fourthBim)).toBe(true);
       expect(cc.deletedAt).toBeUndefined();
       expect(cc.createdAt).toBeInstanceOf(Date);
       expect(cc.lastModifiedAt).toBeInstanceOf(Date);
@@ -224,7 +224,7 @@ describe('CourseCycle', () => {
 
       expect(cc.courseName.equals(courseName)).toBe(true);
       expect(cc.passingGrade.equals(passingGrade)).toBe(true);
-      expect(cc.firstBimonth.equals(firstBim)).toBe(true);
+      expect(cc.firstBimonth!.equals(firstBim)).toBe(true);
     });
   });
 });

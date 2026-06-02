@@ -122,10 +122,18 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
     const courseName = CourseName.reconstruct(record.courseName);
     const passingGrade = PassingGrade.reconstruct(record.passingGrade);
     const level = Level.reconstruct(record.level as LevelType);
-    const firstBimonth = BimonthPeriod.reconstruct(record.firstBimStart, record.firstBimEnd);
-    const secondBimonth = BimonthPeriod.reconstruct(record.secondBimStart, record.secondBimEnd);
-    const thirdBimonth = BimonthPeriod.reconstruct(record.thirdBimStart, record.thirdBimEnd);
-    const fourthBimonth = BimonthPeriod.reconstruct(record.fourthBimStart, record.fourthBimEnd);
+    const firstBimonth = record.firstBimStart && record.firstBimEnd
+      ? BimonthPeriod.reconstruct(record.firstBimStart, record.firstBimEnd)
+      : null;
+    const secondBimonth = record.secondBimStart && record.secondBimEnd
+      ? BimonthPeriod.reconstruct(record.secondBimStart, record.secondBimEnd)
+      : null;
+    const thirdBimonth = record.thirdBimStart && record.thirdBimEnd
+      ? BimonthPeriod.reconstruct(record.thirdBimStart, record.thirdBimEnd)
+      : null;
+    const fourthBimonth = record.fourthBimStart && record.fourthBimEnd
+      ? BimonthPeriod.reconstruct(record.fourthBimStart, record.fourthBimEnd)
+      : null;
 
     return CourseCycle.reconstruct({
       id: { get: () => String(record.id) } as any,
@@ -158,14 +166,14 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       active: courseCycle.active,
       passingGrade: courseCycle.passingGrade.get(),
       promotionText: courseCycle.promotionText,
-      firstBimStart: courseCycle.firstBimonth.start,
-      firstBimEnd: courseCycle.firstBimonth.end,
-      secondBimStart: courseCycle.secondBimonth.start,
-      secondBimEnd: courseCycle.secondBimonth.end,
-      thirdBimStart: courseCycle.thirdBimonth.start,
-      thirdBimEnd: courseCycle.thirdBimonth.end,
-      fourthBimStart: courseCycle.fourthBimonth.start,
-      fourthBimEnd: courseCycle.fourthBimonth.end,
+      firstBimStart: courseCycle.firstBimonth?.start ?? null,
+      firstBimEnd: courseCycle.firstBimonth?.end ?? null,
+      secondBimStart: courseCycle.secondBimonth?.start ?? null,
+      secondBimEnd: courseCycle.secondBimonth?.end ?? null,
+      thirdBimStart: courseCycle.thirdBimonth?.start ?? null,
+      thirdBimEnd: courseCycle.thirdBimonth?.end ?? null,
+      fourthBimStart: courseCycle.fourthBimonth?.start ?? null,
+      fourthBimEnd: courseCycle.fourthBimonth?.end ?? null,
     };
   }
 }

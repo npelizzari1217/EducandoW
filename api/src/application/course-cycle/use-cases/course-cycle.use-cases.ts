@@ -32,7 +32,8 @@ function buildLevel(levelStr: string): Level {
   throw new Error(`Invalid level: ${levelStr}`);
 }
 
-function buildBimonthPeriod(startStr: string, endStr: string): BimonthPeriod {
+function buildBimonthPeriod(startStr?: string, endStr?: string): BimonthPeriod | null {
+  if (!startStr || !endStr) return null;
   const result = BimonthPeriod.create(new Date(startStr), new Date(endStr));
   if (result.isOk()) return result.unwrap();
   throw new Error(`Invalid bimonth period: ${startStr} -> ${endStr}`);
@@ -48,14 +49,14 @@ export interface CreateCourseCycleInput {
   level: string;
   passingGrade: number;
   promotionText?: string | null;
-  firstBimonthStart: string;
-  firstBimonthEnd: string;
-  secondBimonthStart: string;
-  secondBimonthEnd: string;
-  thirdBimonthStart: string;
-  thirdBimonthEnd: string;
-  fourthBimonthStart: string;
-  fourthBimonthEnd: string;
+  firstBimonthStart?: string;
+  firstBimonthEnd?: string;
+  secondBimonthStart?: string;
+  secondBimonthEnd?: string;
+  thirdBimonthStart?: string;
+  thirdBimonthEnd?: string;
+  fourthBimonthStart?: string;
+  fourthBimonthEnd?: string;
 }
 
 export interface UpdateCourseCycleInput {
@@ -301,9 +302,6 @@ export class GenerateCourseCyclesUseCase {
     // For each plan course, create a CourseCycle
     // We use StudyPlan from the input (the plan identifier)
     const courseCycles: CourseCycle[] = planCourses.map((pc) => {
-      const defaultBimStart = new Date('2026-01-01');
-      const defaultBimEnd = new Date('2026-02-28');
-
       return CourseCycle.create({
         courseId: pc.courseSectionId,
         studyPlanId: input.studyPlanId,
@@ -311,10 +309,6 @@ export class GenerateCourseCyclesUseCase {
         courseName: CourseName.create(pc.courseSectionName ?? 'Sin nombre').unwrap(),
         level: buildLevel('PRIMARIO'), // will be overridden
         passingGrade: PassingGrade.create(6).unwrap(),
-        firstBimonth: BimonthPeriod.create(defaultBimStart, defaultBimEnd).unwrap(),
-        secondBimonth: BimonthPeriod.create(defaultBimStart, defaultBimEnd).unwrap(),
-        thirdBimonth: BimonthPeriod.create(defaultBimStart, defaultBimEnd).unwrap(),
-        fourthBimonth: BimonthPeriod.create(defaultBimStart, defaultBimEnd).unwrap(),
       });
     });
 

@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { ok, err, ValidationError, Level, EducationalLevelCode, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
-import type { SubjectProps, CourseSectionProps, StudyPlanProps } from '@educandow/domain';
+import { CycleCode, CycleDescription, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
+import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
+import type { CreateAcademicCycleInput, UpdateAcademicCycleInput } from '@educandow/domain';
 
 const VALID_PEDAGOGICAL_LEVELS: EducationalLevelCode[] = [
   EducationalLevelCode.INICIAL,
@@ -22,8 +24,209 @@ function buildLevel(level: string, modality?: string): Level {
 }
 
 // ── AcademicCycle ─────────────────────────────────────
+
+export interface CreateAcademicCycleDTO {
+  name: string;
+  level: number;
+  modality?: number;
+  startDate: string;
+  endDate: string;
+  code: string;
+  description?: string | null;
+  firstBimonthStart?: string;
+  firstBimonthEnd?: string;
+  secondBimonthStart?: string;
+  secondBimonthEnd?: string;
+  thirdBimonthStart?: string;
+  thirdBimonthEnd?: string;
+  fourthBimonthStart?: string;
+  fourthBimonthEnd?: string;
+}
+
+export interface UpdateAcademicCycleDTO {
+  name?: string;
+  code?: string;
+  description?: string | null;
+  startDate?: string;
+  endDate?: string;
+  active?: boolean;
+  firstBimonthStart?: string;
+  firstBimonthEnd?: string;
+  secondBimonthStart?: string;
+  secondBimonthEnd?: string;
+  thirdBimonthStart?: string;
+  thirdBimonthEnd?: string;
+  fourthBimonthStart?: string;
+  fourthBimonthEnd?: string;
+}
+
+function buildBimonthOrNull(startStr?: string, endStr?: string): BimonthPeriod | null | Error {
+  if (!startStr && !endStr) return null;
+  if (startStr && endStr) {
+    const result = BimonthPeriod.create(new Date(startStr), new Date(endStr));
+    if (result.isErr()) return result.unwrapErr();
+    return result.unwrap();
+  }
+  return new ValidationError('Bimestere requires both start and end dates');
+}
+
 @Injectable()
-export class ListAcademicCyclesUC { constructor(private r: AcademicCycleRepository) {} async execute(level?: number): Promise<AcademicCycle[]> { return this.r.findActive(level); } }
+export class CreateAcademicCycleUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(input: CreateAcademicCycleDTO): Promise<Result<AcademicCycle, Error>> {
+    // Validate code
+    const codeResult = CycleCode.create(input.code);
+    if (codeResult.isErr()) return err(codeResult.unwrapErr());
+
+    // Check uniqueness
+    const existing = await this.r.findByCode(input.code);
+    if (existing) return err(new CycleCodeAlreadyExistsError(input.code));
+
+    // Validate description if provided
+    let description: string | null = null;
+    if (input.description != null) {
+      const descResult = CycleDescription.create(input.description);
+      if (descResult.isErr()) return err(descResult.unwrapErr());
+      description = descResult.unwrap().get();
+    }
+
+    // Build bimonths
+    const firstBimonth = buildBimonthOrNull(input.firstBimonthStart, input.firstBimonthEnd);
+    if (firstBimonth instanceof Error) return err(firstBimonth);
+    const secondBimonth = buildBimonthOrNull(input.secondBimonthStart, input.secondBimonthEnd);
+    if (secondBimonth instanceof Error) return err(secondBimonth);
+    const thirdBimonth = buildBimonthOrNull(input.thirdBimonthStart, input.thirdBimonthEnd);
+    if (thirdBimonth instanceof Error) return err(thirdBimonth);
+    const fourthBimonth = buildBimonthOrNull(input.fourthBimonthStart, input.fourthBimonthEnd);
+    if (fourthBimonth instanceof Error) return err(fourthBimonth);
+
+    const cycle = AcademicCycle.create({
+      name: input.name,
+      level: input.level,
+      modality: input.modality,
+      startDate: new Date(input.startDate),
+      endDate: new Date(input.endDate),
+      code: codeResult.unwrap(),
+      description,
+      firstBimonth: firstBimonth as BimonthPeriod | null,
+      secondBimonth: secondBimonth as BimonthPeriod | null,
+      thirdBimonth: thirdBimonth as BimonthPeriod | null,
+      fourthBimonth: fourthBimonth as BimonthPeriod | null,
+    });
+
+    await this.r.save(cycle);
+    return ok(cycle);
+  }
+}
+
+@Injectable()
+export class UpdateAcademicCycleUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(uuid: string, input: UpdateAcademicCycleDTO): Promise<Result<AcademicCycle, Error>> {
+    const cycle = await this.r.findByUuid(uuid);
+    if (!cycle) return err(new AcademicCycleNotFoundError(uuid));
+
+    const updateData: UpdateAcademicCycleInput = {};
+
+    if (input.name !== undefined) updateData.name = input.name;
+
+    if (input.code !== undefined) {
+      const codeResult = CycleCode.create(input.code);
+      if (codeResult.isErr()) return err(codeResult.unwrapErr());
+      updateData.code = codeResult.unwrap();
+    }
+
+    if (input.description !== undefined) {
+      if (input.description != null) {
+        const descResult = CycleDescription.create(input.description);
+        if (descResult.isErr()) return err(descResult.unwrapErr());
+        updateData.description = descResult.unwrap().get();
+      } else {
+        updateData.description = null;
+      }
+    }
+
+    if (input.startDate !== undefined) updateData.startDate = new Date(input.startDate);
+    if (input.endDate !== undefined) updateData.endDate = new Date(input.endDate);
+    if (input.active !== undefined) updateData.active = input.active;
+
+    if (input.firstBimonthStart !== undefined || input.firstBimonthEnd !== undefined) {
+      const bim = buildBimonthOrNull(input.firstBimonthStart, input.firstBimonthEnd);
+      if (bim instanceof Error) return err(bim);
+      updateData.firstBimonth = bim as BimonthPeriod | null;
+    }
+    if (input.secondBimonthStart !== undefined || input.secondBimonthEnd !== undefined) {
+      const bim = buildBimonthOrNull(input.secondBimonthStart, input.secondBimonthEnd);
+      if (bim instanceof Error) return err(bim);
+      updateData.secondBimonth = bim as BimonthPeriod | null;
+    }
+    if (input.thirdBimonthStart !== undefined || input.thirdBimonthEnd !== undefined) {
+      const bim = buildBimonthOrNull(input.thirdBimonthStart, input.thirdBimonthEnd);
+      if (bim instanceof Error) return err(bim);
+      updateData.thirdBimonth = bim as BimonthPeriod | null;
+    }
+    if (input.fourthBimonthStart !== undefined || input.fourthBimonthEnd !== undefined) {
+      const bim = buildBimonthOrNull(input.fourthBimonthStart, input.fourthBimonthEnd);
+      if (bim instanceof Error) return err(bim);
+      updateData.fourthBimonth = bim as BimonthPeriod | null;
+    }
+
+    cycle.update(updateData);
+    await this.r.save(cycle);
+    return ok(cycle);
+  }
+}
+
+@Injectable()
+export class DeleteAcademicCycleUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(uuid: string): Promise<void> {
+    const cycle = await this.r.findByUuid(uuid);
+    if (!cycle) throw new AcademicCycleNotFoundError(uuid);
+    await this.r.softDelete(uuid);
+  }
+}
+
+@Injectable()
+export class ToggleAcademicCycleActiveUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(uuid: string): Promise<Result<AcademicCycle, Error>> {
+    const cycle = await this.r.findByUuid(uuid);
+    if (!cycle) return err(new AcademicCycleNotFoundError(uuid));
+    cycle.toggleActive();
+    await this.r.save(cycle);
+    return ok(cycle);
+  }
+}
+
+@Injectable()
+export class GetAcademicCycleUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(uuid: string): Promise<Result<AcademicCycle, Error>> {
+    const cycle = await this.r.findByUuid(uuid);
+    if (!cycle) return err(new AcademicCycleNotFoundError(uuid));
+    return ok(cycle);
+  }
+}
+
+@Injectable()
+export class ListAcademicCyclesUC {
+  constructor(private r: AcademicCycleRepository) {}
+
+  async execute(level?: number): Promise<AcademicCycle[]>;
+  async execute(filters: AcademicCycleFilters): Promise<PaginatedResult<AcademicCycle>>;
+  async execute(arg: number | AcademicCycleFilters | undefined): Promise<AcademicCycle[] | PaginatedResult<AcademicCycle>> {
+    if (typeof arg === 'number' || arg === undefined) {
+      return this.r.findActive(arg);
+    }
+    return this.r.findAll(arg);
+  }
+}
 
 // ── Subject ──────────────────────────────────────────
 @Injectable()
