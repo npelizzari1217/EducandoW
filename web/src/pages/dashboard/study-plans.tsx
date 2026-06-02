@@ -185,14 +185,14 @@ export default function StudyPlansPage() {
   // ── Fetch helpers (sin toggle, solo refrescan datos) ──
   const fetchPlanCourses = async (planId: string) => {
     try {
-      const res = await apiClient.get(`/study-plans/${planId}/courses`);
+      const res = await apiClient.get(`/study-plans/${planId}/courses`, { params: tenantQueryParams });
       setPlanCourses(prev => ({ ...prev, [planId]: res.data?.data ?? [] }));
     } catch { /* ignore */ }
   };
 
   const fetchCourseSubjects = async (planCourseId: string) => {
     try {
-      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`);
+      const res = await apiClient.get(`/study-plan-courses/${planCourseId}/subjects`, { params: tenantQueryParams });
       setPlanCourseSubjects(prev => ({ ...prev, [planCourseId]: res.data?.data ?? [] }));
     } catch { /* ignore */ }
   };
@@ -248,7 +248,7 @@ export default function StudyPlansPage() {
         // 2. Link to study plan
         await apiClient.post(`/study-plans/${plan.id}/courses`, {
           courseSectionId: courseId,
-        });
+        }, { params: tenantQueryParams });
         setShowCourseForm(null);
         setCourseForm({ grade: '', division: '' });
         // Refresh courses (sin colapsar el árbol)
@@ -277,7 +277,7 @@ export default function StudyPlansPage() {
         grade: editingCourse.grade,
         division: editingCourse.division,
         name: `${editingCourse.grade} ${editingCourse.division}`.trim(),
-      });
+      }, { params: tenantQueryParams });
       setEditingCourse({ courseSectionId: null, grade: '', division: '' });
       // Refresh (sin colapsar el árbol)
       fetchPlanCourses(planId);
@@ -286,7 +286,7 @@ export default function StudyPlansPage() {
 
   const handleDeleteCourse = async (planId: string, courseSectionId: string) => {
     try {
-      await apiClient.delete(`/study-plans/${planId}/courses/${courseSectionId}`);
+      await apiClient.delete(`/study-plans/${planId}/courses/${courseSectionId}`, { params: tenantQueryParams });
       fetchPlanCourses(planId);
     } catch { /* ignore */ }
   };
@@ -303,14 +303,14 @@ export default function StudyPlansPage() {
         level: LEVEL_MAP[plan.level] ?? 'SECUNDARIO',
         modality: subjectForm.modality || 'COMUN',
         institutionId: institutionId || undefined,
-      });
+      }, { params: tenantQueryParams });
       const subjectId = subRes.data?.data?.id;
       if (subjectId) {
         // 2. Link to plan course
         await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, {
           subjectId,
           hoursPerWeek: 4,
-        });
+        }, { params: tenantQueryParams });
         setShowSubjectForm(null);
         setSubjectForm({ name: '', modality: 'COMUN' });
         // Refresh subjects (sin colapsar)
@@ -341,7 +341,7 @@ export default function StudyPlansPage() {
     try {
       await apiClient.patch(`/subjects/${editingSubject.subjectId}`, {
         name: editingSubject.name,
-      });
+      }, { params: tenantQueryParams });
       setEditingSubject({ subjectId: null, name: '' });
       fetchCourseSubjects(planCourseId);
     } catch { /* ignore */ }
@@ -349,7 +349,7 @@ export default function StudyPlansPage() {
 
   const handleDeleteSubject = async (planCourseId: string, subjectId: string) => {
     try {
-      await apiClient.delete(`/study-plan-courses/${planCourseId}/subjects/${subjectId}`);
+      await apiClient.delete(`/study-plan-courses/${planCourseId}/subjects/${subjectId}`, { params: tenantQueryParams });
       fetchCourseSubjects(planCourseId);
       const planId = Object.entries(planCourses).find(([, courses]) =>
         courses.some(c => c.id === planCourseId)
@@ -364,7 +364,7 @@ export default function StudyPlansPage() {
     try {
       await apiClient.post(`/study-plans/${planId}/courses`, {
         courseSectionId: selectedCourse,
-      });
+      }, { params: tenantQueryParams });
       setSelectedCourse('');
       fetchPlanCourses(planId);
     } catch { /* ignore */ }
