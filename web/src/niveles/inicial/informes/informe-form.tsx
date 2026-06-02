@@ -69,14 +69,14 @@ export default function InformeForm({ initial, onSaved, onCancel }: InformeFormP
       };
 
       if (initial?.id) {
-        await apiClient.patch(`/v1/inicial/informes/${initial.id}`, {
+        await apiClient.patch(`/inicial/informes/${initial.id}`, {
           periodo: form.periodo,
           fecha: form.fecha,
           observacionesGenerales: form.observacionesGenerales || undefined,
           areas,
         });
       } else {
-        await apiClient.post('/v1/inicial/informes', body);
+        await apiClient.post('/inicial/informes', body);
       }
       onSaved();
     } catch (e: unknown) {

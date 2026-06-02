@@ -14,7 +14,7 @@ import {
   UpdateInformeUseCase,
 } from '../../application/nivel-inicial/use-cases/informe-evolutivo.use-cases';
 
-@Controller('v1/inicial/informes')
+@Controller('inicial/informes')
 @UseGuards(AuthGuard, RolesGuard)
 export class InformeEvolutivoController {
   constructor(

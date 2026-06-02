@@ -41,7 +41,7 @@ export default function InscripcionesPage() {
     try {
       const params: Record<string, string> = {};
       if (studentIdFilter.trim()) params.studentId = studentIdFilter.trim();
-      const res = await apiClient.get('/v1/terciario/inscripciones', { params });
+      const res = await apiClient.get('/terciario/inscripciones', { params });
       setInscripciones(res.data?.data ?? []);
     } catch {
       setError('No se pudieron cargar las inscripciones.');
@@ -55,7 +55,7 @@ export default function InscripcionesPage() {
   const handleCreate = async (values: { studentId: string; materiaCarreraId: string; cuatrimestre: string; anioAcademico: string }) => {
     setSaving(true);
     try {
-      await apiClient.post('/v1/terciario/inscripciones', values);
+      await apiClient.post('/terciario/inscripciones', values);
       setShowForm(false);
       await load();
     } finally {
@@ -65,7 +65,7 @@ export default function InscripcionesPage() {
 
   const handleUpdateEstado = async (id: string, estado: string) => {
     try {
-      await apiClient.patch(`/v1/terciario/inscripciones/${id}/estado`, { estado });
+      await apiClient.patch(`/terciario/inscripciones/${id}/estado`, { estado });
       await load();
     } catch {
       setError('No se pudo actualizar el estado.');

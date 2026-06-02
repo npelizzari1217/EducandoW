@@ -85,10 +85,9 @@ export class TenantMiddleware implements NestMiddleware {
         }
       }
 
-      // No institutionId provided (or institution not found) — pass through with null client
-      return TenantContext.run(
-        { prismaClient: null, dbName: null, institutionId: null },
-        () => next(),
+      // No institutionId provided (or institution not found) — this is a tenant route, must have an institution
+      throw new ForbiddenException(
+        'Acceso a datos de institución no autorizado: seleccioná una institución (institutionId query param)',
       );
     }
 
@@ -129,9 +128,11 @@ export class TenantMiddleware implements NestMiddleware {
    *
    * Master routes:
    *   - Health check: /health, /
-   *   - Auth endpoints: /v1/auth/*
-   *   - Institution management (lives in master DB): POST/GET/DELETE /v1/institutions
+   *   - Auth endpoints: /auth/*
+   *   - Institution management (lives in master DB): POST/GET/DELETE /institutions
    *   - Swagger docs: /docs*
+   *
+   * Note: paths are stripped of global prefix /v1 before matching.
    */
   private isMasterRoute(req: Request): boolean {
     // originalUrl incluye el global prefix /v1, lo removemos para comparar
@@ -149,6 +150,7 @@ export class TenantMiddleware implements NestMiddleware {
     if (path.startsWith('/users')) return true;
     if (path.startsWith('/roles')) return true;
     if (path.startsWith('/modules')) return true;
+    if (path.startsWith('/profiles')) return true;
 
     // Institution CRUD (master DB)
     if (path === '/institutions' || path === '/institutions/') return true;

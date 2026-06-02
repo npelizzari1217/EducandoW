@@ -17,9 +17,9 @@ interface Curso extends Record<string, unknown> {
 
 export default function CursosPage() {
   const [academicYear] = useState(String(new Date().getFullYear()));
-  const { data, loading, reload } = useApiList<Curso>('/v1/secundario/cursos', { academicYear });
-  const { deleting, del } = useApiDelete('/v1/secundario/cursos');
-  const { creating, createError, create } = useApiCreate<Record<string, unknown>>('/v1/secundario/cursos');
+  const { data, loading, reload } = useApiList<Curso>('/secundario/cursos', { academicYear });
+  const { deleting, del } = useApiDelete('/secundario/cursos');
+  const { creating, createError, create } = useApiCreate<Record<string, unknown>>('/secundario/cursos');
   const [showForm, setShowForm] = useState(false);
 
   const handleCreate = async (values: { year: number; division: string; orientacion: string; academicYear: string }) => {

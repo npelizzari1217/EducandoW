@@ -13,7 +13,7 @@ export const UpdateUserSchema = z.object({
     level: z.number().int().min(1).max(9),
     modality: z.number().int().min(0).max(9),
   })).optional(),
-  profileId: z.string().uuid().optional().nullable(),
+  profileId: z.string().min(1, 'profileId es requerido').optional().nullable(),
 });
 
 export type UpdateUserDTO = z.infer<typeof UpdateUserSchema>;

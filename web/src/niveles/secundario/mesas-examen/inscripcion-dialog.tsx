@@ -23,7 +23,7 @@ export function InscripcionDialog({ mesaId, onClose, onSuccess }: Props) {
     setLoading(true);
     setError('');
     try {
-      await apiClient.post(`/v1/secundario/mesas-examen/${mesaId}/inscripciones`, {
+      await apiClient.post(`/secundario/mesas-examen/${mesaId}/inscripciones`, {
         studentId: studentId.trim(),
       });
       onSuccess();

@@ -14,7 +14,7 @@ import {
 } from '../../application/nivel-terciario/use-cases/inscripcion-materia.use-cases';
 import type { InscripcionMateria } from '@educandow/domain';
 
-@Controller('v1/terciario/inscripciones')
+@Controller('terciario/inscripciones')
 @UseGuards(AuthGuard, RolesGuard)
 export class InscripcionMateriaController {
   constructor(

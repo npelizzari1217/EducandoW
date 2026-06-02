@@ -13,7 +13,7 @@ import {
   UpdatePlanificacionUseCase,
 } from '../../application/nivel-inicial/use-cases/planificacion.use-cases';
 
-@Controller('v1/inicial/planificaciones')
+@Controller('inicial/planificaciones')
 @UseGuards(AuthGuard, RolesGuard)
 export class PlanificacionController {
   constructor(

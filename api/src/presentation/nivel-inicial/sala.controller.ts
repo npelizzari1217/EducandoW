@@ -15,7 +15,7 @@ import {
   DeleteSalaUseCase,
 } from '../../application/nivel-inicial/use-cases/sala.use-cases';
 
-@Controller('v1/inicial/salas')
+@Controller('inicial/salas')
 @UseGuards(AuthGuard, RolesGuard)
 export class SalaController {
   constructor(

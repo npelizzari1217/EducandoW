@@ -25,7 +25,7 @@ interface Planificacion {
 }
 
 export default function PlanificacionesPage() {
-  const { data: planificaciones, reload } = useApiList<Planificacion>('/v1/inicial/planificaciones');
+  const { data: planificaciones, reload } = useApiList<Planificacion>('/inicial/planificaciones');
   const [showForm, setShowForm] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Planificacion | null>(null);
 

@@ -42,7 +42,7 @@ export default function GenerateCourseCyclesModal({ open, onClose, onGenerated }
     setError('');
     try {
       const dto: GenerateCourseCyclesDto = { studyPlanId, cycleId };
-      const res = await apiClient.post('/v1/course-cycles/generate', dto);
+      const res = await apiClient.post('/course-cycles/generate', dto);
       const result = res.data?.data as GenerateResult;
       onGenerated(result);
       onClose();

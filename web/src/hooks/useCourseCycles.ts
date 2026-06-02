@@ -3,7 +3,7 @@ import type { CourseCycle, CreateCourseCycleDto, UpdateCourseCycleDto, GenerateC
 import { useState } from 'react';
 import apiClient from '../api/client';
 
-const BASE_URL = '/v1/course-cycles';
+const BASE_URL = '/course-cycles';
 
 export function useCourseCycles(params?: Record<string, string>) {
   return useApiList<CourseCycle>(BASE_URL, params);

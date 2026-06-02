@@ -22,7 +22,7 @@ import {
 } from '../../application/nivel-secundario/use-cases/mesa-examen.use-cases';
 import { MesaExamen, MesaExamenInscripcionProps } from '@educandow/domain';
 
-@Controller('v1/secundario/mesas-examen')
+@Controller('secundario/mesas-examen')
 @UseGuards(AuthGuard, RolesGuard)
 export class MesaExamenController {
   constructor(

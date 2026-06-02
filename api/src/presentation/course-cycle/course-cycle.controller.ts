@@ -25,7 +25,7 @@ import {
   GenerateCourseCyclesUseCase,
 } from '../../application/course-cycle/use-cases/course-cycle.use-cases';
 
-@Controller('v1/course-cycles')
+@Controller('course-cycles')
 @UseGuards(AuthGuard, RolesGuard)
 export class CourseCycleController {
   constructor(

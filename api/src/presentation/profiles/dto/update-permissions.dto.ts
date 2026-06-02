@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const UpdatePermissionsSchema = z.object({
   permissions: z.array(z.object({
-    moduleId: z.string().uuid('moduleId inválido'),
+    moduleId: z.string().min(1, 'moduleId es requerido'),
     canRead: z.boolean(),
     canCreate: z.boolean(),
     canEdit: z.boolean(),

@@ -17,7 +17,7 @@ interface Informe {
 }
 
 export default function InformesPage() {
-  const { data: informes, reload } = useApiList<Informe>('/v1/inicial/informes');
+  const { data: informes, reload } = useApiList<Informe>('/inicial/informes');
   const [showForm, setShowForm] = useState(false);
   const [editingInforme, setEditingInforme] = useState<Informe | null>(null);
 

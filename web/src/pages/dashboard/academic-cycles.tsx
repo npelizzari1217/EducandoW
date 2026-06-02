@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import {
   useAcademicCycles,
   useCreateAcademicCycle,
@@ -6,7 +8,8 @@ import {
   useDeleteAcademicCycle,
   useToggleAcademicCycleActive,
 } from '../../hooks/useAcademicCycles';
-import type { AcademicCycle, CreateAcademicCycleDto, UpdateAcademicCycleDto } from '../../types/academic-cycle';
+import type { AcademicCycle, CreateAcademicCycleDto } from '../../types/academic-cycle';
+import apiClient from '../../api/client';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -23,20 +26,55 @@ const BIMONTH_FIELDS = [
   { key: 'fourth', label: '4to Bimestre' },
 ] as const;
 
+interface Institution { id: string; name: string; }
+
+const SELECT_STYLE: React.CSSProperties = {
+  padding: '0.5rem',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text)',
+  fontSize: 'var(--text-sm)',
+  width: '100%',
+};
+
+const DISABLED_INPUT_STYLE: React.CSSProperties = {
+  ...SELECT_STYLE,
+  background: '#f8fafc',
+  color: '#64748b',
+};
+
 export default function AcademicCyclesPage() {
+  const { user } = useAuth();
+  const { config } = useInstitution();
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
+
+  const userInstitutionId = config.id ?? '';
+
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [filters, setFilters] = useState({ level: '', active: '' });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<AcademicCycle | null>(null);
+
+  // Fetch institutions for ROOT
+  useEffect(() => {
+    if (isRoot) {
+      apiClient.get('/institutions').then(r => {
+        setInstitutions(r.data?.data ?? []);
+      }).catch(() => {});
+    }
+  }, [isRoot]);
 
   const params: Record<string, string> = {};
   if (filters.level) params.level = filters.level;
   if (filters.active) params.active = filters.active;
 
-  const { data, loading, reload } = useAcademicCycles(Object.keys(params).length > 0 ? params : undefined);
-  const { creating, createError, create, setCreateError } = useCreateAcademicCycle();
-  const { updating, updateError, update, setUpdateError } = useUpdateAcademicCycle();
-  const { deleting, del } = useDeleteAcademicCycle();
-  const { toggling, toggle } = useToggleAcademicCycleActive();
+  const { data, loading, reload } = useAcademicCycles(institutionId, Object.keys(params).length > 0 ? params : undefined);
+  const { creating, createError, create, setCreateError } = useCreateAcademicCycle(institutionId);
+  const { updating, updateError, update, setUpdateError } = useUpdateAcademicCycle(institutionId);
+  const { deleting, del } = useDeleteAcademicCycle(institutionId);
+  const { toggling, toggle } = useToggleAcademicCycleActive(institutionId);
 
   const [form, setForm] = useState<CreateAcademicCycleDto>({
     code: '', name: '', description: '', level: 2, startDate: '', endDate: '',
@@ -73,6 +111,10 @@ export default function AcademicCyclesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!institutionId) {
+      setCreateError('Seleccioná una institución');
+      return;
+    }
     if (editing) {
       const ok = await update(editing.uuid, form as any);
       if (ok) { resetForm(); reload(); }
@@ -94,6 +136,7 @@ export default function AcademicCyclesPage() {
   };
 
   const formTitle = editing ? 'Editar Ciclo Lectivo' : 'Nuevo Ciclo Lectivo';
+  const instName = institutions.find(i => i.id === institutionId)?.name || config.name || institutionId;
 
   return (
     <div className="p-6 space-y-6">
@@ -104,13 +147,41 @@ export default function AcademicCyclesPage() {
         </Button>
       </div>
 
+      {/* Institution selector */}
+      <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
+            Institución
+          </label>
+          {isRoot ? (
+            <select
+              value={institutionId}
+              onChange={e => { setInstitutionId(e.target.value); }}
+              style={{ ...SELECT_STYLE, minWidth: '220px' }}
+            >
+              <option value="">Todas las instituciones</option>
+              {institutions.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={instName}
+              disabled
+              style={{ ...DISABLED_INPUT_STYLE, minWidth: '220px' }}
+            />
+          )}
+        </div>
+      </div>
+
       {/* Filters */}
       <Card className="p-4">
         <div className="flex gap-4 items-end">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nivel</label>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
             <select
-              className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+              style={SELECT_STYLE}
               value={filters.level}
               onChange={(e) => setFilters({ ...filters, level: e.target.value })}
             >
@@ -121,9 +192,9 @@ export default function AcademicCyclesPage() {
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Estado</label>
             <select
-              className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+              style={SELECT_STYLE}
               value={filters.active}
               onChange={(e) => setFilters({ ...filters, active: e.target.value })}
             >
@@ -143,6 +214,32 @@ export default function AcademicCyclesPage() {
         <Card className="p-6">
           <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{formTitle}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Institution (form) */}
+            <div>
+              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
+                Institución
+              </label>
+              {isRoot ? (
+                <select
+                  value={institutionId}
+                  onChange={e => setInstitutionId(e.target.value)}
+                  style={SELECT_STYLE}
+                >
+                  <option value="">Seleccionar institución</option>
+                  {institutions.map(inst => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={instName}
+                  disabled
+                  style={DISABLED_INPUT_STYLE}
+                />
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Código *</label>
@@ -172,9 +269,9 @@ export default function AcademicCyclesPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nivel *</label>
+                <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel *</label>
                 <select
-                  className="w-full border rounded px-3 py-2 text-sm dark:bg-gray-800 dark:text-white"
+                  style={SELECT_STYLE}
                   value={form.level}
                   onChange={(e) => setForm({ ...form, level: parseInt(e.target.value) })}
                 >

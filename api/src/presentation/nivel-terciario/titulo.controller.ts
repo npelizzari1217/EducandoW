@@ -14,7 +14,7 @@ import {
 } from '../../application/nivel-terciario/use-cases/titulo.use-cases';
 import type { Titulo } from '@educandow/domain';
 
-@Controller('v1/terciario/titulos')
+@Controller('terciario/titulos')
 @UseGuards(AuthGuard, RolesGuard)
 export class TituloController {
   constructor(

@@ -50,9 +50,9 @@ export default function SalaForm({ initial, onSaved, onCancel }: SalaFormProps) 
       };
 
       if (initial?.id) {
-        await apiClient.patch(`/v1/inicial/salas/${initial.id}`, body);
+        await apiClient.patch(`/inicial/salas/${initial.id}`, body);
       } else {
-        await apiClient.post('/v1/inicial/salas', body);
+        await apiClient.post('/inicial/salas', body);
       }
       onSaved();
     } catch (e: unknown) {

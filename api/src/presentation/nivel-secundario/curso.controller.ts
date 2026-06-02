@@ -26,7 +26,7 @@ import {
 } from '../../application/nivel-secundario/use-cases/curso.use-cases';
 import { Curso } from '@educandow/domain';
 
-@Controller('v1/secundario/cursos')
+@Controller('secundario/cursos')
 @UseGuards(AuthGuard, RolesGuard)
 export class CursoController {
   constructor(

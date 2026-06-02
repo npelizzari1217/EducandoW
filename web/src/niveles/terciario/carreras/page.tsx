@@ -28,7 +28,7 @@ export default function CarrerasPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await apiClient.get('/v1/terciario/carreras');
+      const res = await apiClient.get('/terciario/carreras');
       setCarreras(res.data?.data ?? []);
     } catch {
       setError('No se pudieron cargar las carreras.');
@@ -42,7 +42,7 @@ export default function CarrerasPage() {
   const handleCreate = async (values: { name: string; titulo: string; duracion: number; resolucion?: string }) => {
     setSaving(true);
     try {
-      await apiClient.post('/v1/terciario/carreras', values);
+      await apiClient.post('/terciario/carreras', values);
       setShowForm(false);
       await load();
     } finally {
@@ -54,7 +54,7 @@ export default function CarrerasPage() {
     if (!editing) return;
     setSaving(true);
     try {
-      await apiClient.patch(`/v1/terciario/carreras/${editing.id}`, values);
+      await apiClient.patch(`/terciario/carreras/${editing.id}`, values);
       setEditing(null);
       await load();
     } finally {
@@ -65,7 +65,7 @@ export default function CarrerasPage() {
   const handleDelete = async (id: string) => {
     if (!window.confirm('¿Eliminar esta carrera?')) return;
     try {
-      await apiClient.delete(`/v1/terciario/carreras/${id}`);
+      await apiClient.delete(`/terciario/carreras/${id}`);
       await load();
     } catch {
       setError('No se pudo eliminar la carrera.');

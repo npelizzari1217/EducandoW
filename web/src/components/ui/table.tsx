@@ -2,9 +2,29 @@ import type { ReactNode } from 'react';
 import './table.css';
 
 interface Column<T> { key: string; header: string; render?: (item: T) => ReactNode; }
-interface Props<T> { columns: Column<T>[]; data: T[]; onRowClick?: (item: T) => void; emptyMessage?: string; }
+interface Props<T> {
+  columns?: Column<T>[];
+  data?: T[];
+  onRowClick?: (item: T) => void;
+  emptyMessage?: string;
+  children?: ReactNode;
+}
 
-export function Table<T extends Record<string, unknown>>({ columns, data, onRowClick, emptyMessage = 'No hay datos' }: Props<T>) {
+export function Table<T extends Record<string, unknown>>({ columns, data, onRowClick, emptyMessage = 'No hay datos', children }: Props<T>) {
+  // Children-based pattern: render custom thead/tbody content
+  if (children) {
+    return (
+      <div className="table-wrapper">
+        <table className="table">
+          {children}
+        </table>
+      </div>
+    );
+  }
+
+  // Props-based pattern: columns + data
+  if (!columns || !data) return null;
+
   return (
     <div className="table-wrapper">
       <table className="table">

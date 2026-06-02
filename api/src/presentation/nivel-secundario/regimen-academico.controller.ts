@@ -20,7 +20,7 @@ import {
 } from '../../application/nivel-secundario/use-cases/regimen-academico.use-cases';
 import { RegimenAcademico } from '@educandow/domain';
 
-@Controller('v1/secundario/regimen-academico')
+@Controller('secundario/regimen-academico')
 @UseGuards(AuthGuard, RolesGuard)
 export class RegimenAcademicoController {
   constructor(

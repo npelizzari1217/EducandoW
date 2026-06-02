@@ -14,7 +14,7 @@ import {
 } from '../../application/nivel-terciario/use-cases/acta-examen.use-cases';
 import type { ActaExamen } from '@educandow/domain';
 
-@Controller('v1/terciario/actas-examen')
+@Controller('terciario/actas-examen')
 @UseGuards(AuthGuard, RolesGuard)
 export class ActaExamenController {
   constructor(

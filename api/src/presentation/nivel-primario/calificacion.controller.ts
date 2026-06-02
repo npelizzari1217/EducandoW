@@ -29,7 +29,7 @@ function toDto(c: CalificacionPrimario) {
   };
 }
 
-@Controller('v1/primario/calificaciones')
+@Controller('primario/calificaciones')
 @UseGuards(AuthGuard, RolesGuard)
 export class CalificacionController {
   constructor(

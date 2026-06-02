@@ -11,7 +11,7 @@ import {
 } from '../../application/nivel-terciario/use-cases/carrera.use-cases';
 import type { Carrera } from '@educandow/domain';
 
-@Controller('v1/terciario/carreras')
+@Controller('terciario/carreras')
 @UseGuards(AuthGuard, RolesGuard)
 export class CarreraController {
   constructor(

@@ -30,7 +30,7 @@ function toDto(g: Grado) {
   };
 }
 
-@Controller('v1/primario/grados')
+@Controller('primario/grados')
 @UseGuards(AuthGuard, RolesGuard)
 export class GradoController {
   constructor(

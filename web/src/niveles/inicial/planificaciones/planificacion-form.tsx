@@ -71,13 +71,13 @@ export default function PlanificacionForm({ initial, onSaved, onCancel }: Planif
       }));
 
       if (initial?.id) {
-        await apiClient.patch(`/v1/inicial/planificaciones/${initial.id}`, {
+        await apiClient.patch(`/inicial/planificaciones/${initial.id}`, {
           semana: Number(form.semana),
           academicYear: form.academicYear,
           secuencias: secuenciasPayload,
         });
       } else {
-        await apiClient.post('/v1/inicial/planificaciones', {
+        await apiClient.post('/inicial/planificaciones', {
           salaId: form.salaId,
           semana: Number(form.semana),
           academicYear: form.academicYear,

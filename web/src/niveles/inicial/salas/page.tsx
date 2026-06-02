@@ -18,8 +18,8 @@ interface Sala {
 }
 
 export default function SalasPage() {
-  const { data: salas, reload } = useApiList<Sala>('/v1/inicial/salas');
-  const { deleting, del } = useApiDelete('/v1/inicial/salas');
+  const { data: salas, reload } = useApiList<Sala>('/inicial/salas');
+  const { deleting, del } = useApiDelete('/inicial/salas');
   const [showForm, setShowForm] = useState(false);
   const [editingSala, setEditingSala] = useState<Sala | null>(null);
   const [error, setError] = useState('');

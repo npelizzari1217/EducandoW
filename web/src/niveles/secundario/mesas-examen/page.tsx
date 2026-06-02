@@ -25,8 +25,8 @@ interface MesaExamenFormValues {
 }
 
 export default function MesasExamenPage() {
-  const { data, loading, reload } = useApiList<MesaExamen>('/v1/secundario/mesas-examen');
-  const { creating, createError, create } = useApiCreate<Record<string, unknown>>('/v1/secundario/mesas-examen');
+  const { data, loading, reload } = useApiList<MesaExamen>('/secundario/mesas-examen');
+  const { creating, createError, create } = useApiCreate<Record<string, unknown>>('/secundario/mesas-examen');
   const [showForm, setShowForm] = useState(false);
   const [selectedMesaId, setSelectedMesaId] = useState<string | null>(null);
 
