@@ -62,11 +62,12 @@ export default function CourseCyclesPage() {
   }, [institutionId]);
 
   // Load study plans filtered by institution + level
+  // Note: study-plans API expects level as simple number (1-4), not composite code (10-40)
   const [studyPlans, setStudyPlans] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     const planParams: Record<string, string> = { limit: '100' };
     if (institutionId) planParams.institutionId = institutionId;
-    if (filters.level) planParams.level = filters.level;
+    if (filters.level) planParams.level = String(Math.floor(parseInt(filters.level) / 10));
     apiClient.get('/study-plans', { params: planParams }).then((r) => setStudyPlans(r.data?.data ?? []));
   }, [institutionId, filters.level]);
 
