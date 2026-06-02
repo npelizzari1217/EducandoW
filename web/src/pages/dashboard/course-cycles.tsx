@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle, useToggleCourseCycleActive } from '../../hooks/useCourseCycles';
 import type { CourseCycle, CreateCourseCycleDto, UpdateCourseCycleDto } from '../../types/course-cycle';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -35,9 +35,9 @@ export default function CourseCyclesPage() {
   const { toggling, toggle } = useToggleCourseCycleActive();
 
   const [cycles, setCycles] = useState<{ id: string; name: string }[]>([]);
-  useState(() => {
+  useEffect(() => {
     apiClient.get('/academic-cycles?limit=100').then((r) => setCycles(r.data?.data ?? []));
-  });
+  }, []);
 
   const handleCreate = async (data: CreateCourseCycleDto) => {
     const ok = await create(data as any);
