@@ -4,13 +4,7 @@ import { NotFoundError } from '../../shared/errors/not-found-error';
 
 export class CycleCodeInvalidError extends ValidationError {
   constructor(code: string) {
-    super(`Invalid cycle code "${code}": must be exactly 4 numeric digits`);
-  }
-}
-
-export class CycleDescriptionInvalidError extends ValidationError {
-  constructor() {
-    super('Cycle description cannot be empty or whitespace-only');
+    super(`Invalid cycle code "${code}": must be alphanumeric uppercase, 1–15 characters`);
   }
 }
 

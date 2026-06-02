@@ -77,11 +77,11 @@ export default function AcademicCyclesPage() {
   const { toggling, toggle } = useToggleAcademicCycleActive(institutionId);
 
   const [form, setForm] = useState<CreateAcademicCycleDto>({
-    code: '', name: '', description: '', level: 2, startDate: '', endDate: '',
+    code: '', name: '', level: 2, startDate: '', endDate: '',
   });
 
   const resetForm = () => {
-    setForm({ code: '', name: '', description: '', level: 2, startDate: '', endDate: '' });
+    setForm({ code: '', name: '', level: 2, startDate: '', endDate: '' });
     setEditing(null);
     setShowForm(false);
     setCreateError('');
@@ -93,7 +93,6 @@ export default function AcademicCyclesPage() {
     setForm({
       code: cycle.code,
       name: cycle.name,
-      description: cycle.description ?? '',
       level: cycle.level,
       startDate: cycle.startDate?.split('T')[0] ?? '',
       endDate: cycle.endDate?.split('T')[0] ?? '',
@@ -247,7 +246,7 @@ export default function AcademicCyclesPage() {
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                   placeholder="2026"
-                  maxLength={4}
+                  maxLength={15}
                   required
                 />
               </div>
@@ -258,14 +257,6 @@ export default function AcademicCyclesPage() {
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   placeholder="Ciclo Lectivo 2026"
                   required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Descripción</label>
-                <Input
-                  value={form.description ?? ''}
-                  onChange={(e) => setForm({ ...form, description: e.target.value || null })}
-                  placeholder="Opcional"
                 />
               </div>
               <div>
@@ -346,7 +337,6 @@ export default function AcademicCyclesPage() {
               <tr>
                 <th>Código</th>
                 <th>Nombre</th>
-                <th>Descripción</th>
                 <th>Nivel</th>
                 <th>Inicio</th>
                 <th>Fin</th>
@@ -356,13 +346,12 @@ export default function AcademicCyclesPage() {
             </thead>
             <tbody>
               {data.length === 0 ? (
-                <tr><td colSpan={8} className="text-center text-gray-500 py-6">No hay ciclos lectivos</td></tr>
+                <tr><td colSpan={7} className="text-center text-gray-500 py-6">No hay ciclos lectivos</td></tr>
               ) : (
                 data.map((cycle) => (
                   <tr key={cycle.uuid}>
                     <td className="font-mono text-sm">{cycle.code}</td>
                     <td className="font-medium">{cycle.name}</td>
-                    <td className="text-sm text-gray-500 max-w-xs truncate">{cycle.description ?? '—'}</td>
                     <td>{LEVEL_LABELS[cycle.level] ?? cycle.level}</td>
                     <td className="text-sm">{new Date(cycle.startDate).toLocaleDateString()}</td>
                     <td className="text-sm">{new Date(cycle.endDate).toLocaleDateString()}</td>

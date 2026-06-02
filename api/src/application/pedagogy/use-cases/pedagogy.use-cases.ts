@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ok, err, ValidationError, Level, EducationalLevelCode, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
-import { CycleCode, CycleDescription, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
+import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
 import type { UpdateAcademicCycleInput } from '@educandow/domain';
 
@@ -32,7 +32,6 @@ export interface CreateAcademicCycleDTO {
   startDate: string;
   endDate: string;
   code: string;
-  description?: string | null;
   firstBimonthStart?: string;
   firstBimonthEnd?: string;
   secondBimonthStart?: string;
@@ -46,7 +45,6 @@ export interface CreateAcademicCycleDTO {
 export interface UpdateAcademicCycleDTO {
   name?: string;
   code?: string;
-  description?: string | null;
   startDate?: string;
   endDate?: string;
   active?: boolean;
@@ -83,14 +81,6 @@ export class CreateAcademicCycleUC {
     const existing = await this.r.findByCode(input.code);
     if (existing) return err(new CycleCodeAlreadyExistsError(input.code));
 
-    // Validate description if provided
-    let description: string | null = null;
-    if (input.description != null) {
-      const descResult = CycleDescription.create(input.description);
-      if (descResult.isErr()) return err(descResult.unwrapErr());
-      description = descResult.unwrap().get();
-    }
-
     // Build bimonths
     const firstBimonth = buildBimonthOrNull(input.firstBimonthStart, input.firstBimonthEnd);
     if (firstBimonth instanceof Error) return err(firstBimonth);
@@ -108,7 +98,6 @@ export class CreateAcademicCycleUC {
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
       code: codeResult.unwrap(),
-      description,
       firstBimonth: firstBimonth as BimonthPeriod | null,
       secondBimonth: secondBimonth as BimonthPeriod | null,
       thirdBimonth: thirdBimonth as BimonthPeriod | null,
@@ -136,16 +125,6 @@ export class UpdateAcademicCycleUC {
       const codeResult = CycleCode.create(input.code);
       if (codeResult.isErr()) return err(codeResult.unwrapErr());
       updateData.code = codeResult.unwrap();
-    }
-
-    if (input.description !== undefined) {
-      if (input.description != null) {
-        const descResult = CycleDescription.create(input.description);
-        if (descResult.isErr()) return err(descResult.unwrapErr());
-        updateData.description = descResult.unwrap().get();
-      } else {
-        updateData.description = null;
-      }
     }
 
     if (input.startDate !== undefined) updateData.startDate = new Date(input.startDate);
@@ -178,6 +157,8 @@ export class UpdateAcademicCycleUC {
     return ok(cycle);
   }
 }
+
+// ── Other use cases (unchanged) ────────────────────────
 
 @Injectable()
 export class DeleteAcademicCycleUC {

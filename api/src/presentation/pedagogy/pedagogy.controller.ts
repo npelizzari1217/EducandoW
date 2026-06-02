@@ -97,7 +97,7 @@ export class PedagogyController {
       uuid: c.uuid,
       code: c.code.get ? c.code.get() : c.code,
       name: c.name,
-      description: c.description,
+
       level: c.level,
       modality: c.modality,
       startDate: c.startDate instanceof Date ? c.startDate.toISOString() : c.startDate,

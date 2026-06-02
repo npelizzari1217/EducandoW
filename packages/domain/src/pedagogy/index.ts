@@ -23,10 +23,9 @@ export type { StudyPlanProps } from './entities/study-plan';
 
 // Value Objects
 export { CycleCode } from './value-objects/cycle-code';
-export { CycleDescription } from './value-objects/cycle-description';
 
 // Errors
-export { CycleCodeInvalidError, CycleDescriptionInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './errors/academic-cycle.errors';
+export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './errors/academic-cycle.errors';
 
 export type { SubjectRepository } from './repositories/subject-repository';
 export type { CourseSectionRepository } from './repositories/course-section-repository';

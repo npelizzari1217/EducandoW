@@ -10,7 +10,6 @@ export interface CreateAcademicCycleInput {
   startDate: Date;
   endDate: Date;
   code: CycleCode;
-  description?: string | null;
   firstBimonth?: BimonthPeriod | null;
   secondBimonth?: BimonthPeriod | null;
   thirdBimonth?: BimonthPeriod | null;
@@ -21,7 +20,6 @@ export interface CreateAcademicCycleInput {
 export interface UpdateAcademicCycleInput {
   name?: string;
   code?: CycleCode;
-  description?: string | null;
   startDate?: Date;
   endDate?: Date;
   active?: boolean;
@@ -36,7 +34,6 @@ export interface AcademicCycleProps {
   uuid: string;
   code: CycleCode;
   name: string;
-  description: string | null;
   level: number;
   modality: number;
   startDate: Date;
@@ -63,7 +60,6 @@ export class AcademicCycle {
       uuid: crypto.randomUUID(),
       code: input.code,
       name: input.name,
-      description: input.description ?? null,
       level: input.level,
       modality: input.modality ?? 0,
       startDate: input.startDate,
@@ -97,10 +93,6 @@ export class AcademicCycle {
 
   get name(): string {
     return this.props.name;
-  }
-
-  get description(): string | null {
-    return this.props.description;
   }
 
   get level(): number {
@@ -173,9 +165,6 @@ export class AcademicCycle {
     }
     if (input.code !== undefined) {
       this.props.code = input.code;
-    }
-    if (input.description !== undefined) {
-      this.props.description = input.description;
     }
     if (input.startDate !== undefined) {
       this.props.startDate = input.startDate;

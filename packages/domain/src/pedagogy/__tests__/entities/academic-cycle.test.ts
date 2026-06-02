@@ -28,7 +28,7 @@ describe('AcademicCycle', () => {
     expect(cycle.updatedAt).toBeInstanceOf(Date);
   });
 
-  it('creates with all optional fields including bimonths and description', () => {
+  it('creates with all optional fields including bimonths', () => {
     const firstBim = BimonthPeriod.create(new Date('2026-03-01'), new Date('2026-04-30')).unwrap();
     const secondBim = BimonthPeriod.create(new Date('2026-05-01'), new Date('2026-06-30')).unwrap();
     const thirdBim = BimonthPeriod.create(new Date('2026-07-01'), new Date('2026-08-31')).unwrap();
@@ -36,14 +36,12 @@ describe('AcademicCycle', () => {
 
     const cycle = AcademicCycle.create({
       ...validCreateInput,
-      description: 'Ciclo completo 2026',
       firstBimonth: firstBim,
       secondBimonth: secondBim,
       thirdBimonth: thirdBim,
       fourthBimonth: fourthBim,
     });
 
-    expect(cycle.description).toBe('Ciclo completo 2026');
     expect(cycle.firstBimonth).toBeDefined();
     expect(cycle.firstBimonth!.start).toEqual(new Date('2026-03-01'));
     expect(cycle.firstBimonth!.end).toEqual(new Date('2026-04-30'));
@@ -97,18 +95,17 @@ describe('AcademicCycle', () => {
 
   // ── update() ──────────────────────────────────────────
 
-  it('update changes name and description', () => {
+  it('update changes name', () => {
     const cycle = AcademicCycle.create(validCreateInput);
-    cycle.update({ name: 'Nuevo Nombre', description: 'Nueva descripción' });
+    cycle.update({ name: 'Nuevo Nombre' });
     expect(cycle.name).toBe('Nuevo Nombre');
-    expect(cycle.description).toBe('Nueva descripción');
   });
 
   it('update changes code', () => {
     const cycle = AcademicCycle.create(validCreateInput);
-    const newCode = CycleCode.create('2027').unwrap();
+    const newCode = CycleCode.create('CICLO-2027-A').unwrap();
     cycle.update({ code: newCode });
-    expect(cycle.code.get()).toBe('2027');
+    expect(cycle.code.get()).toBe('CICLO-2027-A');
   });
 
   it('update changes bimester dates', () => {
@@ -162,7 +159,6 @@ describe('AcademicCycle', () => {
       uuid: 'abc-123',
       code: CycleCode.reconstruct('2026'),
       name: 'Reconstructed Cycle',
-      description: 'Recon desc',
       level: 3, // SECUNDARIO
       modality: 1,
       startDate: new Date('2026-03-01'),
@@ -181,7 +177,6 @@ describe('AcademicCycle', () => {
     expect(cycle.uuid).toBe('abc-123');
     expect(cycle.code.get()).toBe('2026');
     expect(cycle.name).toBe('Reconstructed Cycle');
-    expect(cycle.description).toBe('Recon desc');
     expect(cycle.level).toBe(3);
     expect(cycle.modality).toBe(1);
     expect(cycle.active).toBe(true);

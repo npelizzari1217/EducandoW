@@ -107,9 +107,8 @@ model Teacher {
 model AcademicCycle {
   id          Int       @id @default(autoincrement())
   uuid        String    @unique @default(uuid())
-  code        String    @unique
+  code        String    @unique // validated by CycleCode VO: alphanumeric uppercase, 1–15 chars
   name        String
-  description String?
   level       Int
   modality    Int       @default(0)
   startDate   DateTime  @map("start_date")

@@ -10,7 +10,6 @@ import {
 import {
   AcademicCycle,
   CycleCode,
-  CycleDescription,
   BimonthPeriod,
   CycleCodeAlreadyExistsError,
   AcademicCycleNotFoundError,
@@ -93,7 +92,7 @@ describe('CreateAcademicCycleUC', () => {
       level: 2,
       startDate: '2026-03-01',
       endDate: '2026-12-20',
-      code: 'ABC',
+      code: '',
     });
 
     expect(result.isErr()).toBe(true);
@@ -108,8 +107,7 @@ describe('CreateAcademicCycleUC', () => {
       level: 3,
       startDate: '2026-03-01',
       endDate: '2026-12-20',
-      code: '2027',
-      description: 'Descripción completa',
+      code: 'CICLO-2027-A',
       firstBimonthStart: '2026-03-01',
       firstBimonthEnd: '2026-04-30',
       secondBimonthStart: '2026-05-01',
@@ -122,7 +120,6 @@ describe('CreateAcademicCycleUC', () => {
 
     expect(result.isOk()).toBe(true);
     const cycle = result.unwrap();
-    expect(cycle.description).toBe('Descripción completa');
     expect(cycle.firstBimonth).toBeDefined();
     expect(cycle.firstBimonth!.start).toEqual(new Date('2026-03-01'));
   });
@@ -136,19 +133,17 @@ describe('UpdateAcademicCycleUC', () => {
     uc = new UpdateAcademicCycleUC(mockRepo as any);
   });
 
-  it('updates name and description', async () => {
+  it('updates name', async () => {
     const existing = makeCycle();
     mockRepo.findByUuid.mockResolvedValue(existing);
 
     const result = await uc.execute(existing.uuid, {
       name: 'Updated Name',
-      description: 'New description',
     });
 
     expect(result.isOk()).toBe(true);
     const cycle = result.unwrap();
     expect(cycle.name).toBe('Updated Name');
-    expect(cycle.description).toBe('New description');
     expect(mockRepo.save).toHaveBeenCalled();
   });
 
@@ -157,7 +152,7 @@ describe('UpdateAcademicCycleUC', () => {
     mockRepo.findByUuid.mockResolvedValue(existing);
 
     const result = await uc.execute(existing.uuid, {
-      code: 'XX',
+      code: '',
     });
 
     expect(result.isErr()).toBe(true);
@@ -222,7 +217,6 @@ describe('ToggleAcademicCycleActiveUC', () => {
       uuid: 'abc-123',
       code: CycleCode.reconstruct('2026'),
       name: 'Test',
-      description: null,
       level: 2,
       modality: 0,
       startDate: new Date('2026-03-01'),

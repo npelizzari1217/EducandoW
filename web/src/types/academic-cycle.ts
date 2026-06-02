@@ -2,7 +2,6 @@ export interface AcademicCycle {
   uuid: string;
   code: string;
   name: string;
-  description: string | null;
   level: number;
   modality: number;
   startDate: string;
@@ -28,7 +27,6 @@ export interface AcademicCycleListResponse {
 export interface CreateAcademicCycleDto {
   code: string;
   name: string;
-  description?: string | null;
   level: number;
   modality?: number;
   startDate: string;
@@ -46,7 +44,6 @@ export interface CreateAcademicCycleDto {
 export interface UpdateAcademicCycleDto {
   code?: string;
   name?: string;
-  description?: string | null;
   startDate?: string;
   endDate?: string;
   active?: boolean;

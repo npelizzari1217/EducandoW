@@ -15,7 +15,6 @@ interface AcademicCycleRow {
   uuid: string;
   code: string;
   name: string;
-  description: string | null;
   level: number;
   modality: number;
   startDate: Date;
@@ -63,7 +62,6 @@ export class PrismaAcademicCycleRepository implements AcademicCycleRepository {
       uuid: r.uuid,
       code: CycleCode.reconstruct(r.code),
       name: r.name,
-      description: r.description,
       level: r.level,
       modality: r.modality,
       startDate: r.startDate,
@@ -85,7 +83,6 @@ export class PrismaAcademicCycleRepository implements AcademicCycleRepository {
       uuid: cycle.uuid,
       code: cycle.code.get(),
       name: cycle.name,
-      description: cycle.description,
       level: cycle.level,
       modality: cycle.modality,
       startDate: cycle.startDate,
