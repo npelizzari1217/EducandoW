@@ -88,8 +88,17 @@ function makeMockAcademicCycleRepo() {
       active: true,
       isCurrent: () => true,
     }),
+    findByUuid: vi.fn().mockResolvedValue({
+      id: Id.reconstruct('cycle-1'),
+      name: '2026',
+      active: true,
+      isCurrent: () => true,
+    }),
+    findByCode: vi.fn().mockResolvedValue(null),
+    findActive: vi.fn().mockResolvedValue([]),
     findAll: vi.fn(),
     save: vi.fn(),
+    softDelete: vi.fn().mockResolvedValue(undefined),
   } as unknown as AcademicCycleRepository;
 }
 
@@ -358,7 +367,7 @@ describe('GenerateCourseCyclesUseCase', () => {
   });
 
   it('rejects when academic cycle is inactive', async () => {
-    mockCycleRepo.findById = vi.fn().mockResolvedValue({
+    mockCycleRepo.findByUuid = vi.fn().mockResolvedValue({
       id: Id.reconstruct('cycle-1'),
       name: '2025',
       active: false,
