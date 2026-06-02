@@ -30,7 +30,7 @@ export default function CourseCyclesPage() {
   const [institutionId, setInstitutionId] = useState(userInstitutionId);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
 
-  const [filters, setFilters] = useState({ level: '', cycleId: '', active: '' });
+  const [filters, setFilters] = useState({ level: '', cycleId: '', studyPlanId: '' });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CourseCycle | null>(null);
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -39,7 +39,7 @@ export default function CourseCyclesPage() {
   if (institutionId) queryParams.institutionId = institutionId;
   if (filters.level) queryParams.level = filters.level;
   if (filters.cycleId) queryParams.cycleId = filters.cycleId;
-  if (filters.active) queryParams.active = filters.active;
+  if (filters.studyPlanId) queryParams.studyPlanId = filters.studyPlanId;
 
   const { data, loading, reload } = useCourseCycles(Object.keys(queryParams).length > 0 ? queryParams : undefined);
   const { creating, createError, create } = useCreateCourseCycle();
@@ -61,9 +61,22 @@ export default function CourseCyclesPage() {
     apiClient.get('/academic-cycles', { params: cycleParams }).then((r) => setCycles(r.data?.data ?? []));
   }, [institutionId]);
 
+  // Load study plans filtered by institution + level
+  const [studyPlans, setStudyPlans] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => {
+    const planParams: Record<string, string> = { limit: '100' };
+    if (institutionId) planParams.institutionId = institutionId;
+    if (filters.level) planParams.level = filters.level;
+    apiClient.get('/study-plans', { params: planParams }).then((r) => setStudyPlans(r.data?.data ?? []));
+  }, [institutionId, filters.level]);
+
   const handleInstitutionChange = (newId: string) => {
     setInstitutionId(newId);
-    setFilters({ level: '', cycleId: '', active: '' });
+    setFilters({ level: '', cycleId: '', studyPlanId: '' });
+  };
+
+  const handleLevelChange = (newLevel: string) => {
+    setFilters((f) => ({ ...f, level: newLevel, studyPlanId: '' }));
   };
 
   const handleCreate = async (data: CreateCourseCycleDto) => {
@@ -144,7 +157,7 @@ export default function CourseCyclesPage() {
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
             <select
               value={filters.level}
-              onChange={(e) => setFilters((f) => ({ ...f, level: e.target.value }))}
+              onChange={(e) => handleLevelChange(e.target.value)}
               style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '160px' }}
             >
               <option value="">Todos</option>
@@ -166,15 +179,14 @@ export default function CourseCyclesPage() {
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Estado</label>
+            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Plan de Estudio</label>
             <select
-              value={filters.active}
-              onChange={(e) => setFilters((f) => ({ ...f, active: e.target.value }))}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '140px' }}
+              value={filters.studyPlanId}
+              onChange={(e) => setFilters((f) => ({ ...f, studyPlanId: e.target.value }))}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             >
               <option value="">Todos</option>
-              <option value="true">Activo</option>
-              <option value="false">Cerrado</option>
+              {studyPlans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-md)', marginLeft: 'var(--space-sm)' }}>
