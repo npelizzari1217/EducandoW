@@ -38,12 +38,40 @@ export class CreateModuleUseCase {
   constructor(private readonly prisma: PrismaService) {}
 
   async execute(input: { code: string; name: string }): Promise<{ id: string; code: string; name: string }> {
-    const record = await this.prisma.getMasterClient().module.create({
-      data: {
-        code: input.code.toUpperCase().trim(),
-        name: input.name.trim(),
-      },
+    const client = this.prisma.getMasterClient();
+    const code = input.code.toUpperCase().trim();
+
+    const record = await client.module.create({
+      data: { code, name: input.name.trim() },
     });
+
+    // Auto-assign to ROOT role with all actions
+    const rootRole = await client.role.findUnique({ where: { name: 'ROOT' } });
+    if (rootRole) {
+      await client.roleModule.upsert({
+        where: { roleId_moduleId: { roleId: rootRole.id, moduleId: record.id } },
+        create: { roleId: rootRole.id, moduleId: record.id, actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+        update: { actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+      });
+    }
+
+    // Auto-assign to Admin profile with all booleans true
+    const adminProfile = await client.profile.findUnique({ where: { id: 'p-admin' } });
+    if (adminProfile) {
+      await client.profileModulePermission.upsert({
+        where: { profileId_moduleId: { profileId: 'p-admin', moduleId: record.id } },
+        create: {
+          id: `pp-admin-${record.id}`,
+          profileId: 'p-admin',
+          moduleId: record.id,
+          canRead: true, canCreate: true, canEdit: true, canDelete: true, canPrint: true,
+        },
+        update: {
+          canRead: true, canCreate: true, canEdit: true, canDelete: true, canPrint: true,
+        },
+      });
+    }
+
     return { id: record.id, code: record.code, name: record.name };
   }
 }

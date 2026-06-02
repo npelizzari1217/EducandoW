@@ -35,6 +35,7 @@ async function main() {
     { id: 'm-teachers', code: 'TEACHERS', name: 'Docentes' },
     { id: 'm-subjects', code: 'SUBJECTS', name: 'Materias' },
     { id: 'm-courses', code: 'COURSES', name: 'Cursos' },
+    { id: 'm-course-cycles', code: 'COURSE_CYCLES', name: 'Cursos por Ciclo' },
     { id: 'm-enrollments', code: 'ENROLLMENTS', name: 'Matrículas' },
     { id: 'm-grades', code: 'GRADES', name: 'Calificaciones' },
     { id: 'm-attendance', code: 'ATTENDANCE', name: 'Asistencia' },
