@@ -27,8 +27,9 @@ interface NavGroupDef {
   items: NavItem[];
 }
 
-function isRoot(user: { roles?: string[] } | null): boolean {
-  return user?.roles?.includes('ROOT') ?? false;
+function isRoot(user: { role?: string; roles?: string[] } | null): boolean {
+  if (!user) return false;
+  return user.roles?.includes('ROOT') || user.role === 'ROOT' || false;
 }
 
 const navGroups: NavGroupDef[] = [
@@ -43,7 +44,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Legajos', path: '/legajos', moduleCode: 'STUDENTS', requiresLevel: true },
       { label: 'Planes de Estudio', path: '/study-plans', moduleCode: 'STUDY_PLANS', requiresLevel: true },
       { label: 'Cursos por Ciclo', path: '/course-cycles', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
-      { label: 'Ciclos Lectivos', path: '/academic-cycles', moduleCode: 'COURSES', requiresLevel: true },
+      { label: 'Ciclos Lectivos', path: '/academic-cycles', moduleCode: 'COURSES' },
       { label: 'Usuarios', path: '/users', moduleCode: 'USERS' },
     ],
   },
