@@ -24,10 +24,14 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
         studentId: guardian.studentId,
         userId: guardian.userId,
         relationship: guardian.relationship as PrismaGuardianRelationship,
+        isFinancialResponsible: guardian.isFinancialResponsible,
+        isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
         createdAt: guardian.createdAt,
       },
       update: {
         relationship: guardian.relationship as PrismaGuardianRelationship,
+        isFinancialResponsible: guardian.isFinancialResponsible,
+        isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
       },
     });
   }
@@ -74,6 +78,8 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
       studentId: record.studentId as string,
       userId: record.userId as string,
       relationship: (record.relationship as string) as StudentGuardian['relationship'],
+      isFinancialResponsible: (record.isFinancialResponsible as boolean) ?? false,
+      isAuthorizedToPickUp: (record.isAuthorizedToPickUp as boolean) ?? false,
       createdAt: new Date(record.createdAt as string),
     });
   }

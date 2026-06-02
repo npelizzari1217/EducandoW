@@ -10,6 +10,9 @@ interface StudentRow {
   enrollmentYear: string;
   guardianName: string;
   guardianPhone: string;
+  guardianRelationship?: string;
+  isFinancialResponsible?: boolean;
+  isAuthorizedToPickUp?: boolean;
 }
 
 interface Props {
@@ -55,6 +58,9 @@ export default function StudentPrintView({ branding, students, onClose }: Props)
               <th>Año</th>
               <th>Tutor</th>
               <th>Teléfono</th>
+              <th>Parentesco</th>
+              <th>Resp. Econ.</th>
+              <th>Autorizado Retirar</th>
             </tr>
           </thead>
           <tbody>
@@ -72,6 +78,9 @@ export default function StudentPrintView({ branding, students, onClose }: Props)
                 <td>{s.enrollmentYear}</td>
                 <td>{s.guardianName || '-'}</td>
                 <td style={{ fontSize: '0.78rem' }}>{s.guardianPhone || '-'}</td>
+                <td style={{ fontSize: '0.78rem' }}>{s.guardianRelationship || '-'}</td>
+                <td>{s.isFinancialResponsible != null ? (s.isFinancialResponsible ? 'Sí' : 'No') : '-'}</td>
+                <td>{s.isAuthorizedToPickUp != null ? (s.isAuthorizedToPickUp ? 'Sí' : 'No') : '-'}</td>
               </tr>
             ))}
           </tbody>

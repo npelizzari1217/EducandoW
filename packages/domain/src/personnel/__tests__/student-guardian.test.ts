@@ -4,7 +4,7 @@ import { Id } from '../../shared/value-objects/id';
 
 describe('StudentGuardian', () => {
   describe('create', () => {
-    it('should create a valid guardian with all required fields', () => {
+    it('should create a valid guardian with all required fields and default booleans', () => {
       const guardian = StudentGuardian.create({
         studentId: 's1',
         userId: 'u-tutor',
@@ -17,6 +17,8 @@ describe('StudentGuardian', () => {
       expect(guardian.studentId).toBe('s1');
       expect(guardian.userId).toBe('u-tutor');
       expect(guardian.relationship).toBe('mother');
+      expect(guardian.isFinancialResponsible).toBe(false);
+      expect(guardian.isAuthorizedToPickUp).toBe(false);
       expect(guardian.createdAt).toBeInstanceOf(Date);
     });
 
@@ -42,6 +44,19 @@ describe('StudentGuardian', () => {
         }),
       ).toThrow();
     });
+
+    it('should persist explicit boolean fields', () => {
+      const guardian = StudentGuardian.create({
+        studentId: 's1',
+        userId: 'u-tutor',
+        relationship: 'father',
+        isFinancialResponsible: true,
+        isAuthorizedToPickUp: false,
+      });
+
+      expect(guardian.isFinancialResponsible).toBe(true);
+      expect(guardian.isAuthorizedToPickUp).toBe(false);
+    });
   });
 
   describe('reconstruct', () => {
@@ -54,6 +69,8 @@ describe('StudentGuardian', () => {
         studentId: 's1',
         userId: 'u-tutor',
         relationship: 'father',
+        isFinancialResponsible: true,
+        isAuthorizedToPickUp: false,
         createdAt,
       });
 
@@ -61,6 +78,8 @@ describe('StudentGuardian', () => {
       expect(guardian.studentId).toBe('s1');
       expect(guardian.userId).toBe('u-tutor');
       expect(guardian.relationship).toBe('father');
+      expect(guardian.isFinancialResponsible).toBe(true);
+      expect(guardian.isAuthorizedToPickUp).toBe(false);
       expect(guardian.createdAt).toEqual(createdAt);
     });
   });
@@ -77,6 +96,8 @@ describe('StudentGuardian', () => {
       expect(guardian.studentId).toBe('s1');
       expect(guardian.userId).toBe('u-tutor');
       expect(guardian.relationship).toBe('legal_guardian');
+      expect(guardian.isFinancialResponsible).toBe(false);
+      expect(guardian.isAuthorizedToPickUp).toBe(false);
       expect(guardian.createdAt).toBeInstanceOf(Date);
     });
   });

@@ -61,11 +61,13 @@ enum GuardianRelationship {
 }
 
 model StudentGuardian {
-  id           String               @id @default(uuid())
-  studentId    String
-  userId       String
-  relationship GuardianRelationship
-  createdAt    DateTime             @default(now())
+  id                     String               @id @default(uuid())
+  studentId              String
+  userId                 String
+  relationship           GuardianRelationship
+  isFinancialResponsible Boolean              @default(false) @map("is_financial_responsible")
+  isAuthorizedToPickUp   Boolean              @default(false) @map("is_authorized_to_pick_up")
+  createdAt              DateTime             @default(now())
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

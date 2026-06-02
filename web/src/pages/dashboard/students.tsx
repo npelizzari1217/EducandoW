@@ -113,6 +113,58 @@ export default function StudentsPage() {
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
   const [formError, setFormError] = useState('');
   const [showPrint, setShowPrint] = useState(false);
+  const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
+  const [guardians, setGuardians] = useState<{ id: string; userId: string; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean }[]>([]);
+  const [guardiansLoading, setGuardiansLoading] = useState(false);
+  const [guardianError, setGuardianError] = useState('');
+  const [showAssignGuardian, setShowAssignGuardian] = useState(false);
+  const [guardianAssignForm, setGuardianAssignForm] = useState({ userId: '', relationship: 'mother', isFinancialResponsible: false, isAuthorizedToPickUp: false });
+  const [assigningGuardian, setAssigningGuardian] = useState(false);
+  const [removeGuardianId, setRemoveGuardianId] = useState<string | null>(null);
+  const [removingGuardian, setRemovingGuardian] = useState(false);
+
+  const loadGuardians = async (studentId: string) => {
+    setGuardiansLoading(true); setGuardianError('');
+    try {
+      const r = await apiClient.get(`/students/${studentId}/guardians`);
+      setGuardians(r.data?.data ?? []);
+    } catch { setGuardianError('Error al cargar tutores'); }
+    finally { setGuardiansLoading(false); }
+  };
+
+  const handleSelectDetail = (studentId: string) => {
+    setDetailStudentId(studentId);
+    loadGuardians(studentId);
+  };
+
+  const handleAssignGuardian = async () => {
+    if (!detailStudentId || !guardianAssignForm.userId.trim()) { setGuardianError('Completá el ID del usuario tutor'); return; }
+    setAssigningGuardian(true); setGuardianError('');
+    try {
+      const body: Record<string, unknown> = {
+        userId: guardianAssignForm.userId,
+        relationship: guardianAssignForm.relationship,
+        isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
+        isAuthorizedToPickUp: guardianAssignForm.isAuthorizedToPickUp,
+      };
+      await apiClient.post(`/students/${detailStudentId}/guardians`, body);
+      setShowAssignGuardian(false);
+      setGuardianAssignForm({ userId: '', relationship: 'mother', isFinancialResponsible: false, isAuthorizedToPickUp: false });
+      loadGuardians(detailStudentId);
+    } catch (e: unknown) { setGuardianError(extractErrorMessage(e)); }
+    finally { setAssigningGuardian(false); }
+  };
+
+  const handleRemoveGuardian = async () => {
+    if (!removeGuardianId) return;
+    setRemovingGuardian(true);
+    try {
+      await apiClient.delete(`/students/${detailStudentId}/guardians/${removeGuardianId}`);
+      setRemoveGuardianId(null);
+      if (detailStudentId) loadGuardians(detailStudentId);
+    } catch (e: unknown) { setGuardianError(extractErrorMessage(e)); }
+    finally { setRemovingGuardian(false); }
+  };
 
   const handleSave = async () => {
     setFormError('');
@@ -237,17 +289,17 @@ export default function StudentsPage() {
     return (
       <StudentPrintView
         branding={buildBranding(config)}
-        students={adminData.map(s => ({
-          firstName: s.firstName,
-          lastName: s.lastName,
-          dni: s.dni,
-          grade: '-',
-          division: '-',
-          status: 'ACTIVE',
-          enrollmentYear: String(new Date().getFullYear()),
-          guardianName: '-',
-          guardianPhone: '-',
-        }))}
+          students={adminData.map(s => ({
+            firstName: s.firstName,
+            lastName: s.lastName,
+            dni: s.dni,
+            grade: '-',
+            division: '-',
+            status: 'ACTIVE',
+            enrollmentYear: String(new Date().getFullYear()),
+            guardianName: (s as Record<string, unknown>).guardianName as string ?? '-',
+            guardianPhone: (s as Record<string, unknown>).guardianPhone as string ?? '-',
+          }))}
         onClose={() => setShowPrint(false)}
       />
     );
@@ -337,11 +389,89 @@ export default function StudentsPage() {
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <div style={{ display: 'flex', gap: 'var(--space-xs)' }}><Button variant="action" size="sm" onClick={() => startEdit(s as { id: string; firstName: string; lastName: string; dni: string })}>Editar</Button><Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button></div> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <div style={{ display: 'flex', gap: 'var(--space-xs)' }}><Button variant="action" size="sm" onClick={() => startEdit(s as { id: string; firstName: string; lastName: string; dni: string })}>Editar</Button><Button variant="action" size="sm" onClick={() => handleSelectDetail(s.id)} style={{ background: 'var(--color-secondary-soft-bg, #e8f4fd)', color: 'var(--color-secondary-soft-text, #1d4ed8)' }}>Tutores</Button><Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button></div> }]}
           data={adminData}
           emptyMessage={adminLoading ? 'Cargando...' : 'No hay estudiantes'}
         />
       </Card>
+
+      {/* ── Guardian Management ─────────────────────────── */}
+      {detailStudentId && (
+        <Card title={`Tutores — Alumno ${detailStudentId}`} className="mt-lg">
+          {guardianError && <div style={{ background: guardianError.includes('correctamente') ? '#f0fdf4' : '#fef2f2', color: guardianError.includes('correctamente') ? 'var(--color-success)' : 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{guardianError}</div>}
+
+          <div style={{ marginBottom: 'var(--space-md)' }}>
+            <Button variant="success-soft" onClick={() => { setShowAssignGuardian(!showAssignGuardian); setGuardianError(''); }}>
+              {showAssignGuardian ? 'Cancelar' : 'Asignar tutor'}
+            </Button>
+          </div>
+
+          {showAssignGuardian && (
+            <div style={{ marginBottom: 'var(--space-md)' }}>
+              <Card title="Asignar tutor">
+                <div className="flex flex-col gap-md">
+                <Input label="ID del usuario tutor" value={guardianAssignForm.userId} onChange={e => setGuardianAssignForm({...guardianAssignForm, userId: e.target.value})} required />
+                <div>
+                  <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Parentesco</label>
+                  <select value={guardianAssignForm.relationship} onChange={e => setGuardianAssignForm({...guardianAssignForm, relationship: e.target.value})}
+                    style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}>
+                    <option value="mother">Madre</option>
+                    <option value="father">Padre</option>
+                    <option value="legal_guardian">Tutor legal</option>
+                    <option value="other">Otro</option>
+                  </select>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+                  <input type="checkbox" checked={guardianAssignForm.isFinancialResponsible} onChange={e => setGuardianAssignForm({...guardianAssignForm, isFinancialResponsible: e.target.checked})} />
+                  Responsable económico
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+                  <input type="checkbox" checked={guardianAssignForm.isAuthorizedToPickUp} onChange={e => setGuardianAssignForm({...guardianAssignForm, isAuthorizedToPickUp: e.target.checked})} />
+                  Autorizado a retirar
+                </label>
+                <Button variant="success-soft" onClick={handleAssignGuardian} loading={assigningGuardian}>Asignar</Button>
+              </div>
+            </Card>
+            </div>
+          )}
+
+          {guardiansLoading ? <p>Cargando tutores...</p> : guardians.length === 0 ? <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>No hay tutores asignados</p> : (
+            <Table
+              columns={[
+                { key: 'userId', header: 'Usuario ID' },
+                { key: 'relationship', header: 'Parentesco', render: (g: { relationship: string }) => {
+                  const labels: Record<string, string> = { mother: 'Madre', father: 'Padre', legal_guardian: 'Tutor legal', other: 'Otro' };
+                  return labels[g.relationship] || g.relationship;
+                }},
+                { key: 'isFinancialResponsible', header: 'Resp. Económico', render: (g: { isFinancialResponsible: boolean }) => g.isFinancialResponsible ? '✓ Sí' : '✗ No' },
+                { key: 'isAuthorizedToPickUp', header: 'Autorizado a retirar', render: (g: { isAuthorizedToPickUp: boolean }) => g.isAuthorizedToPickUp ? '✓ Sí' : '✗ No' },
+                { key: 'actions', header: '', render: (g: { id: string }) => <Button variant="danger-soft" size="sm" onClick={() => setRemoveGuardianId(g.id)} loading={removingGuardian}>Quitar</Button> },
+              ]}
+              data={guardians}
+              emptyMessage="No hay tutores"
+            />
+          )}
+
+          <div style={{ marginTop: 'var(--space-md)' }}>
+            <Button variant="ghost" onClick={() => setDetailStudentId(null)}>← Volver a lista</Button>
+          </div>
+        </Card>
+      )}
+
+      {/* ── Remove Guardian Confirmation ───────────────── */}
+      {removeGuardianId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ maxWidth: 400, width: '90%' }}>
+            <Card title="Quitar tutor">
+              <p style={{ marginBottom: 'var(--space-md)' }}>¿Estás seguro de quitar este tutor del alumno?</p>
+              <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end' }}>
+                <Button variant="ghost" onClick={() => setRemoveGuardianId(null)}>Cancelar</Button>
+                <Button variant="danger-soft" onClick={handleRemoveGuardian}>Quitar</Button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

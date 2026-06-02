@@ -10,13 +10,21 @@ export interface StudentGuardianProps {
   studentId: string;
   userId: string;
   relationship: GuardianRelationship;
+  isFinancialResponsible: boolean;
+  isAuthorizedToPickUp: boolean;
   createdAt: Date;
 }
 
 export class StudentGuardian {
   private constructor(private props: StudentGuardianProps) {}
 
-  static create(props: Omit<StudentGuardianProps, 'id' | 'createdAt'>): StudentGuardian {
+  static create(props: {
+    studentId: string;
+    userId: string;
+    relationship: GuardianRelationship;
+    isFinancialResponsible?: boolean;
+    isAuthorizedToPickUp?: boolean;
+  }): StudentGuardian {
     if (!VALID_RELATIONSHIPS.includes(props.relationship)) {
       throw new ValidationError(
         `Invalid relationship: "${props.relationship}". Must be one of: ${VALID_RELATIONSHIPS.join(', ')}`,
@@ -25,6 +33,8 @@ export class StudentGuardian {
 
     return new StudentGuardian({
       ...props,
+      isFinancialResponsible: props.isFinancialResponsible ?? false,
+      isAuthorizedToPickUp: props.isAuthorizedToPickUp ?? false,
       id: Id.create(),
       createdAt: new Date(),
     });
@@ -48,6 +58,14 @@ export class StudentGuardian {
 
   get relationship(): GuardianRelationship {
     return this.props.relationship;
+  }
+
+  get isFinancialResponsible(): boolean {
+    return this.props.isFinancialResponsible;
+  }
+
+  get isAuthorizedToPickUp(): boolean {
+    return this.props.isAuthorizedToPickUp;
   }
 
   get createdAt(): Date {

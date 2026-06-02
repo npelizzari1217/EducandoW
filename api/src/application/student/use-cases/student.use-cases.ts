@@ -255,6 +255,8 @@ export class GetMyChildrenUseCase {
 export interface AssignGuardianInput {
   userId: string;
   relationship: string;
+  isFinancialResponsible?: boolean;
+  isAuthorizedToPickUp?: boolean;
 }
 
 @Injectable()
@@ -280,6 +282,8 @@ export class AssignGuardianUseCase {
       studentId,
       userId: input.userId,
       relationship: input.relationship as GuardianRelationship,
+      isFinancialResponsible: input.isFinancialResponsible ?? false,
+      isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });
 
     await this.guardianRepo.save(guardian);
@@ -297,5 +301,37 @@ export class RemoveGuardianUseCase {
     if (!guardian) throw new NotFoundError('StudentGuardian', guardianId);
 
     await this.guardianRepo.delete(guardianId);
+  }
+}
+
+// ── ListGuardiansUseCase ─────────────────────────────────────
+
+export interface GuardianOutput {
+  id: string;
+  userId: string;
+  relationship: string;
+  isFinancialResponsible: boolean;
+  isAuthorizedToPickUp: boolean;
+}
+
+@Injectable()
+export class ListGuardiansUseCase {
+  constructor(
+    private readonly studentRepo: StudentRepository,
+    private readonly guardianRepo: StudentGuardianRepository,
+  ) {}
+
+  async execute(studentId: string): Promise<GuardianOutput[]> {
+    const student = await this.studentRepo.findById(studentId);
+    if (!student) throw new NotFoundError('Student', studentId);
+
+    const guardians = await this.guardianRepo.findByStudentId(studentId);
+    return guardians.map((g) => ({
+      id: g.id.get(),
+      userId: g.userId,
+      relationship: g.relationship,
+      isFinancialResponsible: g.isFinancialResponsible,
+      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+    }));
   }
 }

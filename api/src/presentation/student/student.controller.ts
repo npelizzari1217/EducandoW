@@ -13,7 +13,7 @@ import { AssignGuardianSchema, AssignGuardianDTO } from './dto/assign-guardian.d
 import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
-  AssignGuardianUseCase, RemoveGuardianUseCase,
+  AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
 } from '../../application/student/use-cases/student.use-cases';
 
 @Controller('students')
@@ -29,6 +29,7 @@ export class StudentController {
     private readonly myChildrenUC: GetMyChildrenUseCase,
     private readonly assignGuardianUC: AssignGuardianUseCase,
     private readonly removeGuardianUC: RemoveGuardianUseCase,
+    private readonly listGuardiansUC: ListGuardiansUseCase,
     @Inject('StudentRepository') private readonly studentRepo: StudentRepository,
   ) {}
 
@@ -104,6 +105,13 @@ export class StudentController {
   }
 
   // ── Guardian routes ───────────────────────────────────────
+
+  @Get(':id/guardians')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
+  async listGuardians(@Param('id') id: string) {
+    const guardians = await this.listGuardiansUC.execute(id);
+    return { data: guardians };
+  }
 
   @Post(':id/guardians')
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
