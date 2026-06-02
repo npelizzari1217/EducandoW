@@ -74,6 +74,12 @@ describe('CycleCode', () => {
     expect(result.isErr()).toBe(true);
   });
 
+  it('rejects code starting with hyphen', () => {
+    const result = CycleCode.create('-ABC');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toContain('alphanumeric uppercase');
+  });
+
   it('accepts code with leading zeros', () => {
     const result = CycleCode.create('0001');
     expect(result.isOk()).toBe(true);

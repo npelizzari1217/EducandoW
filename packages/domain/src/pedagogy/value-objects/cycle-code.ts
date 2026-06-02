@@ -1,7 +1,7 @@
 import { Result, ok, err } from '../../shared/result';
 import { ValidationError } from '../../shared/errors/validation-error';
 
-const CODE_REGEX = /^[A-Z0-9-]{1,15}$/;
+const CODE_REGEX = /^[A-Z0-9][A-Z0-9-]{0,14}$/;
 
 export class CycleCode {
   private constructor(private readonly value: string) {}
