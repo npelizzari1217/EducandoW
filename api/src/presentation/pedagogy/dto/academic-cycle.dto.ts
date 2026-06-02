@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const dateString = z.string().refine((v) => !isNaN(Date.parse(v)), { message: 'Must be a valid ISO date string' });
+const dateString = z.string().refine((v) => v === '' || !isNaN(Date.parse(v)), { message: 'Must be a valid ISO date string' });
 
 export const CreateAcademicCycleSchema = z.object({
   code: z.string().min(1, 'Code is required').max(15, 'Code must be at most 15 characters'),

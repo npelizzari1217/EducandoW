@@ -244,7 +244,7 @@ export default function AcademicCyclesPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Código *</label>
                 <Input
                   value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   placeholder="2026"
                   maxLength={15}
                   required
