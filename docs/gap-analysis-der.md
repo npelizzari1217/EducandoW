@@ -1,10 +1,12 @@
 # Gap Analysis: DER (61 tablas) vs Implementación Actual
 
-> **Fecha**: 2026-05-25
+> **Fecha**: 2026-05-25 (actualizado 2026-06-02 — Módulos 1 y 2 verificados)
 > **Contexto**: Comparación entre el DER deseado (61 tablas, 11 módulos) y el estado actual del
-> código (14 modelos Prisma: 4 en master DB + 10 en tenant DB).
+> código. La implementación usa RBAC module-based (`Role` + `UserRole` + `RoleModule` con `actions[]`)
+> en lugar de flat `Permission`/`RolePermission`. Los niveles educativos son un enum del dominio
+> (`EducationalLevelCode`), no una tabla de base de datos.
 > **Arquitectura actual**: Multi-tenant con database-per-tenant. Master DB (`educandow_master`)
-> contiene `users`, `institutions`, `refresh_tokens`. Tenant DB contiene datos pedagógicos.
+> contiene `users`, `institutions`, `refresh_tokens`, `roles`, `user_roles`, `role_modules`. Tenant DB contiene datos pedagógicos.
 
 ---
 
@@ -15,20 +17,20 @@
 | # | Tabla DER | Existe? | Nombre actual | Campos cubiertos | Campos faltantes | Acción |
 |---|-----------|---------|---------------|-----------------|------------------|--------|
 | 1 | `usuarios` | ✅ Parcial | `User` (master) | id, email, name (combinado), passwordHash, role (string), failedAttempts, lockedUntil, active | nombre/apellido separados, telefono, direccion, estado (el DER lo pide como campo, no booleano), relacion M:N a roles | ⚠️ AGREGAR CAMPOS |
-| 2 | `roles` | ❌ No existe | — | — | id_rol, nombre_rol, descripcion. El rol actual es un string inline (`"ADMIN"`, `"TEACHER"`) en `User` y `RefreshToken`. No hay tabla de roles. | 🆕 CREAR TABLA |
-| 3 | `usuarios_roles` | ❌ No existe | — | — | Tabla M:N completa. Actualmente la relación usuario-rol es 1:1 (un string). El DER la pide M:N. | 🆕 CREAR TABLA |
+| 2 | `roles` | ✅ Implementado | `Role` (master) | id, name, description, active. 9 roles seedeados (ROOT, ADMIN, MANAGER, TEACHER, TUTOR, STUDENT, SECRETARIO, DIRECTOR, PRECEPTOR). | — | ✅ OK |
+| 3 | `usuarios_roles` | ✅ Implementado | `UserRole` (master) | userId, roleId con `@@unique([userId, roleId])`. Relación M:N completa. | — | ✅ OK |
 | 4 | `tokens_seguridad` | 🟡 Parcial | `RefreshToken` (master) | id, token, userId, tipo_token → role (parcial), fecha_expiracion → expiresAt | `tipo_token` (el DER lo quiere genérico: refresh, password-reset, email-verify, etc.). La tabla actual solo cubre refresh tokens. Campos extra en actual no pedidos: `role`, `institutionId`, `active`, `deletedAt`. | 🔄 REFACTOR |
 | 5 | `dispositivos_usuarios` | ❌ No existe | — | — | Tabla completa. No hay equivalente actual. | 🆕 CREAR TABLA |
 | 6 | `logs_actividad` | ❌ No existe | — | — | Tabla completa. No hay auditoría implementada. | 🆕 CREAR TABLA |
-| 7 | `permisos` | ❌ No existe | — | — | Tabla completa. No hay sistema de permisos granular; todo se maneja por rol string. | 🆕 CREAR TABLA |
-| 8 | `roles_permisos` | ❌ No existe | — | — | Tabla M:N completa. | 🆕 CREAR TABLA |
+| 7 | `permisos` | ✅ Implementado | `RoleModule` (master) | El sistema usa `Module` + `RoleModule.actions[]` (acciones por módulo: READ, CREATE, UPDATE, DELETE) en lugar de flat permission codes. Funcionalmente equivalente al DER. | — | ✅ OK |
+| 8 | `roles_permisos` | ✅ Implementado | `RoleModule` (master) | Relación role→module con `actions: String[]`. Cada rol tiene permisos agrupados por módulo funcional (USERS, STUDENTS, GRADES, etc.) en vez de códigos planos. | — | ✅ OK |
 
 ### MÓDULO 2: Estructura Académica (7 tablas)
 
 | # | Tabla DER | Existe? | Nombre actual | Campos cubiertos | Campos faltantes | Acción |
 |---|-----------|---------|---------------|-----------------|------------------|--------|
 | 9 | `anos_lectivos` | ✅ Parcial | `AcademicCycle` (tenant) | id, name ≈ ano_nombre, startDate ≈ fecha_inicio, endDate ≈ fecha_fin, active ≈ activo | — | ✅ OK |
-| 10 | `niveles_educativos` | ❌ No existe | — | — | Tabla completa. Actualmente el nivel es un `Int` disperso por múltiples tablas (`InstitutionLevel.level`, `AcademicCycle.level`, `Subject.level`, `CourseSection.level`). No hay catálogo de niveles. | 🆕 CREAR TABLA |
+| 10 | `niveles_educativos` | ✅ Implementado | `EducationalLevelCode` (domain enum) | Niveles fijos del dominio: INICIAL=1, PRIMARIO=2, SECUNDARIO=3, TERCIARIO=4. Codificación compuesta `level*10+modality`. Los niveles educativos son conceptos fijos del dominio, no datos — no requieren tabla de base de datos. | — | ✅ OK |
 | 11 | `cursos` | 🔄 Diferente | `CourseSection` (tenant) | id, name ≈ nombre_curso, relacionado a nivel via campo `level: Int`, academicYear (string) | `cupo_maximo` no existe. FK a `niveles_educativos` y `anos_lectivos` no existen (usa level inline Int + academicYear String). Campos extra: `grade`, `division`, `modality`. **Diferencia de modelo**: el DER referencia tablas de lookup; la implementación actual usa campos inline. | 🔄 REFACTOR |
 | 12 | `materias` | ✅ Parcial | `Subject` (tenant) | id, name ≈ nombre_materia | `codigo`, `descripcion`. Campos extra en actual: `level` (Int), `modality` (Int). | ⚠️ AGREGAR CAMPOS |
 | 13 | `clases_asignaciones` | ✅ OK | `SubjectAssignment` (tenant) | id, subjectId ≈ id_materia, teacherId ≈ id_profesor, courseSectionId ≈ id_curso | — | ✅ OK |
@@ -135,17 +137,17 @@
 | Métrica | Cantidad | % |
 |----------|----------|---|
 | **Total tablas en DER** | **61** | 100% |
-| ✅ **OK** (fully implemented) | **4** | 6.6% |
+| ✅ **OK** (fully implemented) | **9** | 14.8% |
 | ⚠️ **AGREGAR CAMPOS** (exists, missing fields) | **5** | 8.2% |
 | 🔄 **REFACTOR** (exists, needs structural changes) | **4** | 6.6% |
-| 🆕 **CREAR TABLA** (doesn't exist at all) | **48** | 78.7% |
+| 🆕 **CREAR TABLA** (doesn't exist at all) | **43** | 70.5% |
 
 ### Desglose por módulo
 
 | Módulo | Tablas DER | ✅ OK | ⚠️ Parcial | 🔄 Refactor | 🆕 Nuevas | % Cubierto |
 |--------|-----------|-------|------------|-------------|-----------|------------|
-| 1. Core | 8 | 0 | 2 | 1 | 5 | 25% |
-| 2. Estructura Académica | 7 | 2 | 1 | 1 | 3 | 43% |
+| 1. Core | 8 | 4 | 2 | 1 | 1 | 50% |
+| 2. Estructura Académica | 7 | 3 | 1 | 1 | 2 | 57% |
 | 3. Matrículas y Familia | 4 | 0 | 2 | 0 | 2 | 25% |
 | 4. Evaluación y Asistencia | 6 | 0 | 1 | 1 | 4 | 8% |
 | 5. Convivencia y Disciplina | 3 | 0 | 0 | 0 | 3 | 0% |
@@ -179,7 +181,9 @@
 
 1. **`User` (master) vs `usuarios` (DER)**: El DER parece asumir una DB única donde `usuarios` vive junto a todo lo demás. En la arquitectura multi-tenant actual, `User` está en master DB y `Student`/`Teacher` están en tenant DB. Hay que decidir si `usuarios` del DER incluye o no a los alumnos/docentes, o si es solo para usuarios del sistema (admin, staff).
 
-2. **Roles M:N vs Rol inline**: El cambio más disruptivo del Módulo 1. El DER pide tabla `roles` + `usuarios_roles` (M:N) + `permisos` + `roles_permisos`. La implementación actual tiene un string `role` en `User`. Implementar RBAC completo es un proyecto en sí mismo. Evaluar si con un enum de roles alcanza para la fase actual o si se necesita granularidad de permisos desde ya.
+2. **Roles M:N vs Rol inline**: ✅ RESUELTO. El sistema ya implementa `Role` + `UserRole` (M:N) + `RoleModule` con `actions[]`. Los permisos se agrupan por módulo funcional (USERS, STUDENTS, GRADES, etc.) con acciones (READ, CREATE, UPDATE, DELETE) en vez de códigos planos. Funcionalmente equivalente al DER, arquitectónicamente más mantenible.
+
+3. **Niveles educativos como tabla vs enum**: ✅ RESUELTO. Los niveles educativos son conceptos fijos del dominio (`EducationalLevelCode` enum: INICIAL=1, PRIMARIO=2, SECUNDARIO=3, TERCIARIO=4) con codificación compuesta `level*10+modality`. No requieren tabla de base de datos — es un enum del dominio, no datos.
 
 3. **`evaluaciones` + `notas` vs `Grade`**: La diferencia más profunda en el modelo pedagógico. El DER modela: `clases_asignaciones → evaluaciones → notas` (una asignación tiene muchas evaluaciones, cada evaluación tiene muchas notas). La implementación actual modela: `SubjectAssignment → Grade` (directo, con `period` como string). Esto afecta cómo se registran las calificaciones y requiere reescribir el módulo de grading.
 

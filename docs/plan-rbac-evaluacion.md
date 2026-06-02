@@ -1,5 +1,7 @@
 # Plan: RBAC + Evaluación Jerárquica
 
+> **⚠️ ACTUALIZACIÓN 2026-06-02**: La sección 1 (RBAC) ya está implementada. El sistema usa `Role` + `UserRole` (M:N) + `RoleModule` con `actions[]` (READ, CREATE, UPDATE, DELETE por módulo). Los modelos Prisma de este documento son referencia histórica — la implementación real usa module-based RBAC en lugar de flat `Permission`/`RolePermission`. La sección 2 (Evaluación Jerárquica) sigue siendo planificada.
+>
 > **Arquitectura**: Multi-tenant SaaS (master DB + tenant DB)
 > **Objetivo**: Implementar control de acceso granular (RBAC) y modelo de evaluación jerárquico
 
