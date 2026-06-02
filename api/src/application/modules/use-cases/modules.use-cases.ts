@@ -45,30 +45,28 @@ export class CreateModuleUseCase {
       data: { code, name: input.name.trim() },
     });
 
-    // Auto-assign to ROOT role with all actions
-    const rootRole = await client.role.findUnique({ where: { name: 'ROOT' } });
-    if (rootRole) {
-      await client.roleModule.upsert({
-        where: { roleId_moduleId: { roleId: rootRole.id, moduleId: record.id } },
-        create: { roleId: rootRole.id, moduleId: record.id, actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
-        update: { actions: ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'] },
+    // 1. Assign to ALL existing users with all permissions FALSE (empty actions)
+    const allUsers = await client.user.findMany({ select: { id: true } });
+    if (allUsers.length > 0) {
+      await client.userModule.createMany({
+        data: allUsers.map((u) => ({
+          userId: u.id,
+          moduleId: record.id,
+          actions: [],
+        })),
+        skipDuplicates: true,
       });
     }
 
-    // Auto-assign to Admin profile with all booleans true
-    const adminProfile = await client.profile.findUnique({ where: { id: 'p-admin' } });
-    if (adminProfile) {
-      await client.profileModulePermission.upsert({
-        where: { profileId_moduleId: { profileId: 'p-admin', moduleId: record.id } },
-        create: {
-          id: `pp-admin-${record.id}`,
-          profileId: 'p-admin',
+    // 2. Assign to ALL existing profiles with all permissions FALSE (default)
+    const allProfiles = await client.profile.findMany({ select: { id: true } });
+    if (allProfiles.length > 0) {
+      await client.profileModulePermission.createMany({
+        data: allProfiles.map((p) => ({
+          profileId: p.id,
           moduleId: record.id,
-          canRead: true, canCreate: true, canEdit: true, canDelete: true, canPrint: true,
-        },
-        update: {
-          canRead: true, canCreate: true, canEdit: true, canDelete: true, canPrint: true,
-        },
+        })),
+        skipDuplicates: true,
       });
     }
 
