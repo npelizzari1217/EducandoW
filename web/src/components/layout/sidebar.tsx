@@ -110,18 +110,22 @@ function makeFilterItem(
   sendEmail: boolean,
   sendMessages: boolean,
 ) {
+  const root = isRoot(user);
+
   return (item: NavItem): boolean => {
-    // Module-based filter: ROOT bypasses, non-ROOT must have moduleCode with READ
-    const root = isRoot(user);
-    if (item.moduleCode && !root) {
+    // ROOT sees everything — no further checks
+    if (root) return true;
+
+    // Module-based filter: non-ROOT must have moduleCode with READ
+    if (item.moduleCode) {
       if (!hasModulePermission(userModules, item.moduleCode)) return false;
     }
     // Módulos item: visible only to ROOT (no moduleCode set)
-    if (item.path === '/modules' && !root) return false;
-    // ROOT sees all items regardless of levels
-    if (item.requiresLevel && !hasLevels && !root) return false;
+    if (item.path === '/modules') return false;
+    // Requires level check
+    if (item.requiresLevel && !hasLevels) return false;
     // Level-specific filter
-    if (item.levelId !== undefined && !root && !baseLevels.has(item.levelId)) return false;
+    if (item.levelId !== undefined && !baseLevels.has(item.levelId)) return false;
     if (item.featureFlag === 'send_email' && !sendEmail) return false;
     if (item.featureFlag === 'send_messages' && !sendMessages) return false;
     return true;
