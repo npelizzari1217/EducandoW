@@ -25,6 +25,12 @@ interface NavGroupDef {
   label: string;
   icon: string;
   items: NavItem[];
+  subGroups?: {
+    id: string;       // e.g. "academico-inicial"
+    levelId: number;  // 1..4
+    label: string;    // LEVEL_LABELS[levelId]
+    items: NavItem[]; // pre-filtered items for this level
+  }[];
 }
 
 function isRoot(user: { role?: string; roles?: string[] } | null): boolean {
@@ -53,23 +59,49 @@ const navGroups: NavGroupDef[] = [
     label: 'Académico',
     icon: '📁',
     items: [
-      // Generic — visible when any level exists
+      // Generic items — visible when any level exists
       { label: 'Alumnos por curso', path: '/students-by-course', moduleCode: 'COURSES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
-      // Inicial (levelId: 1)
-      { label: 'Salas', path: '/inicial/salas', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
-      { label: 'Informes Evolutivos', path: '/inicial/informes', moduleCode: 'REPORTS', requiresLevel: true, levelId: 1 },
-      { label: 'Planificaciones', path: '/inicial/planificaciones', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
-      // Nivel Primario (levelId: 2)
-      { label: 'Grados', path: '/primario/grados', moduleCode: 'COURSES', requiresLevel: true, levelId: 2 },
-      { label: 'Calificaciones', path: '/primario/calificaciones', moduleCode: 'GRADES', requiresLevel: true, levelId: 2 },
-      // Secundario (levelId: 3)
-      { label: 'Cursos', path: '/secundario/cursos', moduleCode: 'COURSES', requiresLevel: true, levelId: 3 },
-      { label: 'Mesas de Examen', path: '/secundario/mesas-examen', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
-      // Terciario (levelId: 4)
-      { label: 'Carreras', path: '/terciario/carreras', moduleCode: 'COURSES', requiresLevel: true, levelId: 4 },
-      { label: 'Inscripciones', path: '/terciario/inscripciones', moduleCode: 'ENROLLMENTS', requiresLevel: true, levelId: 4 },
+    ],
+    subGroups: [
+      {
+        id: 'academico-inicial',
+        levelId: 1,
+        label: 'Inicial',
+        items: [
+          { label: 'Salas', path: '/inicial/salas', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
+          { label: 'Informes Evolutivos', path: '/inicial/informes', moduleCode: 'REPORTS', requiresLevel: true, levelId: 1 },
+          { label: 'Planificaciones', path: '/inicial/planificaciones', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
+        ],
+      },
+      {
+        id: 'academico-primario',
+        levelId: 2,
+        label: 'Nivel Primario',
+        items: [
+          { label: 'Grados', path: '/primario/grados', moduleCode: 'COURSES', requiresLevel: true, levelId: 2 },
+          { label: 'Calificaciones', path: '/primario/calificaciones', moduleCode: 'GRADES', requiresLevel: true, levelId: 2 },
+        ],
+      },
+      {
+        id: 'academico-secundario',
+        levelId: 3,
+        label: 'Secundario',
+        items: [
+          { label: 'Cursos', path: '/secundario/cursos', moduleCode: 'COURSES', requiresLevel: true, levelId: 3 },
+          { label: 'Mesas de Examen', path: '/secundario/mesas-examen', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
+        ],
+      },
+      {
+        id: 'academico-terciario',
+        levelId: 4,
+        label: 'Terciario',
+        items: [
+          { label: 'Carreras', path: '/terciario/carreras', moduleCode: 'COURSES', requiresLevel: true, levelId: 4 },
+          { label: 'Inscripciones', path: '/terciario/inscripciones', moduleCode: 'ENROLLMENTS', requiresLevel: true, levelId: 4 },
+        ],
+      },
     ],
   },
   {
