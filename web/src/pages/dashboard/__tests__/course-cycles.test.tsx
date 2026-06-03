@@ -8,7 +8,7 @@ import '@testing-library/jest-dom/vitest';
 const mockPost = vi.fn(() => Promise.resolve({ data: { data: { created: 3, updated: 2, total: 5 } } }));
 const mockGet = vi.fn((url: string) => {
   if (url === '/academic-cycles') {
-    return Promise.resolve({ data: { data: [{ id: 'cycle-1', name: '2026' }, { id: 'cycle-2', name: '2025' }] } });
+    return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }, { uuid: 'cycle-2', name: '2025' }] } });
   }
   if (url === '/study-plans') {
     return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan Primario 2026' }] } });

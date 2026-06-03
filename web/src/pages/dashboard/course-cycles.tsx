@@ -53,7 +53,7 @@ export default function CourseCyclesPage() {
     }
   }, [isRoot]);
 
-  const [cycles, setCycles] = useState<{ id: string; name: string }[]>([]);
+  const [cycles, setCycles] = useState<{ uuid: string; name: string }[]>([]);
   useEffect(() => {
     const cycleParams: Record<string, string> = { limit: '100' };
     if (institutionId) cycleParams.institutionId = institutionId;
@@ -137,7 +137,7 @@ export default function CourseCyclesPage() {
   const tableData = data.map((cc) => ({
     courseName: cc.courseName,
     level: LEVEL_LABELS[cc.level] ?? `Nivel ${cc.level}`,
-    cycle: cycles.find((c) => c.id === cc.cycleId)?.name ?? cc.cycleId,
+    cycle: cycles.find((c) => c.uuid === cc.cycleId)?.name ?? cc.cycleId,
     active: cc.active,
     passingGrade: cc.passingGrade,
     actions: cc,
@@ -203,7 +203,7 @@ export default function CourseCyclesPage() {
               style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '200px' }}
             >
               <option value="">Todos</option>
-              {cycles.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {cycles.map((c) => <option key={c.uuid} value={c.uuid}>{c.name}</option>)}
             </select>
           </div>
           <div>
