@@ -16,6 +16,12 @@ interface SelectOption {
 }
 
 const LEVEL_OPTIONS = ['INICIAL', 'PRIMARIO', 'SECUNDARIO', 'TERCIARIO'];
+const LEVEL_NUM_TO_LABEL: Record<number, string> = {
+  10: 'INICIAL', 11: 'INICIAL', 12: 'INICIAL',
+  20: 'PRIMARIO', 21: 'PRIMARIO', 22: 'PRIMARIO',
+  30: 'SECUNDARIO', 31: 'SECUNDARIO', 32: 'SECUNDARIO',
+  40: 'TERCIARIO',
+};
 
 export default function CourseCycleForm({ initial, onSubmit, onCancel, loading, error }: CourseCycleFormProps) {
   const isEdit = !!initial;
@@ -24,22 +30,24 @@ export default function CourseCycleForm({ initial, onSubmit, onCancel, loading, 
   const [plans, setPlans] = useState<SelectOption[]>([]);
   const [cycles, setCycles] = useState<SelectOption[]>([]);
 
+  const bimDates = initial?.ownBimonthDates;
+
   const [form, setForm] = useState({
     courseId: initial?.courseId ?? '',
     studyPlanId: initial?.studyPlanId ?? '',
     cycleId: initial?.cycleId ?? '',
     courseName: initial?.courseName ?? '',
-    level: LEVEL_OPTIONS.find((_, i) => `INICIAL PRIMARIO SECUNDARIO TERCIARIO`.split(' ')[i] === initial?.level) ?? 'PRIMARIO',
+    level: initial?.level ? (LEVEL_NUM_TO_LABEL[initial.level] ?? 'PRIMARIO') : 'PRIMARIO',
     passingGrade: initial?.passingGrade ?? 6,
     promotionText: initial?.promotionText ?? '',
-    firstBimonthStart: initial?.firstBimonthStart?.split('T')[0] ?? '',
-    firstBimonthEnd: initial?.firstBimonthEnd?.split('T')[0] ?? '',
-    secondBimonthStart: initial?.secondBimonthStart?.split('T')[0] ?? '',
-    secondBimonthEnd: initial?.secondBimonthEnd?.split('T')[0] ?? '',
-    thirdBimonthStart: initial?.thirdBimonthStart?.split('T')[0] ?? '',
-    thirdBimonthEnd: initial?.thirdBimonthEnd?.split('T')[0] ?? '',
-    fourthBimonthStart: initial?.fourthBimonthStart?.split('T')[0] ?? '',
-    fourthBimonthEnd: initial?.fourthBimonthEnd?.split('T')[0] ?? '',
+    firstBimonthStart: bimDates?.firstBimonthStart?.split('T')[0] ?? '',
+    firstBimonthEnd: bimDates?.firstBimonthEnd?.split('T')[0] ?? '',
+    secondBimonthStart: bimDates?.secondBimonthStart?.split('T')[0] ?? '',
+    secondBimonthEnd: bimDates?.secondBimonthEnd?.split('T')[0] ?? '',
+    thirdBimonthStart: bimDates?.thirdBimonthStart?.split('T')[0] ?? '',
+    thirdBimonthEnd: bimDates?.thirdBimonthEnd?.split('T')[0] ?? '',
+    fourthBimonthStart: bimDates?.fourthBimonthStart?.split('T')[0] ?? '',
+    fourthBimonthEnd: bimDates?.fourthBimonthEnd?.split('T')[0] ?? '',
   });
 
   // Load combobox data
@@ -137,7 +145,7 @@ export default function CourseCycleForm({ initial, onSubmit, onCancel, loading, 
         Texto de Promoción
         <input type="text" value={form.promotionText} onChange={(e) => update('promotionText', e.target.value)} className="w-full border rounded p-1" />
       </label>
-      {['first', 'second', 'third', 'fourth'].map((bim, i) => (
+      {['first', 'second', 'third', 'fourth'].map((bim) => (
         <div key={bim} className="col-span-2 grid grid-cols-2 gap-2 border-t pt-2 mt-1">
           <label>
             {bim.charAt(0).toUpperCase() + bim.slice(1)} Bimestre Inicio

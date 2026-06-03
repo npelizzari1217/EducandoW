@@ -7,7 +7,6 @@ import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
 import apiClient from '../../api/client';
 
@@ -82,8 +81,8 @@ export default function CourseCyclesPage() {
     setFilters((f) => ({ ...f, level: newLevel, studyPlanId: '' }));
   };
 
-  const handleCreate = async (data: CreateCourseCycleDto) => {
-    const ok = await create(data as any);
+  const handleCreate = async (data: CreateCourseCycleDto | UpdateCourseCycleDto) => {
+    const ok = await create(data as CreateCourseCycleDto);
     if (ok) { setShowForm(false); reload(); }
     return ok;
   };
@@ -260,16 +259,18 @@ export default function CourseCyclesPage() {
         {!loading && data.length > 0 && (
           <Table
             columns={[
-              { key: 'courseName', label: 'Curso' },
-              { key: 'level', label: 'Nivel' },
-              { key: 'cycle', label: 'Ciclo Lectivo' },
-              { key: 'active', label: 'Activo', render: (v: boolean) => (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${v ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {v ? 'Sí' : 'No'}
+              { key: 'courseName', header: 'Curso' },
+              { key: 'level', header: 'Nivel' },
+              { key: 'cycle', header: 'Ciclo Lectivo' },
+              { key: 'active', header: 'Activo', render: (item) => (
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {item.active ? 'Sí' : 'No'}
                 </span>
               )},
-              { key: 'passingGrade', label: 'Nota Aprob.' },
-              { key: 'actions', label: 'Acciones', render: (cc: CourseCycle) => (
+              { key: 'passingGrade', header: 'Nota Aprob.' },
+              { key: 'actions', header: 'Acciones', render: (item) => {
+                const cc = item.actions;
+                return (
                 <div className="flex gap-1">
                   <button onClick={() => setEditing(cc)} className="text-blue-600 hover:underline text-sm">Editar</button>
                   <button onClick={() => handleToggle(cc)} disabled={toggling} className="text-orange-600 hover:underline text-sm">
@@ -277,7 +278,7 @@ export default function CourseCyclesPage() {
                   </button>
                   <button onClick={() => handleDelete(cc.uuid)} disabled={deleting} className="text-red-600 hover:underline text-sm">Eliminar</button>
                 </div>
-              )},
+              )}},
             ]}
             data={tableData}
           />
