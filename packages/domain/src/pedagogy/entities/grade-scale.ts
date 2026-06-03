@@ -4,7 +4,7 @@ import { EducationalModality, EducationalModalityCode } from '../../shared/value
 
 export interface GradeScaleValueProps {
   id: Id;
-  scaleId: string;
+  scaleId: Id;
   code: string;
   label: string;
   numericValue?: number;
@@ -26,7 +26,7 @@ export class GradeScaleValue {
   }
 
   get id(): Id { return this.props.id; }
-  get scaleId(): string { return this.props.scaleId; }
+  get scaleId(): Id { return this.props.scaleId; }
   get code(): string { return this.props.code; }
   get label(): string { return this.props.label; }
   get numericValue(): number | undefined { return this.props.numericValue; }

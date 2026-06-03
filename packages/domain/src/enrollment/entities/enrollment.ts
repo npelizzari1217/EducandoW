@@ -6,7 +6,7 @@ export interface EnrollmentProps {
   id: Id;
   studentId: Id;
   institutionId: Id;
-  cycleId?: string;
+  cycleId?: Id;
   level: Level;
   academicYear: string;
   grade?: string;
@@ -46,7 +46,7 @@ export class Enrollment {
     return this.props.institutionId;
   }
 
-  get cycleId(): string | undefined {
+  get cycleId(): Id | undefined {
     return this.props.cycleId;
   }
 

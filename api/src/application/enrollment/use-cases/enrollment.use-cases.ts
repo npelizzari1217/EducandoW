@@ -14,8 +14,12 @@ export interface CreateEnrollmentInput {
 function buildLevel(level: string, modality?: string): Level {
   const parsed = Level.create(level);
   if (parsed.isOk()) return parsed.unwrap();
+  const numeric = parseInt(level, 10);
+  if (isNaN(numeric)) {
+    throw new ValidationError(`Invalid level: "${level}". Cannot parse as a valid level code.`);
+  }
   return Level.fromParts(
-    parseInt(level, 10) as EducationalLevelCode || 1,
+    numeric as EducationalLevelCode,
     (modality && parseInt(modality, 10) >= 0) ? parseInt(modality, 10) as EducationalModalityCode : EducationalModalityCode.COMUN,
   );
 }

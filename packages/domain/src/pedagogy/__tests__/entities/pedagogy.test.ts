@@ -214,7 +214,7 @@ describe('GradeScale', () => {
 describe('GradeScaleValue', () => {
   it('creates a numeric grade scale value', () => {
     const gsv = GradeScaleValue.create({
-      scaleId: 'gs-primaria',
+      scaleId: Id.reconstruct('gs-primaria'),
       code: '10',
       label: 'Excelente (10)',
       numericValue: 10,
@@ -230,7 +230,7 @@ describe('GradeScaleValue', () => {
 
   it('creates a conceptual grade scale value', () => {
     const gsv = GradeScaleValue.create({
-      scaleId: 'gs-inicial',
+      scaleId: Id.reconstruct('gs-inicial'),
       code: 'DESTACADO',
       label: 'Destacado',
       isApproved: true,
@@ -242,7 +242,7 @@ describe('GradeScaleValue', () => {
 
   it('softDelete marks as inactive', () => {
     const gsv = GradeScaleValue.create({
-      scaleId: 'gs-primaria',
+      scaleId: Id.reconstruct('gs-primaria'),
       code: '5',
       label: 'Regular (5)',
       isApproved: false,

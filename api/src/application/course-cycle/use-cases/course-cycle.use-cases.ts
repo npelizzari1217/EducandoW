@@ -14,6 +14,7 @@ import {
   AcademicCycleClosedError,
   EducationalLevelCode,
   EducationalModalityCode,
+  type UpdateCourseCycleInput as DomainUpdateCourseCycleInput,
 } from '@educandow/domain';
 import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
@@ -168,7 +169,7 @@ export class UpdateCourseCycleUseCase {
     }
 
     // Build update VOs from input
-    const updateData: Record<string, unknown> = {};
+    const updateData: DomainUpdateCourseCycleInput = {};
 
     if (input.courseName !== undefined) {
       const cn = CourseName.create(input.courseName);
@@ -206,7 +207,7 @@ export class UpdateCourseCycleUseCase {
       updateData.fourthBimonth = buildBimonthPeriod(input.fourthBimonthStart, input.fourthBimonthEnd);
     }
 
-    cc.update(updateData as unknown as Parameters<typeof cc.update>[0]);
+    cc.update(updateData);
     await this.courseCycleRepo.save(cc);
     return ok(cc);
   }

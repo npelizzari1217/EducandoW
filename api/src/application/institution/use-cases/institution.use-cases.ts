@@ -133,41 +133,18 @@ export class CreateInstitutionUseCase {
     }
 
     // Parse optional HexColor fields
-    const headerColor = input.header_color
-      ? HexColor.create(input.header_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (headerColor && 'isErr' in headerColor && headerColor.isErr())
-      return err(headerColor.unwrapErr());
-
-    const headerTextColor = input.header_text_color
-      ? HexColor.create(input.header_text_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (headerTextColor && 'isErr' in headerTextColor && headerTextColor.isErr())
-      return err(headerTextColor.unwrapErr());
-
-    const bodyTextColor = input.body_text_color
-      ? HexColor.create(input.body_text_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (bodyTextColor && 'isErr' in bodyTextColor && bodyTextColor.isErr())
-      return err(bodyTextColor.unwrapErr());
-
-    const bodyColor = input.body_color
-      ? HexColor.create(input.body_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (bodyColor && 'isErr' in bodyColor && bodyColor.isErr())
-      return err(bodyColor.unwrapErr());
-
-    const footerColor = input.footer_color
-      ? HexColor.create(input.footer_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (footerColor && 'isErr' in footerColor && footerColor.isErr())
-      return err(footerColor.unwrapErr());
-
-    const footerTextColor = input.footer_text_color
-      ? HexColor.create(input.footer_text_color) as { unwrap(): HexColor } | { isErr(): boolean; unwrapErr(): ValidationError }
-      : undefined;
-    if (footerTextColor && 'isErr' in footerTextColor && footerTextColor.isErr())
-      return err(footerTextColor.unwrapErr());
+    const headerColor = input.header_color ? HexColor.create(input.header_color) : undefined;
+    if (headerColor?.isErr()) return err(headerColor.unwrapErr());
+    const headerTextColor = input.header_text_color ? HexColor.create(input.header_text_color) : undefined;
+    if (headerTextColor?.isErr()) return err(headerTextColor.unwrapErr());
+    const bodyTextColor = input.body_text_color ? HexColor.create(input.body_text_color) : undefined;
+    if (bodyTextColor?.isErr()) return err(bodyTextColor.unwrapErr());
+    const bodyColor = input.body_color ? HexColor.create(input.body_color) : undefined;
+    if (bodyColor?.isErr()) return err(bodyColor.unwrapErr());
+    const footerColor = input.footer_color ? HexColor.create(input.footer_color) : undefined;
+    if (footerColor?.isErr()) return err(footerColor.unwrapErr());
+    const footerTextColor = input.footer_text_color ? HexColor.create(input.footer_text_color) : undefined;
+    if (footerTextColor?.isErr()) return err(footerTextColor.unwrapErr());
 
     // Parse optional Cue
     const cue = input.cue

@@ -219,6 +219,12 @@ export class Level {
   /** Código compuesto (levelCode, modalityCode) → Level. */
   static fromParts(levelCode: EducationalLevelCode, modalityCode: EducationalModalityCode): Level {
     const composite = levelCode * 10 + modalityCode;
+    if (!Object.values(LevelType).includes(composite)) {
+      throw new Error(
+        `Invalid level composite: ${composite} (level=${levelCode}, modality=${modalityCode}). ` +
+        `Must be one of: ${Object.values(LevelType).filter(v => typeof v === 'number').join(', ')}`,
+      );
+    }
     return new Level(composite as LevelType);
   }
 
