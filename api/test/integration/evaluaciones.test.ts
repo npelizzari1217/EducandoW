@@ -5,13 +5,11 @@ import {
   DeleteEvaluacionUC,
   CreateNotaUC,
   ListNotasUC,
-  DeleteNotaUC,
   CreatePeriodoUC,
   ListPeriodosUC,
   DeletePeriodoUC,
   CreateNotaTrimestralUC,
   ListNotasTrimestralesUC,
-  DeleteNotaTrimestralUC,
 } from '../../src/application/pedagogy/use-cases/pedagogy.use-cases';
 import type {
   EvaluacionRepository,

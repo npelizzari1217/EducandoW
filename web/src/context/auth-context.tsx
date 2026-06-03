@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import apiClient from '../api/client';
+import { getToken, setToken, removeToken } from '../api/token';
 
 interface User { id: string; email: string; name: string; role: string; roles?: string[]; institutionId?: string; levels?: number[]; userLevels?: { level: number; modality: number }[]; modules?: { moduleCode: string; actions: string[] }[]; }
 interface AuthState { user: User | null; accessToken: string | null; isLoading: boolean; login: (email: string, password: string) => Promise<void>; register: (data: { email: string; password: string; name: string; role?: string; institutionId?: string }) => Promise<void>; logout: () => Promise<void>; }
@@ -11,7 +12,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
   });
-  const [accessToken, setAccessToken] = useState<string | null>(() => localStorage.getItem('accessToken'));
+  const [accessToken, setAccessToken] = useState<string | null>(() => getToken());
   const [isLoading, setIsLoading] = useState(false);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -20,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await apiClient.post('/auth/login', { email, password });
       const token = data.data.accessToken;
       const u = data.data.user;
-      localStorage.setItem('accessToken', token);
+      setToken(token);
       localStorage.setItem('user', JSON.stringify(u));
       setAccessToken(token);
       setUser(u);
@@ -38,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try { await apiClient.post('/auth/logout'); } catch { /* ignore */ }
-    localStorage.removeItem('accessToken');
+    removeToken();
     localStorage.removeItem('user');
     setAccessToken(null);
     setUser(null);

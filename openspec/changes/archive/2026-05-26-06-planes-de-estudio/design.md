@@ -1,3 +1,5 @@
+<!-- ⚠️ ADVERTENCIA: prisma db push está DEPRECATED en este proyecto. Usar prisma migrate deploy (prod) o prisma migrate dev (local). Ver spec db-migration-policy. -->
+
 # Design: Planes de Estudio
 
 ## Technical Approach

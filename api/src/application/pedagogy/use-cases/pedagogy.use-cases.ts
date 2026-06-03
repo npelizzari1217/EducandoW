@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, ValidationError, Level, EducationalLevelCode, EducationalModalityCode, Result } from '@educandow/domain';
+import { ok, err, ValidationError, Level, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
 import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
@@ -93,8 +93,8 @@ export class CreateAcademicCycleUC {
 
     const cycle = AcademicCycle.create({
       name: input.name,
-      level: input.level,
-      modality: input.modality,
+      level: EducationalLevel.fromCode(input.level as EducationalLevelCode),
+      modality: input.modality != null ? EducationalModality.fromCode(input.modality as EducationalModalityCode) : undefined,
       startDate: new Date(input.startDate),
       endDate: new Date(input.endDate),
       code: codeResult.unwrap(),

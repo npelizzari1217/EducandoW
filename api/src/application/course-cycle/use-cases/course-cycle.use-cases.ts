@@ -12,6 +12,8 @@ import {
   CourseCycleAlreadyExistsError,
   CourseCycleNotFoundError,
   AcademicCycleClosedError,
+  EducationalLevelCode,
+  EducationalModalityCode,
 } from '@educandow/domain';
 import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
@@ -204,7 +206,7 @@ export class UpdateCourseCycleUseCase {
       updateData.fourthBimonth = buildBimonthPeriod(input.fourthBimonthStart, input.fourthBimonthEnd);
     }
 
-    cc.update(updateData as any);
+    cc.update(updateData as unknown as Parameters<typeof cc.update>[0]);
     await this.courseCycleRepo.save(cc);
     return ok(cc);
   }
@@ -320,7 +322,7 @@ export class GenerateCourseCyclesUseCase {
       const planCourses = await this.studyPlanRepo.findPlanCoursesByPlan(planRef.id);
 
       for (const pc of planCourses) {
-        const compositeLevel = Level.fromParts(planRef.level as any, planRef.modality as any);
+        const compositeLevel = Level.fromParts(planRef.level as EducationalLevelCode, planRef.modality as EducationalModalityCode);
         const courseName = CourseName.create(pc.courseSectionName ?? 'Sin nombre').unwrap();
         const passingGrade = PassingGrade.create(6).unwrap();
 

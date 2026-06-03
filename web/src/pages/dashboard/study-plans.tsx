@@ -254,8 +254,9 @@ export default function StudyPlansPage() {
         // Refresh courses (sin colapsar el árbol)
         fetchPlanCourses(plan.id);
       }
-    } catch (e: any) {
-      const msg = e?.response?.data?.error?.message || e?.message || 'Error al crear el curso';
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = err?.response?.data?.error?.message || err?.message || 'Error al crear el curso';
       setCourseFormError(msg);
     }
     finally { setCourseFormLoading(false); }
@@ -321,8 +322,9 @@ export default function StudyPlansPage() {
         )?.[0];
         if (planId) fetchPlanCourses(planId);
       }
-    } catch (e: any) {
-      const msg = e?.response?.data?.error?.message || e?.message || 'Error al crear la materia';
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      const msg = err?.response?.data?.error?.message || err?.message || 'Error al crear la materia';
       setSubjectFormError(msg);
     }
     finally { setSubjectFormLoading(false); }

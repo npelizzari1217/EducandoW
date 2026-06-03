@@ -50,16 +50,16 @@ export class PostgresAdminService {
   /**
    * Runs Prisma migrations against the tenant database.
    *
-   * Uses `prisma migrate deploy` (idempotent, handles locking) with
-   * a DATABASE_URL pointing to the tenant DB. The schema path is
-   * `prisma/schema_tenant.prisma`.
+ * Uses `prisma migrate deploy` (idempotent, handles locking) with
+ * a DATABASE_URL pointing to the tenant DB. The schema path is
+ * `prisma_tenant/schema.prisma`.
    */
   async runTenantMigrations(dbName: string): Promise<void> {
     const tenantUrl = this.masterDbUrl.replace(/\/[^/]+$/, `/${dbName}`);
 
     return new Promise((resolve, reject) => {
       exec(
-        'npx prisma migrate deploy --schema=prisma/schema_tenant.prisma',
+        'npx prisma migrate deploy --schema=prisma_tenant/schema.prisma',
         {
           env: {
             ...process.env,

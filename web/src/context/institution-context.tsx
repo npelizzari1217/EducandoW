@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import apiClient from '../api/client';
 import { extractErrorMessage } from '../hooks/use-api';
+import { getToken } from '../api/token';
 
 export interface InstitutionConfig {
   id: string;
@@ -86,7 +87,7 @@ export function InstitutionProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchConfig = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
+    const token = getToken();
     if (!token) return;
 
     setIsLoading(true);

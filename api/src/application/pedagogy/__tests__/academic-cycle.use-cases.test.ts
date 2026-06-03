@@ -10,7 +10,6 @@ import {
 import {
   AcademicCycle,
   CycleCode,
-  BimonthPeriod,
   CycleCodeAlreadyExistsError,
   AcademicCycleNotFoundError,
   ValidationError,

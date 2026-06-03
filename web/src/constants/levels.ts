@@ -5,24 +5,22 @@
  *   - combos desplegables: LEVEL_OPTIONS
  *   - mostrar label dado un código: LEVEL_LABELS[10] → "Inicial"
  *   - agrupar por nivel base: LEVELS_BY_BASE[EducationalLevelCode.PRIMARIO] → [20, 21, 22]
+ *
+ * Fuente de verdad: @educandow/domain
+ * Los datos se definen localmente (no importamos runtime values por compatibilidad CJS/ESM).
+ * Si el catálogo cambia en el dominio, actualizar también acá.
  */
 
-// ── Tipos ──────────────────────────────────────────────────
+import type { LevelCatalogEntry } from '@educandow/domain';
 
-export interface LevelOption {
-  code: number;
-  name: string;
-  label: string;
-  /** Nivel base (1=Inicial, 2=Primario, 3=Secundario, 4=Terciario, 9=Admin) */
-  levelCode: number;
-  /** Modalidad (0=Común, 1=Talleres, 2=Bilingüismo, 9=Todos) */
-  modalityCode: number;
-  pedagogical: boolean;
-}
+// ── Re-exported types (backward-compatible aliases) ──────────
 
-// ── Catálogo completo (12 niveles) ────────────────────────
+/** Re-exported from domain — kept for backward compatibility */
+export type LevelOption = LevelCatalogEntry;
 
-export const LEVEL_CATALOG: LevelOption[] = [
+// ── Catálogo canónico (debe coincidir con @educandow/domain) ─
+
+export const LEVEL_CATALOG: LevelCatalogEntry[] = [
   { code: 10, name: 'INICIAL',                label: 'Inicial',                levelCode: 1, modalityCode: 0, pedagogical: true },
   { code: 11, name: 'TALLERES_INICIAL',       label: 'Talleres de Inicial',    levelCode: 1, modalityCode: 1, pedagogical: true },
   { code: 12, name: 'BILINGÜISMO_INICIAL',    label: 'Bilingüismo Inicial',    levelCode: 1, modalityCode: 2, pedagogical: true },
@@ -45,10 +43,10 @@ export const LEVEL_LABELS: Record<number, string> = Object.fromEntries(
 );
 
 /** Solo niveles pedagógicos (para combos de institución y enrollment) */
-export const PEDAGOGICAL_LEVELS: LevelOption[] = LEVEL_CATALOG.filter((e) => e.pedagogical);
+export const PEDAGOGICAL_LEVELS: LevelCatalogEntry[] = LEVEL_CATALOG.filter((e) => e.pedagogical);
 
 /** Opciones agrupadas por nivel base (para combos con optgroups) */
-export const LEVELS_BY_BASE: Record<number, LevelOption[]> = {
+export const LEVELS_BY_BASE: Record<number, LevelCatalogEntry[]> = {
   1: LEVEL_CATALOG.filter((e) => e.levelCode === 1 && e.pedagogical),
   2: LEVEL_CATALOG.filter((e) => e.levelCode === 2 && e.pedagogical),
   3: LEVEL_CATALOG.filter((e) => e.levelCode === 3 && e.pedagogical),

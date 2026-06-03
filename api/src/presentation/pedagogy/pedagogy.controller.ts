@@ -6,6 +6,7 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import * as DTO from './dto/pedagogy.dto';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
+import type { AcademicCycle } from '@educandow/domain';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -48,7 +49,7 @@ export class PedagogyController {
         pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
       });
       return {
-        data: result.data.map((c: any) => this.toCycleResponse(c)),
+        data: result.data.map((c: AcademicCycle) => this.toCycleResponse(c)),
         page: result.page,
         pageSize: result.pageSize,
         total: result.total,
@@ -56,7 +57,7 @@ export class PedagogyController {
     }
 
     const cycles = await this.listCyclesUC.execute(level);
-    return { data: cycles.map((c: any) => this.toCycleResponse(c)) };
+    return { data: cycles.map((c: AcademicCycle) => this.toCycleResponse(c)) };
   }
 
   @Get('academic-cycles/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
@@ -92,7 +93,7 @@ export class PedagogyController {
     return { data: this.toCycleResponse(result.unwrap()) };
   }
 
-  private toCycleResponse(c: any) {
+  private toCycleResponse(c: AcademicCycle) {
     return {
       uuid: c.uuid,
       code: c.code.get ? c.code.get() : c.code,

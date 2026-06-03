@@ -212,7 +212,7 @@ export class CreateInstitutionUseCase {
     // ── Step 1: Save master record ──────────────────────
     let masterSaved = false;
     let dbCreated = false;
-    let dbNameActual = dbName;
+    const dbNameActual = dbName;
 
     try {
       await this.repo.save(institution);
@@ -239,7 +239,8 @@ export class CreateInstitutionUseCase {
         institution,
         admin: adminResult,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const caughtErr = error as { message?: string };
       // ── Rollback ──────────────────────────────────────
       // Step 3 rollback: drop tenant DB
       if (dbCreated) {
@@ -252,7 +253,7 @@ export class CreateInstitutionUseCase {
       // Admin user is in master DB, deleted alongside institution record
 
       return err(new ValidationError(
-        `Error al crear la institución: ${error?.message ?? 'Error desconocido'}`,
+        `Error al crear la institución: ${caughtErr?.message ?? 'Error desconocido'}`,
       ));
     }
   }

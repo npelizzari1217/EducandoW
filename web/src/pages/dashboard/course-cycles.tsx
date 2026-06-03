@@ -92,7 +92,7 @@ export default function CourseCyclesPage() {
 
   const handleUpdate = async (data: UpdateCourseCycleDto) => {
     if (!editing) return false;
-    const ok = await update(editing.uuid, data as any);
+    const ok = await update(editing.uuid, data);
     if (ok) { setEditing(null); reload(); }
     return ok;
   };
@@ -122,9 +122,10 @@ export default function CourseCyclesPage() {
         type: 'success',
       });
       reload();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setToast({
-        message: e?.response?.data?.error?.message ?? 'Error al generar cursos',
+        message: err?.response?.data?.error?.message ?? 'Error al generar cursos',
         type: 'error',
       });
     } finally {

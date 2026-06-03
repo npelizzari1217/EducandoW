@@ -57,8 +57,9 @@ async function main() {
   try {
     await prisma.$queryRawUnsafe('SELECT 1');
     console.log('  [OK] Conexion exitosa a PostgreSQL');
-  } catch (err: any) {
-    console.log(`  [FAIL] No se pudo conectar: ${err.message}`);
+  } catch (err: unknown) {
+    const error = err as { message?: string };
+    console.log(`  [FAIL] No se pudo conectar: ${error.message}`);
     console.log('');
     console.log('  Verifica que:');
     console.log('    - PostgreSQL este corriendo');
@@ -174,8 +175,9 @@ async function main() {
       const status = matches ? '[MATCH]' : '[NO MATCH]';
       console.log(`  ${status}   "${pw}"`);
       if (matches) anyMatch = true;
-    } catch (err: any) {
-      console.log(`  [ERROR] "${pw}" - bcrypt.compare fallo: ${err.message}`);
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      console.log(`  [ERROR] "${pw}" - bcrypt.compare fallo: ${error.message}`);
     }
   }
 
@@ -188,7 +190,7 @@ async function main() {
     console.log('');
     console.log('  Opcion rapida: regenera el hash con Admin123! en Node.js:');
     console.log('    cd C:\\EducandoW\\api');
-    console.log('    node -e "const bc=require(\"bcrypt\"); bc.hash(\"Admin123!\",12).then(h=>console.log(h))"');
+    console.log(`    node -e "const bc=require('bcrypt'); bc.hash('Admin123!',12).then(h=>console.log(h))"`);
     console.log('');
     console.log('  Luego actualiza la DB con ese hash (usa psql o DBeaver):');
     console.log("    UPDATE users SET password = '<nuevo_hash>' WHERE email = 'npelizzari@gmail.com';");

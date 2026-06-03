@@ -1,12 +1,14 @@
 import { CycleCode } from '../value-objects/cycle-code';
 import { BimonthPeriod } from '../../course-cycle/value-objects/bimonth-period';
+import { EducationalLevel } from '../../shared/value-objects/educational-level';
+import { EducationalModality, EducationalModalityCode } from '../../shared/value-objects/educational-modality';
 
 // ── Input types ──────────────────────────────────────────
 
 export interface CreateAcademicCycleInput {
   name: string;
-  level: number;
-  modality?: number;
+  level: EducationalLevel;
+  modality?: EducationalModality;
   startDate: Date;
   endDate: Date;
   code: CycleCode;
@@ -34,8 +36,8 @@ export interface AcademicCycleProps {
   uuid: string;
   code: CycleCode;
   name: string;
-  level: number;
-  modality: number;
+  level: EducationalLevel;
+  modality: EducationalModality;
   startDate: Date;
   endDate: Date;
   active: boolean;
@@ -61,7 +63,7 @@ export class AcademicCycle {
       code: input.code,
       name: input.name,
       level: input.level,
-      modality: input.modality ?? 0,
+      modality: input.modality ?? EducationalModality.fromCode(EducationalModalityCode.COMUN),
       startDate: input.startDate,
       endDate: input.endDate,
       active: input.active ?? true,
@@ -95,11 +97,11 @@ export class AcademicCycle {
     return this.props.name;
   }
 
-  get level(): number {
+  get level(): EducationalLevel {
     return this.props.level;
   }
 
-  get modality(): number {
+  get modality(): EducationalModality {
     return this.props.modality;
   }
 

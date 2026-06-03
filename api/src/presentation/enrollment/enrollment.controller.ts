@@ -59,6 +59,6 @@ export class EnrollmentController {
   }
 }
 
-function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: string; enrolledAt: Date }) {
-  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status, enrolledAt: e.enrolledAt.toISOString() };
+function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: { toString(): string }; enrolledAt: Date }) {
+  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status.toString(), enrolledAt: e.enrolledAt.toISOString() };
 }

@@ -172,8 +172,8 @@ export default function CourseCycleForm({ initial, onSubmit, onCancel, loading, 
             const label = ['Primer', 'Segundo', 'Tercer', 'Cuarto'][i];
             return (
             <div key={bim} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--color-border)' }}>
-              <Input label={`${label} Bimestre Inicio`} type="date" value={(form as any)[`${bim}BimonthStart`]} onChange={(e) => update(`${bim}BimonthStart`, e.target.value)} />
-              <Input label={`${label} Bimestre Fin`} type="date" value={(form as any)[`${bim}BimonthEnd`]} onChange={(e) => update(`${bim}BimonthEnd`, e.target.value)} />
+              <Input label={`${label} Bimestre Inicio`} type="date" value={(form as unknown as Record<string, string>)[`${bim}BimonthStart`] ?? ''} onChange={(e) => update(`${bim}BimonthStart`, e.target.value)} />
+              <Input label={`${label} Bimestre Fin`} type="date" value={(form as unknown as Record<string, string>)[`${bim}BimonthEnd`] ?? ''} onChange={(e) => update(`${bim}BimonthEnd`, e.target.value)} />
             </div>
           )})}
 

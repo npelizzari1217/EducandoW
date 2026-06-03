@@ -30,9 +30,7 @@ export class ListarAlumnosQuery implements Query<ListarAlumnosInput, ListadoAlum
   constructor(private readonly deps: ListarAlumnosDeps) {}
 
   async execute(input: ListarAlumnosInput): Promise<Result<ListadoAlumno[], Error>> {
-    const where: Record<string, unknown> = {
-      institutionId: input.institutionId,
-    };
+    const where: Record<string, unknown> = {};
     if (input.search) {
       where.OR = [
         { firstName: { contains: input.search, mode: 'insensitive' } },

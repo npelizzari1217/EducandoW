@@ -126,7 +126,7 @@ export class PrismaStudentRepository implements StudentRepository {
       phone: record.phone as string | undefined,
       photoUrl: record.photoUrl as string | undefined,
       userId: record.userId as string | undefined,
-      institutionId: TenantContext.getInstitutionId() ?? '',
+      institutionId: Id.create(TenantContext.getInstitutionId() || undefined),
       active: (record.active as boolean) ?? true,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
     });

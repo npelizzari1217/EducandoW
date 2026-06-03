@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Outlet } from 'react-router-dom';
 
 // ── Mock ALL page components to avoid heavy dependencies ──
 vi.mock('../pages/auth/login', () => ({ default: () => <div>Login Page</div> }));
@@ -41,7 +41,6 @@ vi.mock('../context/institution-context', () => ({
 }));
 vi.mock('../components/layout/dashboard-layout', () => ({
   DashboardLayout: () => {
-    const { Outlet } = require('react-router-dom');
     return <div data-testid="dashboard-layout"><Outlet /></div>;
   },
 }));

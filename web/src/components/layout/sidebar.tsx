@@ -53,7 +53,6 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       // Generic items — visible when any level exists
-      { label: 'Alumnos por curso', path: '/students-by-course', moduleCode: 'COURSES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
     ],
@@ -105,8 +104,6 @@ const navGroups: NavGroupDef[] = [
       { label: 'Instituciones', path: '/institutions', moduleCode: 'INSTITUTIONS' },
       { label: 'Perfiles', path: '/profiles', moduleCode: 'USERS' },
       { label: 'Módulos', path: '/modules' /* ROOT only — no moduleCode needed */ },
-      { label: 'Configuración SMTP', path: '/smtp-config', featureFlag: 'send_email' },
-      { label: 'WebSocket', path: '/websocket-config', featureFlag: 'send_messages' },
     ],
   },
 ];

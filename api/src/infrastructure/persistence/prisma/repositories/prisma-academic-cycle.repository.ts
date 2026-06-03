@@ -6,8 +6,12 @@ import {
   PaginatedResult,
   CycleCode,
   BimonthPeriod,
+  EducationalLevel,
+  EducationalLevelCode,
+  EducationalModality,
+  EducationalModalityCode,
 } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient, Prisma } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
 interface AcademicCycleRow {
@@ -62,8 +66,8 @@ export class PrismaAcademicCycleRepository implements AcademicCycleRepository {
       uuid: r.uuid,
       code: CycleCode.reconstruct(r.code),
       name: r.name,
-      level: r.level,
-      modality: r.modality,
+      level: EducationalLevel.fromCode(r.level as EducationalLevelCode),
+      modality: EducationalModality.fromCode(r.modality as EducationalModalityCode),
       startDate: r.startDate,
       endDate: r.endDate,
       active: r.active,
@@ -83,8 +87,8 @@ export class PrismaAcademicCycleRepository implements AcademicCycleRepository {
       uuid: cycle.uuid,
       code: cycle.code.get(),
       name: cycle.name,
-      level: cycle.level,
-      modality: cycle.modality,
+      level: cycle.level.code,
+      modality: cycle.modality.code,
       startDate: cycle.startDate,
       endDate: cycle.endDate,
       active: cycle.active,
@@ -174,13 +178,13 @@ export class PrismaAcademicCycleRepository implements AcademicCycleRepository {
     if (cycle.numericId === 0) {
       // Insert — remove id to let DB autoincrement
       const { id: _id, ...insertData } = data;
-      await this.client.academicCycle.create({ data: insertData as any });
+      await this.client.academicCycle.create({ data: insertData as Prisma.AcademicCycleCreateInput });
     } else {
       // Update
       const { id, uuid: _uuid, createdAt: _createdAt, ...updateData } = data;
       await this.client.academicCycle.update({
         where: { id: id as number },
-        data: updateData as any,
+        data: updateData as Prisma.AcademicCycleUpdateInput,
       });
     }
   }

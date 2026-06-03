@@ -81,7 +81,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
       email: Email.reconstruct(record.email as string),
       phone: record.phone as string | undefined,
       title: record.title as string | undefined,
-      institutionId: TenantContext.getInstitutionId() ?? '',
+      institutionId: Id.create(TenantContext.getInstitutionId() || undefined),
       active: (record.active as boolean) ?? true,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
     });

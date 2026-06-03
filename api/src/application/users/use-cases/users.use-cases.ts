@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, ValidationError } from '@educandow/domain';
+import { Prisma } from '@prisma/client';
+import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntry, type InstitutionLevelEntry, Result, ok, err, ValidationError, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
-import { profileToModuleAccess } from '../../profiles/use-cases/profiles.use-cases';
+import { profileToModuleAccess, type ProfilePermissionRow } from '../../profiles/use-cases/profiles.use-cases';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -178,12 +179,12 @@ export class CreateUserUseCase {
       if (institution?.levels) {
         const validationResult = validateLevelsSubset(
           input.levels.map((l) => ({
-            level: l.level as any,
-            modality: l.modality as any,
+            level: l.level as EducationalLevelCode,
+            modality: l.modality as EducationalModalityCode,
           })),
           institution.levels.map((il) => ({
-            level: il.level as any,
-            modality: il.modality as any,
+            level: il.level as EducationalLevelCode,
+            modality: il.modality as EducationalModalityCode,
           })),
         );
         if (validationResult.isErr()) {
@@ -217,7 +218,7 @@ export class CreateUserUseCase {
 
     // Crear usuario
     const user = await client.user.create({
-      data: createData as any,
+      data: createData as unknown as Prisma.UserCreateInput,
       include: {
         userRoles: { include: { role: true } },
         institution: { select: { id: true, name: true } },
@@ -247,7 +248,7 @@ export class CreateUserUseCase {
       });
 
       if (profilePerms.length > 0) {
-        const profileAccess = profileToModuleAccess(profilePerms as any);
+        const profileAccess = profileToModuleAccess(profilePerms as unknown as ProfilePermissionRow[]);
         const filtered = isRoot
           ? profileAccess
           : filterModuleAccess(profileAccess, input.creatorModules ?? []);
@@ -409,12 +410,12 @@ export class UpdateUserUseCase {
         if (institution?.levels) {
           const validationResult = validateLevelsSubset(
             input.levels.map((l) => ({
-              level: l.level as any,
-              modality: l.modality as any,
+              level: l.level as EducationalLevelCode,
+              modality: l.modality as EducationalModalityCode,
             })),
             institution.levels.map((il) => ({
-              level: il.level as any,
-              modality: il.modality as any,
+              level: il.level as EducationalLevelCode,
+              modality: il.modality as EducationalModalityCode,
             })),
           );
           if (validationResult.isErr()) {
@@ -469,7 +470,7 @@ export class UpdateUserUseCase {
         });
 
         if (profilePerms.length > 0) {
-          const profileAccess = profileToModuleAccess(profilePerms as any);
+        const profileAccess = profileToModuleAccess(profilePerms as unknown as ProfilePermissionRow[]);
           const filtered = isRoot
             ? profileAccess
             : filterModuleAccess(profileAccess, creatorModules);

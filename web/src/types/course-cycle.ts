@@ -1,3 +1,5 @@
+import type { PaginatedResult, CreateManyResult } from '@educandow/domain';
+
 export interface BimonthDateSet {
   firstBimonthStart: string | null;
   firstBimonthEnd: string | null;
@@ -9,6 +11,13 @@ export interface BimonthDateSet {
   fourthBimonthEnd: string | null;
 }
 
+/**
+ * Course Cycle DTO — represents the API wire format.
+ *
+ * NOTE: The domain package (`@educandow/domain`) exports `CourseCycle` as an
+ * entity class with Date objects and value objects (CourseName, PassingGrade,
+ * BimonthPeriod, Level). This DTO is the JSON serialization format.
+ */
 export interface CourseCycle {
   uuid: string;
   courseId: string;
@@ -24,12 +33,8 @@ export interface CourseCycle {
   lastModifiedAt: string;
 }
 
-export interface CourseCycleListResponse {
-  data: CourseCycle[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
+/** Uses domain's paginated result shape */
+export type CourseCycleListResponse = PaginatedResult<CourseCycle>;
 
 export interface CreateCourseCycleDto {
   courseId: string;
@@ -70,8 +75,5 @@ export interface GenerateCourseCyclesDto {
   studyPlanId?: string;
 }
 
-export interface GenerateResult {
-  created: number;
-  updated: number;
-  total: number;
-}
+/** Uses domain's bulk creation result shape */
+export type GenerateResult = CreateManyResult;

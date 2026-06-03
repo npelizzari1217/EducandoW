@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import type { EnrollmentStatusValue } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -63,7 +64,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
-        status: enrollment.status,
+        status: enrollment.status.value,
         enrolledAt: enrollment.enrolledAt,
       },
       update: {
@@ -73,7 +74,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         academicYear: enrollment.academicYear,
         grade: enrollment.grade,
         division: enrollment.division,
-        status: enrollment.status,
+        status: enrollment.status.value,
       },
     });
   }
@@ -96,7 +97,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       academicYear: record.academicYear,
       grade: record.grade ?? undefined,
       division: record.division ?? undefined,
-      status: record.status as EnrollmentStatus,
+      status: EnrollmentStatus.reconstruct(record.status as EnrollmentStatusValue),
       enrolledAt: record.enrolledAt,
       active: record.active ?? true,
       deletedAt: record.deletedAt ?? undefined,

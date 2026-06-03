@@ -18,7 +18,7 @@ export interface StudentProps {
   phone?: string;
   photoUrl?: string;
   userId?: string;
-  institutionId: string;
+  institutionId?: Id;
   active?: boolean;
   deletedAt?: Date;
 }
@@ -94,7 +94,7 @@ export class Student {
     return this.props.userId;
   }
 
-  get institutionId(): string {
+  get institutionId(): Id | undefined {
     return this.props.institutionId;
   }
 

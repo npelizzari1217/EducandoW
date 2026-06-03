@@ -13,6 +13,7 @@
     "lint": "tsc --noEmit && eslint ."
   },
   "dependencies": {
+    "@educandow/domain": "workspace:*",
     "axios": "^1.7.0",
     "html2pdf.js": "^0.14.0",
     "react": "^19.0.0",

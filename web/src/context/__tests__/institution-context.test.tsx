@@ -67,7 +67,7 @@ describe('InstitutionContext', () => {
   });
 
   it('loads institution data when token exists', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -87,7 +87,7 @@ describe('InstitutionContext', () => {
   });
 
   it('falls back to defaults when fetch fails', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -105,7 +105,7 @@ describe('InstitutionContext', () => {
   });
 
   it('falls back to defaults when API returns null data (no institution assigned)', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockResolvedValue({ data: { data: null, reason: 'no_institution' } });
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -122,7 +122,7 @@ describe('InstitutionContext', () => {
   });
 
   it('extracts error message from NestJS error format { error: { message } }', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     const axiosError = new Error('Request failed') as any;
     axiosError.response = {
       status: 404,
@@ -156,7 +156,7 @@ describe('InstitutionContext', () => {
   });
 
   it('reloads when auth:login event is dispatched', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -180,7 +180,7 @@ describe('InstitutionContext', () => {
   });
 
   it('clears config on auth:logout event', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -201,7 +201,7 @@ describe('InstitutionContext', () => {
   });
 
   it('exposes all config fields from API response', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
 
     const { result } = renderHook(() => useInstitution(), { wrapper });
@@ -244,7 +244,7 @@ describe('InstitutionContext', () => {
   });
 
   it('applies institution branding colors as CSS custom properties on :root', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     const brandedData = {
       ...mockInstitutionData,
       header_color: '#ff0000',
@@ -272,7 +272,7 @@ describe('InstitutionContext', () => {
   });
 
   it('removes CSS custom properties when no branding colors present', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     // No branding colors
     const noBrandData = {
       ...mockInstitutionData,
@@ -296,7 +296,7 @@ describe('InstitutionContext', () => {
   });
 
   it('removes CSS custom properties when institution is cleared on logout', async () => {
-    localStorage.setItem('accessToken', 'fake-token');
+    localStorage.setItem('educandow:accessToken', 'fake-token');
     const brandedData = { ...mockInstitutionData, header_color: '#ff0000', body_color: '#f0f0f0' };
     (apiClient.get as any).mockResolvedValue({ data: { data: brandedData } });
 
@@ -315,5 +315,21 @@ describe('InstitutionContext', () => {
 
     expect(document.documentElement.style.getPropertyValue('--header-color')).toBe('');
     expect(document.documentElement.style.getPropertyValue('--body-bg-color')).toBe('');
+  });
+
+  it('migrates token from legacy key to namespaced key', async () => {
+    localStorage.setItem('accessToken', 'migrated-token');
+    (apiClient.get as any).mockResolvedValue({ data: { data: mockInstitutionData } });
+
+    const { result } = renderHook(() => useInstitution(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // Old key should be removed
+    expect(localStorage.getItem('accessToken')).toBeNull();
+    // New key should hold the token
+    expect(localStorage.getItem('educandow:accessToken')).toBe('migrated-token');
   });
 });

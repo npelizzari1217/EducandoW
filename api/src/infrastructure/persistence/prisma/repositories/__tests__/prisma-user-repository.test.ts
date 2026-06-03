@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaUserRepository } from '../prisma-user.repository';
 import { PrismaService } from '../../prisma.service';
 import {
-  Id,
   Email,
   EducationalLevelCode,
   EducationalModalityCode,
   User,
-  type UserLevelEntry,
 } from '@educandow/domain';
 
 // ── Helpers ──────────────────────────────────────────────────

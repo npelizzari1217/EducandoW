@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiClient from '../api/client';
+import { adaptListResponse } from '../api/adapters';
 
 export type ApiError = { response?: { data?: { error?: { message?: string }; message?: string; messages?: string[] } }; message?: string };
 
@@ -39,7 +40,7 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
-    try { const res = await apiClient.get(url, { params }); setData(res.data.data ?? []); }
+    try { const res = await apiClient.get(url, { params }); setData(adaptListResponse<T>(res)); }
     catch { setError('Error al cargar datos'); }
     finally { setLoading(false); }
   }, [url, JSON.stringify(params)]);

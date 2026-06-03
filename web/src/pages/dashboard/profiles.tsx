@@ -13,10 +13,12 @@ import type { ModuleAccessItem, ModuleInfo as GridModuleInfo } from '../../compo
 // ── Tipos ─────────────────────────────────────────────────
 
 interface Profile {
+  [key: string]: unknown;
   id: string;
   name: string;
   institutionId: string | null;
   _count?: { permissions: number };
+  assignedModuleCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,7 +61,16 @@ export function booleansToModuleAccess(permissions: PermissionRow[]): ModuleAcce
     }));
 }
 
-export function moduleAccessToBooleans(items: ModuleAccessItem[], modules: ModuleInfo[]): any[] {
+interface ModuleAccessBoolean {
+  moduleId: string;
+  canRead: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canPrint: boolean;
+}
+
+export function moduleAccessToBooleans(items: ModuleAccessItem[], modules: ModuleInfo[]): ModuleAccessBoolean[] {
   const codeToId: Record<string, string> = {};
   for (const m of modules) {
     codeToId[m.code] = m.id;
@@ -205,11 +216,11 @@ export default function ProfilesPage() {
 
   const columns = useMemo(() => [
     { key: 'name', header: 'Nombre' },
-    { key: 'moduleCount', header: 'Módulos', render: (p: any) => p.assignedModuleCount ?? 0 },
+    { key: 'moduleCount', header: 'Módulos', render: (p: Profile) => p.assignedModuleCount ?? (p._count?.permissions ?? 0) },
     {
       key: 'actions',
       header: '',
-      render: (p: any) => {
+      render: (p: Profile) => {
         const canEdit = hasModuleAction('USERS', 'READ', 'UPDATE');
         const canDelete = hasModuleAction('USERS', 'DELETE');
         if (!canEdit) return null;
@@ -286,7 +297,7 @@ export default function ProfilesPage() {
       <Card className="mt-lg">
         <Table
           columns={columns}
-          data={profiles as unknown as Record<string, unknown>[]}
+          data={profiles}
           emptyMessage={loading ? 'Cargando...' : 'No hay perfiles'}
         />
       </Card>

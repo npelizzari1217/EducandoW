@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, NotFoundError, TeacherRepository, Teacher, Dni, Email } from '@educandow/domain';
+import { ok, err, Result, ValidationError, NotFoundError, TeacherRepository, Teacher, Id, Dni, Email } from '@educandow/domain';
 
 export interface CreateTeacherInput {
   firstName: string;
@@ -34,7 +34,7 @@ export class CreateTeacherUseCase {
       email: emailResult.unwrap(),
       phone: input.phone,
       title: input.title,
-      institutionId: input.institutionId,
+      institutionId: Id.create(input.institutionId),
       active: input.active ?? true,
     });
 

@@ -310,19 +310,20 @@ export async function seedAttendanceStatuses(prisma: TenantPrismaClient) {
 
 // ── Ensure every active institution has at least one level ──────
 export async function ensureInstitutionLevels(prisma: PrismaClient) {
-  const missing: { id: string }[] = await prisma.$queryRawUnsafe(`
-    SELECT i.id
-    FROM institutions i
-    LEFT JOIN institution_levels il ON il.institution_id = i.id
-    WHERE i.active = true AND il.id IS NULL
-  `);
+  const institutionsWithoutLevels = await prisma.institution.findMany({
+    where: {
+      active: true,
+      levels: { none: {} },
+    },
+    select: { id: true },
+  });
 
-  if (missing.length === 0) {
+  if (institutionsWithoutLevels.length === 0) {
     console.log('✅ All active institutions already have levels');
     return;
   }
 
-  for (const row of missing) {
+  for (const row of institutionsWithoutLevels) {
     await prisma.institutionLevel.upsert({
       where: {
         institutionId_level_modality: {
@@ -340,7 +341,7 @@ export async function ensureInstitutionLevels(prisma: PrismaClient) {
     });
   }
 
-  console.log(`✅ Assigned Primario Común (level=2) to ${missing.length} institution(s)`);
+  console.log(`✅ Assigned Primario Común (level=2) to ${institutionsWithoutLevels.length} institution(s)`);
 }
 
 export async function seedGradeScales(prisma: TenantPrismaClient) {
@@ -484,9 +485,12 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
   console.log('✅ Terciaria grade scale seeded');
 }
 
-main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Only run main() when executed directly (not imported)
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error('❌ Seed failed:', e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

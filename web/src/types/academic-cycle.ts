@@ -1,3 +1,13 @@
+import type { PaginatedResult } from '@educandow/domain';
+
+/**
+ * Academic Cycle DTO — represents the API wire format.
+ *
+ * NOTE: The domain package (`@educandow/domain`) exports `AcademicCycle` as an
+ * entity class with Date objects and value objects (CycleCode, BimonthPeriod).
+ * This DTO is the JSON serialization format that comes over the wire, with
+ * string dates and flat bimonth fields. The adapter layer bridges the two.
+ */
 export interface AcademicCycle {
   uuid: string;
   code: string;
@@ -17,12 +27,8 @@ export interface AcademicCycle {
   fourthBimonthEnd: string | null;
 }
 
-export interface AcademicCycleListResponse {
-  data: AcademicCycle[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
+/** Uses domain's paginated result shape */
+export type AcademicCycleListResponse = PaginatedResult<AcademicCycle>;
 
 export interface CreateAcademicCycleDto {
   code: string;

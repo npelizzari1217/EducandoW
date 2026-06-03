@@ -10,6 +10,7 @@ import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateInstitutionSchema, CreateInstitutionDTO } from './dto/create-institution.dto';
+import type { CreateInstitutionInput } from '../../application/institution/use-cases/institution.use-cases';
 import { UpdateInstitutionSchema, UpdateInstitutionDTO } from './dto/update-institution.dto';
 import {
   CreateInstitutionUseCase, ListInstitutionsUseCase, GetInstitutionUseCase,
@@ -80,7 +81,7 @@ export class InstitutionController {
   @Post()
   @Roles('ROOT', { module: 'INSTITUTIONS', action: 'CREATE' })
   async create(@Body(new ZodValidationPipe(CreateInstitutionSchema)) body: CreateInstitutionDTO) {
-    const result = await this.createUC.execute(body as any);
+    const result = await this.createUC.execute(body as unknown as CreateInstitutionInput);
     if (result.isErr()) throw result.unwrapErr();
     const output = result.unwrap();
     return {

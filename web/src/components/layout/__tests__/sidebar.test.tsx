@@ -148,9 +148,11 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
-    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
     expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+
+    // Dead link removed — verify it's NOT present
+    expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
 
     // Inicial items visible (levelId: 1, base level from Math.floor(10/10) = 1)
     expect(screen.getByText('Salas')).toBeInTheDocument();
@@ -182,9 +184,11 @@ describe('Sidebar filtering', () => {
 
     // Generic items visible
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
     expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+
+    // Dead link removed
+    expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
 
     // Inicial NOT visible
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
@@ -215,7 +219,11 @@ describe('Sidebar filtering', () => {
     renderSidebar();
 
     // Generic items visible
-    expect(screen.getByText('Alumnos por curso')).toBeInTheDocument();
+    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
+    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
+
+    // Dead link removed
+    expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
 
     // Inicial NOT visible
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
@@ -288,29 +296,15 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText(/Ir a configuración/i)).not.toBeInTheDocument();
   });
 
-  it('shows SMTP config link when send_email is true', () => {
+  it('does NOT show SMTP config link (removed)', () => {
     mockSendEmail = true;
-    renderSidebar();
-
-    expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();
-  });
-
-  it('hides SMTP config link when send_email is false', () => {
-    mockSendEmail = false;
     renderSidebar();
 
     expect(screen.queryByText('Configuración SMTP')).not.toBeInTheDocument();
   });
 
-  it('shows WebSocket config link when send_messages is true', () => {
+  it('does NOT show WebSocket link (removed)', () => {
     mockSendMessages = true;
-    renderSidebar();
-
-    expect(screen.getByText('WebSocket')).toBeInTheDocument();
-  });
-
-  it('hides WebSocket config link when send_messages is false', () => {
-    mockSendMessages = false;
     renderSidebar();
 
     expect(screen.queryByText('WebSocket')).not.toBeInTheDocument();
@@ -333,8 +327,10 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Perfiles')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
     expect(screen.getByText('Módulos')).toBeInTheDocument();
-    expect(screen.getByText('Configuración SMTP')).toBeInTheDocument();
-    expect(screen.getByText('WebSocket')).toBeInTheDocument();
+
+    // SMTP and WebSocket links removed
+    expect(screen.queryByText('Configuración SMTP')).not.toBeInTheDocument();
+    expect(screen.queryByText('WebSocket')).not.toBeInTheDocument();
 
     // All level items visible
     expect(screen.getByText('Salas')).toBeInTheDocument();

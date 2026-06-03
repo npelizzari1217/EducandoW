@@ -10,7 +10,7 @@ export interface TeacherProps {
   email: Email;
   phone?: string;
   title?: string;
-  institutionId: string;
+  institutionId?: Id;
   active?: boolean;
   deletedAt?: Date;
 }
@@ -54,7 +54,7 @@ export class Teacher {
     return this.props.title;
   }
 
-  get institutionId(): string {
+  get institutionId(): Id | undefined {
     return this.props.institutionId;
   }
 

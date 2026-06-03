@@ -185,7 +185,7 @@ export function StudyPlanDetailPrintLoader({
           let subjects: { name: string; hoursPerWeek: number | null }[] = [];
           try {
             const subjRes = await apiClient.get(`/study-plan-courses/${pc.id}/subjects`);
-            subjects = (subjRes.data?.data ?? []).map((s: any) => ({
+            subjects = (subjRes.data?.data ?? []).map((s: { subjectName?: string; subjectId?: string; hoursPerWeek?: number | null }) => ({
               name: s.subjectName ?? s.subjectId ?? '—',
               hoursPerWeek: s.hoursPerWeek ?? null,
             }));

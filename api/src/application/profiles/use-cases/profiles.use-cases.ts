@@ -10,6 +10,7 @@ export interface ProfilePermissionRow {
   canEdit: boolean;
   canDelete: boolean;
   canPrint: boolean;
+  [key: string]: string | boolean | { code: string };
 }
 
 export interface ModuleAccessItem {
@@ -35,11 +36,11 @@ export function profileToModuleAccess(
   };
 
   return permissions
-    .filter((p) => Object.keys(ACTION_MAP).some((k) => (p as any)[k]))
+    .filter((p) => Object.keys(ACTION_MAP).some((k) => p[k]))
     .map((p) => ({
       moduleCode: p.module.code,
       actions: Object.entries(ACTION_MAP)
-        .filter(([k]) => (p as any)[k])
+        .filter(([k]) => p[k])
         .flatMap(([, v]) => v),
     }));
 }

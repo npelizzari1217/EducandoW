@@ -31,8 +31,8 @@ export type { TeacherRepository } from './personnel/repositories/teacher-reposit
 export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';
 
 // Enrollment
-export { Enrollment } from './enrollment/entities';
-export type { EnrollmentStatus } from './enrollment/entities';
+export { Enrollment, EnrollmentStatus } from './enrollment/entities';
+export type { EnrollmentStatusValue } from './enrollment/entities';
 export type { EnrollmentRepository } from './enrollment/repositories/enrollment-repository';
 
 // CourseCycle

@@ -1,7 +1,6 @@
 import { Id } from '../../shared/value-objects/id';
 import { Level } from '../../institution/value-objects/level';
-
-export type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'GRADUATED' | 'TRANSFERRED';
+import { EnrollmentStatus } from '../value-objects/enrollment-status';
 
 export interface EnrollmentProps {
   id: Id;
@@ -25,7 +24,7 @@ export class Enrollment {
     return new Enrollment({
       ...props,
       id: Id.create(),
-      status: 'ACTIVE',
+      status: EnrollmentStatus.reconstruct('ACTIVE'),
       enrolledAt: new Date(),
       active: true,
     });

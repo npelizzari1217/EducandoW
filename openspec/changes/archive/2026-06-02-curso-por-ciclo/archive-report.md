@@ -1,3 +1,5 @@
+<!-- ⚠️ ADVERTENCIA: prisma db push está DEPRECATED en este proyecto. Usar prisma migrate deploy (prod) o prisma migrate dev (local). Ver spec db-migration-policy. -->
+
 # Archive Report: curso-por-ciclo
 
 **Archived**: 2026-06-02

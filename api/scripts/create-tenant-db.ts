@@ -11,7 +11,7 @@
  *
  * Requires:
  *   - MASTER_DATABASE_URL or DATABASE_URL env var (used as template for connection params)
- *   - Tenant schema migrations exist at prisma/migrations_tenant/
+ *   - Tenant schema migrations exist at prisma_tenant/migrations/
  *
  * How it works:
  *   1. Reads MASTER_DATABASE_URL and replaces the database name with <dbName>
@@ -20,6 +20,7 @@
  */
 
 import { execSync } from 'child_process';
+import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -60,40 +61,60 @@ const adminUrl = `${urlObj.protocol}//${urlObj.username}:${urlObj.password}@${ur
 console.log(`🔧 Creating tenant database: ${dbToCreate}`);
 console.log(`   Admin URL: ${adminUrl.replace(/:([^@]+)@/, ':****@')}`);
 
-try {
-  // ── Step 1: Create database ────────────────────────────
-  console.log('📦 Creating database...');
+async function main() {
+  try {
+    // ── Step 1: Create database ────────────────────────────
+    console.log('📦 Creating database...');
 
-  // Use psql if available, otherwise use prisma's directUrl approach
-  execSync(
-    `psql "${adminUrl}" -c "CREATE DATABASE \\"${dbToCreate}\\"" 2>&1`,
-    { stdio: 'pipe' },
-  );
-  console.log('   ✅ Database created.');
+    let created = false;
+    // Try psql first, fall back to Node.js pg
+    try {
+      execSync(
+        `psql "${adminUrl}" -c "CREATE DATABASE \\"${dbToCreate}\\"" 2>&1`,
+        { stdio: 'pipe' },
+      );
+      created = true;
+    } catch (psqlError: unknown) {
+      const psqlErr = psqlError as { stderr?: { toString(): string }; message?: string; code?: string };
+      const stderr = psqlErr.stderr?.toString() ?? psqlErr.message ?? '';
+      if (stderr.includes('already exists')) {
+        console.log('   ⚠️  Database already exists, skipping creation.');
+        created = true;
+      } else if (stderr.includes('not found') || stderr.includes('ENOENT') || psqlErr.code === 'ENOENT') {
+        // psql not available — fall back to pg
+        console.log('   ℹ️  psql not found, using Node.js pg fallback...');
+      } else {
+        throw psqlErr;
+      }
+    }
 
-  // ── Step 2: Run Prisma migrations ──────────────────────
-  console.log('🏗️  Running tenant migrations...');
+    if (!created) {
+      // pg fallback
+      const adminPool = new Pool({ connectionString: adminUrl });
+      try {
+        await adminPool.query(`CREATE DATABASE "${dbToCreate}"`);
+        created = true;
+      } catch (pgError: unknown) {
+        const pgErr = pgError as { message?: string };
+        if (pgErr.message?.includes('already exists')) {
+          console.log('   ⚠️  Database already exists, skipping creation.');
+          created = true;
+        } else {
+          throw pgError;
+        }
+      } finally {
+        await adminPool.end();
+      }
+    }
 
-  const schemaPath = path.resolve(__dirname, '..', 'prisma', 'schema_tenant.prisma');
-  execSync(
-    `DATABASE_URL="${tenantUrl}" npx prisma migrate deploy --schema="${schemaPath}"`,
-    {
-      stdio: 'inherit',
-      env: { ...process.env, DATABASE_URL: tenantUrl },
-    },
-  );
-  console.log('   ✅ Migrations applied.');
+    if (created) {
+      console.log('   ✅ Database created.');
+    }
 
-  console.log(`\n✅ Tenant database "${dbToCreate}" created successfully.`);
-  console.log(`   Connection URL: ${tenantUrl.replace(/:([^@]+)@/, ':****@')}`);
-} catch (error: unknown) {
-  // Check if database already exists
-  const stderr = error.stderr?.toString() ?? error.message ?? '';
-  if (stderr.includes('already exists')) {
-    console.log('   ⚠️  Database already exists, skipping creation.');
-    // Still try to run migrations
+    // ── Step 2: Run Prisma migrations ──────────────────────
     console.log('🏗️  Running tenant migrations...');
-    const schemaPath = path.resolve(__dirname, '..', 'prisma', 'schema_tenant.prisma');
+
+    const schemaPath = path.resolve(__dirname, '..', 'prisma_tenant', 'schema.prisma');
     execSync(
       `DATABASE_URL="${tenantUrl}" npx prisma migrate deploy --schema="${schemaPath}"`,
       {
@@ -102,9 +123,34 @@ try {
       },
     );
     console.log('   ✅ Migrations applied.');
-    console.log(`\n✅ Tenant database "${dbToCreate}" is ready.`);
-  } else {
-    console.error(`\n❌ Failed to create tenant database: ${stderr}`);
-    process.exit(1);
+
+    console.log(`\n✅ Tenant database "${dbToCreate}" created successfully.`);
+    console.log(`   Connection URL: ${tenantUrl.replace(/:([^@]+)@/, ':****@')}`);
+  } catch (error: unknown) {
+    const err = error as { stderr?: { toString(): string }; message?: string };
+    const stderr = err.stderr?.toString() ?? err.message ?? '';
+    if (stderr.includes('already exists')) {
+      console.log('   ⚠️  Database already exists, skipping creation.');
+      // Still try to run migrations
+      console.log('🏗️  Running tenant migrations...');
+      const schemaPath = path.resolve(__dirname, '..', 'prisma_tenant', 'schema.prisma');
+      execSync(
+        `DATABASE_URL="${tenantUrl}" npx prisma migrate deploy --schema="${schemaPath}"`,
+        {
+          stdio: 'inherit',
+          env: { ...process.env, DATABASE_URL: tenantUrl },
+        },
+      );
+      console.log('   ✅ Migrations applied.');
+      console.log(`\n✅ Tenant database "${dbToCreate}" is ready.`);
+    } else {
+      console.error(`\n❌ Failed to create tenant database: ${stderr}`);
+      process.exit(1);
+    }
   }
 }
+
+main().catch((e) => {
+  console.error('❌ Unexpected error:', e);
+  process.exit(1);
+});

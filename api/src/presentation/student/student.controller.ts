@@ -135,7 +135,7 @@ export class StudentController {
 
   // ── Helper ─────────────────────────────────────────────────
 
-  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; address?: string; phone?: string; photoUrl?: string; institutionId: string }) {
+  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; address?: string; phone?: string; photoUrl?: string; institutionId?: { get(): string } | string }) {
     return {
       id: s.id.get(),
       firstName: s.firstName,
@@ -152,7 +152,7 @@ export class StudentController {
       address: s.address,
       phone: s.phone,
       photoUrl: s.photoUrl,
-      institutionId: s.institutionId,
+      institutionId: typeof s.institutionId === 'string' ? s.institutionId : s.institutionId?.get?.() ?? '',
     };
   }
 }

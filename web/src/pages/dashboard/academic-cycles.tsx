@@ -115,10 +115,10 @@ export default function AcademicCyclesPage() {
       return;
     }
     if (editing) {
-      const ok = await update(editing.uuid, form as any);
+      const ok = await update(editing.uuid, form as Partial<CreateAcademicCycleDto>);
       if (ok) { resetForm(); reload(); }
     } else {
-      const ok = await create(form as any);
+      const ok = await create(form);
       if (ok) { resetForm(); reload(); }
     }
   };
@@ -295,16 +295,16 @@ export default function AcademicCyclesPage() {
                         <label className="block text-xs text-gray-500">Inicio</label>
                         <Input
                           type="date"
-                          value={(form as any)[`${key}BimonthStart`] ?? ''}
-                          onChange={(e) => setForm({ ...form, [`${key}BimonthStart`]: e.target.value || undefined } as any)}
+                          value={(form as unknown as Record<string, string | undefined>)[`${key}BimonthStart`] ?? ''}
+                          onChange={(e) => setForm({ ...form, [`${key}BimonthStart`]: e.target.value || undefined } as unknown as CreateAcademicCycleDto)}
                         />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500">Fin</label>
                         <Input
                           type="date"
-                          value={(form as any)[`${key}BimonthEnd`] ?? ''}
-                          onChange={(e) => setForm({ ...form, [`${key}BimonthEnd`]: e.target.value || undefined } as any)}
+                          value={(form as unknown as Record<string, string | undefined>)[`${key}BimonthEnd`] ?? ''}
+                          onChange={(e) => setForm({ ...form, [`${key}BimonthEnd`]: e.target.value || undefined } as unknown as CreateAcademicCycleDto)}
                         />
                       </div>
                     </div>

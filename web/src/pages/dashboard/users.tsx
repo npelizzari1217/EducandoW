@@ -39,6 +39,21 @@ interface Institution {
   name: string;
 }
 
+interface ProfileOption {
+  id: string;
+  name: string;
+  _count?: { permissions: number };
+}
+
+interface PermissionEntry {
+  moduleCode: string;
+  canRead: boolean;
+  canCreate: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+  canPrint: boolean;
+}
+
 interface ModuleInfo {
   id: string;
   code: string;
@@ -170,7 +185,7 @@ export default function UsersPage() {
   });
 
   const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [availableProfiles, setAvailableProfiles] = useState<any[]>([]);
+  const [availableProfiles, setAvailableProfiles] = useState<ProfileOption[]>([]);
 
   useEffect(() => {
     apiClient.get('/institutions').then(r => {
@@ -234,8 +249,8 @@ export default function UsersPage() {
       const perms = permData.data || [];
       // Convert booleans to ModuleAccessItem[]
       const items: ModuleAccessItem[] = perms
-        .filter((p: any) => p.canRead || p.canCreate || p.canEdit || p.canDelete || p.canPrint)
-        .map((p: any) => ({
+        .filter((p: PermissionEntry) => p.canRead || p.canCreate || p.canEdit || p.canDelete || p.canPrint)
+        .map((p: PermissionEntry) => ({
           moduleCode: p.moduleCode,
           actions: [
             ...(p.canRead ? ['READ' as const] : []),
@@ -530,7 +545,7 @@ export default function UsersPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
               >
                 <option value="">Sin perfil (manual)</option>
-                {availableProfiles.map((p: any) => (
+                {availableProfiles.map((p: ProfileOption) => (
                   <option key={p.id} value={p.id}>
                     {p.name} ({p._count?.permissions ?? 0} módulos)
                   </option>

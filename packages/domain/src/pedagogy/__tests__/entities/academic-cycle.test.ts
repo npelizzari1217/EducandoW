@@ -2,12 +2,16 @@ import { describe, it, expect } from 'vitest';
 import { AcademicCycle } from '../../entities/academic-cycle';
 import { CycleCode } from '../../value-objects/cycle-code';
 import { BimonthPeriod } from '../../../course-cycle/value-objects/bimonth-period';
+import { EducationalLevel, EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModality, EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
 
 describe('AcademicCycle', () => {
+  const level = EducationalLevel.fromCode(EducationalLevelCode.PRIMARIO); // code 2
+  const modality = EducationalModality.fromCode(EducationalModalityCode.COMUN); // code 0
   const validCreateInput = {
     name: 'Ciclo 2026',
-    level: 2, // PRIMARIO
-    modality: 0,
+    level,
+    modality,
     startDate: new Date('2026-03-01'),
     endDate: new Date('2026-12-20'),
     code: CycleCode.create('2026').unwrap(),
@@ -21,7 +25,10 @@ describe('AcademicCycle', () => {
     expect(cycle.uuid).toBeDefined();
     expect(cycle.uuid).toHaveLength(36); // UUID format
     expect(cycle.code.get()).toBe('2026');
-    expect(cycle.level).toBe(2);
+    expect(cycle.level).toBeInstanceOf(EducationalLevel);
+    expect(cycle.level.code).toBe(EducationalLevelCode.PRIMARIO);
+    expect(cycle.modality).toBeInstanceOf(EducationalModality);
+    expect(cycle.modality.code).toBe(EducationalModalityCode.COMUN);
     expect(cycle.active).toBe(true);
     expect(cycle.deletedAt).toBeNull();
     expect(cycle.createdAt).toBeInstanceOf(Date);
@@ -58,6 +65,18 @@ describe('AcademicCycle', () => {
     expect(cycle.fourthBimonth).toBeNull();
   });
 
+  it('creates without modality — defaults to COMUN', () => {
+    const cycle = AcademicCycle.create({
+      name: 'Ciclo sin modalidad',
+      level,
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-12-20'),
+      code: CycleCode.create('2027').unwrap(),
+    });
+    expect(cycle.modality).toBeInstanceOf(EducationalModality);
+    expect(cycle.modality.code).toBe(EducationalModalityCode.COMUN);
+  });
+
   it('generates unique uuid per instance', () => {
     const a = AcademicCycle.create(validCreateInput);
     const b = AcademicCycle.create(validCreateInput);
@@ -65,7 +84,6 @@ describe('AcademicCycle', () => {
   });
 
   it('generates numericId', () => {
-    // numericId is set to 0 on create (assigned by DB on insert)
     const cycle = AcademicCycle.create(validCreateInput);
     expect(cycle.numericId).toBe(0);
   });
@@ -140,7 +158,6 @@ describe('AcademicCycle', () => {
   it('update sets updatedAt to current time', () => {
     const cycle = AcademicCycle.create(validCreateInput);
     const before = cycle.updatedAt.getTime();
-    // wait 1ms to ensure time difference
     const start = Date.now();
     while (Date.now() === start); // busy-wait for next ms
     cycle.update({ name: 'Changed' });
@@ -153,14 +170,16 @@ describe('AcademicCycle', () => {
     const firstBim = BimonthPeriod.reconstruct(new Date('2026-03-01'), new Date('2026-04-30'));
     const created = new Date('2025-01-15');
     const updated = new Date('2025-06-20');
+    const secLevel = EducationalLevel.fromCode(EducationalLevelCode.SECUNDARIO);
+    const tallModality = EducationalModality.fromCode(EducationalModalityCode.TALLERES);
 
     const cycle = AcademicCycle.reconstruct({
       numericId: 1,
       uuid: 'abc-123',
       code: CycleCode.reconstruct('2026'),
       name: 'Reconstructed Cycle',
-      level: 3, // SECUNDARIO
-      modality: 1,
+      level: secLevel,
+      modality: tallModality,
       startDate: new Date('2026-03-01'),
       endDate: new Date('2026-12-20'),
       active: true,
@@ -177,8 +196,10 @@ describe('AcademicCycle', () => {
     expect(cycle.uuid).toBe('abc-123');
     expect(cycle.code.get()).toBe('2026');
     expect(cycle.name).toBe('Reconstructed Cycle');
-    expect(cycle.level).toBe(3);
-    expect(cycle.modality).toBe(1);
+    expect(cycle.level).toBeInstanceOf(EducationalLevel);
+    expect(cycle.level.code).toBe(EducationalLevelCode.SECUNDARIO);
+    expect(cycle.modality).toBeInstanceOf(EducationalModality);
+    expect(cycle.modality.code).toBe(EducationalModalityCode.TALLERES);
     expect(cycle.active).toBe(true);
     expect(cycle.deletedAt).toBeNull();
     expect(cycle.firstBimonth!.start).toEqual(new Date('2026-03-01'));

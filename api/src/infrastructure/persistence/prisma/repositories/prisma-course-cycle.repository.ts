@@ -10,6 +10,7 @@ import {
   BimonthPeriod,
   Level,
   LevelType,
+  Id,
 } from '@educandow/domain';
 import type { Prisma, PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -137,7 +138,7 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       : null;
 
     return CourseCycle.reconstruct({
-      id: { get: () => String(record.id) } as any,
+      id: Id.reconstruct(String(record.id)),
       uuid: record.uuid,
       courseId: record.courseId,
       studyPlanId: record.studyPlanId,

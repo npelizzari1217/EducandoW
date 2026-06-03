@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken, removeToken } from './token';
 
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/v1',
@@ -6,7 +7,7 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('accessToken');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -20,7 +21,7 @@ apiClient.interceptors.response.use(
       // Don't redirect on auth endpoints — let the caller handle the error
       const isAuthRequest = error.config?.url?.includes('/auth/');
       if (!isAuthRequest) {
-        localStorage.removeItem('accessToken');
+        removeToken();
         window.location.href = '/login';
       }
     }
