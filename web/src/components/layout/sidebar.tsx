@@ -13,13 +13,6 @@ interface NavItem {
   featureFlag?: 'send_email' | 'send_messages'; // Show only when this flag is true
 }
 
-const LEVEL_LABELS: Record<number, string> = {
-  1: 'Inicial',
-  2: 'Nivel Primario',
-  3: 'Secundario',
-  4: 'Terciario',
-};
-
 interface NavGroupDef {
   id: string;
   label: string;
@@ -297,7 +290,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             label={group.label}
             icon={group.icon}
           >
-            {renderGroupItems(group.visibleItems)}
+            {renderGroupItems(group.visibleItems, group.subGroups, filterItem)}
           </SidebarGroup>
         ))}
 
