@@ -400,7 +400,7 @@ export default function UsersPage() {
               type="text"
               value={institutions.find(i => i.id === institutionFilter)?.name || config.name || ''}
               disabled
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
             />
           )}
         </div>
@@ -451,7 +451,7 @@ export default function UsersPage() {
                     type="text"
                     value={institutions.find(i => i.id === form.institutionId)?.name || config.name || ''}
                     disabled
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)' }}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface-alt)', color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}
                   />
                 )}
               </div>
@@ -462,7 +462,7 @@ export default function UsersPage() {
               <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
                 Niveles educativos
               </label>
-              <div className="flex flex-col gap-md" style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface-alt, #f8fafc)' }}>
+              <div className="flex flex-col gap-md" style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                 {Array.from(LEVELS_GROUPED.entries()).map(([levelCode, group]) => (
                   <div key={levelCode}>
                     <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>

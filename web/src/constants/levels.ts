@@ -32,7 +32,6 @@ export const LEVEL_CATALOG: LevelCatalogEntry[] = [
   { code: 32, name: 'BILINGÜISMO_SECUNDARIO', label: 'Bilingüismo Secundario',  levelCode: 3, modalityCode: 2, pedagogical: true },
   { code: 40, name: 'TERCIARIO',              label: 'Terciario',              levelCode: 4, modalityCode: 0, pedagogical: true },
   { code: 90, name: 'ADMINISTRACION',         label: 'Administración',         levelCode: 9, modalityCode: 0, pedagogical: false },
-  { code: 99, name: 'TODOS',                  label: 'Todos',                  levelCode: 9, modalityCode: 9, pedagogical: false },
 ];
 
 // ── Lookups ────────────────────────────────────────────────
@@ -42,8 +41,8 @@ export const LEVEL_LABELS: Record<number, string> = Object.fromEntries(
   LEVEL_CATALOG.map((e) => [e.code, e.label]),
 );
 
-/** Solo niveles pedagógicos (para combos de institución y enrollment) */
-export const PEDAGOGICAL_LEVELS: LevelCatalogEntry[] = LEVEL_CATALOG.filter((e) => e.pedagogical);
+/** Todos los niveles del sistema (sin TODOS — fue removido). Para combos de institución y enrollment. */
+export const PEDAGOGICAL_LEVELS: LevelCatalogEntry[] = LEVEL_CATALOG;
 
 /** Opciones agrupadas por nivel base (para combos con optgroups) */
 export const LEVELS_BY_BASE: Record<number, LevelCatalogEntry[]> = {

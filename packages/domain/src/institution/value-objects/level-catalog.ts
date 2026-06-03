@@ -7,7 +7,7 @@ import { EducationalModalityCode } from '../../shared/value-objects/educational-
  * Sirve tanto para el endpoint GET /v1/levels como para constantes del frontend.
  */
 export interface LevelCatalogEntry {
-  /** Código compuesto (10-40, 90, 99) */
+  /** Código compuesto (10-42, 90) */
   code: LevelType;
   /** Nombre canónico: "INICIAL", "TALLERES_PRIMARIO" */
   name: string;
@@ -17,7 +17,7 @@ export interface LevelCatalogEntry {
   levelCode: EducationalLevelCode;
   /** Código de la modalidad (0-2, 9) */
   modalityCode: EducationalModalityCode;
-  /** ¿Es un nivel pedagógico real? (excluye ADMINISTRACION, TODOS) */
+  /** ¿Es un nivel pedagógico real? (excluye ADMINISTRACION) */
   pedagogical: boolean;
 }
 
@@ -41,14 +41,6 @@ export const LEVEL_CATALOG: LevelCatalogEntry[] = Level.allPedagogical()
       label: 'Administración',
       levelCode: EducationalLevelCode.ADMINISTRACION,
       modalityCode: EducationalModalityCode.COMUN,
-      pedagogical: false,
-    },
-    {
-      code: LevelType.TODOS,
-      name: 'TODOS',
-      label: 'Todos',
-      levelCode: EducationalLevelCode.ADMINISTRACION,
-      modalityCode: EducationalModalityCode.TODOS,
       pedagogical: false,
     },
   ]);
