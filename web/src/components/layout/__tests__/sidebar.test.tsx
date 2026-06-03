@@ -365,8 +365,8 @@ describe('Sidebar filtering', () => {
     // Sub-groups are rendered as <details> inside <div class="sidebar-sub-groups">
     const subGroups = document.querySelectorAll('.sidebar-sub-groups details');
     expect(subGroups.length).toBe(4);
-    const summaries = document.querySelectorAll('.sidebar-sub-groups summary');
-    const labelTexts = Array.from(summaries).map((el) => el.textContent?.trim());
+    const labelSpans = document.querySelectorAll('.sidebar-sub-groups .sidebar-group-label');
+    const labelTexts = Array.from(labelSpans).map((el) => el.textContent?.trim());
     expect(labelTexts).toContain('Inicial');
     expect(labelTexts).toContain('Nivel Primario');
     expect(labelTexts).toContain('Secundario');
