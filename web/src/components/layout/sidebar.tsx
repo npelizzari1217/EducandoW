@@ -205,20 +205,44 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
     </NavLink>
   );
 
-  function renderGroupItems(items: NavItem[]) {
-    let currentLevel: number | undefined;
+  function renderGroupItems(
+    items: NavItem[],
+    subGroups?: NavGroupDef['subGroups'],
+    filterItem?: (item: NavItem) => boolean,
+  ) {
     const elements: React.ReactNode[] = [];
+
+    // 1. Render generic items (those without levelId)
     for (const item of items) {
-      if (item.levelId !== undefined && item.levelId !== currentLevel) {
-        currentLevel = item.levelId;
+      elements.push(renderLink(item));
+    }
+
+    // 2. Render sub-groups (if any)
+    if (subGroups && subGroups.length > 0 && filterItem) {
+      // Filter each subGroup's items
+      const visibleSubGroups = subGroups
+        .map((sg) => ({ ...sg, visibleItems: sg.items.filter(filterItem) }))
+        .filter((sg) => sg.visibleItems.length > 0);
+
+      if (visibleSubGroups.length > 0) {
         elements.push(
-          <div key={`section-${item.levelId}`} className="sidebar-section-label">
-            {LEVEL_LABELS[item.levelId]}
+          <div key="sub-groups" className="sidebar-sub-groups">
+            {visibleSubGroups.map((sg) => (
+              <SidebarGroup
+                key={sg.id}
+                id={sg.id}
+                label={sg.label}
+                icon="📂"
+                defaultOpen={true}
+              >
+                {sg.visibleItems.map(renderLink)}
+              </SidebarGroup>
+            ))}
           </div>,
         );
       }
-      elements.push(renderLink(item));
     }
+
     return elements;
   }
 
