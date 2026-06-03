@@ -10,7 +10,7 @@ export interface CourseSectionProps {
   division?: string;
   level: Level;
   academicYear: string;
-  institutionId: string;
+  institutionId: Id;
   active?: boolean;
   deletedAt?: Date;
 }
@@ -38,7 +38,7 @@ export class CourseSection {
   /** Código compuesto (legado). */
   get compositeLevelCode(): LevelType { return this.props.level.get(); }
   get academicYear(): string { return this.props.academicYear; }
-  get institutionId(): string { return this.props.institutionId; }
+  get institutionId(): Id { return this.props.institutionId; }
   get active(): boolean { return this.props.active ?? true; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
 

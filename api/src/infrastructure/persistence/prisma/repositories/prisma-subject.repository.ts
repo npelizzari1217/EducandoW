@@ -68,7 +68,7 @@ export class PrismaSubjectRepo implements SubjectRepository {
         r.level as EducationalLevelCode,
         modality as EducationalModalityCode,
       ),
-      institutionId: TenantContext.getInstitutionId() ?? '',
+      institutionId: Id.reconstruct(TenantContext.getInstitutionId() ?? ''),
       active: r.active ?? true,
       deletedAt: r.deletedAt ?? undefined,
     });

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
+import { EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -328,20 +329,20 @@ export async function ensureInstitutionLevels(prisma: PrismaClient) {
       where: {
         institutionId_level_modality: {
           institutionId: row.id,
-          level: 2,   // Primario
-          modality: 0, // Común
+          level: EducationalLevelCode.PRIMARIO,
+          modality: EducationalModalityCode.COMUN,
         },
       },
       create: {
         institutionId: row.id,
-        level: 2,
-        modality: 0,
+        level: EducationalLevelCode.PRIMARIO,
+        modality: EducationalModalityCode.COMUN,
       },
       update: {}, // no-op — ya existe, no hacer nada
     });
   }
 
-  console.log(`✅ Assigned Primario Común (level=2) to ${institutionsWithoutLevels.length} institution(s)`);
+  console.log(`✅ Assigned Primario Común to ${institutionsWithoutLevels.length} institution(s)`);
 }
 
 export async function seedGradeScales(prisma: TenantPrismaClient) {

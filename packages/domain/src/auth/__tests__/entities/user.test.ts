@@ -112,7 +112,7 @@ describe('User', () => {
   it('assignToInstitution sets institutionId', () => {
     const user = User.create(validProps);
     user.assignToInstitution('inst-123');
-    expect(user.institutionId).toBe('inst-123');
+    expect(user.institutionId?.get()).toBe('inst-123');
   });
 
   it('addLevel adds educational level to user', () => {
@@ -137,7 +137,7 @@ describe('User', () => {
         { moduleCode: 'STUDENTS', actions: ['READ'] },
         { moduleCode: 'GRADES', actions: ['READ', 'CREATE'] },
       ],
-      institutionId: 'inst-1',
+      institutionId: Id.reconstruct('inst-1'),
       levels: [
         { level: EducationalLevelCode.PRIMARIO, modality: EducationalModalityCode.COMUN },
       ],
@@ -152,7 +152,7 @@ describe('User', () => {
     ]);
     expect(user.hasPermission('STUDENTS', 'READ')).toBe(true);
     expect(user.hasPermission('GRADES', 'CREATE')).toBe(true);
-    expect(user.institutionId).toBe('inst-1');
+    expect(user.institutionId?.get()).toBe('inst-1');
     expect(user.levels).toHaveLength(1);
     expect(user.levels[0]).toEqual({
       level: EducationalLevelCode.PRIMARIO,

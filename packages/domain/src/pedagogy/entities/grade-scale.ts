@@ -1,4 +1,6 @@
 import { Id } from '../../shared/value-objects/id';
+import { EducationalLevel, EducationalLevelCode } from '../../shared/value-objects/educational-level';
+import { EducationalModality, EducationalModalityCode } from '../../shared/value-objects/educational-modality';
 
 export interface GradeScaleValueProps {
   id: Id;
@@ -42,8 +44,8 @@ export class GradeScaleValue {
 export interface GradeScaleProps {
   id: Id;
   name: string;
-  level: number;
-  modality: number;
+  level: EducationalLevel;
+  modality: EducationalModality;
   minValue?: number;
   maxValue?: number;
   isConceptual: boolean;
@@ -65,8 +67,10 @@ export class GradeScale {
 
   get id(): Id { return this.props.id; }
   get name(): string { return this.props.name; }
-  get level(): number { return this.props.level; }
-  get modality(): number { return this.props.modality; }
+  get level(): EducationalLevel { return this.props.level; }
+  get modality(): EducationalModality { return this.props.modality; }
+  get levelCode(): EducationalLevelCode { return this.props.level.code; }
+  get modalityCode(): EducationalModalityCode { return this.props.modality.code; }
   get minValue(): number | undefined { return this.props.minValue; }
   get maxValue(): number | undefined { return this.props.maxValue; }
   get isConceptual(): boolean { return this.props.isConceptual; }

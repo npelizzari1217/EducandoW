@@ -80,7 +80,7 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
         modality as EducationalModalityCode,
       ),
       academicYear: r.academicYear,
-      institutionId: TenantContext.getInstitutionId() ?? '',
+      institutionId: Id.reconstruct(TenantContext.getInstitutionId() ?? ''),
     });
   }
 }

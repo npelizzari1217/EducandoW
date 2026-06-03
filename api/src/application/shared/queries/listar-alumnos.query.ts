@@ -14,7 +14,7 @@ export interface ListadoAlumno {
 }
 
 export interface ListarAlumnosInput {
-  institutionId: string;
+  institutionId?: string;
   level?: string;
   grade?: string;
   search?: string;

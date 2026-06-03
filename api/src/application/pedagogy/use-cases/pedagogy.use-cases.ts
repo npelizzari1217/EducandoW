@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, ValidationError, Level, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode, Result } from '@educandow/domain';
+import { ok, err, ValidationError, Id, Level, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
 import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
@@ -211,7 +211,7 @@ export class ListAcademicCyclesUC {
 
 // ── Subject ──────────────────────────────────────────
 @Injectable()
-export class CreateSubjectUC { constructor(private r: SubjectRepository) {} async execute(input: { name: string; level: string; modality?: string; institutionId: string }) { const s = Subject.create({ name: input.name, level: buildLevel(input.level, input.modality), institutionId: input.institutionId }); await this.r.save(s); return ok(s); } }
+export class CreateSubjectUC { constructor(private r: SubjectRepository) {} async execute(input: { name: string; level: string; modality?: string; institutionId: string }) { const s = Subject.create({ name: input.name, level: buildLevel(input.level, input.modality), institutionId: Id.create(input.institutionId) }); await this.r.save(s); return ok(s); } }
 @Injectable()
 export class ListSubjectsUC { constructor(private r: SubjectRepository) {} async execute(institutionId: string, level?: string) { return level ? this.r.findByLevel(institutionId, buildLevel(level).get()) : this.r.findByInstitution(institutionId); } }
 @Injectable()
@@ -242,7 +242,7 @@ export class CreateCourseSectionUC { constructor(private r: CourseSectionReposit
     }
 
     const name = input.name || [input.grade, input.division].filter(Boolean).join(' ') || input.level;
-    const s = CourseSection.create({ name, grade: input.grade, division: input.division, level: levelVal, academicYear, institutionId: input.institutionId || '' });
+    const s = CourseSection.create({ name, grade: input.grade, division: input.division, level: levelVal, academicYear, institutionId: Id.reconstruct(input.institutionId || '') });
     await this.r.save(s);
     return ok(s);
   }

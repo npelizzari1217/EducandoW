@@ -7,7 +7,7 @@ export interface SubjectProps {
   id: Id;
   name: string;
   level: Level;
-  institutionId: string;
+  institutionId: Id;
   active?: boolean;
   deletedAt?: Date;
 }
@@ -32,7 +32,7 @@ export class Subject {
   get modalityCode(): EducationalModalityCode { return this.props.level.modalityCode; }
   /** Código compuesto (legado). */
   get compositeLevelCode(): LevelType { return this.props.level.get(); }
-  get institutionId(): string { return this.props.institutionId; }
+  get institutionId(): Id { return this.props.institutionId; }
   get active(): boolean { return this.props.active ?? true; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
 

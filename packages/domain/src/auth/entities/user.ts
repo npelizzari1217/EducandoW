@@ -33,7 +33,7 @@ export interface UserProps {
   roles?: string[];
   /** Module access entries loaded from userRoles → roleModules and userModules. */
   modules?: ModuleAccess[];
-  institutionId?: string;
+  institutionId?: Id;
   /** Educational levels assigned to this user. */
   levels?: UserLevelEntry[];
   failedAttempts?: number;
@@ -99,7 +99,7 @@ export class User {
    */
   get role(): string { return this.props.roles?.[0] ?? 'TEACHER'; }
 
-  get institutionId(): string | undefined { return this.props.institutionId; }
+  get institutionId(): Id | undefined { return this.props.institutionId; }
 
   /** Educational levels assigned to this user. Returns a defensive copy. */
   get levels(): UserLevelEntry[] {
@@ -193,8 +193,8 @@ export class User {
     this.props.updatedAt = new Date();
   }
 
-  assignToInstitution(institutionId: string): void {
-    this.props.institutionId = institutionId;
+  assignToInstitution(institutionId: Id | string): void {
+    this.props.institutionId = typeof institutionId === 'string' ? Id.reconstruct(institutionId) : institutionId;
     this.props.updatedAt = new Date();
   }
 

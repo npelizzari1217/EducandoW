@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
+import { EducationalLevel, EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModality, EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
 import { Level, LevelType } from '../../../institution/value-objects/level';
 
 // Test entities from pedagogy context
@@ -18,11 +20,11 @@ describe('Subject', () => {
     const s = Subject.create({
       name: 'Matemática',
       level: Level.reconstruct(LevelType.SECUNDARIO),
-      institutionId: 'inst-1',
+      institutionId: Id.reconstruct('inst-1'),
     });
     expect(s.name).toBe('Matemática');
     expect(s.level.get()).toBe(LevelType.SECUNDARIO);
-    expect(s.institutionId).toBe('inst-1');
+    expect(s.institutionId.get()).toBe('inst-1');
   });
 });
 
@@ -34,7 +36,7 @@ describe('CourseSection', () => {
       division: 'A',
       level: Level.reconstruct(LevelType.PRIMARIO),
       academicYear: '2025',
-      institutionId: 'inst-1',
+      institutionId: Id.reconstruct('inst-1'),
     });
     expect(c.name).toBe('3° A');
     expect(c.academicYear).toBe('2025');
@@ -183,14 +185,15 @@ describe('GradeScale', () => {
   it('creates a numeric grade scale for primaria', () => {
     const gs = GradeScale.create({
       name: 'Primaria Numérica',
-      level: 2,
-      modality: 0,
+      level: EducationalLevel.fromCode(EducationalLevelCode.PRIMARIO),
+      modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
       minValue: 1,
       maxValue: 10,
       isConceptual: false,
     });
     expect(gs.name).toBe('Primaria Numérica');
-    expect(gs.level).toBe(2);
+    expect(gs.level.code).toBe(EducationalLevelCode.PRIMARIO);
+    expect(gs.modality.code).toBe(EducationalModalityCode.COMUN);
     expect(gs.minValue).toBe(1);
     expect(gs.maxValue).toBe(10);
     expect(gs.isConceptual).toBe(false);
@@ -199,8 +202,8 @@ describe('GradeScale', () => {
   it('creates a conceptual grade scale for inicial', () => {
     const gs = GradeScale.create({
       name: 'Inicial Cualitativa',
-      level: 1,
-      modality: 0,
+      level: EducationalLevel.fromCode(EducationalLevelCode.INICIAL),
+      modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
       isConceptual: true,
     });
     expect(gs.isConceptual).toBe(true);

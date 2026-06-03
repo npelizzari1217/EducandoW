@@ -106,7 +106,7 @@ export default function StudentsPage() {
     isStaff && !isTutor && !isStudent ? { institutionId } : undefined,
   );
   const { deleting, del } = useApiDelete('/students');
-  const { creating, createError, create } = useApiCreate('/students', institutionId ? { institutionId } : undefined);
+  const { creating, createError, create } = useApiCreate('/students');
   const { updating, updateError, update } = useApiUpdate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

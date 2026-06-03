@@ -52,7 +52,7 @@ export class RefreshTokenUseCase {
       sub: stored.userId,
       roles: user.roles,
       modules: user.modules,
-      institutionId: user.institutionId,
+      institutionId: typeof user.institutionId === 'string' ? user.institutionId : user.institutionId?.get(),
       levels,
       userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       dbName: null,

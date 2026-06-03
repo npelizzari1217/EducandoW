@@ -1,4 +1,5 @@
 import {
+  Id,
   Email,
   Password,
   User,
@@ -40,7 +41,7 @@ export class RegisterUserUseCase {
       name: dto.name.trim(),
       passwordHash: '',
       roles: dto.roles ?? (dto.role ? [dto.role] : ['TEACHER']),
-      institutionId: dto.institutionId,
+      institutionId: dto.institutionId ? Id.create(dto.institutionId) : undefined,
     });
 
     const hashed = await this.passwordHasher.hash(plainPassword.get());
@@ -64,7 +65,7 @@ export class RegisterUserUseCase {
       role: saved.role,
       roles: saved.roles,
       modules: saved.modules,
-      institutionId: saved.institutionId,
+      institutionId: saved.institutionId?.get(),
       levels,
       userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       createdAt: saved.createdAt.toISOString(),

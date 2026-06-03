@@ -55,8 +55,9 @@ export class LoginUseCase {
 
     // Resolve dbName and check institution active status
     let dbName: string | null = null;
-    if (user.institutionId) {
-      const institution = await this.institutionRepo.findById(user.institutionId);
+    const instId = typeof user.institutionId === 'string' ? user.institutionId : user.institutionId?.get();
+    if (instId) {
+      const institution = await this.institutionRepo.findById(instId);
       if (!institution) {
         return err(new ValidationError('Institución no encontrada'));
       }
@@ -64,7 +65,7 @@ export class LoginUseCase {
       if (!user.roles.includes('ROOT') && institution.active === false) {
         return err(new ValidationError('La institución se encuentra inactiva'));
       }
-      dbName = institution.dbName ?? `educandow_${user.institutionId}`;
+      dbName = institution.dbName ?? `educandow_${instId}`;
     }
 
     const userLevels = user.levels;
@@ -74,7 +75,7 @@ export class LoginUseCase {
       sub: userId,
       roles: user.roles,
       modules: user.modules,
-      institutionId: user.institutionId,
+      institutionId: instId,
       levels,
       userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
       dbName,
@@ -97,7 +98,7 @@ export class LoginUseCase {
         role: user.role,
         roles: user.roles,
         modules: user.modules,
-        institutionId: user.institutionId,
+        institutionId: instId,
         levels,
         userLevels: userLevels.map((l) => ({ level: l.level, modality: l.modality })),
         dbName,

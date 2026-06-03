@@ -16,14 +16,24 @@ const ALLOWED_LEVELS: [string, ...string[]] = [
   'PRIMARIO', 'TALLERES_PRIMARIO', 'BILINGÜISMO_PRIMARIO',
   'SECUNDARIO', 'TALLERES_SECUNDARIO', 'BILINGÜISMO_SECUNDARIO',
   'TERCIARIO',
-  'ADMINISTRACION', 'TODOS',
+  'ADMINISTRACION',
 ];
-const levelField = z.enum(ALLOWED_LEVELS);
+
+/** Niveles pedagógicos solamente (excluye ADMINISTRACION). Para enrollment, subjects, course-sections */
+const PEDAGOGICAL_LEVEL_NAMES: [string, ...string[]] = [
+  'INICIAL', 'TALLERES_INICIAL', 'BILINGÜISMO_INICIAL',
+  'PRIMARIO', 'TALLERES_PRIMARIO', 'BILINGÜISMO_PRIMARIO',
+  'SECUNDARIO', 'TALLERES_SECUNDARIO', 'BILINGÜISMO_SECUNDARIO',
+  'TERCIARIO',
+];
+
+const institutionLevelField = z.enum(ALLOWED_LEVELS);
+const pedagogicalLevelField = z.enum(PEDAGOGICAL_LEVEL_NAMES);
 const modalityField = z
-  .enum(['COMUN', 'TALLERES', 'BILINGÜISMO', 'TODOS'])
+  .enum(['COMUN', 'TALLERES', 'BILINGÜISMO'])
   .optional()
   .default('COMUN');
-const levelsField = z.array(levelField).min(1, 'Al menos un nivel');
+const levelsField = z.array(institutionLevelField).min(1, 'Al menos un nivel');
 
 export const RegisterSchema = z.object({
   email: emailField,
@@ -80,7 +90,7 @@ export type CreateTeacherDTO = z.infer<typeof CreateTeacherSchema>;
 export const CreateEnrollmentSchema = z.object({
   studentId: uuidField,
   institutionId: uuidField,
-  level: levelField,
+  level: pedagogicalLevelField,
   modality: modalityField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   grade: codeField.optional(),
@@ -90,7 +100,7 @@ export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 
 export const CreateSubjectSchema = z.object({
   name: textField,
-  level: levelField,
+  level: pedagogicalLevelField,
   modality: modalityField,
   institutionId: uuidField,
 });
@@ -100,7 +110,7 @@ export const CreateCourseSectionSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   grade: gradeField.optional(),
   division: codeField.optional(),
-  level: levelField,
+  level: pedagogicalLevelField,
   modality: modalityField,
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   institutionId: uuidField.optional(),

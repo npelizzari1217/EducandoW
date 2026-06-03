@@ -28,8 +28,11 @@ export class EnrollmentStatus {
   }
 
   static fromCode(code: string): EnrollmentStatus {
-    const upper = code.toUpperCase() as EnrollmentStatusValue;
-    return new EnrollmentStatus(upper);
+    const upper = code.toUpperCase();
+    if (!(VALID_STATUSES as readonly string[]).includes(upper)) {
+      throw new Error(`Invalid enrollment status code: "${code}"`);
+    }
+    return new EnrollmentStatus(upper as EnrollmentStatusValue);
   }
 
   equals(other: EnrollmentStatus): boolean {
