@@ -80,7 +80,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.enrollment.delete({ where: { id } }).catch(() => {});
+    await this.client.enrollment.delete({ where: { id } });
   }
 
   private toDomain(record: EnrollmentRow): Enrollment {

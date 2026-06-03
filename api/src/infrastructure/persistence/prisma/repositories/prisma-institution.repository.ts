@@ -138,7 +138,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.institution.delete({ where: { id } }).catch(() => {});
+    await this.client.institution.delete({ where: { id } });
   }
 
   async softDelete(id: string): Promise<void> {

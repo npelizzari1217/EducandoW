@@ -49,7 +49,7 @@ export class PrismaCalificacionPrimariaRepository implements CalificacionPrimari
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.calificacionPrimario.delete({ where: { id } }).catch(() => {});
+    await this.client.calificacionPrimario.delete({ where: { id } });
   }
 
   private toDomain(record: PrismaCalificacion): CalificacionPrimario {

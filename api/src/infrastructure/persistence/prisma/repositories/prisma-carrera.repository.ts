@@ -58,7 +58,7 @@ export class PrismaCarreraRepository implements CarreraRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.carrera.delete({ where: { id } }).catch(() => {});
+    await this.client.carrera.delete({ where: { id } });
   }
 
   private toDomain(r: CarreraRow): Carrera {

@@ -56,7 +56,7 @@ export class PrismaSubjectRepo implements SubjectRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.subject.delete({ where: { id } }).catch(() => {});
+    await this.client.subject.delete({ where: { id } });
   }
 
   private toDomain(r: SubjectRow): Subject {

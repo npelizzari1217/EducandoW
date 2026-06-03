@@ -49,7 +49,7 @@ export class PrismaSubjectAssignmentRepo implements SubjectAssignmentRepository 
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.subjectAssignment.delete({ where: { id } }).catch(() => {});
+    await this.client.subjectAssignment.delete({ where: { id } });
   }
 
   private toDomain(r: PrismaSubjectAssignment): SubjectAssignment {

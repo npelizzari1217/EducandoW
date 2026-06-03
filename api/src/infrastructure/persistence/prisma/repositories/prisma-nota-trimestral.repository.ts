@@ -43,7 +43,7 @@ export class PrismaNotaTrimestralRepo implements NotaTrimestralRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.notaTrimestral.delete({ where: { id } }).catch(() => {});
+    await this.client.notaTrimestral.delete({ where: { id } });
   }
 
   private toDomain(r: PrismaNotaTrimestral): NotaTrimestral {

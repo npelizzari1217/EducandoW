@@ -100,7 +100,7 @@ export class PrismaInscripcionMateriaRepository implements InscripcionRepository
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.inscripcionMateria.delete({ where: { id } }).catch(() => {});
+    await this.client.inscripcionMateria.delete({ where: { id } });
   }
 
   private toDomain(r: InscripcionRow): InscripcionMateria {

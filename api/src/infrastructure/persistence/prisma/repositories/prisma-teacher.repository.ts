@@ -69,7 +69,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.teacher.delete({ where: { id } }).catch(() => {});
+    await this.client.teacher.delete({ where: { id } });
   }
 
   private toDomain(record: Record<string, unknown>): Teacher {

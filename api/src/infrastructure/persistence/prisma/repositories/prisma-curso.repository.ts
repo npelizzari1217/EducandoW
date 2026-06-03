@@ -69,7 +69,7 @@ export class PrismaCursoRepository implements CursoRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.curso.delete({ where: { id } }).catch(() => {});
+    await this.client.curso.delete({ where: { id } });
   }
 
   private toDomain(record: CursoRow): Curso {

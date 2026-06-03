@@ -76,7 +76,7 @@ export class PrismaNotaRepo implements NotaRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.nota.delete({ where: { id } }).catch(() => {});
+    await this.client.nota.delete({ where: { id } });
   }
 
   private toDomain(r: PrismaNota): Nota {

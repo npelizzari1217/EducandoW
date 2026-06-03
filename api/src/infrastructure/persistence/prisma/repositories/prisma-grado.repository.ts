@@ -54,7 +54,7 @@ export class PrismaGradoRepository implements GradoRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.grado.delete({ where: { id } }).catch(() => {});
+    await this.client.grado.delete({ where: { id } });
   }
 
   private toDomain(record: PrismaGrado): Grado {

@@ -81,7 +81,7 @@ export class PrismaAttendanceRepo implements AttendanceRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.attendance.delete({ where: { id } }).catch(() => {});
+    await this.client.attendance.delete({ where: { id } });
   }
 
   private toDomain(r: PrismaAttendance & { status?: PrismaAttendanceStatus | null }): Attendance {

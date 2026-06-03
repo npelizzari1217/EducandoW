@@ -65,7 +65,7 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.courseSection.delete({ where: { id } }).catch(() => {});
+    await this.client.courseSection.delete({ where: { id } });
   }
 
   private toDomain(r: CourseSectionRow): CourseSection {

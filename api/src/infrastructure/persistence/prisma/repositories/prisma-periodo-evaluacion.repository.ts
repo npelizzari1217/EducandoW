@@ -44,7 +44,7 @@ export class PrismaPeriodoEvaluacionRepo implements PeriodoEvaluacionRepository 
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.periodoEvaluacion.delete({ where: { id } }).catch(() => {});
+    await this.client.periodoEvaluacion.delete({ where: { id } });
   }
 
   private toDomain(r: PrismaPeriodoEvaluacion): PeriodoEvaluacion {
