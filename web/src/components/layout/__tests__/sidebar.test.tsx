@@ -360,13 +360,13 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Sistema')).toBeInTheDocument();
   });
 
-  it('does NOT render legacy level groups as top-level sidebar groups', () => {
+  it('renders level labels as collapsible sub-groups inside Académico', () => {
     renderSidebar();
-
-    const sectionLabels = document.querySelectorAll('.sidebar-section-label');
-    expect(sectionLabels.length).toBe(4);
-
-    const labelTexts = Array.from(sectionLabels).map((el) => el.textContent);
+    // Sub-groups are rendered as <details> inside <div class="sidebar-sub-groups">
+    const subGroups = document.querySelectorAll('.sidebar-sub-groups details');
+    expect(subGroups.length).toBe(4);
+    const summaries = document.querySelectorAll('.sidebar-sub-groups summary');
+    const labelTexts = Array.from(summaries).map((el) => el.textContent?.trim());
     expect(labelTexts).toContain('Inicial');
     expect(labelTexts).toContain('Nivel Primario');
     expect(labelTexts).toContain('Secundario');
