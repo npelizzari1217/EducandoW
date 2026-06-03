@@ -55,7 +55,7 @@ async function main() {
   // ── 2. DB Connectivity ─────────────────────────────────────
   console.log('[2/6] Conectando a la base de datos...');
   try {
-    const result = await prisma.$queryRawUnsafe<{ connected: number }[]>('SELECT 1 AS connected');
+    await prisma.$queryRawUnsafe('SELECT 1');
     console.log('  [OK] Conexion exitosa a PostgreSQL');
   } catch (err: any) {
     console.log(`  [FAIL] No se pudo conectar: ${err.message}`);
