@@ -168,12 +168,14 @@ export default function CourseCycleForm({ initial, onSubmit, onCancel, loading, 
 
           <Input label="Texto de Promoción" value={form.promotionText} onChange={(e) => update('promotionText', e.target.value)} />
 
-          {(['first', 'second', 'third', 'fourth'] as const).map((bim) => (
+          {(['first', 'second', 'third', 'fourth'] as const).map((bim, i) => {
+            const label = ['Primer', 'Segundo', 'Tercer', 'Cuarto'][i];
+            return (
             <div key={bim} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--color-border)' }}>
-              <Input label={`${bim.charAt(0).toUpperCase() + bim.slice(1)} Bimestre Inicio`} type="date" value={(form as any)[`${bim}BimonthStart`]} onChange={(e) => update(`${bim}BimonthStart`, e.target.value)} />
-              <Input label={`${bim.charAt(0).toUpperCase() + bim.slice(1)} Bimestre Fin`} type="date" value={(form as any)[`${bim}BimonthEnd`]} onChange={(e) => update(`${bim}BimonthEnd`, e.target.value)} />
+              <Input label={`${label} Bimestre Inicio`} type="date" value={(form as any)[`${bim}BimonthStart`]} onChange={(e) => update(`${bim}BimonthStart`, e.target.value)} />
+              <Input label={`${label} Bimestre Fin`} type="date" value={(form as any)[`${bim}BimonthEnd`]} onChange={(e) => update(`${bim}BimonthEnd`, e.target.value)} />
             </div>
-          ))}
+          )})}
 
           {error && (
             <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)' }}>

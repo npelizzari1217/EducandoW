@@ -148,11 +148,7 @@ export default function CourseCyclesPage() {
         subtitle="Administrá los cursos de cada plan de estudio por ciclo lectivo"
         icon="📚"
         stats={[{ label: 'cursos', value: String(data.length) }]}
-      >
-        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { setShowForm(!showForm); setEditing(null); }}>
-          {showForm ? 'Cancelar' : 'Nuevo curso por ciclo'}
-        </Button>
-      </PremiumHeader>
+      />
 
       {/* Institution selector */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)' }}>
