@@ -1074,3 +1074,293 @@ web/src/pages/
 ```
 
 **Regla**: cada pantalla que haga llamadas a la API DEBE tener su propio archivo `*-api.ts` (ej: `profile-api.ts`, no un archivo genérico `auth-api.ts`). La ruta 404 es la única excepción porque no consume endpoints.
+
+---
+
+## 18. Patrón Premium (IMPLEMENTADO — obligatorio para toda pantalla nueva)
+
+> **Este patrón es el estándar real del proyecto.** Está implementado en `students.tsx` y `course-cycles.tsx`. Toda pantalla de listado nueva DEBE seguir este patrón, NO el patrón ideal de las secciones anteriores (que son aspiracionales).
+
+### 18.1 Estructura de archivos real
+
+```
+web/src/pages/dashboard/
+└── {entity}.tsx              # Página completa: lista + formulario inline + filtros
+    └── __tests__/
+        └── {entity}.test.tsx
+
+web/src/components/{entity}/
+└── {Entity}Form.tsx           # Formulario create/edit (usado inline en la página)
+
+web/src/hooks/
+└── use{Entity}.ts             # Hooks de API (useApiList, useApiCreate, etc.)
+
+web/src/types/
+└── {entity}.ts                # Tipos compartidos (DTOs, interfaces de respuesta)
+```
+
+### 18.2 PremiumHeader — obligatorio en todo listado
+
+```tsx
+import PremiumHeader from '../../components/ui/premium-header';
+
+<PremiumHeader
+  title="Cursos por Ciclo"
+  subtitle="Administrá los cursos de cada plan de estudio por ciclo lectivo"
+  icon="📚"                                          // Emoji representativo
+  stats={[{ label: 'cursos', value: String(data.length) }]}  // Contador dinámico
+>
+  {/* Acciones opcionales: botones de crear, imprimir, etc. */}
+  <Button variant="success-soft" onClick={...}>Nuevo</Button>
+</PremiumHeader>
+```
+
+**Reglas del header:**
+- **icon**: emoji descriptivo (👥 estudiantes, 📚 cursos, 🏫 instituciones)
+- **stats**: array con al menos 1 stat (cantidad de registros). El `value` es string, actualizarlo con el length real de `data`
+- **subtítulo**: frase en imperativo describiendo qué se administra
+- **Acciones**: botones con variantes premium (`success-soft` para crear, `danger-soft` para cancelar)
+
+### 18.3 Selectores de institución y filtros
+
+```tsx
+const selectStyle: React.CSSProperties = {
+  padding: '0.5rem', borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)', color: 'var(--color-text)',
+  fontSize: 'var(--text-sm)', minWidth: '160px',
+};
+
+// Selector de institución (fuera de Card)
+<div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)' }}>
+  <div>
+    <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+    {isRoot ? (
+      <select value={institutionId} onChange={...} style={selectStyle}>
+        <option value="">Todas las instituciones</option>
+        ...
+      </select>
+    ) : (
+      <input type="text" value={config.name} disabled
+        style={{ ...selectStyle, background: '#f8fafc', color: '#64748b' }} />
+    )}
+  </div>
+</div>
+
+// Filtros (dentro de Card)
+<Card className="p-4">
+  <div style={{ display: 'flex', gap: 'var(--space-lg)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+    <div>
+      <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
+      <select ... style={selectStyle}>...</select>
+    </div>
+    ...
+  </div>
+</Card>
+```
+
+**Reglas de filtros:**
+- El selector de institución va **fuera** del Card de filtros
+- Los filtros de entidad van **dentro** de `<Card className="p-4">`
+- Layout: `display: flex; gap: var(--space-lg); align-items: flex-end; flexWrap: wrap`
+- Cada filtro es un `<div>` con `<label>` arriba y `<select>` o `<input>` abajo
+- Labels usan `fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block'`
+- Selects usan el `selectStyle` definido como constante
+
+### 18.4 Formulario inline (create/edit)
+
+```tsx
+import { Card } from '../../components/ui/card';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
+
+// Mostrar/ocultar condicionalmente
+{showForm && (
+  <div style={{ marginTop: 'var(--space-md)' }}>
+    <CourseCycleForm
+      onSubmit={handleCreate}
+      onCancel={() => setShowForm(false)}
+      loading={creating}
+      error={createError}
+    />
+  </div>
+)}
+```
+
+**Dentro del componente Form:**
+```tsx
+export default function EntityForm({ initial, onSubmit, onCancel, loading, error }) {
+  return (
+    <Card title={isEdit ? 'Editar entidad' : 'Nueva entidad'}>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+
+          {/* Grid de campos: 1fr 1fr 1fr para 3 selects, 1fr 1fr para pares */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+            <Input label="Nombre" value={...} onChange={...} required />
+            <Input label="Apellido" value={...} onChange={...} required />
+          </div>
+
+          {/* Checkbox para booleanos */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+            <input type="checkbox" checked={form.active} onChange={...}
+              style={{ width: '1rem', height: '1rem', accentColor: 'var(--color-primary, #16a34a)' }} />
+            Activo
+          </label>
+
+          {/* Error */}
+          {error && (
+            <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Acciones: Cancelar izquierda, Guardar derecha */}
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" type="button" onClick={onCancel}>Cancelar</Button>
+            <Button variant="success-soft" type="submit" loading={loading}>
+              {isEdit ? 'Guardar cambios' : 'Crear'}
+            </Button>
+          </div>
+
+        </div>
+      </form>
+    </Card>
+  );
+}
+```
+
+**Reglas del formulario:**
+- **Wrapper**: `<Card title="...">` — el título refleja create vs edit
+- **Layout interno**: `flexDirection: 'column', gap: 'var(--space-md)'`
+- **Grid de campos**: `gridTemplateColumns: '1fr 1fr'` (o `1fr 1fr 1fr` para 3 selects)
+- **Campos**: usar componente `Input` con prop `label` (NO labels manuales excepto para selects)
+- **Selects**: usar `<select>` nativo con `selectStyle` (ver §18.3). El label va manual arriba con `display: 'block'`
+- **Checkbox**: para campos booleanos, `<label>` con `display: flex; alignItems: center; gap: var(--space-sm)`
+- **Errores**: div con `background: '#fef2f2'`, `color: 'var(--color-danger)'`, sin borde
+- **Botones**: `Cancelar` con `variant="ghost"`, `Guardar/Crear` con `variant="success-soft"` y `loading={...}`
+
+### 18.5 Tabla de listado
+
+```tsx
+import { Table } from '../../components/ui/table';
+import { Button } from '../../components/ui/button';
+
+<Card className="mt-lg">
+  {loading && <p className="text-muted-foreground">Cargando...</p>}
+  {!loading && data.length === 0 && <p className="text-muted-foreground">No hay entidades.</p>}
+  {!loading && data.length > 0 && (
+    <Table
+      columns={[
+        { key: 'name', header: 'Nombre' },
+        { key: 'status', header: 'Estado', render: (item) => (
+          <span style={{
+            display: 'inline-block', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)',
+            fontSize: 'var(--text-xs)', fontWeight: 500,
+            background: item.active ? '#dcfce7' : '#fee2e2',
+            color: item.active ? '#16a34a' : '#dc2626',
+          }}>
+            {item.active ? 'Activo' : 'Inactivo'}
+          </span>
+        )},
+        { key: 'actions', header: '', render: (item) => (
+          <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+            <Button variant="action" size="sm" onClick={() => setEditing(item.actions)}>Editar</Button>
+            <Button variant="danger-soft" size="sm" onClick={() => handleDelete(item.actions.uuid)} loading={deleting}>Eliminar</Button>
+          </div>
+        )},
+      ]}
+      data={tableData}
+    />
+  )}
+</Card>
+```
+
+**Reglas de tabla:**
+- **Wrapper**: `<Card className="mt-lg">`
+- **Loading**: `<p className="text-muted-foreground">Cargando...</p>`
+- **Empty**: `<p className="text-muted-foreground">No hay entidades.</p>`
+- **Columna de estado (activo/inactivo)**: badge inline con estilos:
+  - Activo: `background: '#dcfce7'` (verde claro), `color: '#16a34a'` (verde)
+  - Inactivo: `background: '#fee2e2'` (rojo claro), `color: '#dc2626'` (rojo)
+  - `display: 'inline-block'`, `padding: '0.125rem 0.5rem'`, `borderRadius: 'var(--radius-sm)'`
+- **Columna de acciones**: `header: ''` (sin título), última columna
+  - `display: 'flex', gap: 'var(--space-xs)'`
+  - Botón Editar: `variant="action" size="sm"`
+  - Botón Eliminar: `variant="danger-soft" size="sm"` con `loading={deleting}`
+- **tableData**: mapear `data` para armar filas con campos display-friendly (labels, nombres de ciclo, etc.)
+
+### 18.6 Variantes de Button usadas
+
+| Variante | Uso | Apariencia |
+|----------|-----|------------|
+| `success-soft` | Crear, Guardar cambios | Fondo verde suave, texto verde |
+| `danger-soft` | Cancelar formulario, Eliminar | Fondo rojo suave, texto rojo |
+| `action` | Editar (en tabla) | Fondo azul suave, texto azul |
+| `ghost` | Cancelar (en form), Buscar | Sin fondo, solo texto |
+
+### 18.7 Toast de notificaciones
+
+```tsx
+const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+// Éxito
+setToast({ message: 'Creados: 3 | Total: 5', type: 'success' });
+
+// Error
+setToast({ message: e?.response?.data?.error?.message ?? 'Error', type: 'error' });
+
+// Render (fixed, bottom-right, clickeable para cerrar)
+{toast && (
+  <div
+    style={{
+      position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 9999,
+      padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-md)',
+      background: toast.type === 'success' ? '#16a34a' : '#dc2626',
+      color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 500,
+      boxShadow: '0 4px 12px rgba(0,0,0,0.2)', maxWidth: '400px', cursor: 'pointer',
+    }}
+    onClick={() => setToast(null)}
+  >
+    {toast.message}
+  </div>
+)}
+```
+
+**Reglas del toast:**
+- Posición: `fixed, bottom: 1rem, right: 1rem`
+- Éxito: `background: '#16a34a'` (verde sólido)
+- Error: `background: '#dc2626'` (rojo sólido)
+- Click para cerrar (setea `toast` a `null`)
+- Sin animaciones, sin timeout automático — el usuario lo cierra
+
+### 18.8 Hooks de API
+
+```typescript
+// hooks/use{Entity}.ts
+import { useApiList, useApiCreate, useApiDelete, useApiUpdate } from './use-api';
+
+const BASE_URL = '/entity';
+
+export function useEntity(params?: Record<string, string>) {
+  return useApiList<EntityType>(BASE_URL, params);
+}
+
+export function useCreateEntity() {
+  return useApiCreate<CreateDto>(BASE_URL);
+}
+
+export function useUpdateEntity() {
+  return useApiUpdate<UpdateDto>(BASE_URL);
+}
+
+export function useDeleteEntity() {
+  return useApiDelete(BASE_URL);
+}
+```
+
+**Regla**: una entidad = un archivo de hooks. No mezclar hooks de distintas entidades.
+
+### 18.9 Ejemplo completo de referencia
+
+La implementación de referencia es `web/src/pages/dashboard/students.tsx`. Para ver el patrón premium completo, leer ese archivo. `course-cycles.tsx` es el ejemplo más reciente con todos los patrones aplicados (PremiumHeader, filtros, formulario inline, tabla con badges, toast).
