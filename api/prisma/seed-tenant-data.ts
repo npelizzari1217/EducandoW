@@ -97,7 +97,7 @@ async function main() {
   if (status) {
     await p.attendance.create({
       data: {
-        studentId: stu.id, courseSectionId: cs.id, subjectId: subj.id, cycleId: cycle.id,
+        studentId: stu.id, courseSectionId: cs.id, subjectId: subj.id, cycleId: cycle.uuid,
         date: new Date('2026-04-10'), statusId: status.id,
         statusCode: 'PRE', statusDescription: 'Presente', isPresent: true, absenceValue: 0,
       },
