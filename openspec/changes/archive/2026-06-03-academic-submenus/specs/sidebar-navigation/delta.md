@@ -1,10 +1,6 @@
-# Sidebar Navigation Specification
+# Delta for Sidebar Navigation
 
-## Purpose
-
-Defines how the sidebar renders pedagogical level sub-sections within Académico and filters visibility based on institution `config.levels`.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Level Sub-Sections in Académico
 
@@ -47,64 +43,7 @@ The sidebar MUST render level-specific items under collapsible sub-groups (Inici
 - THEN generic items (Alumnos por curso, Notas, Asistencia) appear before any sub-group
 - AND no generic item is nested inside a sub-group
 
-### Requirement: Level Filtering by Institution Config
-
-Level-specific items SHALL only appear when the authenticated user's `levels` array (from JWT) includes a composite code whose base level (`Math.floor(code / 10)`) matches the item's `requiresLevelCode`. If the user's `levels` array is empty, no level sub-headings SHALL appear for non-ROOT users.
-
-(Previously: filtering used institution `config.levels` array — user's own level was ignored entirely.)
-
-#### Scenario: User with matching level sees sub-heading
-
-- GIVEN a non-ROOT user with JWT `levels: [20]` (Primario)
-- WHEN the sidebar renders
-- THEN only the "Nivel Primario" sub-heading and its items appear
-- AND Inicial, Secundario, Terciario sub-headings do NOT appear
-
-#### Scenario: User with multiple levels sees multiple sub-headings
-
-- GIVEN a non-ROOT user with JWT `levels: [10, 30, 31]` (Inicial + two Secundario modalities)
-- WHEN the sidebar renders
-- THEN "Inicial" and "Secundario" sub-headings appear
-- AND Primario and Terciario sub-headings do NOT appear
-
-#### Scenario: User with no levels sees no level sub-headings
-
-- GIVEN a non-ROOT user with JWT `levels: []`
-- WHEN the sidebar renders
-- THEN no level sub-headings appear
-- AND generic `requiresLevel` items do NOT appear
-
-#### Scenario: Single non-Inicial level
-
-- GIVEN a non-ROOT user with JWT `levels: [30]` (Secundario only)
-- WHEN the sidebar renders
-- THEN only "Secundario" sub-heading and its items appear
-
-#### Scenario: All four base levels covered
-
-- GIVEN a non-ROOT user with JWT `levels: [10, 20, 30, 40]`
-- WHEN the sidebar renders
-- THEN all four sub-headings and their items appear
-
-### Requirement: ROOT Bypass
-
-ROOT users MUST see all level-specific items and sub-headings regardless of their own `levels` array or the institution `config.levels`.
-
-(Previously: ROOT bypassed institution `config.levels`; now also bypasses user `levels` — behavior identical, source clarified.)
-
-#### Scenario: ROOT with empty levels array sees all sub-headings
-
-- GIVEN a ROOT user with JWT `levels: []`
-- WHEN the sidebar renders
-- THEN all four sub-headings and their items appear
-
-#### Scenario: ROOT always sees all sub-headings
-
-- GIVEN a ROOT user with any `levels` value
-- WHEN the sidebar renders
-- THEN all four sub-headings and their items appear
-
-### Requirement: Sub-Group Visibility
+### Requirement: Sub-Heading Visibility
 
 A level sub-group MUST only appear when at least one visible item exists for that level after all filters are applied.
 
@@ -123,22 +62,37 @@ A level sub-group MUST only appear when at least one visible item exists for tha
 - WHEN Académico renders
 - THEN that level's `<details>` sub-group does NOT appear
 
-### Requirement: Generic Items Unaffected
+### Requirement: Test Suite Compatibility
 
-Generic Académico items (Alumnos por curso, Calificaciones parciales, Asistencia del día) MUST continue using existing `requiresLevel` logic — they appear when ANY level is present, with no `levelId` constraint.
+The existing sidebar test suite SHALL continue to pass after restructure, with appropriate test updates to reflect the new DOM structure.
 
-#### Scenario: Generic items with any level
+(Previously: tests queried `.sidebar-section-label` elements; now MUST query `<summary>` elements or `<details>` containers.)
 
-- GIVEN a non-ROOT user with `baseLevels = {3}` (Secundario)
-- WHEN Académico renders
-- THEN generic `requiresLevel` items appear
-- AND only "Secundario" sub-heading appears
+#### Scenario: Tests pass with updated structure
 
-#### Scenario: Generic items hidden without levels
+- GIVEN sidebar code is restructured with `<details>/<summary>` sub-groups
+- WHEN the test suite runs
+- THEN all tests pass with updated assertions targeting `<summary>` instead of `.sidebar-section-label`
 
-- GIVEN a non-ROOT user with `baseLevels` empty
-- WHEN Académico renders
-- THEN generic `requiresLevel` items do NOT appear
+### Requirement: Tablet Collapsed Mode Hides Sub-Groups
+
+`<details>` sub-group elements inside Académico MUST be hidden in tablet collapsed mode (56px icon-only state). The CSS selector MUST target the new `<details>` elements within `.sidebar:not(.sidebar-open)`.
+
+(Previously: targeted `.sidebar-section-label` static `<div>` elements; now MUST target `<details>` sub-groups instead.)
+
+#### Scenario: Tablet collapse hides sub-groups
+
+- GIVEN the sidebar is in tablet collapsed (56px icon-only) mode
+- WHEN level sub-groups are present in the DOM
+- THEN `<details>` sub-group elements are not visible (`display: none`)
+
+#### Scenario: Tablet expanded shows sub-groups
+
+- GIVEN the sidebar is in tablet expanded (240px) mode
+- WHEN Académico is open and level sub-groups are present
+- THEN `<details>` sub-group elements are visible
+
+## ADDED Requirements
 
 ### Requirement: Sub-Group Styling
 
@@ -175,33 +129,3 @@ Each level sub-group MUST use a unique, predictable localStorage key in the form
 - WHEN a level sub-group stores its state
 - THEN the sub-group's key differs from the parent key
 - AND writing the sub-group state does NOT overwrite the parent state
-
-### Requirement: Test Suite Compatibility
-
-The existing sidebar test suite SHALL continue to pass after restructure, with appropriate test updates to reflect the new DOM structure.
-
-(Previously: tests queried `.sidebar-section-label` elements; now MUST query `<summary>` elements or `<details>` containers.)
-
-#### Scenario: Tests pass with updated structure
-
-- GIVEN sidebar code is restructured with `<details>/<summary>` sub-groups
-- WHEN the test suite runs
-- THEN all tests pass with updated assertions targeting `<summary>` instead of `.sidebar-section-label`
-
-### Requirement: Tablet Collapsed Mode Hides Sub-Groups
-
-`<details>` sub-group elements inside Académico MUST be hidden in tablet collapsed mode (56px icon-only state). The CSS selector MUST target the new `<details>` elements within `.sidebar:not(.sidebar-open)`.
-
-(Previously: targeted `.sidebar-section-label` static `<div>` elements; now MUST target `<details>` sub-groups instead.)
-
-#### Scenario: Tablet collapse hides sub-groups
-
-- GIVEN the sidebar is in tablet collapsed (56px icon-only) mode
-- WHEN level sub-groups are present in the DOM
-- THEN `<details>` sub-group elements are not visible (`display: none`)
-
-#### Scenario: Tablet expanded shows sub-groups
-
-- GIVEN the sidebar is in tablet expanded (240px) mode
-- WHEN Académico is open and level sub-groups are present
-- THEN `<details>` sub-group elements are visible
