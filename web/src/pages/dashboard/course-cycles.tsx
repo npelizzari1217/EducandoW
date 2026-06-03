@@ -115,7 +115,9 @@ export default function CourseCyclesPage() {
       if (filters.studyPlanId) {
         payload.studyPlanId = filters.studyPlanId;
       }
-      const res = await apiClient.post('/course-cycles/generate', payload);
+      const res = await apiClient.post('/course-cycles/generate', payload, {
+        params: institutionId ? { institutionId } : undefined,
+      });
       const result = res.data?.data as { created: number; updated: number; total: number };
       setToast({
         message: `Creados: ${result.created} | Actualizados: ${result.updated} | Total: ${result.total}`,

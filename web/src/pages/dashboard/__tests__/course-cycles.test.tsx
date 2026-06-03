@@ -152,7 +152,7 @@ describe('CourseCyclesPage', () => {
       expect(mockPost).toHaveBeenCalledWith('/course-cycles/generate', {
         level: 20,
         cycleId: 'cycle-1',
-      });
+      }, { params: { institutionId: 'inst-1' } });
     });
   });
 
@@ -187,7 +187,7 @@ describe('CourseCyclesPage', () => {
         level: 30,
         cycleId: 'cycle-1',
         studyPlanId: 'plan-1',
-      });
+      }, { params: { institutionId: 'inst-1' } });
     });
   });
 
