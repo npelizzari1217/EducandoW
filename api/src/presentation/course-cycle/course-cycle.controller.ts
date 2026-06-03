@@ -139,8 +139,9 @@ export class CourseCycleController {
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'CREATE' })
   async generate(@Body(new ZodValidationPipe(GenerateCourseCyclesSchema)) body: GenerateCourseCyclesDto) {
     const result = await this.generateUC.execute({
-      studyPlanId: body.studyPlanId,
+      level: body.level,
       cycleId: body.cycleId,
+      studyPlanId: body.studyPlanId,
     });
     return { data: result };
   }

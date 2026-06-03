@@ -37,8 +37,9 @@ export const UpdateCourseCycleSchema = z.object({
 export type UpdateCourseCycleDto = z.infer<typeof UpdateCourseCycleSchema>;
 
 export const GenerateCourseCyclesSchema = z.object({
-  studyPlanId: z.string().uuid(),
+  level: z.number().int().min(10).max(40),
   cycleId: z.string().uuid(),
+  studyPlanId: z.string().uuid().optional(),
 });
 
 export type GenerateCourseCyclesDto = z.infer<typeof GenerateCourseCyclesSchema>;
