@@ -351,6 +351,9 @@
   .sidebar:not(.sidebar-open) .sidebar-section-label {
     display: none;
   }
+  .sidebar:not(.sidebar-open) .sidebar-sub-groups {
+    display: none;
+  }
 
   .sidebar:not(.sidebar-open) .sidebar-group summary {
     justify-content: center;
