@@ -64,12 +64,13 @@ export interface UpdateCourseCycleDto {
 }
 
 export interface GenerateCourseCyclesDto {
-  studyPlanId: string;
+  level: number;
   cycleId: string;
+  studyPlanId?: string;
 }
 
 export interface GenerateResult {
   created: number;
-  skipped: number;
+  updated: number;
   total: number;
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle, useToggleCourseCycleActive } from '../../hooks/useCourseCycles';
@@ -9,7 +9,6 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
-import GenerateCourseCyclesModal from '../../components/course-cycle/GenerateCourseCyclesModal';
 import apiClient from '../../api/client';
 
 interface Institution { id: string; name: string; }
@@ -33,7 +32,8 @@ export default function CourseCyclesPage() {
   const [filters, setFilters] = useState({ level: '', cycleId: '', studyPlanId: '' });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<CourseCycle | null>(null);
-  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [generating, setGenerating] = useState(false);
 
   const queryParams: Record<string, string> = {};
   if (institutionId) queryParams.institutionId = institutionId;
@@ -105,9 +105,33 @@ export default function CourseCyclesPage() {
     if (ok) reload();
   };
 
-  const handleGenerated = useCallback((_result: unknown) => {
-    reload();
-  }, [reload]);
+  const handleGenerate = async () => {
+    if (!filters.level || !filters.cycleId) return;
+    setGenerating(true);
+    try {
+      const payload: Record<string, string | number> = {
+        level: parseInt(filters.level, 10),
+        cycleId: filters.cycleId,
+      };
+      if (filters.studyPlanId) {
+        payload.studyPlanId = filters.studyPlanId;
+      }
+      const res = await apiClient.post('/course-cycles/generate', payload);
+      const result = res.data?.data as { created: number; updated: number; total: number };
+      setToast({
+        message: `Creados: ${result.created} | Actualizados: ${result.updated} | Total: ${result.total}`,
+        type: 'success',
+      });
+      reload();
+    } catch (e: any) {
+      setToast({
+        message: e?.response?.data?.error?.message ?? 'Error al generar cursos',
+        type: 'error',
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const tableData = data.map((cc) => ({
     courseName: cc.courseName,
@@ -193,9 +217,12 @@ export default function CourseCyclesPage() {
             </select>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-md)', marginLeft: 'var(--space-sm)' }}>
-            <Button onClick={() => { setShowGenerateModal(true); }}>Generar Cursos</Button>
-            <Button onClick={() => { setEditing(null); setShowForm(!showForm); }}>
-              {showForm ? 'Cancelar' : 'Nuevo Curso por Ciclo'}
+            <Button
+              onClick={handleGenerate}
+              disabled={!filters.level || !filters.cycleId || generating}
+              data-testid="generate-btn"
+            >
+              {generating ? 'Generando...' : 'Generar Cursos'}
             </Button>
           </div>
         </div>
@@ -257,12 +284,21 @@ export default function CourseCyclesPage() {
         )}
       </Card>
 
-      {/* Generate Modal */}
-      <GenerateCourseCyclesModal
-        open={showGenerateModal}
-        onClose={() => setShowGenerateModal(false)}
-        onGenerated={handleGenerated}
-      />
+      {/* Toast */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 9999,
+            padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-md)',
+            background: toast.type === 'success' ? '#16a34a' : '#dc2626',
+            color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 500,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)', maxWidth: '400px',
+          }}
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 }
