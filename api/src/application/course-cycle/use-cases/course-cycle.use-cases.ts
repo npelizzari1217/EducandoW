@@ -15,7 +15,7 @@ import {
 } from '@educandow/domain';
 import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
-import type { StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
+import type { StudyPlanRepository } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -82,8 +82,9 @@ export interface ListCourseCyclesInput {
 }
 
 export interface GenerateCourseCyclesInput {
-  studyPlanId: string;
+  level: number;
   cycleId: string;
+  studyPlanId?: string;
 }
 
 // ── Use Cases ────────────────────────────────────────────────
@@ -277,13 +278,7 @@ export class GenerateCourseCyclesUseCase {
   ) {}
 
   async execute(input: GenerateCourseCyclesInput): Promise<CreateManyResult> {
-    // Validate study plan exists
-    const plan = await this.studyPlanRepo.findById(input.studyPlanId);
-    if (!plan) {
-      throw new NotFoundError('StudyPlan', input.studyPlanId);
-    }
-
-    // Validate academic cycle exists and is active
+    // 1. Validate cycle exists and is active
     const cycle = await this.academicCycleRepo.findByUuid(input.cycleId);
     if (!cycle) {
       throw new NotFoundError('AcademicCycle', input.cycleId);
@@ -292,27 +287,71 @@ export class GenerateCourseCyclesUseCase {
       throw new AcademicCycleClosedError(input.cycleId);
     }
 
-    // Get courses from plan
-    const planCourses: StudyPlanCourseDto[] = await this.studyPlanRepo.findPlanCoursesByPlan(input.studyPlanId);
+    // 2. Determine plans to process
+    const plans: { id: string; level: number; modality: number }[] = [];
 
-    if (planCourses.length === 0) {
-      return { created: 0, skipped: 0, total: 0 };
+    if (input.studyPlanId) {
+      const plan = await this.studyPlanRepo.findById(input.studyPlanId);
+      if (!plan) {
+        throw new NotFoundError('StudyPlan', input.studyPlanId);
+      }
+      plans.push({
+        id: plan.id.get(),
+        level: plan.level as number,
+        modality: plan.modality as number,
+      });
+    } else {
+      const baseLevel = Math.floor(input.level / 10);
+      const allPlans = await this.studyPlanRepo.findAll(baseLevel);
+      for (const plan of allPlans) {
+        plans.push({
+          id: plan.id.get(),
+          level: plan.level as number,
+          modality: plan.modality as number,
+        });
+      }
     }
 
-    // For each plan course, create a CourseCycle
-    // We use StudyPlan from the input (the plan identifier)
-    const courseCycles: CourseCycle[] = planCourses.map((pc) => {
-      return CourseCycle.create({
-        courseId: pc.courseSectionId,
-        studyPlanId: input.studyPlanId,
-        cycleId: input.cycleId,
-        courseName: CourseName.create(pc.courseSectionName ?? 'Sin nombre').unwrap(),
-        level: buildLevel('PRIMARIO'), // will be overridden
-        passingGrade: PassingGrade.create(6).unwrap(),
-      });
-    });
+    // 3. Process each plan's courses with per-course UPSERT
+    let created = 0;
+    let updated = 0;
+    let total = 0;
 
-    const result = await this.courseCycleRepo.createMany(courseCycles);
-    return result;
+    for (const planRef of plans) {
+      const planCourses = await this.studyPlanRepo.findPlanCoursesByPlan(planRef.id);
+
+      for (const pc of planCourses) {
+        const compositeLevel = Level.fromParts(planRef.level as any, planRef.modality as any);
+        const courseName = CourseName.create(pc.courseSectionName ?? 'Sin nombre').unwrap();
+        const passingGrade = PassingGrade.create(6).unwrap();
+
+        const existing = await this.courseCycleRepo.findByPair(pc.courseSectionId, input.cycleId);
+
+        if (existing) {
+          existing.update({ courseName });
+          await this.courseCycleRepo.save(existing);
+          updated++;
+        } else {
+          const cc = CourseCycle.create({
+            courseId: pc.courseSectionId,
+            studyPlanId: planRef.id,
+            cycleId: input.cycleId,
+            courseName,
+            level: compositeLevel,
+            passingGrade,
+            promotionText: null,
+            firstBimonth: null,
+            secondBimonth: null,
+            thirdBimonth: null,
+            fourthBimonth: null,
+          });
+          await this.courseCycleRepo.save(cc);
+          created++;
+        }
+        total++;
+      }
+    }
+
+    return { created, updated, total };
   }
 }

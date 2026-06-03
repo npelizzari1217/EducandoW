@@ -17,7 +17,8 @@ export interface PaginatedResult<T> {
 
 export interface CreateManyResult {
   created: number;
-  skipped: number;
+  skipped?: number;
+  updated: number;
   total: number;
 }
 

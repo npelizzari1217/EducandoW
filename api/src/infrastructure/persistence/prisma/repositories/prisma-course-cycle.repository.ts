@@ -104,6 +104,7 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
     return {
       created: result.count,
       skipped: courseCycles.length - result.count,
+      updated: 0,
       total: courseCycles.length,
     };
   }
