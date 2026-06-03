@@ -52,6 +52,7 @@ export interface CreateCourseCycleDto {
 export interface UpdateCourseCycleDto {
   courseName?: string;
   passingGrade?: number;
+  active?: boolean;
   promotionText?: string | null;
   firstBimonthStart?: string;
   firstBimonthEnd?: string;

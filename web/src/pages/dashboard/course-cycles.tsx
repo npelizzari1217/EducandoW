@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle, useToggleCourseCycleActive } from '../../hooks/useCourseCycles';
+import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle } from '../../hooks/useCourseCycles';
 import type { CourseCycle, CreateCourseCycleDto, UpdateCourseCycleDto } from '../../types/course-cycle';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
@@ -17,6 +17,13 @@ const LEVEL_LABELS: Record<number, string> = {
   20: 'Primario', 21: 'Talleres Primario', 22: 'Bilingüismo Primario',
   30: 'Secundario', 31: 'Talleres Secundario', 32: 'Bilingüismo Secundario',
   40: 'Terciario',
+};
+
+const selectStyle: React.CSSProperties = {
+  padding: '0.5rem', borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)', color: 'var(--color-text)',
+  fontSize: 'var(--text-sm)', minWidth: '160px',
 };
 
 export default function CourseCyclesPage() {
@@ -44,9 +51,7 @@ export default function CourseCyclesPage() {
   const { creating, createError, create } = useCreateCourseCycle();
   const { updating, updateError, update } = useUpdateCourseCycle();
   const { deleting, del } = useDeleteCourseCycle();
-  const { toggling, toggle } = useToggleCourseCycleActive();
 
-  // Fetch institutions for ROOT
   useEffect(() => {
     if (isRoot) {
       apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
@@ -62,8 +67,6 @@ export default function CourseCyclesPage() {
     apiClient.get('/academic-cycles', { params: cycleParams }).then((r) => setCycles(r.data?.data ?? []));
   }, [institutionId, filters.level]);
 
-  // Load study plans filtered by institution + level
-  // Note: study-plans API expects level as simple number (1-4), not composite code (10-40)
   const [studyPlans, setStudyPlans] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
     const planParams: Record<string, string> = { limit: '100' };
@@ -96,11 +99,6 @@ export default function CourseCyclesPage() {
 
   const handleDelete = async (uuid: string) => {
     const ok = await del(uuid);
-    if (ok) reload();
-  };
-
-  const handleToggle = async (cc: CourseCycle) => {
-    const ok = await toggle(cc.uuid, !cc.active);
     if (ok) reload();
   };
 
@@ -144,36 +142,33 @@ export default function CourseCyclesPage() {
   }));
 
   return (
-    <div className="p-6 space-y-4">
+    <div>
       <PremiumHeader
         title="Cursos por Ciclo"
         subtitle="Administrá los cursos de cada plan de estudio por ciclo lectivo"
-      />
+        icon="📚"
+        stats={[{ label: 'cursos', value: String(data.length) }]}
+      >
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { setShowForm(!showForm); setEditing(null); }}>
+          {showForm ? 'Cancelar' : 'Nuevo curso por ciclo'}
+        </Button>
+      </PremiumHeader>
 
       {/* Institution selector */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)' }}>
         <div>
-          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>
-            Institución
-          </label>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
           {isRoot ? (
-            <select
-              value={institutionId}
-              onChange={(e) => handleInstitutionChange(e.target.value)}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
-            >
+            <select value={institutionId} onChange={(e) => handleInstitutionChange(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}>
               <option value="">Todas las instituciones</option>
               {institutions.map((inst) => (
                 <option key={inst.id} value={inst.id}>{inst.name}</option>
               ))}
             </select>
           ) : (
-            <input
-              type="text"
-              value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
-              disabled
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
-            />
+            <input type="text" value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId} disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }} />
           )}
         </div>
       </div>
@@ -183,11 +178,7 @@ export default function CourseCyclesPage() {
         <div style={{ display: 'flex', gap: 'var(--space-lg)', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Nivel</label>
-            <select
-              value={filters.level}
-              onChange={(e) => handleLevelChange(e.target.value)}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '160px' }}
-            >
+            <select value={filters.level} onChange={(e) => handleLevelChange(e.target.value)} style={selectStyle}>
               <option value="">Todos</option>
               <option value="10">Inicial</option>
               <option value="20">Primario</option>
@@ -197,22 +188,14 @@ export default function CourseCyclesPage() {
           </div>
           <div>
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Ciclo Lectivo</label>
-            <select
-              value={filters.cycleId}
-              onChange={(e) => setFilters((f) => ({ ...f, cycleId: e.target.value }))}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '200px' }}
-            >
+            <select value={filters.cycleId} onChange={(e) => setFilters((f) => ({ ...f, cycleId: e.target.value }))} style={{ ...selectStyle, minWidth: '200px' }}>
               <option value="">Todos</option>
               {cycles.map((c) => <option key={c.uuid} value={c.uuid}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Plan de Estudio</label>
-            <select
-              value={filters.studyPlanId}
-              onChange={(e) => setFilters((f) => ({ ...f, studyPlanId: e.target.value }))}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
-            >
+            <select value={filters.studyPlanId} onChange={(e) => setFilters((f) => ({ ...f, studyPlanId: e.target.value }))} style={{ ...selectStyle, minWidth: '220px' }}>
               <option value="">Todos</option>
               {studyPlans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -231,19 +214,19 @@ export default function CourseCyclesPage() {
 
       {/* Create Form */}
       {showForm && (
-        <Card className="p-4">
+        <div style={{ marginTop: 'var(--space-md)' }}>
           <CourseCycleForm
             onSubmit={handleCreate}
             onCancel={() => setShowForm(false)}
             loading={creating}
             error={createError}
           />
-        </Card>
+        </div>
       )}
 
       {/* Edit Form */}
       {editing && (
-        <Card className="p-4">
+        <div style={{ marginTop: 'var(--space-md)' }}>
           <CourseCycleForm
             initial={editing}
             onSubmit={handleUpdate}
@@ -251,11 +234,11 @@ export default function CourseCyclesPage() {
             loading={updating}
             error={updateError}
           />
-        </Card>
+        </div>
       )}
 
       {/* Table */}
-      <Card className="p-4">
+      <Card className="mt-lg">
         {loading && <p className="text-muted-foreground">Cargando...</p>}
         {!loading && data.length === 0 && <p className="text-muted-foreground">No hay cursos por ciclo.</p>}
         {!loading && data.length > 0 && (
@@ -265,20 +248,22 @@ export default function CourseCyclesPage() {
               { key: 'level', header: 'Nivel' },
               { key: 'cycle', header: 'Ciclo Lectivo' },
               { key: 'active', header: 'Activo', render: (item) => (
-                <span className={`px-2 py-0.5 rounded text-xs font-medium ${item.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                <span style={{
+                  display: 'inline-block', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)',
+                  fontSize: 'var(--text-xs)', fontWeight: 500,
+                  background: item.active ? '#dcfce7' : '#fee2e2',
+                  color: item.active ? '#16a34a' : '#dc2626',
+                }}>
                   {item.active ? 'Sí' : 'No'}
                 </span>
               )},
               { key: 'passingGrade', header: 'Nota Aprob.' },
-              { key: 'actions', header: 'Acciones', render: (item) => {
+              { key: 'actions', header: '', render: (item) => {
                 const cc = item.actions;
                 return (
-                <div className="flex gap-1">
-                  <button onClick={() => setEditing(cc)} className="text-blue-600 hover:underline text-sm">Editar</button>
-                  <button onClick={() => handleToggle(cc)} disabled={toggling} className="text-orange-600 hover:underline text-sm">
-                    {cc.active ? 'Cerrar' : 'Abrir'}
-                  </button>
-                  <button onClick={() => handleDelete(cc.uuid)} disabled={deleting} className="text-red-600 hover:underline text-sm">Eliminar</button>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                  <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
+                  <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
                 </div>
               )}},
             ]}
@@ -295,7 +280,7 @@ export default function CourseCyclesPage() {
             padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-md)',
             background: toast.type === 'success' ? '#16a34a' : '#dc2626',
             color: '#fff', fontSize: 'var(--text-sm)', fontWeight: 500,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)', maxWidth: '400px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)', maxWidth: '400px', cursor: 'pointer',
           }}
           onClick={() => setToast(null)}
         >

@@ -23,6 +23,7 @@ export type CreateCourseCycleDto = z.infer<typeof CreateCourseCycleSchema>;
 export const UpdateCourseCycleSchema = z.object({
   courseName: z.string().min(1).transform((v) => v.toUpperCase()).optional(),
   passingGrade: z.number().min(1).max(10).optional(),
+  active: z.boolean().optional(),
   promotionText: z.string().optional().nullable(),
   firstBimonthStart: z.string().min(1).optional(),
   firstBimonthEnd: z.string().min(1).optional(),

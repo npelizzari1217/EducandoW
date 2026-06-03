@@ -196,15 +196,16 @@ describe('UpdateCourseCycleUseCase', () => {
     expect(mockRepo.save).toHaveBeenCalled();
   });
 
-  it('rejects update on closed cycle', async () => {
+  it('allows update on closed cycle (active can be changed)', async () => {
     const cc = makeCC();
     cc.deactivate();
     mockRepo.findByUuid = vi.fn().mockResolvedValue(cc);
 
     const result = await useCase.execute(cc.uuid, { courseName: 'LENGUA' });
 
-    expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toBeInstanceOf(CourseCycleClosedError);
+    expect(result.isOk()).toBe(true);
+    const updated = result.unwrap();
+    expect(updated.courseName.get()).toBe('LENGUA');
   });
 
   it('rejects update on non-existent CourseCycle', async () => {

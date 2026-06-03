@@ -42,6 +42,7 @@ export interface CreateCourseCycleInput {
 export interface UpdateCourseCycleInput {
   courseName?: CourseName;
   passingGrade?: PassingGrade;
+  active?: boolean;
   promotionText?: string | null;
   firstBimonth?: BimonthPeriod | null;
   secondBimonth?: BimonthPeriod | null;
@@ -174,6 +175,9 @@ export class CourseCycle {
     }
     if (input.passingGrade !== undefined) {
       this.props.passingGrade = input.passingGrade;
+    }
+    if (input.active !== undefined) {
+      this.props.active = input.active;
     }
     if (input.promotionText !== undefined) {
       this.props.promotionText = input.promotionText;

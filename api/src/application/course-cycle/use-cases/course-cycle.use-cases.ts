@@ -62,6 +62,7 @@ export interface CreateCourseCycleInput {
 export interface UpdateCourseCycleInput {
   courseName?: string;
   passingGrade?: number;
+  active?: boolean;
   promotionText?: string | null;
   firstBimonthStart?: string;
   firstBimonthEnd?: string;
@@ -164,12 +165,6 @@ export class UpdateCourseCycleUseCase {
       return err(new CourseCycleNotFoundError(uuid));
     }
 
-    try {
-      cc.ensureActive();
-    } catch (e) {
-      return err(e as Error);
-    }
-
     // Build update VOs from input
     const updateData: Record<string, unknown> = {};
 
@@ -183,6 +178,10 @@ export class UpdateCourseCycleUseCase {
       const pg = PassingGrade.create(input.passingGrade);
       if (pg.isErr()) return err(pg.unwrapErr());
       updateData.passingGrade = pg.unwrap();
+    }
+
+    if (input.active !== undefined) {
+      updateData.active = input.active;
     }
 
     if (input.promotionText !== undefined) {
