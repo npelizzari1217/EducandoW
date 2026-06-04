@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("MASTER_DATABASE_URL")
+}
+
+// ── Institution (25 fields) ───────────────────────────────
+
+model Institution {
+  id                String   @id @default(uuid())
+  name              String
+  cue               String?  @unique
+  ministryReg       String?
+  address           String?
+  city              String?
+  postalCode        String?  @map("postal_code")
+  country           String?  @default("AR")
+  phone             String?
+  website           String?
+  contactEmail      String?  @map("contact_email")
+  logoUrl           String?  @map("logo_url")
+  headerColor       String?  @map("header_color")
+  headerTextColor   String?  @map("header_text_color")
+  bodyTextColor     String?  @map("body_text_color")
+  bodyColor         String?  @map("body_color")
+  footerColor       String?  @map("footer_color")
+  footerTextColor   String?  @map("footer_text_color")
+  smtpHost          String?  @map("smtp_host")
+  smtpUser          String?  @map("smtp_user")
+  smtpPass          String?  @map("smtp_pass")
+  smtpEncryption    String?  @map("smtp_encryption")
+  smtpPort          Int?     @map("smtp_port")
+  sendEmail         Boolean  @default(false) @map("send_email")
+  sendMessages      Boolean  @default(false) @map("send_messages")
+  socketHost        String?  @map("socket_host")
+  socketPort        Int?     @map("socket_port")
+  active            Boolean  @default(true)
+  deletedAt         DateTime? @map("deleted_at")
+  dbName            String   @unique @map("db_name")
+
+  levels         InstitutionLevel[]
+  users          User[]
+  refreshTokens  RefreshToken[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@map("institutions")
+}
+
+model InstitutionLevel {
+  id            String @id @default(uuid())
+  institutionId String
+  level         Int    // EducationalLevelCode (1-4, 9)
+  modality      Int    // EducationalModalityCode (0-2, 9)
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  active    Boolean   @default(true)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([institutionId, level, modality])
+  @@map("institution_levels")
+}
+
+// ── Auth ───────────────────────────────────────────────────
+
+model Profile {
+  id        String   @id @default(uuid())
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions ProfileModulePermission[]
+  users       User[]
+
+  @@map("profiles")
+}
+
+model ProfileModulePermission {
+  id        String  @id @default(uuid())
+  profileId String
+  moduleId  String
+  canRead   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  canPrint  Boolean @default(false)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  module  Module  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, moduleId])
+  @@map("profile_module_permissions")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String   @map("password")
+  name          String
+  institutionId String?
+  profileId     String?
+
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+  active         Boolean   @default(true)
+  deletedAt      DateTime?
+
+  institution   Institution?   @relation(fields: [institutionId], references: [id])
+  profile       Profile?       @relation(fields: [profileId], references: [id])
+  refreshTokens RefreshToken[]
+  userRoles     UserRole[]
+  userModules   UserModule[]
+  userLevels    UserLevel[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id            String   @id @default(uuid())
+  token         String   @unique
+  userId        String
+  institutionId String?
+  expiresAt     DateTime
+
+  active    Boolean   @default(true)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution? @relation(fields: [institutionId], references: [id])
+
+  @@map("refresh_tokens")
+}
+
+// ── RBAC — Module-based permissions ─────────────────────────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String
+  active      Boolean  @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles   UserRole[]
+  roleModules RoleModule[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model Module {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  roleModules              RoleModule[]
+  userModules              UserModule[]
+  profileModulePermissions ProfileModulePermission[]
+
+  @@map("modules")
+}
+
+model ModuleAction {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  active    Boolean  @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("module_actions")
+}
+
+model RoleModule {
+  id       String   @id @default(uuid())
+  roleId   String
+  moduleId String
+  actions  String[]
+
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, moduleId])
+  @@map("role_modules")
+}
+
+model UserModule {
+  id       String   @id @default(uuid())
+  userId   String
+  moduleId String
+  actions  String[]
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@map("user_modules")
+}
+
+// ── User Educational Levels ──────────────────────────────────
+
+model UserLevel {
+  id       String @id @default(uuid())
+  userId   String
+  level    Int
+  modality Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, level, modality])
+  @@map("user_levels")
+}
