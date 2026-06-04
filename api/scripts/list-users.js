@@ -65,7 +65,7 @@ async function main() {
   // Build query
   let whereClause = 'WHERE 1=1';
   if (!showAll) {
-    whereClause = "WHERE u.deleted_at IS NULL AND u.active = true";
+    whereClause = 'WHERE u."deletedAt" IS NULL AND u.active = true';
   }
 
   const query = `
@@ -74,14 +74,14 @@ async function main() {
       u.name,
       u.active,
       ${showHash ? 'u.password AS hash,' : ''}
-      CASE WHEN u.locked_until IS NOT NULL THEN 'BLOQUEADO' ELSE 'OK' END AS estado,
-      u.failed_attempts AS intentos_fallidos,
+      CASE WHEN u."lockedUntil" IS NOT NULL THEN 'BLOQUEADO' ELSE 'OK' END AS estado,
+      u."failedAttempts" AS intentos_fallidos,
       COALESCE(p.name, 'SIN PERFIL') AS perfil,
       COALESCE(i.name, 'ROOT') AS institucion,
       TO_CHAR(u.created_at, 'YYYY-MM-DD HH24:MI') AS creado
     FROM users u
-    LEFT JOIN profiles p ON u.profile_id = p.id
-    LEFT JOIN institutions i ON u.institution_id = i.id
+    LEFT JOIN profiles p ON u."profileId" = p.id
+    LEFT JOIN institutions i ON u."institutionId" = i.id
     ${whereClause}
     ORDER BY u.created_at DESC
   `;

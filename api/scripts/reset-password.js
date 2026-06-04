@@ -70,7 +70,7 @@ async function main() {
 
   // 2. Find user
   const { rows: users } = await pool.query(
-    'SELECT id, email, name, active FROM users WHERE email = $1 AND deleted_at IS NULL',
+    'SELECT id, email, name, active FROM users WHERE email = $1 AND "deletedAt" IS NULL',
     [email]
   );
 
@@ -105,8 +105,8 @@ async function main() {
       `UPDATE users
        SET password = $1,
            active = true,
-           failed_attempts = 0,
-           locked_until = NULL
+           "failedAttempts" = 0,
+           "lockedUntil" = NULL
        WHERE email = $2
        RETURNING id`,
       [hash, email]
