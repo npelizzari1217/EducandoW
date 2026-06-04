@@ -32,6 +32,7 @@ import GradosPage from './niveles/primario/grados/page';
 import CalificacionesPrimarioPage from './niveles/primario/calificaciones/page';
 import CursosPage from './niveles/secundario/cursos/page';
 import MesasExamenPage from './niveles/secundario/mesas-examen/page';
+import ExamenesSuplementariosPage from './niveles/secundario/examenes-suplementarios/page';
 import CarrerasPage from './niveles/terciario/carreras/page';
 import InscripcionesPage from './niveles/terciario/inscripciones/page';
 import CourseCyclesPage from './pages/dashboard/course-cycles';
@@ -74,6 +75,7 @@ function App() {
               {/* Secundario */}
               <Route path="/secundario/cursos" element={<CursosPage />} />
               <Route path="/secundario/mesas-examen" element={<MesasExamenPage />} />
+              <Route path="/secundario/examenes-suplementarios" element={<ExamenesSuplementariosPage />} />
               {/* Terciario */}
               <Route path="/terciario/carreras" element={<CarrerasPage />} />
               <Route path="/terciario/inscripciones" element={<InscripcionesPage />} />

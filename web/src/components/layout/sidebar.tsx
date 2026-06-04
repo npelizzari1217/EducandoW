@@ -85,6 +85,7 @@ const navGroups: NavGroupDef[] = [
         items: [
           { label: 'Cursos', path: '/secundario/cursos', moduleCode: 'COURSES', requiresLevel: true, levelId: 3 },
           { label: 'Mesas de Examen', path: '/secundario/mesas-examen', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
+          { label: 'Exámenes Suplementarios', path: '/secundario/examenes-suplementarios', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
         ],
       },
       {
