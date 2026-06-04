@@ -13,6 +13,7 @@ import { PrismaInstitutionRepository } from '../../infrastructure/persistence/pr
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
+import { RankGuard } from '../../infrastructure/auth/guards/rank.guard';
 import { UserRegisteredHandler } from '../../infrastructure/event-bus/handlers/user-registered.handler';
 import { loadEnvConfig } from '../../infrastructure/config/env.config';
 
@@ -69,6 +70,7 @@ const env = loadEnvConfig();
     AuthGuard,
     RolesGuard,
     LevelsGuard,
+    RankGuard,
     // ── Persistence ────────────────────────────────────────────────────
     PrismaService,
     {
@@ -105,6 +107,7 @@ const env = loadEnvConfig();
     AuthGuard,
     RolesGuard,
     LevelsGuard,
+    RankGuard,
     JwtAuthPort,
     'AuthPort',
     PrismaUserRepository,

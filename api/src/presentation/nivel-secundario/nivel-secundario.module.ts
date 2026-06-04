@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { CursoController } from './curso.controller';
 import { MesaExamenController } from './mesa-examen.controller';
 import { RegimenAcademicoController } from './regimen-academico.controller';
+import { CalificacionSecundarioController } from './calificacion-secundario.controller';
 import {
   CreateCursoUseCase,
   ListCursosUseCase,
@@ -22,13 +23,21 @@ import {
   GetRegimenAcademicoUseCase,
   UpdateRegimenAcademicoUseCase,
 } from '../../application/nivel-secundario/use-cases/regimen-academico.use-cases';
+import {
+  RegistrarNotaSuplementariaUseCase,
+  ConsultarAlumnosExamenUseCase,
+  CalcularDefinitivaUseCase,
+} from '../../application/nivel-secundario/use-cases/calificacion-secundario.use-cases';
 import { PrismaCursoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-curso.repository';
 import { PrismaMesaExamenRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-mesa-examen.repository';
 import { PrismaRegimenAcademicoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-regimen-academico.repository';
+import { PrismaCalificacionSecundarioRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-calificacion-secundario.repository';
+
+const REPO_TOKEN = 'CalificacionSecundarioRepository';
 
 @Module({
   imports: [AuthModule],
-  controllers: [CursoController, MesaExamenController, RegimenAcademicoController],
+  controllers: [CursoController, MesaExamenController, RegimenAcademicoController, CalificacionSecundarioController],
   providers: [
     // Repositories
     PrismaCursoRepository,
@@ -37,6 +46,8 @@ import { PrismaRegimenAcademicoRepository } from '../../infrastructure/persisten
     { provide: 'MesaExamenRepository', useExisting: PrismaMesaExamenRepository },
     PrismaRegimenAcademicoRepository,
     { provide: 'RegimenAcademicoRepository', useExisting: PrismaRegimenAcademicoRepository },
+    PrismaCalificacionSecundarioRepository,
+    { provide: REPO_TOKEN, useExisting: PrismaCalificacionSecundarioRepository },
 
     // Curso use cases
     { provide: CreateCursoUseCase, useFactory: (r) => new CreateCursoUseCase(r), inject: ['CursoRepository'] },
@@ -56,6 +67,11 @@ import { PrismaRegimenAcademicoRepository } from '../../infrastructure/persisten
     { provide: CreateRegimenAcademicoUseCase, useFactory: (r) => new CreateRegimenAcademicoUseCase(r), inject: ['RegimenAcademicoRepository'] },
     { provide: GetRegimenAcademicoUseCase, useFactory: (r) => new GetRegimenAcademicoUseCase(r), inject: ['RegimenAcademicoRepository'] },
     { provide: UpdateRegimenAcademicoUseCase, useFactory: (r) => new UpdateRegimenAcademicoUseCase(r), inject: ['RegimenAcademicoRepository'] },
+
+    // CalificacionSecundario use cases
+    { provide: RegistrarNotaSuplementariaUseCase, useFactory: (r) => new RegistrarNotaSuplementariaUseCase(r), inject: [REPO_TOKEN] },
+    { provide: ConsultarAlumnosExamenUseCase, useFactory: (r) => new ConsultarAlumnosExamenUseCase(r), inject: [REPO_TOKEN] },
+    { provide: CalcularDefinitivaUseCase, useFactory: (r) => new CalcularDefinitivaUseCase(r), inject: [REPO_TOKEN] },
   ],
 })
 export class NivelSecundarioModule {}

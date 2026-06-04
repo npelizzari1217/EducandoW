@@ -11,6 +11,10 @@ import {
   ListCourseCyclesUseCase,
   GenerateCourseCyclesUseCase,
 } from '../../application/course-cycle/use-cases/course-cycle.use-cases';
+import {
+  GetActivePeriodUseCase,
+  SetActivePeriodUseCase,
+} from '../../application/course-cycle/use-cases/grading-period.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository } from '@educandow/domain';
 
@@ -67,6 +71,19 @@ const StudyPlanRepo = 'StudyPlanRepository';
         ac: AcademicCycleRepository,
       ) => new GenerateCourseCyclesUseCase(cc, sp, ac),
       inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo],
+    },
+    {
+      provide: GetActivePeriodUseCase,
+      useFactory: (
+        cc: PrismaCourseCycleRepository,
+        ac: AcademicCycleRepository,
+      ) => new GetActivePeriodUseCase(cc, ac),
+      inject: [PrismaCourseCycleRepository, AcademicCycleRepo],
+    },
+    {
+      provide: SetActivePeriodUseCase,
+      useFactory: (cc: PrismaCourseCycleRepository) => new SetActivePeriodUseCase(cc),
+      inject: [PrismaCourseCycleRepository],
     },
   ],
   exports: [PrismaCourseCycleRepository],

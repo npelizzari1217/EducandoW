@@ -5,6 +5,12 @@
   "compilerOptions": {
     "builder": "swc",
     "typeCheck": true,
-    "tsConfigPath": "tsconfig.build.json"
+    "tsConfigPath": "tsconfig.build.json",
+    "assets": [
+      {
+        "include": "infrastructure/reporting/html-templates/**/*.hbs",
+        "outDir": "dist/src"
+      }
+    ]
   }
 }

@@ -16,6 +16,10 @@ import {
   CourseCycleListQueryDto,
 } from './dto/course-cycle.dto';
 import {
+  SetGradingPeriodSchema,
+  SetGradingPeriodDto,
+} from './dto/grading-period.dto';
+import {
   CreateCourseCycleUseCase,
   UpdateCourseCycleUseCase,
   DeleteCourseCycleUseCase,
@@ -24,6 +28,10 @@ import {
   ListCourseCyclesUseCase,
   GenerateCourseCyclesUseCase,
 } from '../../application/course-cycle/use-cases/course-cycle.use-cases';
+import {
+  GetActivePeriodUseCase,
+  SetActivePeriodUseCase,
+} from '../../application/course-cycle/use-cases/grading-period.use-cases';
 
 @Controller('course-cycles')
 @UseGuards(AuthGuard, RolesGuard)
@@ -36,6 +44,8 @@ export class CourseCycleController {
     private readonly getUC: GetCourseCycleUseCase,
     private readonly listUC: ListCourseCyclesUseCase,
     private readonly generateUC: GenerateCourseCyclesUseCase,
+    private readonly getGradingPeriodUC: GetActivePeriodUseCase,
+    private readonly setGradingPeriodUC: SetActivePeriodUseCase,
   ) {}
 
   @Post()
@@ -146,6 +156,27 @@ export class CourseCycleController {
     return { data: result };
   }
 
+  @Get(':uuid/grading-period')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
+  async getGradingPeriod(@Param('uuid') uuid: string) {
+    const result = await this.getGradingPeriodUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
+  }
+
+  @Patch(':uuid/grading-period')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async setGradingPeriod(
+    @Param('uuid') uuid: string,
+    @Body(new ZodValidationPipe(SetGradingPeriodSchema)) body: SetGradingPeriodDto,
+  ) {
+    const result = await this.setGradingPeriodUC.execute(uuid, {
+      activeGradingPeriod: body.activeGradingPeriod,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
+  }
+
   private toResponse(cc: {
     uuid: string;
     courseId: string;
@@ -160,6 +191,7 @@ export class CourseCycleController {
     secondBimonth: { start: Date; end: Date } | null;
     thirdBimonth: { start: Date; end: Date } | null;
     fourthBimonth: { start: Date; end: Date } | null;
+    activeGradingPeriod: number | null;
     lastModifiedAt: Date;
     deletedAt?: Date | null;
   }) {
@@ -173,6 +205,7 @@ export class CourseCycleController {
       active: cc.active,
       passingGrade: cc.passingGrade.get(),
       promotionText: cc.promotionText,
+      activeGradingPeriod: cc.activeGradingPeriod,
       ownBimonthDates: {
         firstBimonthStart: cc.firstBimonth?.start?.toISOString() ?? null,
         firstBimonthEnd: cc.firstBimonth?.end?.toISOString() ?? null,

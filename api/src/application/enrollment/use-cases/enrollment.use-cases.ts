@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, EnrollmentRepository, Enrollment, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import { ok, err, Result, ValidationError, NotFoundError, EnrollmentRepository, Enrollment, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 
 export interface CreateEnrollmentInput {
   studentId: string;
@@ -79,5 +79,54 @@ export class DeleteEnrollmentUseCase {
 
   async execute(id: string): Promise<void> {
     await this.repo.delete(id);
+  }
+}
+
+export type EnrollmentFlag = 'printable' | 'promoted';
+
+@Injectable()
+export class ToggleEnrollmentFlagUseCase {
+  constructor(private readonly repo: EnrollmentRepository) {}
+
+  async execute(enrollmentId: string, flag: EnrollmentFlag): Promise<Result<Enrollment, NotFoundError>> {
+    const enrollment = await this.repo.findById(enrollmentId);
+    if (!enrollment) {
+      return err(new NotFoundError('Enrollment', enrollmentId));
+    }
+
+    if (flag === 'printable') {
+      enrollment.setPrintable(!enrollment.printable);
+    } else {
+      enrollment.setPromoted(!enrollment.promoted);
+    }
+
+    await this.repo.save(enrollment);
+    return ok(enrollment);
+  }
+}
+
+export interface BulkToggleEnrollmentFlagsInput {
+  cycleId: string;
+  flag: EnrollmentFlag;
+  value: boolean;
+}
+
+@Injectable()
+export class BulkToggleEnrollmentFlagsUseCase {
+  constructor(private readonly repo: EnrollmentRepository) {}
+
+  async execute(input: BulkToggleEnrollmentFlagsInput): Promise<number> {
+    const enrollments = await this.repo.findByCycleId(input.cycleId);
+
+    for (const enrollment of enrollments) {
+      if (input.flag === 'printable') {
+        enrollment.setPrintable(input.value);
+      } else {
+        enrollment.setPromoted(input.value);
+      }
+      await this.repo.save(enrollment);
+    }
+
+    return enrollments.length;
   }
 }

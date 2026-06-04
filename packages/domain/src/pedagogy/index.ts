@@ -20,6 +20,10 @@ export { AcademicCycle } from './entities/academic-cycle';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './entities/academic-cycle';
 export { StudyPlan } from './entities/study-plan';
 export type { StudyPlanProps } from './entities/study-plan';
+export { SubjectCompetency } from './entities/subject-competency';
+export type { SubjectCompetencyProps } from './entities/subject-competency';
+export { CompetencyValuation } from './entities/competency-valuation';
+export type { CompetencyValuationProps } from './entities/competency-valuation';
 
 // Value Objects
 export { CycleCode } from './value-objects/cycle-code';
@@ -38,3 +42,5 @@ export type { AttendanceRepository } from './repositories/attendance-repository'
 export type { GradeScaleRepository } from './repositories/grade-scale-repository';
 export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } from './repositories/academic-cycle-repository';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';
+export type { SubjectCompetencyRepository } from './repositories/subject-competency-repository';
+export type { CompetencyValuationRepository } from './repositories/competency-valuation-repository';

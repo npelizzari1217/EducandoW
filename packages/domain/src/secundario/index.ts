@@ -5,6 +5,8 @@ export { MesaExamen } from './entities/mesa-examen';
 export type { MesaExamenProps, MesaExamenInscripcionProps, CreateMesaExamenInput } from './entities/mesa-examen';
 export { RegimenAcademico } from './entities/regimen-academico';
 export type { RegimenAcademicoProps, CreateRegimenAcademicoInput } from './entities/regimen-academico';
+export { CalificacionSecundario } from './entities/calificacion-secundario';
+export type { CalificacionSecundarioProps, CreateCalificacionSecundarioInput } from './entities/calificacion-secundario';
 
 // Value Objects
 export { Orientacion } from './value-objects/orientacion';
@@ -18,3 +20,4 @@ export type { CondicionAlumnoCode } from './value-objects/condicion-alumno';
 export type { CursoRepository } from './repositories/curso-repository';
 export type { MesaExamenRepository } from './repositories/mesa-examen-repository';
 export type { RegimenAcademicoRepository } from './repositories/regimen-academico-repository';
+export type { CalificacionSecundarioRepository } from './repositories/calificacion-secundario-repository';

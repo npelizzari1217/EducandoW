@@ -177,6 +177,7 @@ describe('CourseCycle', () => {
         secondBimonth: secondBim,
         thirdBimonth: thirdBim,
         fourthBimonth: fourthBim,
+        activeGradingPeriod: null,
         createdAt,
         lastModifiedAt,
         deletedAt,

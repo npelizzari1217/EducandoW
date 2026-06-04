@@ -1,13 +1,16 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
+  Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query,
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateEnrollmentSchema, CreateEnrollmentDTO } from './dto/create-enrollment.dto';
+import { ToggleFlagSchema, ToggleFlagDTO } from './dto/toggle-flag.dto';
+import { BulkToggleSchema, BulkToggleDTO } from './dto/bulk-toggle.dto';
 import {
   CreateEnrollmentUseCase, ListEnrollmentsUseCase, GetEnrollmentUseCase, DeleteEnrollmentUseCase,
+  ToggleEnrollmentFlagUseCase, BulkToggleEnrollmentFlagsUseCase,
 } from '../../application/enrollment/use-cases/enrollment.use-cases';
 
 @Controller('enrollments')
@@ -18,6 +21,8 @@ export class EnrollmentController {
     private readonly listUC: ListEnrollmentsUseCase,
     private readonly getUC: GetEnrollmentUseCase,
     private readonly deleteUC: DeleteEnrollmentUseCase,
+    private readonly toggleFlagUC: ToggleEnrollmentFlagUseCase,
+    private readonly bulkToggleUC: BulkToggleEnrollmentFlagsUseCase,
   ) {}
 
   @Post()
@@ -57,8 +62,33 @@ export class EnrollmentController {
   async delete(@Param('id') id: string) {
     await this.deleteUC.execute(id);
   }
+
+  @Patch(':id/flags')
+  @Roles('ADMIN', 'SECRETARIO', 'DIRECTOR')
+  async toggleFlag(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(ToggleFlagSchema)) body: ToggleFlagDTO,
+  ) {
+    const result = await this.toggleFlagUC.execute(id, body.flag);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: toDto(result.unwrap()) };
+  }
+
+  @Patch('course/:cycleId/flags')
+  @Roles('ADMIN', 'SECRETARIO', 'DIRECTOR')
+  async bulkToggleFlags(
+    @Param('cycleId') cycleId: string,
+    @Body(new ZodValidationPipe(BulkToggleSchema)) body: BulkToggleDTO,
+  ) {
+    const count = await this.bulkToggleUC.execute({
+      cycleId,
+      flag: body.flag,
+      value: body.value,
+    });
+    return { data: { updated: count } };
+  }
 }
 
-function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: { toString(): string }; enrolledAt: Date }) {
-  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status.toString(), enrolledAt: e.enrolledAt.toISOString() };
+function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: { toString(): string }; enrolledAt: Date; printable: boolean; promoted: boolean }) {
+  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status.toString(), enrolledAt: e.enrolledAt.toISOString(), printable: e.printable, promoted: e.promoted };
 }

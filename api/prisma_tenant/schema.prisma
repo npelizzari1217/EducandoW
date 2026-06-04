@@ -41,9 +41,11 @@ model Student {
   calificacionesPrimario  CalificacionPrimario[]
   calificacionesSecundario CalificacionSecundario[]
   mesaExamenInscripciones MesaExamenInscripcion[]
+  competencyValuations    CompetencyValuation[]
   inscripcionesMateria    InscripcionMateria[]
   actaExamenNotas         ActaExamenNota[]
   titulos                 Titulo[]
+  observations            StudentObservation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -160,6 +162,7 @@ model CourseCycle {
   thirdBimEnd    DateTime? @map("third_bim_end")
   fourthBimStart DateTime? @map("fourth_bim_start")
   fourthBimEnd   DateTime? @map("fourth_bim_end")
+  activeGradingPeriod Int? @map("active_grading_period")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
@@ -187,6 +190,8 @@ model Enrollment {
   division     String?
   status       String   @default("ACTIVE")
   enrolledAt   DateTime @default(now())
+  printable    Boolean  @default(true)
+  promoted     Boolean  @default(false)
 
   active    Boolean   @default(true)
   deletedAt DateTime?
@@ -222,6 +227,7 @@ model Subject {
   mesasExamen              MesaExamen[]
   regimenAcademico         RegimenAcademico[]
   materiasCarrera          MateriaCarrera[]
+  competencies             SubjectCompetency[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -282,6 +288,59 @@ model SubjectAssignment {
   @@map("subject_assignments")
 }
 
+// ── Subject Competencies ──────────────────────────────────
+
+model SubjectCompetency {
+  id           String   @id @default(uuid())
+  subjectId    String
+  name         String
+  periodActive Int      @default(4) @map("period_active")
+  active       Boolean  @default(true)
+  deletedAt    DateTime?
+
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  valuations CompetencyValuation[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([subjectId, name])
+  @@index([subjectId])
+  @@map("subject_competencies")
+}
+
+model CompetencyValuation {
+  id           String   @id @default(uuid())
+  competencyId String
+  studentId    String
+  valuation1   String?
+  valuation2   String?
+  valuation3   String?
+  valuation4   String?
+  modificable1 Boolean  @default(true)
+  modificable2 Boolean  @default(true)
+  modificable3 Boolean  @default(true)
+  modificable4 Boolean  @default(true)
+  imprimible1  Boolean  @default(false)
+  imprimible2  Boolean  @default(false)
+  imprimible3  Boolean  @default(false)
+  imprimible4  Boolean  @default(false)
+  periodActive Int      @default(1)
+  active       Boolean  @default(true)
+  deletedAt    DateTime?
+
+  competency SubjectCompetency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  student    Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([studentId, competencyId])
+  @@index([competencyId])
+  @@index([studentId])
+  @@map("competency_valuations")
+}
 
 // ── Grade Scales ─────────────────────────────────────────
 
@@ -952,4 +1011,24 @@ model Titulo {
   @@index([studentId])
   @@index([carreraId])
   @@map("titulos")
+}
+
+// ── Student Observations ───────────────────────────────────
+
+model StudentObservation {
+  id        String   @id @default(uuid())
+  studentId String   @map("student_id")
+  authorId  String   @map("author_id")
+  type      String
+  content   String   @db.Text
+  active    Boolean  @default(true)
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([authorId])
+  @@map("student_observations")
 }

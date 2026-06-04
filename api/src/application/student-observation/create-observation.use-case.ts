@@ -1,0 +1,50 @@
+import { Injectable } from '@nestjs/common';
+import {
+  ok, err, Result,
+  ValidationError, ForbiddenError,
+  StudentObservation, ObservationType, ObservationTypeValue, Id,
+  StudentObservationRepository,
+  getHighestRoleRank,
+} from '@educandow/domain';
+
+export interface CreateObservationInput {
+  studentId: string;
+  authorId: string;
+  type: string;
+  content: string;
+  authorRoles: string[];
+}
+
+@Injectable()
+export class CreateObservationUseCase {
+  constructor(private readonly repo: StudentObservationRepository) {}
+
+  async execute(input: CreateObservationInput): Promise<Result<StudentObservation, Error>> {
+    const authorRank = getHighestRoleRank(input.authorRoles);
+
+    // Validate type
+    const typeResult = ObservationType.create(input.type);
+    if (typeResult.isErr()) return err(typeResult.unwrapErr());
+    const type = typeResult.unwrap();
+
+    // PSYCHOPEDAGOGICAL requires rank >= 50 (DIRECTOR+)
+    if (type.value === ObservationTypeValue.PSYCHOPEDAGOGICAL && authorRank < 50) {
+      return err(new ForbiddenError('Only DIRECTOR+ roles can create PSYCHOPEDAGOGICAL observations'));
+    }
+
+    // Validate content length
+    if (!input.content || input.content.length < 1 || input.content.length > 2000) {
+      return err(new ValidationError('Content must be between 1 and 2000 characters'));
+    }
+
+    const observation = StudentObservation.create({
+      studentId: Id.reconstruct(input.studentId),
+      authorId: Id.reconstruct(input.authorId),
+      type,
+      content: input.content,
+    });
+
+    await this.repo.save(observation);
+    return ok(observation);
+  }
+}

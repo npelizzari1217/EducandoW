@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyController } from './pedagogy.controller';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
+import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaSubjectRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject.repository';
 import { PrismaCourseSectionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-course-section.repository';
 import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
@@ -12,9 +13,11 @@ import { PrismaNotaTrimestralRepo } from '../../infrastructure/persistence/prism
 import { PrismaAttendanceRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance.repository';
 import { PrismaAcademicCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-academic-cycle.repository';
 import { PrismaStudyPlanRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-study-plan.repository';
+import { PrismaSubjectCompetencyRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-competency.repository';
+import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
 
-const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignmentRepo, PrismaEvaluacionRepo, PrismaNotaRepo, PrismaPeriodoEvaluacionRepo, PrismaNotaTrimestralRepo, PrismaAttendanceRepo, PrismaAcademicCycleRepository, PrismaStudyPlanRepository];
-const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'EvaluacionRepository', 'NotaRepository', 'PeriodoEvaluacionRepository', 'NotaTrimestralRepository', 'AttendanceRepository', 'AcademicCycleRepository', 'StudyPlanRepository'];
+const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignmentRepo, PrismaEvaluacionRepo, PrismaNotaRepo, PrismaPeriodoEvaluacionRepo, PrismaNotaTrimestralRepo, PrismaAttendanceRepo, PrismaAcademicCycleRepository, PrismaStudyPlanRepository, PrismaSubjectCompetencyRepo, PrismaCompetencyValuationRepo];
+const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'EvaluacionRepository', 'NotaRepository', 'PeriodoEvaluacionRepository', 'NotaTrimestralRepository', 'AttendanceRepository', 'AcademicCycleRepository', 'StudyPlanRepository', 'SubjectCompetencyRepository', 'CompetencyValuationRepository'];
 
 @Module({
   imports: [AuthModule],
@@ -31,7 +34,7 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: UC.ListCourseSectionsUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.ListCourseSectionsUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.DeleteCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.DeleteCourseSectionUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.UpdateCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.UpdateCourseSectionUC(r), inject: ['CourseSectionRepository'] },
-    { provide: UC.CreateSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.CreateSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
+    { provide: UC.CreateSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo, auto: CUC.AutoCreateCompetencyValuationsUC) => new UC.CreateSubjectAssignmentUC(r, auto), inject: ['SubjectAssignmentRepository', CUC.AutoCreateCompetencyValuationsUC] },
     { provide: UC.ListSubjectAssignmentsUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.ListSubjectAssignmentsUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.DeleteSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.DeleteSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.CreateEvaluacionUC, useFactory: (r: PrismaEvaluacionRepo) => new UC.CreateEvaluacionUC(r), inject: ['EvaluacionRepository'] },
@@ -66,6 +69,16 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: UC.RemoveSubjectFromPlanCourseUC, useFactory: (r: PrismaStudyPlanRepository) => new UC.RemoveSubjectFromPlanCourseUC(r), inject: ['StudyPlanRepository'] },
     { provide: UC.GetPlanCourseDetailUC, useFactory: (r: PrismaStudyPlanRepository) => new UC.GetPlanCourseDetailUC(r), inject: ['StudyPlanRepository'] },
     { provide: UC.ListPlanCoursesUC, useFactory: (r: PrismaStudyPlanRepository) => new UC.ListPlanCoursesUC(r), inject: ['StudyPlanRepository'] },
+    // Competency use cases
+    { provide: CUC.CreateSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.CreateSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.ListSubjectCompetenciesUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.ListSubjectCompetenciesUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.GetSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.GetSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.UpdateSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.UpdateSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.DeleteSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.DeleteSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.ListCompetencyValuationsUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.ListCompetencyValuationsUC(r), inject: ['CompetencyValuationRepository'] },
+    { provide: CUC.GetCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.GetCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
+    { provide: CUC.UpdateCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.UpdateCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
+    { provide: CUC.AutoCreateCompetencyValuationsUC, useFactory: (comp: PrismaSubjectCompetencyRepo, val: PrismaCompetencyValuationRepo) => new CUC.AutoCreateCompetencyValuationsUC(comp, val), inject: ['SubjectCompetencyRepository', 'CompetencyValuationRepository'] },
   ],
 })
 export class PedagogyModule {}

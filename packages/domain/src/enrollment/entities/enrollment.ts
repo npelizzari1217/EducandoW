@@ -13,6 +13,8 @@ export interface EnrollmentProps {
   division?: string;
   status: EnrollmentStatus;
   enrolledAt: Date;
+  printable?: boolean;
+  promoted?: boolean;
   active?: boolean;
   deletedAt?: Date;
 }
@@ -82,8 +84,24 @@ export class Enrollment {
     return this.props.deletedAt;
   }
 
+  get printable(): boolean {
+    return this.props.printable ?? true;
+  }
+
+  get promoted(): boolean {
+    return this.props.promoted ?? false;
+  }
+
   changeStatus(status: EnrollmentStatus): void {
     this.props.status = status;
+  }
+
+  setPrintable(value: boolean): void {
+    this.props.printable = value;
+  }
+
+  setPromoted(value: boolean): void {
+    this.props.promoted = value;
   }
 
   softDelete(): void {

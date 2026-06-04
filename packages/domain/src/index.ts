@@ -13,6 +13,8 @@ export { Id } from './shared/value-objects/id';
 export { Email } from './shared/value-objects/email';
 export { EducationalLevel, EducationalLevelCode } from './shared/value-objects/educational-level';
 export { EducationalModality, EducationalModalityCode } from './shared/value-objects/educational-modality';
+export { GradingPeriod } from './shared/value-objects/grading-period';
+export type { PeriodType } from './shared/value-objects/grading-period';
 
 // Institution
 export { Institution } from './institution/entities';
@@ -39,18 +41,24 @@ export type { EnrollmentRepository } from './enrollment/repositories/enrollment-
 export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
 export type { CourseCycleProps, CreateCourseCycleInput, UpdateCourseCycleInput } from './course-cycle';
 export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult } from './course-cycle';
+export { GradingPeriodCalculator } from './course-cycle';
+export type { DateRange } from './course-cycle';
 export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFoundError, BimonthPeriodInvalidError, AcademicCycleClosedError } from './course-cycle';
 
+// Student Observation
+export { StudentObservation, ObservationType, ObservationTypeValue } from './student-observation';
+export type { StudentObservationProps, StudentObservationRepository } from './student-observation';
+
 // Pedagogy
-export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue } from './pedagogy';
-export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps } from './pedagogy';
+export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue, SubjectCompetency, CompetencyValuation } from './pedagogy';
+export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps, SubjectCompetencyProps, CompetencyValuationProps } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';
 export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository, SubjectCompetencyRepository, CompetencyValuationRepository } from './pedagogy';
 export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';
 
@@ -69,11 +77,11 @@ export type { GradoNumeroValue, DivisionValue, TrimestreValue } from './primario
 export type { GradoRepository, CalificacionPrimarioRepository } from './primario';
 
 // Secundario
-export { Curso, MesaExamen, RegimenAcademico } from './secundario';
-export type { CursoProps, CreateCursoInput, MesaExamenProps, MesaExamenInscripcionProps, CreateMesaExamenInput, RegimenAcademicoProps, CreateRegimenAcademicoInput } from './secundario';
+export { Curso, MesaExamen, RegimenAcademico, CalificacionSecundario } from './secundario';
+export type { CursoProps, CreateCursoInput, MesaExamenProps, MesaExamenInscripcionProps, CreateMesaExamenInput, RegimenAcademicoProps, CreateRegimenAcademicoInput, CalificacionSecundarioProps, CreateCalificacionSecundarioInput } from './secundario';
 export { Orientacion, TurnoExamen, CondicionAlumno } from './secundario';
 export type { OrientacionCode, TurnoExamenCode, CondicionAlumnoCode } from './secundario';
-export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository } from './secundario';
+export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository, CalificacionSecundarioRepository } from './secundario';
 
 // Terciario
 export { Carrera, InscripcionMateria, ActaExamen, Titulo } from './terciario';

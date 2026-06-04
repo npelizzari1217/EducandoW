@@ -4,6 +4,8 @@ import { CourseName } from '../value-objects/course-name';
 import { PassingGrade } from '../value-objects/passing-grade';
 import { BimonthPeriod } from '../value-objects/bimonth-period';
 import { CourseCycleClosedError } from '../errors';
+import { GradingPeriodCalculator } from '../services/grading-period-calculator';
+import type { DateRange } from '../services/grading-period-calculator';
 
 export interface CourseCycleProps {
   id: Id;
@@ -20,6 +22,7 @@ export interface CourseCycleProps {
   secondBimonth: BimonthPeriod | null;
   thirdBimonth: BimonthPeriod | null;
   fourthBimonth: BimonthPeriod | null;
+  activeGradingPeriod: number | null;
   createdAt: Date;
   lastModifiedAt: Date;
   deletedAt?: Date | null;
@@ -70,6 +73,7 @@ export class CourseCycle {
       secondBimonth: input.secondBimonth ?? null,
       thirdBimonth: input.thirdBimonth ?? null,
       fourthBimonth: input.fourthBimonth ?? null,
+      activeGradingPeriod: null,
       createdAt: now,
       lastModifiedAt: now,
     });
@@ -135,6 +139,10 @@ export class CourseCycle {
     return this.props.fourthBimonth;
   }
 
+  get activeGradingPeriod(): number | null {
+    return this.props.activeGradingPeriod;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -194,6 +202,26 @@ export class CourseCycle {
     if (input.fourthBimonth !== undefined) {
       this.props.fourthBimonth = input.fourthBimonth;
     }
+    this.props.lastModifiedAt = new Date();
+  }
+
+  /**
+   * Resolves the current grading period.
+   * Returns the explicit override if set, otherwise delegates to the calculator
+   * using the provided effective date ranges.
+   *
+   * @param effectiveRanges Date ranges built from effective bimester dates
+   *                        (own dates first, AcademicCycle dates as fallback).
+   */
+  getCurrentPeriod(effectiveRanges: DateRange[]): number | null {
+    if (this.props.activeGradingPeriod !== null) {
+      return this.props.activeGradingPeriod;
+    }
+    return GradingPeriodCalculator.currentPeriod(effectiveRanges);
+  }
+
+  setActiveGradingPeriod(value: number | null): void {
+    this.props.activeGradingPeriod = value;
     this.props.lastModifiedAt = new Date();
   }
 }

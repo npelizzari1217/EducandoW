@@ -5,7 +5,9 @@ import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import * as DTO from './dto/pedagogy.dto';
+import * as CDTO from './dto/competency.dto';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
+import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import type { AcademicCycle } from '@educandow/domain';
 
 @Controller()
@@ -32,6 +34,11 @@ export class PedagogyController {
     private addCourseUC: UC.AddCourseToPlanUC, private removeCourseUC: UC.RemoveCourseFromPlanUC,
     private addSubjectUC: UC.AddSubjectToPlanCourseUC, private removeSubjectUC: UC.RemoveSubjectFromPlanCourseUC,
     private getPlanCourseUC: UC.GetPlanCourseDetailUC, private listPlanCoursesUC: UC.ListPlanCoursesUC,
+    private createCompUC: CUC.CreateSubjectCompetencyUC, private listCompUC: CUC.ListSubjectCompetenciesUC,
+    private getCompUC: CUC.GetSubjectCompetencyUC, private updateCompUC: CUC.UpdateSubjectCompetencyUC,
+    private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
+    private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
+    private updateValUC: CUC.UpdateCompetencyValuationUC,
   ) {}
 
   // ── Academic Cycles ────────────────────────────────────
@@ -305,4 +312,86 @@ export class PedagogyController {
 
   @Delete('study-plan-courses/:id/subjects/:subjectId') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'UPDATE' }) @HttpCode(HttpStatus.NO_CONTENT)
   async removeSubjectFromPlanCourse(@Param('id') id: string, @Param('subjectId') subjectId: string) { await this.removeSubjectUC.execute(id, subjectId); }
+
+  // ── Subject Competencies ────────────────────────────
+
+  @Post('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async createCompetency(@Body(new ZodValidationPipe(CDTO.CreateSubjectCompetencySchema)) b: CDTO.CreateSubjectCompetencyDTO) {
+    const r = await this.createCompUC.execute(b);
+    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.CONFLICT);
+    const c = r.unwrap();
+    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+  }
+
+  @Get('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  async listCompetencies(@Query('subjectId') subjectId: string, @Query('active') active?: string) {
+    if (!subjectId) throw new HttpException('subjectId es requerido', HttpStatus.UNPROCESSABLE_ENTITY);
+    const activeFilter = active === 'true' ? true : active === 'false' ? false : undefined;
+    const competencies = await this.listCompUC.execute(subjectId, activeFilter);
+    return { data: competencies.map((c) => ({ uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active })) };
+  }
+
+  @Get('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  async getCompetency(@Param('uuid') uuid: string) {
+    const c = await this.getCompUC.execute(uuid);
+    if (!c) throw new HttpException('Competencia no encontrada', HttpStatus.NOT_FOUND);
+    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+  }
+
+  @Patch('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async updateCompetency(@Param('uuid') uuid: string, @Body(new ZodValidationPipe(CDTO.UpdateSubjectCompetencySchema)) b: CDTO.UpdateSubjectCompetencyDTO) {
+    const r = await this.updateCompUC.execute(uuid, b);
+    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.UNPROCESSABLE_ENTITY);
+    const c = r.unwrap();
+    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+  }
+
+  @Delete('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' }) @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteCompetency(@Param('uuid') uuid: string) {
+    await this.deleteCompUC.execute(uuid);
+  }
+
+  // ── Competency Valuations ───────────────────────────
+
+  @Get('competency-valuations') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  async listValuations(@Query('studentId') studentId: string, @Query('subjectId') subjectId: string) {
+    if (!studentId || !subjectId) throw new HttpException('studentId y subjectId son requeridos', HttpStatus.UNPROCESSABLE_ENTITY);
+    const vals = await this.listValUC.execute(studentId, subjectId);
+    return { data: vals.map((v) => this.toValuationResponse(v)) };
+  }
+
+  @Get('competency-valuations/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  async getValuation(@Param('uuid') uuid: string) {
+    const r = await this.getValUC.execute(uuid);
+    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.NOT_FOUND);
+    return { data: this.toValuationResponse(r.unwrap()) };
+  }
+
+  @Patch('competency-valuations/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async updateValuation(@Param('uuid') uuid: string, @Body(new ZodValidationPipe(CDTO.UpdateCompetencyValuationSchema)) b: CDTO.UpdateCompetencyValuationDTO) {
+    const r = await this.updateValUC.execute(uuid, b as Record<string, unknown>);
+    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.UNPROCESSABLE_ENTITY);
+    return { data: this.toValuationResponse(r.unwrap()) };
+  }
+
+  private toValuationResponse(v: import('@educandow/domain').CompetencyValuation) {
+    return {
+      uuid: v.id.get(),
+      competencyId: v.competencyId,
+      studentId: v.studentId,
+      valuation1: v.valuation1,
+      valuation2: v.valuation2,
+      valuation3: v.valuation3,
+      valuation4: v.valuation4,
+      modificable1: v.modificable1,
+      modificable2: v.modificable2,
+      modificable3: v.modificable3,
+      modificable4: v.modificable4,
+      imprimible1: v.imprimible1,
+      imprimible2: v.imprimible2,
+      imprimible3: v.imprimible3,
+      imprimible4: v.imprimible4,
+      periodActive: v.periodActive,
+    };
+  }
 }

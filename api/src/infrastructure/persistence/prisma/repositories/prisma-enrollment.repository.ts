@@ -7,6 +7,7 @@ import { TenantContext } from '../../../auth/tenant.context';
 interface EnrollmentRow {
   id: string;
   studentId: string;
+  cycleId?: string | null;
   level: number;
   academicYear: string;
   grade?: string | null;
@@ -14,6 +15,8 @@ interface EnrollmentRow {
   status: string;
   enrolledAt: Date;
   modality?: number;
+  printable?: boolean;
+  promoted?: boolean;
   active?: boolean;
   deletedAt?: Date | null;
 }
@@ -53,6 +56,14 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
     return record ? this.toDomain(record) : null;
   }
 
+  async findByCycleId(cycleId: string): Promise<Enrollment[]> {
+    const records = await this.client.enrollment.findMany({
+      where: { cycleId },
+      orderBy: { academicYear: 'desc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
   async save(enrollment: Enrollment): Promise<void> {
     await this.client.enrollment.upsert({
       where: { id: enrollment.id.get() },
@@ -66,6 +77,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         division: enrollment.division,
         status: enrollment.status.value,
         enrolledAt: enrollment.enrolledAt,
+        printable: enrollment.printable,
+        promoted: enrollment.promoted,
       },
       update: {
         studentId: enrollment.studentId.get(),
@@ -75,6 +88,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         grade: enrollment.grade,
         division: enrollment.division,
         status: enrollment.status.value,
+        printable: enrollment.printable,
+        promoted: enrollment.promoted,
       },
     });
   }
@@ -90,6 +105,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       id: Id.reconstruct(record.id),
       studentId: Id.reconstruct(record.studentId),
       institutionId: Id.reconstruct(institutionId || '00000000-0000-0000-0000-000000000000'),
+      cycleId: record.cycleId ? Id.reconstruct(record.cycleId) : undefined,
       level: Level.fromParts(
         record.level as EducationalLevelCode,
         modality as EducationalModalityCode,
@@ -99,6 +115,8 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       division: record.division ?? undefined,
       status: EnrollmentStatus.reconstruct(record.status as EnrollmentStatusValue),
       enrolledAt: record.enrolledAt,
+      printable: record.printable ?? true,
+      promoted: record.promoted ?? false,
       active: record.active ?? true,
       deletedAt: record.deletedAt ?? undefined,
     });

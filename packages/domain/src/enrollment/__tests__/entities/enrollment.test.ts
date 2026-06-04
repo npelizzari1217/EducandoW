@@ -46,4 +46,54 @@ describe('Enrollment', () => {
     expect(e.grade).toBe('3°');
     expect(e.status.value).toBe('ACTIVE');
   });
+
+  describe('printable and promoted flags', () => {
+    it('new enrollment defaults printable=true, promoted=false', () => {
+      const e = Enrollment.create(validProps);
+      expect(e.printable).toBe(true);
+      expect(e.promoted).toBe(false);
+    });
+
+    it('setPrintable changes the flag', () => {
+      const e = Enrollment.create(validProps);
+      expect(e.printable).toBe(true);
+      e.setPrintable(false);
+      expect(e.printable).toBe(false);
+      e.setPrintable(true);
+      expect(e.printable).toBe(true);
+    });
+
+    it('setPromoted changes the flag', () => {
+      const e = Enrollment.create(validProps);
+      expect(e.promoted).toBe(false);
+      e.setPromoted(true);
+      expect(e.promoted).toBe(true);
+    });
+
+    it('reconstruct preserves printable and promoted', () => {
+      const now = new Date();
+      const e = Enrollment.reconstruct({
+        ...validProps,
+        id: Id.create(),
+        status: EnrollmentStatus.reconstruct('ACTIVE'),
+        enrolledAt: now,
+        printable: false,
+        promoted: true,
+      });
+      expect(e.printable).toBe(false);
+      expect(e.promoted).toBe(true);
+    });
+
+    it('reconstruct defaults printable=true, promoted=false when not provided', () => {
+      const now = new Date();
+      const e = Enrollment.reconstruct({
+        ...validProps,
+        id: Id.create(),
+        status: EnrollmentStatus.reconstruct('ACTIVE'),
+        enrolledAt: now,
+      });
+      expect(e.printable).toBe(true);
+      expect(e.promoted).toBe(false);
+    });
+  });
 });

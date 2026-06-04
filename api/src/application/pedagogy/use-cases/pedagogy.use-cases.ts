@@ -5,6 +5,7 @@ import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEva
 import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
 import type { UpdateAcademicCycleInput } from '@educandow/domain';
+import type { AutoCreateCompetencyValuationsUC } from './competency.use-cases';
 
 const VALID_PEDAGOGICAL_LEVELS: EducationalLevelCode[] = [
   EducationalLevelCode.INICIAL,
@@ -271,7 +272,24 @@ export class UpdateCourseSectionUC {
 
 // ── SubjectAssignment ────────────────────────────────
 @Injectable()
-export class CreateSubjectAssignmentUC { constructor(private r: SubjectAssignmentRepository) {} async execute(input: { subjectId: string; teacherId: string; courseSectionId: string }) { const a = SubjectAssignment.create(input); await this.r.save(a); return ok(a); } }
+export class CreateSubjectAssignmentUC {
+  constructor(
+    private r: SubjectAssignmentRepository,
+    private autoCreateUC?: AutoCreateCompetencyValuationsUC,
+  ) {}
+
+  async execute(input: { subjectId: string; teacherId: string; courseSectionId: string }) {
+    const a = SubjectAssignment.create(input);
+    await this.r.save(a);
+
+    // Auto-create competency valuations if autoCreateUC is injected
+    if (this.autoCreateUC) {
+      await this.autoCreateUC.executeForSubjectAssignment(input.subjectId, input.courseSectionId);
+    }
+
+    return ok(a);
+  }
+}
 @Injectable()
 export class ListSubjectAssignmentsUC { constructor(private r: SubjectAssignmentRepository) {} async executeByCourse(courseSectionId: string) { return this.r.findByCourseSection(courseSectionId); } async executeByTeacher(teacherId: string) { return this.r.findByTeacher(teacherId); } }
 @Injectable()
