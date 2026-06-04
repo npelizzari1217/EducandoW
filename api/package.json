@@ -20,6 +20,7 @@
     "prisma:migrate:deploy:tenant": "prisma migrate deploy --schema=prisma_tenant/schema.prisma",
     "prisma:migrate": "pnpm prisma:migrate:master",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "bootstrap": "ts-node scripts/bootstrap.ts",
     "tenant:create": "ts-node scripts/create-tenant-db.ts",
     "diagnose:auth": "ts-node scripts/diagnose-auth.ts",
     "typecheck": "tsc --noEmit",
