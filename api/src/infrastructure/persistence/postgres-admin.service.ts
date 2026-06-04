@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Pool } from 'pg';
 import { exec } from 'child_process';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * PostgresAdminService — Tenant database lifecycle management.
@@ -57,9 +59,16 @@ export class PostgresAdminService {
   async runTenantMigrations(dbName: string): Promise<void> {
     const tenantUrl = this.masterDbUrl.replace(/\/[^/]+$/, `/${dbName}`);
 
+    // Buscar schema.prisma: primero en dist/ (producción), luego en raíz (desarrollo)
+    const candidates = [
+      path.resolve(__dirname, '..', '..', '..', 'prisma_tenant', 'schema.prisma'),
+      path.resolve(process.cwd(), 'prisma_tenant', 'schema.prisma'),
+    ];
+    const schemaPath = candidates.find(p => fs.existsSync(p)) ?? candidates[0];
+
     return new Promise((resolve, reject) => {
       exec(
-        'npx prisma migrate deploy --schema=prisma_tenant/schema.prisma',
+        `npx prisma migrate deploy --schema="${schemaPath}"`,
         {
           env: {
             ...process.env,
