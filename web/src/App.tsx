@@ -13,6 +13,7 @@ import StudentsPage from './pages/dashboard/students';
 import TeachersPage from './pages/dashboard/teachers';
 import EnrollmentsPage from './pages/dashboard/enrollments';
 import { AttendancePage } from './pages/dashboard/pedagogy-pages';
+import { CompetenciesPage } from './pages/dashboard/competencies';
 import {
   EvaluacionesPage,
   NotasPage,
@@ -35,6 +36,7 @@ import CarrerasPage from './niveles/terciario/carreras/page';
 import InscripcionesPage from './niveles/terciario/inscripciones/page';
 import CourseCyclesPage from './pages/dashboard/course-cycles';
 import AcademicCyclesPage from './pages/dashboard/academic-cycles';
+import ObservationsPage from './pages/dashboard/observations';
 
 function App() {
   return (
@@ -55,6 +57,7 @@ function App() {
               <Route path="/evaluaciones/notas" element={<NotasPage />} />
               <Route path="/periodos" element={<PeriodosPage />} />
               <Route path="/notas-trimestrales" element={<NotasTrimestralesPage />} />
+              <Route path="/competencias" element={<CompetenciesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/modules" element={<ProtectedRoute moduleCode="MODULES" action="READ"><ModulesPage /></ProtectedRoute>} />
               <Route path="/profiles" element={<ProtectedRoute moduleCode="USERS" action="READ"><ProfilesPage /></ProtectedRoute>} />
@@ -76,6 +79,7 @@ function App() {
               <Route path="/terciario/inscripciones" element={<InscripcionesPage />} />
               <Route path="/course-cycles" element={<CourseCyclesPage />} />
               <Route path="/academic-cycles" element={<ProtectedRoute moduleCode="COURSES" action="READ"><AcademicCyclesPage /></ProtectedRoute>} />
+              <Route path="/observations" element={<ObservationsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

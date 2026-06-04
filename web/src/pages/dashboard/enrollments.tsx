@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate } from '../../hooks/use-api';
@@ -8,6 +8,7 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
+import { downloadBoletin } from '../../hooks/useBoletin';
 
 interface Institution { id: string; name: string; }
 
@@ -20,11 +21,28 @@ export default function EnrollmentsPage() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [filters, setFilters] = useState({ studentId: '', institutionId: userInstitutionId });
   const params: Record<string, string> | undefined = filters.studentId ? { studentId: filters.studentId } : filters.institutionId ? { institutionId: filters.institutionId } : undefined;
-  const { data, loading, reload } = useApiList<Record<string, string>>('/enrollments', params);
+  const { data, loading, reload } = useApiList<Record<string, unknown>>('/enrollments', params);
   const { deleting, del } = useApiDelete('/enrollments');
   const { creating, createError, create } = useApiCreate('/enrollments');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ studentId: '', institutionId: filters.institutionId, level: 'INICIAL', academicYear: String(new Date().getFullYear()), grade: '', division: '' });
+  const [toggling, setToggling] = useState(false);
+  const [bulkCycleId, setBulkCycleId] = useState('');
+
+  const handleToggleFlag = useCallback(async (enrollmentId: string, flag: 'printable' | 'promoted') => {
+    setToggling(true);
+    try { await apiClient.patch(`/enrollments/${enrollmentId}/flags`, { flag }); reload(); }
+    catch { /* silently fail — reload will show server state */ }
+    finally { setToggling(false); }
+  }, [reload]);
+
+  const handleBulkToggle = useCallback(async (flag: 'printable' | 'promoted', value: boolean) => {
+    if (!bulkCycleId) return;
+    setToggling(true);
+    try { await apiClient.patch(`/enrollments/course/${bulkCycleId}/flags`, { flag, value }); reload(); }
+    catch { /* silently fail */ }
+    finally { setToggling(false); }
+  }, [bulkCycleId, reload]);
 
   useEffect(() => {
     apiClient.get('/institutions').then(r => {
@@ -125,11 +143,56 @@ export default function EnrollmentsPage() {
               return institutions.find(i => i.id === iid)?.name || iid;
             }},
             { key: 'status', header: 'Estado' },
-            { key: 'actions', header: '', render: (e) => <Button variant="danger-soft" size="sm" onClick={() => del(e.id).then(() => reload())} loading={deleting}>Eliminar</Button> }
+            { key: 'printable', header: 'Imprime', render: (e: Record<string, unknown>) => (
+              <span
+                onClick={(ev) => { ev.stopPropagation(); handleToggleFlag(e.id as string, 'printable'); }}
+                style={{ cursor: 'pointer', userSelect: 'none', fontSize: '1.25rem', opacity: toggling ? 0.5 : 1 }}
+                title="Click para alternar"
+              >
+                {e.printable ? '✓' : '✕'}
+              </span>
+            )},
+            { key: 'promoted', header: 'Promueve', render: (e: Record<string, unknown>) => (
+              <span
+                onClick={(ev) => { ev.stopPropagation(); handleToggleFlag(e.id as string, 'promoted'); }}
+                style={{ cursor: 'pointer', userSelect: 'none', fontSize: '1.25rem', opacity: toggling ? 0.5 : 1 }}
+                title="Click para alternar"
+              >
+                {e.promoted ? '✓' : '✕'}
+              </span>
+            )},
+            { key: 'actions', header: '', render: (e) => (
+              <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                <Button
+                  variant="action"
+                  size="sm"
+                  disabled={!e.printable}
+                  onClick={() => downloadBoletin(e.id as string)}
+                  title={e.printable ? 'Descargar boletín en PDF' : 'Esta inscripción no es imprimible'}
+                >
+                  📄 Boletín
+                </Button>
+                <Button variant="danger-soft" size="sm" onClick={() => del(e.id as string).then(() => reload())} loading={deleting}>Eliminar</Button>
+              </div>
+            ) }
           ]}
           data={data}
           emptyMessage={loading ? 'Cargando...' : 'No hay inscripciones'}
         />
+      </Card>
+
+      <Card title="Acciones masivas" className="mt-md">
+        <div className="flex gap-md items-center" style={{ flexWrap: 'wrap' }}>
+          <Input label="ID del ciclo" value={bulkCycleId} onChange={e => setBulkCycleId(e.target.value)} placeholder="Ej: abc-123" />
+          <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'flex-end', paddingTop: '1.25rem' }}>
+            <Button variant="success-soft" size="sm" onClick={() => handleBulkToggle('printable', true)} loading={toggling}>Marcar todos imprimible</Button>
+            <Button variant="danger-soft" size="sm" onClick={() => handleBulkToggle('printable', false)} loading={toggling}>Desmarcar todos imprimible</Button>
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'flex-end', paddingTop: '1.25rem' }}>
+            <Button variant="success-soft" size="sm" onClick={() => handleBulkToggle('promoted', true)} loading={toggling}>Marcar todos promueve</Button>
+            <Button variant="danger-soft" size="sm" onClick={() => handleBulkToggle('promoted', false)} loading={toggling}>Desmarcar todos promueve</Button>
+          </div>
+        </div>
       </Card>
     </div>
   );

@@ -10,6 +10,7 @@ import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
 import StudentPrintView from '../../components/reports/StudentPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
+import { downloadBoletin } from '../../hooks/useBoletin';
 
 interface Institution { id: string; name: string; }
 
@@ -122,6 +123,29 @@ export default function StudentsPage() {
   const [assigningGuardian, setAssigningGuardian] = useState(false);
   const [removeGuardianId, setRemoveGuardianId] = useState<string | null>(null);
   const [removingGuardian, setRemovingGuardian] = useState(false);
+  const [boletinStudentId, setBoletinStudentId] = useState<string | null>(null);
+  const [boletinEnrollments, setBoletinEnrollments] = useState<{ id: string; level: string; academicYear: string; grade?: string; division?: string; printable: boolean }[]>([]);
+  const [boletinLoading, setBoletinLoading] = useState(false);
+
+  const handleBoletinClick = async (studentId: string) => {
+    setBoletinStudentId(studentId);
+    setBoletinLoading(true);
+    try {
+      const res = await apiClient.get('/enrollments', { params: { studentId } });
+      const enrollments = (res.data?.data ?? []).filter((e: { printable: boolean }) => e.printable);
+      setBoletinEnrollments(enrollments);
+      if (enrollments.length === 1) {
+        await downloadBoletin(enrollments[0].id);
+        setBoletinStudentId(null);
+        setBoletinEnrollments([]);
+      }
+    } catch {
+      setBoletinStudentId(null);
+      setBoletinEnrollments([]);
+    } finally {
+      setBoletinLoading(false);
+    }
+  };
 
   const loadGuardians = async (studentId: string) => {
     setGuardiansLoading(true); setGuardianError('');
@@ -389,7 +413,46 @@ export default function StudentsPage() {
 
       <Card className="mt-lg">
         <Table
-          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => <div style={{ display: 'flex', gap: 'var(--space-xs)' }}><Button variant="action" size="sm" onClick={() => startEdit(s as { id: string; firstName: string; lastName: string; dni: string })}>Editar</Button><Button variant="action" size="sm" onClick={() => handleSelectDetail(s.id)} style={{ background: 'var(--color-secondary-soft-bg, #e8f4fd)', color: 'var(--color-secondary-soft-text, #1d4ed8)' }}>Tutores</Button><Button variant="danger-soft" size="sm" onClick={() => del(s.id).then(() => adminReload())} loading={deleting}>Eliminar</Button></div> }]}
+          columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => {
+            const sid = s.id as string;
+            const isBoletinDropdown = boletinStudentId === sid && boletinEnrollments.length > 1;
+            return (
+              <div>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                  <Button variant="action" size="sm" onClick={() => startEdit(s as { id: string; firstName: string; lastName: string; dni: string })}>Editar</Button>
+                  <Button variant="action" size="sm" onClick={() => handleSelectDetail(sid)} style={{ background: 'var(--color-secondary-soft-bg, #e8f4fd)', color: 'var(--color-secondary-soft-text, #1d4ed8)' }}>Tutores</Button>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    onClick={() => handleBoletinClick(sid)}
+                    loading={boletinLoading && boletinStudentId === sid}
+                    disabled={boletinLoading && boletinStudentId !== sid}
+                    title="Descargar boletín en PDF"
+                  >
+                    📄 Boletín
+                  </Button>
+                  <Button variant="danger-soft" size="sm" onClick={() => del(sid).then(() => adminReload())} loading={deleting}>Eliminar</Button>
+                </div>
+                {isBoletinDropdown && (
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) downloadBoletin(e.target.value);
+                      setBoletinStudentId(null);
+                      setBoletinEnrollments([]);
+                    }}
+                    style={{ marginTop: 'var(--space-xs)', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-xs)', width: '100%' }}
+                  >
+                    <option value="">Elegir inscripción...</option>
+                    {boletinEnrollments.map((enr) => (
+                      <option key={enr.id} value={enr.id}>
+                        {enr.level} {enr.academicYear} — {enr.grade || 'S/G'} {enr.division || ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            );
+          } }]}
           data={adminData}
           emptyMessage={adminLoading ? 'Cargando...' : 'No hay estudiantes'}
         />

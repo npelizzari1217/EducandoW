@@ -45,6 +45,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Cursos por Ciclo', path: '/course-cycles', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
       { label: 'Ciclos Lectivos', path: '/academic-cycles', moduleCode: 'COURSES' },
       { label: 'Usuarios', path: '/users', moduleCode: 'USERS' },
+      { label: 'Observaciones', path: '/observations', moduleCode: 'STUDENTS' },
     ],
   },
   {
@@ -53,6 +54,7 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       // Generic items — visible when any level exists
+      { label: 'Competencias', path: '/competencias', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
     ],

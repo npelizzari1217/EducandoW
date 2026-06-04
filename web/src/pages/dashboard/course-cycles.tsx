@@ -9,6 +9,7 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
 import apiClient from '../../api/client';
+import { downloadBoletinBatch } from '../../hooks/useBoletin';
 
 interface Institution { id: string; name: string; }
 
@@ -40,6 +41,23 @@ export default function CourseCyclesPage() {
   const [editing, setEditing] = useState<CourseCycle | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [boletinBatchLoading, setBoletinBatchLoading] = useState(false);
+
+  const handleBoletinBatch = async () => {
+    if (!filters.cycleId) return;
+    setBoletinBatchLoading(true);
+    try {
+      await downloadBoletinBatch(filters.cycleId);
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
+      setToast({
+        message: err?.response?.data?.error?.message ?? 'Error al descargar boletines',
+        type: 'error',
+      });
+    } finally {
+      setBoletinBatchLoading(false);
+    }
+  };
 
   const queryParams: Record<string, string> = {};
   if (institutionId) queryParams.institutionId = institutionId;
@@ -204,6 +222,14 @@ export default function CourseCyclesPage() {
               data-testid="generate-btn"
             >
               {generating ? 'Generando...' : 'Generar Cursos'}
+            </Button>
+            <Button
+              variant="action"
+              onClick={handleBoletinBatch}
+              disabled={!filters.cycleId || boletinBatchLoading}
+              loading={boletinBatchLoading}
+            >
+              {boletinBatchLoading ? 'Descargando...' : 'Boletines del Curso'}
             </Button>
           </div>
         </div>
