@@ -1,8 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { Pool } from 'pg';
 
 // ── Hoist the process.exit mock ───────────────────────────
 const { mockExit } = vi.hoisted(() => ({
   mockExit: vi.fn(),
+}));
+
+// ── Hoist fs mocks ────────────────────────────────────────
+const { mockReadFileSync, mockExistsSync } = vi.hoisted(() => ({
+  mockReadFileSync: vi.fn(),
+  mockExistsSync: vi.fn(),
+}));
+
+vi.mock('fs', () => ({
+  readFileSync: mockReadFileSync,
+  existsSync: mockExistsSync,
 }));
 
 // Mock process.exit to prevent test runner from actually exiting
@@ -16,6 +28,7 @@ import {
   extractDatabaseName,
   buildMaintenanceUrl,
   validateEnv,
+  applySyncSql,
 } from '../../scripts/bootstrap';
 
 const VALID_32_BYTE_KEY = 'abcdefghijklmnopqrstuvwxyz123456'; // 32 ASCII bytes
@@ -153,5 +166,47 @@ describe('validateEnv', () => {
     setEnv('ENCRYPTION_KEY', 'x'.repeat(32));
     validateEnv();
     expect(mockExit).not.toHaveBeenCalled();
+  });
+});
+
+describe('applySyncSql', () => {
+  let mockPool: Pool;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPool = {
+      query: vi.fn().mockResolvedValue(undefined),
+      end: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Pool;
+  });
+
+  it('reads the SQL file and executes it via pool.query', async () => {
+    const sqlContent = 'INSERT INTO foo VALUES (1);';
+    mockReadFileSync.mockReturnValue(sqlContent);
+
+    await applySyncSql(mockPool, '/path/to/sync.sql');
+
+    expect(mockReadFileSync).toHaveBeenCalledWith('/path/to/sync.sql', 'utf8');
+    expect(mockPool.query).toHaveBeenCalledWith(sqlContent);
+  });
+
+  it('executes a different SQL content correctly (triangulation)', async () => {
+    const sqlContent = 'BEGIN;\nINSERT INTO bar VALUES (2);\nCOMMIT;';
+    mockReadFileSync.mockReturnValue(sqlContent);
+
+    await applySyncSql(mockPool, '/other/sync.sql');
+
+    expect(mockReadFileSync).toHaveBeenCalledWith('/other/sync.sql', 'utf8');
+    expect(mockPool.query).toHaveBeenCalledWith(sqlContent);
+  });
+
+  it('throws when the SQL file is not found', async () => {
+    mockReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT: no such file or directory');
+    });
+
+    await expect(
+      applySyncSql(mockPool, '/missing/sync.sql'),
+    ).rejects.toThrow('ENOENT');
   });
 });
