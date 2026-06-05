@@ -95,7 +95,7 @@ Write-Host "  Master database ready." -ForegroundColor Green
 # ── 8b. Migrate all tenant databases ────────────────────────────────────
 Write-Host "[8b/10] Migrating all tenant databases..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR\api
-npx ts-node scripts/migrate-all-tenants.ts
+pnpm migrate-tenants
 Set-Location $PROJECT_DIR
 Write-Host "  Tenant migrations complete." -ForegroundColor Green
 
