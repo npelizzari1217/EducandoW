@@ -45,13 +45,13 @@ if (-not $env:MASTER_DATABASE_URL) {
 # ── 2. Write temp Node.js script ──────────────────────────────────────────
 $tempScript = Join-Path $env:TEMP "educandow-create-root.js"
 
-@"
+@'
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
-const EMAIL = process.env.USER_EMAIL || '$Email';
-const PASSWORD = process.env.USER_PASSWORD || '$Password';
-const ROLE_NAME = process.env.USER_ROLE || '$Role';
+const EMAIL = process.env.USER_EMAIL;
+const PASSWORD = process.env.USER_PASSWORD;
+const ROLE_NAME = process.env.USER_ROLE;
 
 async function main() {
   const prisma = new PrismaClient();
@@ -99,7 +99,7 @@ async function main() {
     update: {},
   });
 
-  await prisma.\$disconnect();
+  await prisma.$disconnect();
 
   console.log('');
   console.log('══ ROOT USER READY ══');
@@ -113,11 +113,14 @@ main().catch(e => {
   console.error('ERROR:', e.message);
   process.exit(1);
 });
-"@ | Out-File -FilePath $tempScript -Encoding UTF8
+'@ | Out-File -FilePath $tempScript -Encoding UTF8
 
 # ── 3. Execute script ─────────────────────────────────────────────────────
 Write-Host "Executing..." -ForegroundColor Yellow
 Set-Location $API_DIR
+$env:USER_EMAIL = $Email
+$env:USER_PASSWORD = $Password
+$env:USER_ROLE = $Role
 node $tempScript
 
 if ($LASTEXITCODE -ne 0) {
