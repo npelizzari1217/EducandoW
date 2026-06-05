@@ -414,8 +414,6 @@ export default function StudyPlansPage() {
     <div className="study-plans-page">
       <style>{`
         /* ── Page layout ── */
-        .study-plans-page { max-width: 960px; margin: 0 auto; }
-
         /* ── Plan Card ── */
         .plan-card {
           background: #fff;

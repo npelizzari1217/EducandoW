@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './sidebar';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { useInstitution } from '../../context/institution-context';
@@ -16,6 +16,14 @@ function isDesktop() {
 export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
   const { config } = useInstitution();
+  const location = useLocation();
+
+  // Close sidebar on route change in mobile/tablet
+  useEffect(() => {
+    if (!isDesktop()) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
 
   // Sync institution theme attribute on :root for opt-in theming
   useEffect(() => {
