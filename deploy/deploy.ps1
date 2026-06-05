@@ -59,7 +59,7 @@ $fixedYaml = $originalYaml -replace '^\s*-\s*"mobile"\s*$', '# - "mobile" (disab
 if ($fixedYaml -ne $originalYaml) {
     Set-Content -Path $workspaceFile -Value $fixedYaml
 }
-pnpm install --frozen-lockfile
+pnpm install
 # Restore original workspace file
 Set-Content -Path $workspaceFile -Value $originalYaml
 Write-Host "  Dependencies installed." -ForegroundColor Green
