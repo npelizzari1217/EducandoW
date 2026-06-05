@@ -78,39 +78,83 @@ if (-not (Test-Path $envFile)) {
         Write-Host "  DB User: $user" -ForegroundColor Gray
         Write-Host "  DB Name: $dbName" -ForegroundColor Gray
 
-        # ── 3. Dropear base maestra ────────────────────────────────────────
-        Write-Host "[3/8] Dropping master database '$dbName'..." -ForegroundColor Yellow
-        $env:PGPASSWORD = $pass
-        $sql = "DROP DATABASE IF EXISTS `"$dbName`" WITH (FORCE);"
-        $dropResult = & psql -h $dbHost -p $port -U $user -d postgres -c $sql 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "  WARNING: psql drop failed: $dropResult" -ForegroundColor Yellow
-            Write-Host "  If psql is not installed, install PostgreSQL client tools or drop manually." -ForegroundColor Yellow
-        } else {
-            Write-Host "  Master database dropped." -ForegroundColor Green
-        }
+        # ── 3. Dropear base maestra y tenants via Node.js ──────────────────
+        Write-Host "[3/8] Dropping ALL databases via Node.js..." -ForegroundColor Yellow
+        
+        $dropScript = Join-Path $apiDir "drop-all-temp.js"
+        @'
+const { Pool } = require('pg');
+const masterUrl = process.env.MASTER_DATABASE_URL;
 
-        # ── 4. Dropear bases tenant ────────────────────────────────────────
-        Write-Host "[4/8] Finding and dropping tenant databases..." -ForegroundColor Yellow
-        $listSql = "SELECT datname FROM pg_database WHERE datname LIKE 'educandow_%' OR datname = 'educandow_test';"
-        $tenantResult = & psql -h $dbHost -p $port -U $user -d postgres -t -c $listSql 2>&1
-        if ($LASTEXITCODE -eq 0 -and $tenantResult) {
-            $tenantDbs = $tenantResult -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
-            foreach ($tdb in $tenantDbs) {
-                Write-Host "  Dropping '$tdb'..." -ForegroundColor Gray
-                $dropSql = "DROP DATABASE IF EXISTS `"$tdb`" WITH (FORCE);"
-                & psql -h $dbHost -p $port -U $user -d postgres -c $dropSql 2>&1 | Out-Null
-            }
-            Write-Host "  Tenant databases dropped." -ForegroundColor Green
-        } else {
-            Write-Host "  No tenant databases found or psql not available." -ForegroundColor Yellow
+if (!masterUrl) { console.error('MASTER_DATABASE_URL not set'); process.exit(1); }
+
+// Parse URL to get maintenance connection (connect to 'postgres' DB)
+const noProto = masterUrl.replace(/^postgresql:\/\//, '');
+const atIdx = noProto.indexOf('@');
+const userPass = noProto.substring(0, atIdx);
+const hostDb  = noProto.substring(atIdx + 1);
+const colonIdx = userPass.indexOf(':');
+const user = userPass.substring(0, colonIdx);
+const pass = userPass.substring(colonIdx + 1);
+const slashIdx = hostDb.indexOf('/');
+const hostPort = hostDb.substring(0, slashIdx);
+const dbName = hostDb.substring(slashIdx + 1);
+const hpColon = hostPort.indexOf(':');
+const host = hpColon >= 0 ? hostPort.substring(0, hpColon) : hostPort;
+const port = hpColon >= 0 ? parseInt(hostPort.substring(hpColon + 1)) : 5432;
+
+async function main() {
+  // Connect to 'postgres' maintenance database
+  const pool = new Pool({
+    host, port, user, password: pass, database: 'postgres'
+  });
+
+  try {
+    // Drop master database
+    try {
+      await pool.query('DROP DATABASE IF EXISTS "' + dbName + '" WITH (FORCE)');
+      console.log('  Master database "' + dbName + '" dropped.');
+    } catch (e) {
+      console.log('  Master database drop skipped: ' + e.message);
+    }
+
+    // Find and drop all tenant databases
+    const res = await pool.query(
+      "SELECT datname FROM pg_database WHERE datname LIKE 'educandow_%' OR datname = 'educandow_test'"
+    );
+    for (const row of res.rows) {
+      try {
+        await pool.query('DROP DATABASE IF EXISTS "' + row.datname + '" WITH (FORCE)');
+        console.log('  Tenant "' + row.datname + '" dropped.');
+      } catch (e) {
+        console.log('  Tenant "' + row.datname + '" drop skipped: ' + e.message);
+      }
+    }
+    if (res.rows.length === 0) {
+      console.log('  No tenant databases found.');
+    }
+  } finally {
+    await pool.end();
+  }
+  console.log('  All databases processed.');
+}
+
+main().catch(e => { console.error(e.message); process.exit(1); });
+'@ | Out-File -FilePath $dropScript -Encoding UTF8
+
+        Set-Location $apiDir
+        node $dropScript
+        $dropOk = ($LASTEXITCODE -eq 0)
+        Remove-Item $dropScript -Force -ErrorAction SilentlyContinue
+        
+        if (-not $dropOk) {
+            Write-Host "  WARNING: DB drop via Node.js failed, continuing anyway..." -ForegroundColor Yellow
         }
-        Remove-Item Env:PGPASSWORD -ErrorAction SilentlyContinue
     }
 }
 
-# ── 5. Limpiar proyecto ──────────────────────────────────────────────────
-Write-Host "[5/8] Cleaning project directory..." -ForegroundColor Yellow
+# ── 4. Limpiar proyecto ──────────────────────────────────────────────────
+Write-Host "[4/8] Cleaning project directory..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR
 
 # Stop any node processes on port 3001
@@ -131,14 +175,14 @@ Remove-Item -Recurse -Force api\uploads -ErrorAction SilentlyContinue
 
 Write-Host "  Project cleaned." -ForegroundColor Green
 
-# ── 6. Git pull (asegurar ultima version) ─────────────────────────────────
-Write-Host "[6/8] Pulling latest code..." -ForegroundColor Yellow
+# ── 5. Git pull (asegurar ultima version) ─────────────────────────────────
+Write-Host "[5/8] Pulling latest code..." -ForegroundColor Yellow
 git fetch origin
 git reset --hard origin/main
 Write-Host "  Code up to date." -ForegroundColor Green
 
-# ── 7. Instalar dependencias ──────────────────────────────────────────────
-Write-Host "[7/8] Installing dependencies (this will take a while)..." -ForegroundColor Yellow
+# ── 6. Instalar dependencias ──────────────────────────────────────────────
+Write-Host "[6/8] Installing dependencies (this will take a while)..." -ForegroundColor Yellow
 pnpm install --no-frozen-lockfile
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ERROR: pnpm install failed" -ForegroundColor Red
@@ -146,8 +190,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  Dependencies installed." -ForegroundColor Green
 
-# ── 8. Full deploy ────────────────────────────────────────────────────────
-Write-Host "[8/8] Running full deploy..." -ForegroundColor Yellow
+# ── 7. Full deploy ────────────────────────────────────────────────────────
+Write-Host "[7/8] Running full deploy..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR
 .\deploy\deploy.ps1
 
