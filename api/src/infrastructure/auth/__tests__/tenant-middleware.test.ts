@@ -89,6 +89,15 @@ describe('TenantMiddleware', () => {
       expect(next).toHaveBeenCalledOnce();
     });
 
+    it('passes through PATCH /institutions/:id', async () => {
+      const req = mockReq('/institutions/abc-123', 'PATCH');
+      const next = mockNext();
+
+      await middleware.use(req, mockRes(), next);
+
+      expect(next).toHaveBeenCalledOnce();
+    });
+
     it('passes through DELETE /institutions/:id', async () => {
       const req = mockReq('/institutions/abc-123', 'DELETE');
       const next = mockNext();

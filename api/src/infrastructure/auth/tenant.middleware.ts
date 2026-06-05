@@ -155,7 +155,7 @@ export class TenantMiddleware implements NestMiddleware {
     // Institution CRUD (master DB)
     if (path === '/institutions' || path === '/institutions/') return true;
     if (path.startsWith('/institutions/')) {
-      if (method === 'POST' || method === 'DELETE') return true;
+      if (method === 'POST' || method === 'PATCH' || method === 'DELETE') return true;
       if (method === 'GET') {
         if (path.match(/^\/institutions\/?$/)) return true;
         if (path.match(/^\/institutions\/[^/]+$/)) return true;
