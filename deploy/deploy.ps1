@@ -64,6 +64,11 @@ pnpm install
 Set-Content -Path $workspaceFile -Value $originalYaml
 Write-Host "  Dependencies installed." -ForegroundColor Green
 
+# ── 4b. Install global build tools (Windows pnpm bin workaround) ──────────
+Write-Host "[4b/10] Installing global build tools..." -ForegroundColor Yellow
+npm install -g typescript @nestjs/cli ts-node 2>&1 | Out-Null
+Write-Host "  Global tools ready (tsc, nest, ts-node)." -ForegroundColor Green
+
 # ── 5. Build domain ─────────────────────────────────────────────────────
 Write-Host "[5/10] Building domain..." -ForegroundColor Yellow
 pnpm --filter "@educandow/domain" run build
