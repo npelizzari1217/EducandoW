@@ -67,14 +67,14 @@ if (-not (Test-Path $envFile)) {
         # host:port -> host y port
         $hpColon = $hostPort.IndexOf(':')
         if ($hpColon -ge 0) {
-            $host = $hostPort.Substring(0, $hpColon)
+            $dbHost = $hostPort.Substring(0, $hpColon)
             $port = $hostPort.Substring($hpColon + 1)
         } else {
-            $host = $hostPort
+            $dbHost = $hostPort
             $port = "5432"
         }
 
-        Write-Host "  DB Host: $host`:$port" -ForegroundColor Gray
+        Write-Host "  DB Host: $dbHost`:$port" -ForegroundColor Gray
         Write-Host "  DB User: $user" -ForegroundColor Gray
         Write-Host "  DB Name: $dbName" -ForegroundColor Gray
 
@@ -82,7 +82,7 @@ if (-not (Test-Path $envFile)) {
         Write-Host "[3/8] Dropping master database '$dbName'..." -ForegroundColor Yellow
         $env:PGPASSWORD = $pass
         $sql = "DROP DATABASE IF EXISTS `"$dbName`" WITH (FORCE);"
-        $dropResult = & psql -h $host -p $port -U $user -d postgres -c $sql 2>&1
+        $dropResult = & psql -h $dbHost -p $port -U $user -d postgres -c $sql 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  WARNING: psql drop failed: $dropResult" -ForegroundColor Yellow
             Write-Host "  If psql is not installed, install PostgreSQL client tools or drop manually." -ForegroundColor Yellow
@@ -93,13 +93,13 @@ if (-not (Test-Path $envFile)) {
         # ── 4. Dropear bases tenant ────────────────────────────────────────
         Write-Host "[4/8] Finding and dropping tenant databases..." -ForegroundColor Yellow
         $listSql = "SELECT datname FROM pg_database WHERE datname LIKE 'educandow_%' OR datname = 'educandow_test';"
-        $tenantResult = & psql -h $host -p $port -U $user -d postgres -t -c $listSql 2>&1
+        $tenantResult = & psql -h $dbHost -p $port -U $user -d postgres -t -c $listSql 2>&1
         if ($LASTEXITCODE -eq 0 -and $tenantResult) {
             $tenantDbs = $tenantResult -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
             foreach ($tdb in $tenantDbs) {
                 Write-Host "  Dropping '$tdb'..." -ForegroundColor Gray
                 $dropSql = "DROP DATABASE IF EXISTS `"$tdb`" WITH (FORCE);"
-                & psql -h $host -p $port -U $user -d postgres -c $dropSql 2>&1 | Out-Null
+                & psql -h $dbHost -p $port -U $user -d postgres -c $dropSql 2>&1 | Out-Null
             }
             Write-Host "  Tenant databases dropped." -ForegroundColor Green
         } else {
