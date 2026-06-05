@@ -88,7 +88,7 @@ Write-Host "  API built." -ForegroundColor Green
 # ── 8. Prisma migrate ───────────────────────────────────────────────────
 Write-Host "[8/10] Running database migrations..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR\api
-pnpm run prisma:migrate:master
+pnpm run prisma:migrate:deploy:master
 Set-Location $PROJECT_DIR
 Write-Host "  Migrations applied." -ForegroundColor Green
 
