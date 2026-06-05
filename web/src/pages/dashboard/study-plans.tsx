@@ -411,7 +411,7 @@ export default function StudyPlansPage() {
   }
 
   return (
-    <div className="study-plans-page">
+    <div>
       <style>{`
         /* ── Page layout ── */
         /* ── Plan Card ── */

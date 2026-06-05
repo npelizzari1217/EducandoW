@@ -244,7 +244,10 @@ export default function InstitutionsPage() {
     formData.append('file', file);
     try {
       const { data } = await apiClient.post(`/institutions/${institutionId}/logo`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        transformRequest: [(d, headers) => {
+          if (headers) delete headers['Content-Type'];
+          return d;
+        }],
       });
       const publicPath = data?.data?.publicPath;
       if (publicPath) {

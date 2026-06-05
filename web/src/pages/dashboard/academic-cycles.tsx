@@ -10,6 +10,7 @@ import {
 } from '../../hooks/useAcademicCycles';
 import type { AcademicCycle, CreateAcademicCycleDto } from '../../types/academic-cycle';
 import apiClient from '../../api/client';
+import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
@@ -138,13 +139,17 @@ export default function AcademicCyclesPage() {
   const instName = institutions.find(i => i.id === institutionId)?.name || config.name || institutionId;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Ciclos Lectivos</h1>
-        <Button onClick={() => { resetForm(); setShowForm(true); }}>
-          + Nuevo Ciclo
+    <div>
+      <PremiumHeader
+        title="Ciclos Lectivos"
+        subtitle="Gestión de ciclos lectivos"
+        icon="📅"
+        stats={[{ label: 'ciclos', value: String(data.length) }]}
+      >
+        <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { resetForm(); setShowForm(!showForm); }}>
+          {showForm ? 'Cancelar' : '+ Nuevo Ciclo'}
         </Button>
-      </div>
+      </PremiumHeader>
 
       {/* Institution selector */}
       <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end' }}>

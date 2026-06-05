@@ -106,7 +106,6 @@ export default function ModulesPage() {
   return (
     <div className="modules-page">
       <style>{`
-        .modules-page { max-width: 1200px; margin: 0 auto; }
         .modules-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
