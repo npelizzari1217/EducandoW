@@ -85,12 +85,19 @@ Write-Host "[7/10] Building API..." -ForegroundColor Yellow
 pnpm --filter api run build
 Write-Host "  API built." -ForegroundColor Green
 
-# ── 8. Prisma migrate ───────────────────────────────────────────────────
-Write-Host "[8/10] Running database migrations..." -ForegroundColor Yellow
+# ── 8. Bootstrap master DB (new server) + migrate ────────────────────────
+Write-Host "[8/10] Bootstrapping master database..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR\api
-pnpm run prisma:migrate:deploy:master
+pnpm bootstrap
 Set-Location $PROJECT_DIR
-Write-Host "  Migrations applied." -ForegroundColor Green
+Write-Host "  Master database ready." -ForegroundColor Green
+
+# ── 8b. Migrate all tenant databases ────────────────────────────────────
+Write-Host "[8b/10] Migrating all tenant databases..." -ForegroundColor Yellow
+Set-Location $PROJECT_DIR\api
+npx ts-node scripts/migrate-all-tenants.ts
+Set-Location $PROJECT_DIR
+Write-Host "  Tenant migrations complete." -ForegroundColor Green
 
 # ── 9. Start API with pm2 ──────────────────────────────────────────────
 Write-Host "[9/10] Starting API..." -ForegroundColor Yellow
