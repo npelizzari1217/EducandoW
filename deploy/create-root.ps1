@@ -43,7 +43,7 @@ if (-not $env:MASTER_DATABASE_URL) {
 }
 
 # ── 2. Write temp Node.js script ──────────────────────────────────────────
-$tempScript = Join-Path $env:TEMP "educandow-create-root.js"
+$tempScript = Join-Path $API_DIR "create-root-temp.js"
 
 @'
 const { PrismaClient } = require('@prisma/client');
