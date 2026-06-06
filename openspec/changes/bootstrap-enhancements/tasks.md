@@ -36,5 +36,5 @@ Chain strategy: pending
 ## Phase 3: Output & Verification
 
 - [x] 3.1 Replace final output block with ROOT credentials (email, password, role, URL) and keep the success banner
-- [ ] 3.2 Run `pnpm bootstrap` twice — second run MUST complete without errors (idempotency check)
-- [ ] 3.3 Verify ROOT login works at `http://localhost:5173` with `npelizzari@gmail.com` / `***REMOVED***`
+- [x] 3.2 Run `pnpm bootstrap` twice — second run MUST complete without errors (idempotency check)
+- [x] 3.3 Verify ROOT login works at `http://localhost:5173` with `npelizzari@gmail.com` / `***REMOVED***`
