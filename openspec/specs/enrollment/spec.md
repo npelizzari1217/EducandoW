@@ -1,6 +1,10 @@
-# Delta for Enrollment (enrollment-status)
+# Enrollment Specification
 
-## ADDED Requirements
+## Purpose
+
+The `Enrollment` entity manages the relationship between a student and a course within an academic cycle. This specification covers the core enrollment capabilities including flag management for printing and promotion.
+
+## Requirements
 
 ### Requirement: Enrollment entity has printable and promoted flags
 
@@ -62,7 +66,7 @@ It MUST return all enrollments matching ALL supplied criteria.
 
 The endpoint `PATCH /enrollments/:id/flags` MUST accept a body with optional `printable`
 and/or `promoted` booleans and apply each supplied flag to the target enrollment.
-It MUST be protected by ADMIN or SECRETARIO role.
+It MUST be protected by ADMIN, SECRETARIO, or DIRECTOR role.
 
 #### Scenario: Toggle single flag
 
@@ -95,7 +99,7 @@ It MUST be protected by ADMIN or SECRETARIO role.
 The endpoint `PATCH /enrollments/course/:cycleId/flags` MUST accept `level`, `year`, `grade`,
 `division` as query or body params alongside `printable` and/or `promoted` booleans,
 and apply the flags to ALL enrollments matching the course criteria.
-It MUST be protected by ADMIN or SECRETARIO role.
+It MUST be protected by ADMIN, SECRETARIO, or DIRECTOR role.
 It MUST return the count of updated enrollments.
 
 #### Scenario: Bulk toggle printable for a course
@@ -120,6 +124,6 @@ It MUST return the count of updated enrollments.
 
 #### Scenario: Insufficient role rejected
 
-- GIVEN an authenticated user without ADMIN or SECRETARIO role
+- GIVEN an authenticated user without ADMIN, SECRETARIO, or DIRECTOR role
 - WHEN the bulk endpoint is called
 - THEN the response is `403`

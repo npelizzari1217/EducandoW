@@ -27,16 +27,17 @@ The system MUST persist each `CourseCycle` with the following fields:
 | `secondBimonthStart/End` | DateTime pair | **optional** (nullable), end > start when provided |
 | `thirdBimonthStart/End` | DateTime pair | **optional** (nullable), end > start when provided |
 | `fourthBimonthStart/End` | DateTime pair | **optional** (nullable), end > start when provided |
+| `activeGradingPeriod` | Int? | nullable; explicit period override (1–4) |
 | `lastModifiedAt` | DateTime | auto-updated on write |
 
 The system MUST enforce a unique constraint on `(courseId, cycleId)`.
-(Previously: all 8 bimester date fields were required — non-nullable)
+(Previously: all 8 bimester date fields were required — non-nullable; `activeGradingPeriod` field did not exist)
 
 #### Scenario: Create a valid CourseCycle
 
 - GIVEN a valid `courseId`, `studyPlanId`, `cycleId`, and all required fields
 - WHEN `POST /v1/course-cycles` is called
-- THEN the record is persisted with `active=true` and `courseName` in UPPERCASE
+- THEN the record is persisted with `active=true`, `courseName` in UPPERCASE, and `activeGradingPeriod=null`
 - AND `lastModifiedAt` is set to the current timestamp
 
 #### Scenario: Reject duplicate (courseId, cycleId)
@@ -131,6 +132,53 @@ Each provided bimester pair MUST satisfy `end > start`. The system MUST reject p
 - GIVEN no bimester date fields are included in the request
 - WHEN a CourseCycle is created
 - THEN all 8 bimester fields are stored as `null`
+
+---
+
+### Requirement: CourseCycle — activeGradingPeriod Field
+
+The system MUST persist `activeGradingPeriod` as a nullable integer on `CourseCycle`. This field stores an explicit period override set by the user. When `null`, the resolved period is calculated from effective bimester dates via `GradingPeriodCalculator`. The field MUST be writable only through `PATCH /v1/course-cycles/:id/grading-period`.
+
+| Field | Type | Constraint |
+|-------|------|------------|
+| `activeGradingPeriod` | Int? | nullable, 1–4; set via grading-period endpoint only |
+
+#### Scenario: CourseCycle created — activeGradingPeriod defaults to null
+
+- GIVEN a valid create request for `CourseCycle`
+- WHEN `POST /v1/course-cycles` is called
+- THEN the new record has `activeGradingPeriod=null`
+
+#### Scenario: General PATCH does not accept activeGradingPeriod
+
+- GIVEN a `PATCH /v1/course-cycles/:id` request body that includes `activeGradingPeriod`
+- WHEN the use case processes the input
+- THEN `activeGradingPeriod` is ignored and NOT persisted via this endpoint
+- AND the field MUST only be set through `PATCH /v1/course-cycles/:id/grading-period`
+
+---
+
+### Requirement: CourseCycle — getCurrentPeriod() Domain Method
+
+The system MUST provide a `getCurrentPeriod()` method on the `CourseCycle` entity. It MUST return `activeGradingPeriod` if set (non-null). If `activeGradingPeriod` is `null`, it MUST delegate to `GradingPeriodCalculator.currentPeriod()` using the effective bimester dates (own dates if set, otherwise AcademicCycle dates). It MUST return `null` when no period can be resolved.
+
+#### Scenario: getCurrentPeriod returns explicit value
+
+- GIVEN a `CourseCycle` with `activeGradingPeriod=3`
+- WHEN `courseCycle.getCurrentPeriod()` is called
+- THEN it returns `3` without invoking the calculator
+
+#### Scenario: getCurrentPeriod delegates to calculator when no override
+
+- GIVEN a `CourseCycle` with `activeGradingPeriod=null` and today within bimester 2 range
+- WHEN `courseCycle.getCurrentPeriod()` is called
+- THEN it returns `2` (from the calculator)
+
+#### Scenario: getCurrentPeriod returns null when outside all ranges
+
+- GIVEN a `CourseCycle` with `activeGradingPeriod=null` and today outside all bimester ranges
+- WHEN `courseCycle.getCurrentPeriod()` is called
+- THEN it returns `null`
 
 ---
 
@@ -241,9 +289,11 @@ The system MUST expose the following REST endpoints:
 | PATCH | `/v1/course-cycles/:id/deactivate` | Set `active=false` |
 | PATCH | `/v1/course-cycles/:id/activate` | Set `active=true` |
 | POST | `/v1/course-cycles/generate` | Bulk generate |
+| GET | `/v1/course-cycles/:id/grading-period` | Get active grading period with source |
+| PATCH | `/v1/course-cycles/:id/grading-period` | Set or clear explicit period override |
 
 `GET /v1/course-cycles` MUST support query filters: `?level=`, `?cycleId=`, `?active=`. Filters SHOULD be combinable. The response for GET (single and list) MUST include `effectiveBimonthDates` — the CourseCycle's own dates if not null, otherwise those of the linked AcademicCycle.
-(Previously: no `effectiveBimonthDates` in response; bimester dates were always own fields)
+(Previously: no `effectiveBimonthDates` in response; bimester dates were always own fields; grading-period endpoints did not exist)
 
 #### Scenario: GET CourseCycle without own dates — returns AcademicCycle dates as effective
 

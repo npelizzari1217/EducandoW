@@ -13,25 +13,25 @@ The system MUST allow authenticated users with rank ≥ 20 (TEACHER+) to create 
 #### Scenario: TEACHER creates PEDAGOGICAL observation
 
 - GIVEN a TEACHER user (rank 20) authenticated via JWT
-- WHEN `POST /v1/students/:studentId/observations` is called with `{ type: "PEDAGOGICAL", content: "Alumno muestra avances en lectura" }`
+- WHEN `POST /v1/student-observations` is called with `{ studentId: "<id>", type: "PEDAGOGICAL", content: "Alumno muestra avances en lectura" }`
 - THEN the observation is persisted and HTTP 201 is returned with the created observation
 
 #### Scenario: TEACHER rejected creating PSYCHOPEDAGOGICAL observation
 
 - GIVEN a TEACHER user (rank 20)
-- WHEN `POST /v1/students/:studentId/observations` is called with `{ type: "PSYCHOPEDAGOGICAL", content: "..." }`
+- WHEN `POST /v1/student-observations` is called with `{ studentId: "<id>", type: "PSYCHOPEDAGOGICAL", content: "..." }`
 - THEN the system returns HTTP 403 Forbidden
 
 #### Scenario: DIRECTOR creates PSYCHOPEDAGOGICAL observation
 
 - GIVEN a DIRECTOR user (rank 50)
-- WHEN `POST /v1/students/:studentId/observations` is called with `{ type: "PSYCHOPEDAGOGICAL", content: "Seguimiento EOE" }`
+- WHEN `POST /v1/student-observations` is called with `{ studentId: "<id>", type: "PSYCHOPEDAGOGICAL", content: "Seguimiento EOE" }`
 - THEN the observation is persisted and HTTP 201 is returned
 
 #### Scenario: Empty content is rejected
 
 - GIVEN any authorized user
-- WHEN `POST /v1/students/:studentId/observations` is called with `{ type: "PEDAGOGICAL", content: "" }`
+- WHEN `POST /v1/student-observations` is called with `{ studentId: "<id>", type: "PEDAGOGICAL", content: "" }`
 - THEN the system returns HTTP 400 Bad Request
 
 #### Scenario: STUDENT role rejected from creating
@@ -69,13 +69,13 @@ The system MUST allow users with rank ≥ 20 to list all observations for studen
 #### Scenario: TEACHER lists course observations — filtered
 
 - GIVEN a course with two students, each having PEDAGOGICAL and PSYCHOPEDAGOGICAL observations
-- WHEN a TEACHER (rank 20) calls `GET /v1/courses/:courseId/observations`
+- WHEN a TEACHER (rank 20) calls `GET /v1/courses/:cycleId/observations`
 - THEN only PEDAGOGICAL observations are returned for all students
 
 #### Scenario: DIRECTOR lists course observations — unfiltered
 
 - GIVEN the same course and observations
-- WHEN a DIRECTOR (rank 50) calls `GET /v1/courses/:courseId/observations`
+- WHEN a DIRECTOR (rank 50) calls `GET /v1/courses/:cycleId/observations`
 - THEN all observations (PEDAGOGICAL and PSYCHOPEDAGOGICAL) are returned
 
 ### Requirement: Delete Observation

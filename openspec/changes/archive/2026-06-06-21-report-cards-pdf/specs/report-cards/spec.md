@@ -1,12 +1,18 @@
-# Report Cards Specification
+# Delta for Report Cards
 
-## Purpose
+> **Type**: New capability — no prior spec exists.
+> Full spec written at `openspec/specs/report-cards/spec.md`.
+> This file is the change-scoped copy for archive reference.
+>
+> **Amendment (2026-06-06):** Routes were amended to match the implemented contract.
+> The original spec used `/v1/boletines/:studentId` but the implementation uses
+> `/v1/reportes/boletin/:enrollmentId`. The `enrollmentId` parameter is semantically
+> correct because it selects a specific academic cycle/year (a student can have multiple
+> enrollments across years), whereas `studentId` alone would be ambiguous. Frontend and
+> backend are mutually consistent with the `enrollmentId`-based routes. Spec amended
+> to reflect the actual implementation rather than rewriting working routes.
 
-Server-side PDF generation of student report cards (boletines) for all four pedagogical
-levels (INICIAL, PRIMARIO, SECUNDARIO, TERCIARIO). Replaces the legacy WINDEV
-`iPrintReport()` flow. Access is controlled by the existing `REPORTS` module.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Single-Student Report Card Endpoint
 
@@ -97,14 +103,14 @@ HTTP 422 with a descriptive error message.
 #### Scenario: Single request for non-printable student
 
 - GIVEN a student whose `imprimeSN = false`
-- WHEN `GET /v1/reportes/boletin/:enrollmentId`
+- WHEN `GET /v1/boletines/:studentId`
 - THEN the system MUST return HTTP 422 Unprocessable Entity
 - AND the error body MUST state the student is marked as non-printable
 
 #### Scenario: Non-printable students excluded silently from batch
 
-- GIVEN a cycle where some students have `imprimeSN = false`
-- WHEN `GET /v1/reportes/boletin/curso/:cycleId`
+- GIVEN a course where some students have `imprimeSN = false`
+- WHEN `GET /v1/boletines/curso/:courseId`
 - THEN those students are silently omitted from the output
 - AND only printable students appear in the resulting document
 
