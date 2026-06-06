@@ -322,8 +322,9 @@ async function main() {
   console.log('🎉 Bootstrap complete! Master database is ready.');
   console.log('──────────────────────────────────────────────────');
   console.log('  ROOT Credentials:');
-  console.log('    Email:    npelizzari@gmail.com');
-  console.log('    Password: ***REMOVED***');
+  console.log(`    Email:    ${process.env.ROOT_EMAIL ?? '(definido en ROOT_EMAIL de tu .env)'}`);
+  // La contraseña nunca se imprime en texto plano
+  console.log('    Password: (la definida en ROOT_PASSWORD en tu .env)');
   console.log('    Role:     ROOT');
   console.log('');
   console.log('  Development URL:');

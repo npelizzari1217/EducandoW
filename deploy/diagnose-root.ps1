@@ -22,24 +22,40 @@ Get-Content $envFile | ForEach-Object {
     }
 }
 
-# Write diagnostic script (single-quoted here-string to avoid PS variable expansion)
+# Verificamos que las variables de entorno necesarias estén disponibles.
+# El .env ya fue cargado más arriba, así que ROOT_EMAIL y ROOT_PASSWORD
+# deben estar definidas en ese archivo.
+$rootEmail = $env:ROOT_EMAIL
+if (-not $rootEmail) {
+    Write-Host "ERROR: ROOT_EMAIL no está definido en .env ni en el entorno." -ForegroundColor Red
+    exit 1
+}
+
+# Escribimos el script de diagnóstico usando variables de entorno de Node para la password.
+# El email se inyecta en tiempo de escritura (ya viene del .env cargado arriba).
+# La password NUNCA se escribe en el archivo temporal; Node la lee de process.env.ROOT_PASSWORD.
 $tempScript = Join-Path $API_DIR "diagnose-user-temp.js"
 
-@'
+@"
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 
 (async () => {
   const prisma = new PrismaClient();
 
+  // Email inyectado desde ROOT_EMAIL (cargado del .env por el script de PowerShell)
+  const targetEmail = '$rootEmail';
+  // Password leída de la variable de entorno para no hardcodear ningún secreto
+  const rootPassword = process.env.ROOT_PASSWORD;
+
   const user = await prisma.user.findUnique({
-    where: { email: 'npelizzari@gmail.com' },
+    where: { email: targetEmail },
     include: { userRoles: { include: { role: true } } },
   });
 
   if (!user) {
     console.log('RESULT: USER NOT FOUND in database');
-    await prisma.$disconnect();
+    await prisma.\`$disconnect();
     process.exit(1);
   }
 
@@ -51,15 +67,19 @@ const bcrypt = require('bcrypt');
   console.log('  Roles:    ' + (user.userRoles || []).map(r => r.role?.name).join(', '));
   console.log('  Hash:     ' + user.passwordHash.substring(0, 40) + '...');
 
-  const match = await bcrypt.compare('***REMOVED***', user.passwordHash);
-  console.log('  Password: ' + (match ? 'MATCH' : 'MISMATCH'));
+  if (rootPassword) {
+    const match = await bcrypt.compare(rootPassword, user.passwordHash);
+    console.log('  Password: ' + (match ? 'MATCH' : 'MISMATCH'));
+  } else {
+    console.log('  Password: (ROOT_PASSWORD no definida en entorno — omitiendo verificación bcrypt)');
+  }
 
-  await prisma.$disconnect();
+  await prisma.\`$disconnect();
 })().catch(e => {
   console.error('ERROR:', e.message);
   process.exit(1);
 });
-'@ | Out-File -FilePath $tempScript -Encoding UTF8
+"@ | Out-File -FilePath $tempScript -Encoding UTF8
 
 Set-Location $API_DIR
 node $tempScript

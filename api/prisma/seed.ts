@@ -248,8 +248,16 @@ async function main() {
   console.log('✅ Role ↔ Module assignments seeded');
 
   // ── Create ROOT user ──────────────────────────────────────
-  const email = 'npelizzari@gmail.com';
-  const password = '***REMOVED***';
+  // Las credenciales ROOT deben estar definidas en el entorno.
+  // Si faltan, el proceso falla de forma explícita (fail-fast).
+  const email = process.env.ROOT_EMAIL;
+  const password = process.env.ROOT_PASSWORD;
+  if (!email || !password) {
+    throw new Error(
+      'Faltan variables de entorno requeridas: ROOT_EMAIL y/o ROOT_PASSWORD. ' +
+        'Definilas en tu archivo .env antes de correr el seed.',
+    );
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
 
@@ -281,7 +289,7 @@ async function main() {
     });
   }
 
-  console.log('✅ ROOT user ready: npelizzari@gmail.com');
+  console.log(`✅ ROOT user ready: ${email}`);
   console.log('   Roles: ROOT — acceso total al sistema');
   console.log('   Solo ROOT puede crear/eliminar instituciones');
 

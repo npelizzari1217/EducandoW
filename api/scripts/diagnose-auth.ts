@@ -33,8 +33,16 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-const TEST_EMAIL = 'npelizzari@gmail.com';
-const PASSWORDS_TO_TEST = ['***REMOVED***', 'Admin123!', 'admin123', 'password'];
+// Las credenciales de prueba se leen del entorno para no dejar secretos hardcodeados.
+const TEST_EMAIL = process.env.ROOT_EMAIL ?? '';
+// La contraseña ROOT se incluye desde la env var; los demás son candidatos genéricos.
+const ROOT_PASSWORD_ENV = process.env.ROOT_PASSWORD;
+const PASSWORDS_TO_TEST: string[] = [
+  ...(ROOT_PASSWORD_ENV ? [ROOT_PASSWORD_ENV] : []),
+  'Admin123!',
+  'admin123',
+  'password',
+];
 
 async function main() {
   console.log('');
@@ -118,7 +126,7 @@ async function main() {
       console.log('  pnpm prisma:seed');
     }
     console.log('');
-    console.log('  Despues de seedear, la contrasena sera: ***REMOVED***');
+    console.log('  Despues de seedear, la contrasena sera la definida en ROOT_PASSWORD de tu .env');
 
     await prisma.$disconnect();
     process.exit(1);
@@ -137,7 +145,7 @@ async function main() {
     console.log('');
     console.log('  [WARN] El usuario esta INACTIVO (active=false)');
     console.log('  Para activarlo manualmente en la DB:');
-    console.log("    UPDATE users SET active = true WHERE email = 'npelizzari@gmail.com';");
+    console.log(`    UPDATE users SET active = true WHERE email = '${TEST_EMAIL}';`);
   }
 
   if (user.userRoles.length === 0) {
@@ -151,7 +159,7 @@ async function main() {
   if (user.lockedUntil) {
     console.log(`  [FAIL] CUENTA BLOQUEADA hasta ${user.lockedUntil.toISOString()}`);
     console.log('  Para desbloquear:');
-    console.log("    UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE email = 'npelizzari@gmail.com';");
+    console.log(`    UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE email = '${TEST_EMAIL}';`);
   }
 
   // ── 5. Test bcrypt ─────────────────────────────────────────
@@ -193,7 +201,7 @@ async function main() {
     console.log(`    node -e "const bc=require('bcrypt'); bc.hash('Admin123!',12).then(h=>console.log(h))"`);
     console.log('');
     console.log('  Luego actualiza la DB con ese hash (usa psql o DBeaver):');
-    console.log("    UPDATE users SET password = '<nuevo_hash>' WHERE email = 'npelizzari@gmail.com';");
+    console.log(`    UPDATE users SET password = '<nuevo_hash>' WHERE email = '${TEST_EMAIL}';`);
   }
 
   // ── 6. API health check ────────────────────────────────────

@@ -274,8 +274,8 @@ After all steps complete successfully, the script MUST print a dedicated credent
 - GIVEN all 7 bootstrap steps pass
 - WHEN the script prints the final summary
 - THEN the output includes a credentials block with:
-  - email: `npelizzari@gmail.com`
-  - password: `***REMOVED***`
+  - email: el valor de la variable de entorno `ROOT_EMAIL`
+  - password: referencia a `ROOT_PASSWORD` (nunca el valor literal en texto plano)
   - role: `ROOT`
   - URL: `http://localhost:5173`
 

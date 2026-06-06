@@ -3,8 +3,8 @@
 // Genera bcrypt hash y actualiza la DB en un solo paso.
 //
 // Uso:
-//   node scripts/reset-password.js npelizzari@gmail.com
-//   node scripts/reset-password.js npelizzari@gmail.com MiClave123
+//   node scripts/reset-password.js root@tu-dominio.com
+//   node scripts/reset-password.js root@tu-dominio.com MiClave123
 //
 // Si no se especifica clave, usa "Admin123!" por defecto.
 // =============================================================================

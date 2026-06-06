@@ -199,6 +199,7 @@ Write-Host ""
 Write-Host "=== RESET COMPLETE ===" -ForegroundColor Green
 Write-Host ""
 Write-Host "ROOT credentials:"
-Write-Host "  Email:    npelizzari@gmail.com"
-Write-Host "  Password: ***REMOVED***"
+Write-Host "  Email:    $($env:ROOT_EMAIL ?? '(definido en ROOT_EMAIL de tu .env)')"
+# La contraseña nunca se imprime en texto plano
+Write-Host "  Password: (la definida en ROOT_PASSWORD en tu .env)"
 Write-Host ""

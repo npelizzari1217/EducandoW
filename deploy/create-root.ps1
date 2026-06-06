@@ -5,11 +5,23 @@
 #   .\deploy\create-root.ps1
 #   .\deploy\create-root.ps1 -Email "otro@email.com" -Password "OtraPass123"
 # =============================================================================
+# Email y Password son obligatorios. Si no se pasan como argumento, se leen de las
+# variables de entorno ROOT_EMAIL y ROOT_PASSWORD. Si ninguna fuente los provee,
+# el script falla de forma explícita (fail-fast).
 param(
-    [string]$Email = "npelizzari@gmail.com",
-    [string]$Password = "***REMOVED***",
+    [string]$Email = $env:ROOT_EMAIL,
+    [string]$Password = $env:ROOT_PASSWORD,
     [string]$Role = "ROOT"
 )
+
+if (-not $Email) {
+    Write-Host "ERROR: Falta el email ROOT. Pasalo con -Email o definí ROOT_EMAIL en el entorno." -ForegroundColor Red
+    exit 1
+}
+if (-not $Password) {
+    Write-Host "ERROR: Falta la contraseña ROOT. Pasala con -Password o definí ROOT_PASSWORD en el entorno." -ForegroundColor Red
+    exit 1
+}
 
 $ErrorActionPreference = "Stop"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
