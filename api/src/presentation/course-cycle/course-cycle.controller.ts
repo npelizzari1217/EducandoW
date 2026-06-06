@@ -84,7 +84,7 @@ export class CourseCycleController {
       pageSize: query.pageSize,
     });
     return {
-      data: result.data.map(this.toResponse),
+      data: result.data.map((cc) => this.toResponse(cc)),
       page: result.page,
       pageSize: result.pageSize,
       total: result.total,
@@ -177,24 +177,38 @@ export class CourseCycleController {
     return { data: result.unwrap() };
   }
 
-  private toResponse(cc: {
-    uuid: string;
-    courseId: string;
-    studyPlanId: string;
-    cycleId: string;
-    courseName: { get(): string };
-    level: { get(): number };
-    active: boolean;
-    passingGrade: { get(): number };
-    promotionText: string | null;
-    firstBimonth: { start: Date; end: Date } | null;
-    secondBimonth: { start: Date; end: Date } | null;
-    thirdBimonth: { start: Date; end: Date } | null;
-    fourthBimonth: { start: Date; end: Date } | null;
-    activeGradingPeriod: number | null;
-    lastModifiedAt: Date;
-    deletedAt?: Date | null;
-  }) {
+  private toResponse(
+    cc: {
+      uuid: string;
+      courseId: string;
+      studyPlanId: string;
+      cycleId: string;
+      courseName: { get(): string };
+      level: { get(): number };
+      active: boolean;
+      passingGrade: { get(): number };
+      promotionText: string | null;
+      firstBimonth: { start: Date; end: Date } | null;
+      secondBimonth: { start: Date; end: Date } | null;
+      thirdBimonth: { start: Date; end: Date } | null;
+      fourthBimonth: { start: Date; end: Date } | null;
+      activeGradingPeriod: number | null;
+      lastModifiedAt: Date;
+      deletedAt?: Date | null;
+    },
+    academicCycleDates?: {
+      firstBimonth: { start: Date; end: Date } | null;
+      secondBimonth: { start: Date; end: Date } | null;
+      thirdBimonth: { start: Date; end: Date } | null;
+      fourthBimonth: { start: Date; end: Date } | null;
+    } | null,
+  ) {
+    // effectiveBimonthDates: use CourseCycle own dates first; fall back to AcademicCycle dates
+    const eff1 = cc.firstBimonth ?? academicCycleDates?.firstBimonth ?? null;
+    const eff2 = cc.secondBimonth ?? academicCycleDates?.secondBimonth ?? null;
+    const eff3 = cc.thirdBimonth ?? academicCycleDates?.thirdBimonth ?? null;
+    const eff4 = cc.fourthBimonth ?? academicCycleDates?.fourthBimonth ?? null;
+
     return {
       uuid: cc.uuid,
       courseId: cc.courseId,
@@ -217,14 +231,14 @@ export class CourseCycleController {
         fourthBimonthEnd: cc.fourthBimonth?.end?.toISOString() ?? null,
       },
       effectiveBimonthDates: {
-        firstBimonthStart: cc.firstBimonth?.start?.toISOString() ?? null,
-        firstBimonthEnd: cc.firstBimonth?.end?.toISOString() ?? null,
-        secondBimonthStart: cc.secondBimonth?.start?.toISOString() ?? null,
-        secondBimonthEnd: cc.secondBimonth?.end?.toISOString() ?? null,
-        thirdBimonthStart: cc.thirdBimonth?.start?.toISOString() ?? null,
-        thirdBimonthEnd: cc.thirdBimonth?.end?.toISOString() ?? null,
-        fourthBimonthStart: cc.fourthBimonth?.start?.toISOString() ?? null,
-        fourthBimonthEnd: cc.fourthBimonth?.end?.toISOString() ?? null,
+        firstBimonthStart: eff1?.start?.toISOString() ?? null,
+        firstBimonthEnd: eff1?.end?.toISOString() ?? null,
+        secondBimonthStart: eff2?.start?.toISOString() ?? null,
+        secondBimonthEnd: eff2?.end?.toISOString() ?? null,
+        thirdBimonthStart: eff3?.start?.toISOString() ?? null,
+        thirdBimonthEnd: eff3?.end?.toISOString() ?? null,
+        fourthBimonthStart: eff4?.start?.toISOString() ?? null,
+        fourthBimonthEnd: eff4?.end?.toISOString() ?? null,
       },
       lastModifiedAt: cc.lastModifiedAt.toISOString(),
     };

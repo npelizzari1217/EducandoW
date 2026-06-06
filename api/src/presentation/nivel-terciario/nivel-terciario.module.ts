@@ -43,7 +43,7 @@ import { PrismaTituloRepository } from '../../infrastructure/persistence/prisma/
     { provide: CreateActaExamenUC, useFactory: (r: PrismaActaExamenRepository) => new CreateActaExamenUC(r), inject: ['ActaExamenRepository'] },
     { provide: ListActasExamenUC, useFactory: (r: PrismaActaExamenRepository) => new ListActasExamenUC(r), inject: ['ActaExamenRepository'] },
     { provide: GetActaExamenUC, useFactory: (r: PrismaActaExamenRepository) => new GetActaExamenUC(r), inject: ['ActaExamenRepository'] },
-    { provide: RegistrarNotaUC, useFactory: (r: PrismaActaExamenRepository) => new RegistrarNotaUC(r), inject: ['ActaExamenRepository'] },
+    { provide: RegistrarNotaUC, useFactory: (r: PrismaActaExamenRepository, i: PrismaInscripcionMateriaRepository) => new RegistrarNotaUC(r, i), inject: ['ActaExamenRepository', 'InscripcionRepository'] },
 
     // Titulo use cases
     { provide: CreateTituloUC, useFactory: (r: PrismaTituloRepository) => new CreateTituloUC(r), inject: ['TituloRepository'] },

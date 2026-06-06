@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CalificacionSecundario,
   CalificacionSecundarioRepository,
+  PendingExamDetail,
   Result,
   ok,
   err,
@@ -59,7 +60,7 @@ export class ConsultarAlumnosExamenUseCase {
 
   async execute(
     input: ConsultarAlumnosExamenInput,
-  ): Promise<Result<CalificacionSecundario[], ValidationError>> {
+  ): Promise<Result<PendingExamDetail[], ValidationError>> {
     const turno = TurnoExamen.create(input.turno);
     if (!turno) {
       return err(
@@ -75,7 +76,7 @@ export class ConsultarAlumnosExamenUseCase {
       );
     }
 
-    const results = await this.repo.findPendingExams(
+    const results = await this.repo.findPendingExamsWithDetails(
       turno.get(),
       input.academicYear,
     );

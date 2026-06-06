@@ -63,6 +63,50 @@
     </tbody>
   </table>
 
+  {{#if asistencia}}
+  <div class="section-title">Asistencia</div>
+  <table class="grades">
+    <thead>
+      <tr><th>Total clases</th><th>Presente</th><th>Inasistencias</th><th>1/2 Faltas</th><th>Porcentaje</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{asistencia.totalDias}}</td>
+        <td>{{asistencia.diasPresente}}</td>
+        <td>{{asistencia.inasistencias}}</td>
+        <td>{{asistencia.mediasFaltas}}</td>
+        <td>{{asistencia.porcentaje}}%</td>
+      </tr>
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if mesasExamen.length}}
+  <div class="section-title">Mesas de Examen</div>
+  <table class="grades">
+    <thead>
+      <tr>
+        <th>Materia</th>
+        <th>Turno</th>
+        <th>Fecha</th>
+        <th>Nota</th>
+        <th>Condición</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each mesasExamen}}
+      <tr>
+        <td>{{materia}}</td>
+        <td>{{turno}}</td>
+        <td>{{fecha}}</td>
+        <td>{{nota}}</td>
+        <td class="{{#if aprobada}}approved{{else}}failed{{/if}}">{{condicion}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
   <div class="footer">
     <p>{{periodo}} — Institución: {{institucionNombre}}</p>
   </div>

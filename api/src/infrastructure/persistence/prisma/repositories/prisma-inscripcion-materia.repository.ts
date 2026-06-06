@@ -50,6 +50,15 @@ export class PrismaInscripcionMateriaRepository implements InscripcionRepository
     return rs.map((r) => this.toDomain(r));
   }
 
+  async findByStudentAndMateria(studentId: string, materiaCarreraId: string): Promise<InscripcionMateria | null> {
+    const rs = await this.client.inscripcionMateria.findMany({
+      where: { studentId, materiaCarreraId },
+      orderBy: { anioAcademico: 'desc' },
+      take: 1,
+    });
+    return rs.length > 0 ? this.toDomain(rs[0]) : null;
+  }
+
   async findCorrelativas(materiaCarreraId: string): Promise<CorrelativaRequerida[]> {
     const rs = await this.client.correlatividad.findMany({
       where: { materiaId: materiaCarreraId },

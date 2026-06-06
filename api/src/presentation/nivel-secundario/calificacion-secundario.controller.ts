@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { EducationalLevelCode, CalificacionSecundario } from '@educandow/domain';
+import { EducationalLevelCode, CalificacionSecundario, PendingExamDetail } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { LevelsGuard } from '../../infrastructure/auth/guards/levels.guard';
@@ -63,7 +63,7 @@ export class CalificacionSecundarioController {
   ) {
     const result = await this.consultarUC.execute(query);
     if (result.isErr()) throw result.unwrapErr();
-    return { data: result.unwrap().map(toDto) };
+    return { data: result.unwrap().map(pendingExamToDto) };
   }
 
   @Post('calificaciones/:id/definitiva')
@@ -93,5 +93,23 @@ function toDto(calificacion: CalificacionSecundario) {
     notaDiciembre: calificacion.notaDiciembre,
     notaFebrero: calificacion.notaFebrero,
     definitiva: calificacion.calcularDefinitiva(),
+  };
+}
+
+function pendingExamToDto(detail: PendingExamDetail) {
+  return {
+    id: detail.id,
+    studentId: detail.studentId,
+    studentName: detail.studentName,
+    cursoId: detail.cursoId,
+    cursoName: detail.cursoName,
+    subjectId: detail.subjectId,
+    subjectName: detail.subjectName,
+    trimestre: detail.trimestre,
+    nota: detail.nota,
+    condicion: detail.condicion,
+    notaDiciembre: detail.notaDiciembre,
+    notaFebrero: detail.notaFebrero,
+    definitiva: detail.definitiva,
   };
 }

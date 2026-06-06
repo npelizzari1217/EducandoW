@@ -281,6 +281,33 @@ export class AutoCreateCompetencyValuationsUC {
     return enrollments.map((e) => e.studentId);
   }
 
+  /**
+   * Given an enrollment's level/grade/division/academicYear, find all matching
+   * course sections and create valuations for the student across all active
+   * competencies of each section's subject assignments.
+   */
+  async executeForNewEnrollment(
+    studentId: string,
+    enrollmentData: { level: number; grade?: string; division?: string; academicYear: string },
+  ): Promise<void> {
+    const sections = await this.client.courseSection.findMany({
+      where: {
+        level: enrollmentData.level,
+        grade: enrollmentData.grade ?? null,
+        division: enrollmentData.division ?? null,
+        academicYear: enrollmentData.academicYear,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (sections.length === 0) return;
+
+    for (const section of sections) {
+      await this.executeForEnrollment(studentId, section.id);
+    }
+  }
+
   private async findSubjectAssignments(courseSectionId: string): Promise<{ subjectId: string }[]> {
     const assignments = await this.client.subjectAssignment.findMany({
       where: { courseSectionId, deletedAt: null },

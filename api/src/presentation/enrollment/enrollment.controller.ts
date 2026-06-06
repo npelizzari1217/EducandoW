@@ -84,6 +84,10 @@ export class EnrollmentController {
       cycleId,
       flag: body.flag,
       value: body.value,
+      level: body.level,
+      grade: body.grade,
+      division: body.division,
+      academicYear: body.academicYear,
     });
     return { data: { updated: count } };
   }

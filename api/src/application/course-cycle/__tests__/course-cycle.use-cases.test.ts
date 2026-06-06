@@ -70,7 +70,7 @@ function makeMockCourseSectionRepo(): CourseSectionRepository {
       name: 'Matemática',
       level,
       academicYear: '2026',
-      institutionId: 'inst-1',
+      institutionId: Id.reconstruct('inst-1'),
     })),
     // minimal mock
     findAll: vi.fn(),

@@ -1,3 +1,5 @@
+import { Result, ok, err } from '../../shared/result';
+import { ValidationError } from '../../shared/errors/validation-error';
 import { Id } from '../../shared/value-objects/id';
 import { ObservationType } from '../value-objects/observation-type';
 
@@ -14,14 +16,18 @@ export interface StudentObservationProps {
 export class StudentObservation {
   private constructor(private props: StudentObservationProps) {}
 
-  static create(props: Omit<StudentObservationProps, 'id'> & { content: string }): StudentObservation {
+  static create(
+    props: Omit<StudentObservationProps, 'id'>,
+  ): Result<StudentObservation, ValidationError> {
     if (!props.content || props.content.length < 1 || props.content.length > 2000) {
-      throw new Error('Observation content must be between 1 and 2000 characters');
+      return err(new ValidationError('Observation content must be between 1 and 2000 characters'));
     }
-    return new StudentObservation({
-      ...props,
-      id: Id.create(),
-    });
+    return ok(
+      new StudentObservation({
+        ...props,
+        id: Id.create(),
+      }),
+    );
   }
 
   static reconstruct(props: StudentObservationProps): StudentObservation {

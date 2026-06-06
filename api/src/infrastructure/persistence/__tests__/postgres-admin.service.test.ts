@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
 // We use dynamic imports so we can mock `pg` and `child_process` before importing the service.
 const mockQuery = vi.fn();
@@ -21,10 +21,14 @@ vi.mock('child_process', () => ({
 process.env.MASTER_DATABASE_URL = 'postgresql://user:pass@localhost:5432/educandow_master';
 process.env.ENCRYPTION_KEY = 'abcdefghijklmnopqrstuvwxyz012345'; // 32 bytes
 
-const { PostgresAdminService } = await import('../postgres-admin.service');
+let PostgresAdminService: typeof import('../postgres-admin.service').PostgresAdminService;
+
+beforeAll(async () => {
+  ({ PostgresAdminService } = await import('../postgres-admin.service'));
+});
 
 describe('PostgresAdminService', () => {
-  let service: PostgresAdminService;
+  let service: InstanceType<typeof PostgresAdminService>;
 
   beforeEach(() => {
     vi.clearAllMocks();

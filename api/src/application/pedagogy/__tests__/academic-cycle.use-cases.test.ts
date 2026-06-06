@@ -13,6 +13,10 @@ import {
   CycleCodeAlreadyExistsError,
   AcademicCycleNotFoundError,
   ValidationError,
+  EducationalLevel,
+  EducationalLevelCode,
+  EducationalModality,
+  EducationalModalityCode,
 } from '@educandow/domain';
 
 // Mock AcademicCycleRepository
@@ -29,8 +33,8 @@ const mockRepo = {
 function makeCycle(overrides?: Record<string, unknown>) {
   return AcademicCycle.create({
     name: 'Ciclo 2026',
-    level: 2,
-    modality: 0,
+    level: EducationalLevel.fromCode(EducationalLevelCode.PRIMARIO),
+    modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
     startDate: new Date('2026-03-01'),
     endDate: new Date('2026-12-20'),
     code: CycleCode.create('2026').unwrap(),
@@ -216,8 +220,8 @@ describe('ToggleAcademicCycleActiveUC', () => {
       uuid: 'abc-123',
       code: CycleCode.reconstruct('2026'),
       name: 'Test',
-      level: 2,
-      modality: 0,
+      level: EducationalLevel.fromCode(EducationalLevelCode.PRIMARIO),
+      modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
       startDate: new Date('2026-03-01'),
       endDate: new Date('2026-12-20'),
       active: false,

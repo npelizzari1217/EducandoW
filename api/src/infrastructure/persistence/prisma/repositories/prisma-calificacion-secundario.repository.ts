@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   CalificacionSecundarioRepository,
   CalificacionSecundario,
+  PendingExamDetail,
   CondicionAlumno,
   Trimestre,
   Id,
@@ -73,6 +74,57 @@ export class PrismaCalificacionSecundarioRepository
       orderBy: [{ studentId: 'asc' }],
     });
     return records.map((r) => this.toDomain(r));
+  }
+
+  async findPendingExamsWithDetails(
+    turno: 'DICIEMBRE' | 'FEBRERO',
+    academicYear: string,
+  ): Promise<PendingExamDetail[]> {
+    const records = await this.client.calificacionSecundario.findMany({
+      where: {
+        condicion: { in: ['PREVIA', 'LIBRE'] },
+        ...(turno === 'DICIEMBRE'
+          ? { notaDiciembre: null }
+          : { notaFebrero: null }),
+        curso: { academicYear },
+      },
+      include: {
+        student: true,
+        subject: true,
+        curso: true,
+      },
+      orderBy: [{ studentId: 'asc' }],
+    });
+
+    return records.map((r) => {
+      const trimestreResult = Trimestre.create(r.trimestre);
+      const notaDiciembre = r.notaDiciembre ?? null;
+      const notaFebrero = r.notaFebrero ?? null;
+
+      // Compute definitiva inline using same logic as domain entity
+      let definitiva: number | null = null;
+      if (notaDiciembre !== null && notaFebrero !== null) {
+        definitiva = Math.max(notaDiciembre, notaFebrero);
+      } else if (notaDiciembre !== null) {
+        definitiva = notaDiciembre;
+      }
+
+      return {
+        id: r.id,
+        studentId: r.studentId,
+        studentName: `${r.student.firstName} ${r.student.lastName}`,
+        cursoId: r.cursoId,
+        cursoName: `${r.curso.year}° ${r.curso.division}`,
+        subjectId: r.subjectId,
+        subjectName: r.subject.name,
+        trimestre: trimestreResult.isOk() ? trimestreResult.unwrap().value : r.trimestre,
+        nota: r.nota,
+        condicion: r.condicion,
+        notaDiciembre,
+        notaFebrero,
+        definitiva,
+      } satisfies PendingExamDetail;
+    });
   }
 
   async save(calificacion: CalificacionSecundario): Promise<void> {

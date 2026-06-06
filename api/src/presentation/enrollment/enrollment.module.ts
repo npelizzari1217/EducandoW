@@ -1,19 +1,26 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { PedagogyModule } from '../pedagogy/pedagogy.module';
 import { EnrollmentController } from './enrollment.controller';
 import {
   CreateEnrollmentUseCase, ListEnrollmentsUseCase, GetEnrollmentUseCase, DeleteEnrollmentUseCase,
   ToggleEnrollmentFlagUseCase, BulkToggleEnrollmentFlagsUseCase,
 } from '../../application/enrollment/use-cases/enrollment.use-cases';
+import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaEnrollmentRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-enrollment.repository';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PedagogyModule],
   controllers: [EnrollmentController],
   providers: [
     PrismaEnrollmentRepository,
     { provide: 'EnrollmentRepository', useExisting: PrismaEnrollmentRepository },
-    { provide: CreateEnrollmentUseCase, useFactory: (r) => new CreateEnrollmentUseCase(r), inject: ['EnrollmentRepository'] },
+    {
+      provide: CreateEnrollmentUseCase,
+      useFactory: (r: PrismaEnrollmentRepository, auto: AutoCreateCompetencyValuationsUC) =>
+        new CreateEnrollmentUseCase(r, auto),
+      inject: ['EnrollmentRepository', AutoCreateCompetencyValuationsUC],
+    },
     { provide: ListEnrollmentsUseCase, useFactory: (r) => new ListEnrollmentsUseCase(r), inject: ['EnrollmentRepository'] },
     { provide: GetEnrollmentUseCase, useFactory: (r) => new GetEnrollmentUseCase(r), inject: ['EnrollmentRepository'] },
     { provide: DeleteEnrollmentUseCase, useFactory: (r) => new DeleteEnrollmentUseCase(r), inject: ['EnrollmentRepository'] },

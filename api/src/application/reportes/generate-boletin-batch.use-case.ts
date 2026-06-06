@@ -11,6 +11,8 @@ import { GenerateBoletinUseCase, BoletinError } from './generate-boletin.use-cas
  *
  * Students where enrollment.printable = false are silently excluded.
  * If no printable students are found, throws a 422 error.
+ * If ALL per-student PDF generations fail, throws a 422 error instead of
+ * returning an empty ZIP with HTTP 200.
  */
 @Injectable()
 export class GenerateBoletinBatchUseCase {
@@ -67,6 +69,7 @@ export class GenerateBoletinBatchUseCase {
 
     archive.pipe(writable);
 
+    let successCount = 0;
     for (let i = 0; i < enrollments.length; i++) {
       const enrollment = enrollments[i];
       try {
@@ -74,8 +77,9 @@ export class GenerateBoletinBatchUseCase {
         const studentName = `${enrollment.student.lastName}_${enrollment.student.firstName}`
           .replace(/\s+/g, '_')
           .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
+          .replace(/[̀-ͯ]/g, '');
         archive.append(pdfBuffer, { name: `boletin_${studentName}.pdf` });
+        successCount++;
 
         this.logger.log(`[${i + 1}/${enrollments.length}] PDF generated for ${enrollment.student.lastName}`);
       } catch (err) {
@@ -84,6 +88,15 @@ export class GenerateBoletinBatchUseCase {
         );
         // Continue with next student — don't fail the whole batch
       }
+    }
+
+    // Guard: if ALL individual PDFs failed, do not return a meaningless empty ZIP
+    if (successCount === 0) {
+      throw new BoletinError(
+        'No se pudo generar ningún boletín del lote — todos fallaron',
+        'BATCH_ALL_FAILED',
+        422,
+      );
     }
 
     await archive.finalize();

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError,
   ActaExamen, CondicionExamen, ActaExamenRepository,
+  InscripcionRepository, EstadoInscripcion,
 } from '@educandow/domain';
 
 export interface CreateActaExamenInput {
@@ -58,7 +59,10 @@ export class GetActaExamenUC {
 
 @Injectable()
 export class RegistrarNotaUC {
-  constructor(private readonly repo: ActaExamenRepository) {}
+  constructor(
+    private readonly repo: ActaExamenRepository,
+    private readonly inscripcionRepo: InscripcionRepository,
+  ) {}
 
   async execute(actaId: string, input: RegistrarNotaInput): Promise<Result<void, NotFoundError | ValidationError>> {
     const acta = await this.repo.findById(actaId);
@@ -73,6 +77,20 @@ export class RegistrarNotaUC {
 
     acta.registrarNota(input.studentId, input.nota, condicion);
     await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get());
+
+    // Spec: when condicion = APROBADO, update InscripcionMateria.estado to APROBADO
+    if (condicion.get() === 'APROBADO') {
+      const inscripcion = await this.inscripcionRepo.findByStudentAndMateria(
+        input.studentId,
+        acta.materiaCarreraId,
+      );
+      if (!inscripcion) {
+        return err(new ValidationError('Inscripción no encontrada para el estudiante y materia indicados'));
+      }
+      inscripcion.updateEstado(EstadoInscripcion.create('APROBADO'));
+      await this.inscripcionRepo.save(inscripcion);
+    }
+
     return ok(undefined);
   }
 }

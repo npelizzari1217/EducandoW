@@ -5,6 +5,7 @@ import { PassingGrade } from '../../value-objects/passing-grade';
 import { BimonthPeriod } from '../../value-objects/bimonth-period';
 import { Level, LevelType } from '../../../institution/value-objects/level';
 import { CourseCycleClosedError } from '../../errors';
+import type { DateRange } from '../../services/grading-period-calculator';
 
 function makeBimonth(start: string, end: string): BimonthPeriod {
   return BimonthPeriod.create(new Date(start), new Date(end)).unwrap();
@@ -188,6 +189,103 @@ describe('CourseCycle', () => {
       expect(cc.active).toBe(false);
       expect(cc.deletedAt).toBe(deletedAt);
       expect(cc.createdAt).toBe(createdAt);
+    });
+  });
+
+  describe('getCurrentPeriod()', () => {
+    function makeRanges(offsetDays: number): DateRange[] {
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(start.getDate() - offsetDays);
+      const end = new Date(now);
+      end.setDate(end.getDate() + offsetDays);
+      return [{ start, end }];
+    }
+
+    it('returns explicit override when activeGradingPeriod is set', () => {
+      const cc = CourseCycle.reconstruct({
+        id: { get: () => 'id' } as any,
+        uuid: 'uuid-1',
+        courseId,
+        studyPlanId,
+        cycleId,
+        courseName,
+        level,
+        active: true,
+        passingGrade,
+        promotionText: null,
+        firstBimonth: null,
+        secondBimonth: null,
+        thirdBimonth: null,
+        fourthBimonth: null,
+        activeGradingPeriod: 3, // explicit override
+        createdAt: new Date(),
+        lastModifiedAt: new Date(),
+      });
+
+      // Even if ranges contain today, should return the explicit value 3
+      const result = cc.getCurrentPeriod(makeRanges(5));
+      expect(result).toBe(3);
+    });
+
+    it('returns calculated period when no explicit override', () => {
+      const cc = CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName, level, passingGrade,
+        firstBimonth: firstBim, secondBimonth: secondBim,
+        thirdBimonth: thirdBim, fourthBimonth: fourthBim,
+      });
+      // activeGradingPeriod starts null in create()
+
+      const activeRanges = makeRanges(5);
+      const result = cc.getCurrentPeriod(activeRanges);
+      expect(result).toBe(1); // first (and only) range in the array
+    });
+
+    it('returns null when no override and today is outside all ranges', () => {
+      const cc = CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName, level, passingGrade,
+        firstBimonth: firstBim, secondBimonth: secondBim,
+        thirdBimonth: thirdBim, fourthBimonth: fourthBim,
+      });
+
+      const pastRanges: DateRange[] = [
+        { start: new Date('2020-01-01'), end: new Date('2020-03-31') },
+      ];
+      const result = cc.getCurrentPeriod(pastRanges);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when no override and ranges are empty', () => {
+      const cc = CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName, level, passingGrade,
+        firstBimonth: firstBim, secondBimonth: secondBim,
+        thirdBimonth: thirdBim, fourthBimonth: fourthBim,
+      });
+
+      const result = cc.getCurrentPeriod([]);
+      expect(result).toBeNull();
+    });
+
+    it('setActiveGradingPeriod changes the override and updates lastModifiedAt', () => {
+      const cc = CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName, level, passingGrade,
+      });
+      const before = cc.lastModifiedAt;
+
+      cc.setActiveGradingPeriod(2);
+
+      expect(cc.activeGradingPeriod).toBe(2);
+      expect(cc.lastModifiedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    });
+
+    it('setActiveGradingPeriod(null) clears the override', () => {
+      const cc = CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName, level, passingGrade,
+      });
+      cc.setActiveGradingPeriod(2);
+      cc.setActiveGradingPeriod(null);
+
+      expect(cc.activeGradingPeriod).toBeNull();
     });
   });
 

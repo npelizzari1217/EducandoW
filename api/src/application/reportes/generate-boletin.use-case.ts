@@ -7,7 +7,7 @@ import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
-import type { DatosBoletin, MateriaBoletin } from './templates/boletin.template';
+import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin } from './templates/boletin.template';
 
 /** Error codes for boletin generation */
 export class BoletinError extends Error {
@@ -61,6 +61,7 @@ export class GenerateBoletinUseCase {
 
   /**
    * Generates a PDF boletín for the given enrollment.
+   * Cache-first: returns stored PDF if available; regenerates otherwise.
    *
    * @returns The PDF Buffer ready to be served as application/pdf.
    */
@@ -76,25 +77,41 @@ export class GenerateBoletinUseCase {
       throw new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422);
     }
 
-    // 2. Fetch student
+    // 2. Cache-first: return stored PDF if it already exists
+    const cachedPath = await this.pdfStorage.getPath(enrollmentId);
+    if (cachedPath) {
+      this.logger.log(`Returning cached PDF for enrollment ${enrollmentId}`);
+      return fs.promises.readFile(cachedPath);
+    }
+
+    // 3. Fetch student
     const student = await client.student.findUnique({ where: { id: enrollment.studentId } });
     if (!student) {
       throw new BoletinError('Alumno no encontrado', 'STUDENT_NOT_FOUND', 404);
     }
 
-    // 3. Fetch institution name (master DB)
+    // 4. Fetch institution name (master DB)
     const institutionId = TenantContext.getInstitutionId();
     const institution = institutionId
       ? await this.prisma.getMasterClient().institution.findUnique({ where: { id: institutionId } })
       : null;
 
-    // 4. Determine level name
+    // 5. Determine level name
     const levelName = this.resolveLevelName(enrollment.level);
 
-    // 5. Fetch grades and build materias
+    // 6. Fetch grades and build materias
     const materias = await this.buildMaterias(client, enrollment);
 
-    // 6. Assemble DatosBoletin
+    // 7. Build attendance summary
+    const asistencia = await this.buildAsistencia(client, enrollment.studentId, enrollment.cycleId ?? null);
+
+    // 7b. Build exam board results (SECUNDARIO only)
+    const baseLevel = this.getBaseLevel(enrollment.level);
+    const mesasExamen = baseLevel === 'SECUNDARIO'
+      ? await this.buildMesasExamen(client, enrollment.studentId)
+      : undefined;
+
+    // 8. Assemble DatosBoletin
     const datos: DatosBoletin = {
       alumnoNombre: student.firstName,
       alumnoApellido: student.lastName,
@@ -104,10 +121,11 @@ export class GenerateBoletinUseCase {
       grado: enrollment.grade ?? enrollment.division ?? levelName,
       periodo: enrollment.academicYear,
       materias,
+      asistencia,
+      mesasExamen,
     };
 
-    // 7. Choose and render template
-    const baseLevel = this.getBaseLevel(enrollment.level);
+    // 9. Choose and render template
     const template = this.templates.get(baseLevel);
     if (!template) {
       throw new BoletinError(
@@ -118,10 +136,10 @@ export class GenerateBoletinUseCase {
     }
     const html = template(datos);
 
-    // 8. Generate PDF
+    // 10. Generate PDF
     const pdfBuffer = await this.pdfGenerator.generatePdf(html);
 
-    // 9. Store PDF for future requests
+    // 11. Store PDF for future requests
     await this.pdfStorage.save(enrollmentId, pdfBuffer);
 
     this.logger.log(`Boletín PDF generated for enrollment ${enrollmentId} (${student.lastName}, ${student.firstName})`);
@@ -241,8 +259,12 @@ export class GenerateBoletinUseCase {
     return names[base] ?? `NIVEL_${levelCode}`;
   }
 
-  /** Returns the base level string (INICIAL/PRIMARIO/SECUNDARIO/TERCIARIO) for template selection. */
-  private getBaseLevel(levelCode: number): string {
+  /**
+   * Returns the base level string for template selection.
+   * Throws BOLETIN_LEVEL_UNKNOWN (422) for unrecognised level codes
+   * instead of silently defaulting to PRIMARIO (which would produce a wrong PDF).
+   */
+  getBaseLevel(levelCode: number): string {
     const base = Math.floor(levelCode / 10) * 10;
     const names: Record<number, string> = {
       10: 'INICIAL',
@@ -250,6 +272,72 @@ export class GenerateBoletinUseCase {
       30: 'SECUNDARIO',
       40: 'TERCIARIO',
     };
-    return names[base] ?? 'PRIMARIO';
+    const name = names[base];
+    if (!name) {
+      throw new BoletinError(
+        `Nivel pedagógico desconocido: ${levelCode}`,
+        'BOLETIN_LEVEL_UNKNOWN',
+        422,
+      );
+    }
+    return name;
+  }
+
+  /**
+   * Builds the list of exam board (mesa de examen) results for a given student.
+   * Only called for SECUNDARIO level. Returns an empty array when none exist.
+   */
+  async buildMesasExamen(
+    client: TenantPrismaClient,
+    studentId: string,
+  ): Promise<MesaExamenBoletin[]> {
+    const inscripciones = await client.mesaExamenInscripcion.findMany({
+      where: { studentId, mesa: { active: true } },
+      include: { mesa: { include: { subject: true } } },
+      orderBy: { mesa: { fecha: 'asc' } },
+    });
+
+    return inscripciones.map((i) => {
+      const fecha = i.mesa.fecha;
+      const dd = String(fecha.getDate()).padStart(2, '0');
+      const mm = String(fecha.getMonth() + 1).padStart(2, '0');
+      const aaaa = fecha.getFullYear();
+      return {
+        materia: i.mesa.subject.name,
+        turno: i.mesa.turno,
+        fecha: `${dd}/${mm}/${aaaa}`,
+        nota: i.notaFinal !== null ? String(i.notaFinal) : '—',
+        condicion: i.condicionFinal,
+        aprobada: i.condicionFinal === 'APROBADO',
+      };
+    });
+  }
+
+  /**
+   * Builds an attendance summary for the given student within the given cycle.
+   * Returns undefined when no attendance records exist (no cycleId or no records).
+   */
+  async buildAsistencia(
+    client: TenantPrismaClient,
+    studentId: string,
+    cycleId: string | null,
+  ): Promise<AsistenciaBoletin | undefined> {
+    if (!cycleId) return undefined;
+
+    const records = await client.attendance.findMany({
+      where: { studentId, cycleId, active: true },
+    });
+
+    if (records.length === 0) return undefined;
+
+    const totalDias = records.length;
+    const diasPresente = records.filter(r => r.isPresent === true).length;
+    const inasistencias = records.filter(r => r.absenceValue === 1).length;
+    const mediasFaltas = records.filter(r => r.absenceValue === 0.5).length;
+    const porcentaje = totalDias > 0
+      ? ((diasPresente / totalDias) * 100).toFixed(1)
+      : '0.0';
+
+    return { totalDias, diasPresente, inasistencias, mediasFaltas, porcentaje };
   }
 }

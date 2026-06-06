@@ -20,4 +20,4 @@ export type { CondicionAlumnoCode } from './value-objects/condicion-alumno';
 export type { CursoRepository } from './repositories/curso-repository';
 export type { MesaExamenRepository } from './repositories/mesa-examen-repository';
 export type { RegimenAcademicoRepository } from './repositories/regimen-academico-repository';
-export type { CalificacionSecundarioRepository } from './repositories/calificacion-secundario-repository';
+export type { CalificacionSecundarioRepository, PendingExamDetail } from './repositories/calificacion-secundario-repository';

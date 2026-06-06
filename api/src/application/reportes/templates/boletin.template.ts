@@ -2,6 +2,34 @@
  * Template Method — Estructura común de boletín.
  * Cada nivel pedagógico implementa sus hooks específicos.
  */
+export interface AsistenciaBoletin {
+  /** Total de días / clases registradas */
+  totalDias: number;
+  /** Días presentes (isPresent = true) */
+  diasPresente: number;
+  /** Inasistencias completas (absenceValue = 1) */
+  inasistencias: number;
+  /** Inasistencias medias (absenceValue = 0.5) */
+  mediasFaltas: number;
+  /** Porcentaje de asistencia, e.g. "87.5" */
+  porcentaje: string;
+}
+
+export interface MesaExamenBoletin {
+  /** Nombre de la materia */
+  materia: string;
+  /** Turno del examen: "DICIEMBRE" | "FEBRERO" */
+  turno: string;
+  /** Fecha formateada dd/mm/aaaa */
+  fecha: string;
+  /** Nota obtenida, o "—" si no rindió / ausente */
+  nota: string;
+  /** Condición final: "APROBADO" | "DESAPROBADO" | "AUSENTE" */
+  condicion: string;
+  /** True cuando condicionFinal === 'APROBADO', para helpers Handlebars */
+  aprobada: boolean;
+}
+
 export interface DatosBoletin {
   alumnoNombre: string;
   alumnoApellido: string;
@@ -11,6 +39,10 @@ export interface DatosBoletin {
   grado: string;
   periodo: string;
   materias: MateriaBoletin[];
+  /** Resumen de asistencia. Undefined cuando no hay registros o no aplica. */
+  asistencia?: AsistenciaBoletin;
+  /** Mesas de examen del alumno. Solo para nivel SECUNDARIO. Undefined o vacío cuando no aplica. */
+  mesasExamen?: MesaExamenBoletin[];
 }
 
 export interface MateriaBoletin {

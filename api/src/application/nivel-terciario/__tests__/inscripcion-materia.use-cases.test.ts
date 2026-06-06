@@ -9,9 +9,11 @@ function mockInscRepo(overrides: Partial<InscripcionRepository> = {}): Inscripci
     findById: vi.fn().mockResolvedValue(null),
     findByStudent: vi.fn().mockResolvedValue([]),
     findByMateriaCarrera: vi.fn().mockResolvedValue([]),
+    findByStudentAndMateria: vi.fn().mockResolvedValue(null),
     findCorrelativas: vi.fn().mockResolvedValue([]),
     findAprobadas: vi.fn().mockResolvedValue([]),
     findRegulares: vi.fn().mockResolvedValue([]),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

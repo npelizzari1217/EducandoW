@@ -1,6 +1,8 @@
 import { Id } from '../../shared/value-objects/id';
 import { Level } from '../../institution/value-objects/level';
 import { EnrollmentStatus } from '../value-objects/enrollment-status';
+import { Result, ok, err } from '../../shared/result';
+import { ValidationError } from '../../shared/errors/validation-error';
 
 export interface EnrollmentProps {
   id: Id;
@@ -17,19 +19,30 @@ export interface EnrollmentProps {
   promoted?: boolean;
   active?: boolean;
   deletedAt?: Date;
+  activeGradingPeriod?: number | null;
 }
 
 export class Enrollment {
   private constructor(private props: EnrollmentProps) {}
 
-  static create(props: Omit<EnrollmentProps, 'id' | 'status' | 'enrolledAt' | 'active' | 'deletedAt'>): Enrollment {
-    return new Enrollment({
+  static create(props: Omit<EnrollmentProps, 'id' | 'status' | 'enrolledAt' | 'active' | 'deletedAt'>): Result<Enrollment, ValidationError> {
+    // Runtime validation: printable and promoted must be boolean when provided
+    // Note: typeof null === 'object', so null is caught by this check
+    if (props.printable !== undefined && typeof props.printable !== 'boolean') {
+      return err(new ValidationError(`printable must be a boolean, got ${props.printable === null ? 'null' : typeof props.printable}`));
+    }
+    if (props.promoted !== undefined && typeof props.promoted !== 'boolean') {
+      return err(new ValidationError(`promoted must be a boolean, got ${props.promoted === null ? 'null' : typeof props.promoted}`));
+    }
+
+    return ok(new Enrollment({
       ...props,
       id: Id.create(),
       status: EnrollmentStatus.reconstruct('ACTIVE'),
       enrolledAt: new Date(),
       active: true,
-    });
+      activeGradingPeriod: props.activeGradingPeriod ?? null,
+    }));
   }
 
   static reconstruct(props: EnrollmentProps): Enrollment {
@@ -92,6 +105,10 @@ export class Enrollment {
     return this.props.promoted ?? false;
   }
 
+  get activeGradingPeriod(): number | null {
+    return this.props.activeGradingPeriod ?? null;
+  }
+
   changeStatus(status: EnrollmentStatus): void {
     this.props.status = status;
   }
@@ -102,6 +119,18 @@ export class Enrollment {
 
   setPromoted(value: boolean): void {
     this.props.promoted = value;
+  }
+
+  togglePrintable(): void {
+    this.props.printable = !this.printable;
+  }
+
+  togglePromoted(): void {
+    this.props.promoted = !this.promoted;
+  }
+
+  setActiveGradingPeriod(value: number | null): void {
+    this.props.activeGradingPeriod = value;
   }
 
   softDelete(): void {

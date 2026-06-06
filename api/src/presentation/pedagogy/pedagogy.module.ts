@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ReportesModule } from '../reportes/reportes.module';
 import { PedagogyController } from './pedagogy.controller';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
@@ -20,9 +21,9 @@ const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignme
 const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'EvaluacionRepository', 'NotaRepository', 'PeriodoEvaluacionRepository', 'NotaTrimestralRepository', 'AttendanceRepository', 'AcademicCycleRepository', 'StudyPlanRepository', 'SubjectCompetencyRepository', 'CompetencyValuationRepository'];
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReportesModule],
   controllers: [PedagogyController],
-  exports: ['CourseSectionRepository', 'AcademicCycleRepository', 'StudyPlanRepository'],
+  exports: ['CourseSectionRepository', 'AcademicCycleRepository', 'StudyPlanRepository', CUC.AutoCreateCompetencyValuationsUC],
   providers: [
     ...repos,
     ...tokens.map((t, i) => ({ provide: t, useExisting: repos[i] })),

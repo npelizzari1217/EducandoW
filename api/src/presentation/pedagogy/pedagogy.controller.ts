@@ -8,6 +8,7 @@ import * as DTO from './dto/pedagogy.dto';
 import * as CDTO from './dto/competency.dto';
 import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
+import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import type { AcademicCycle } from '@educandow/domain';
 
 @Controller()
@@ -39,6 +40,7 @@ export class PedagogyController {
     private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
     private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
     private updateValUC: CUC.UpdateCompetencyValuationUC,
+    private boletinInvalidation: BoletinInvalidationService,
   ) {}
 
   // ── Academic Cycles ────────────────────────────────────
@@ -190,13 +192,28 @@ export class PedagogyController {
 
   // ── Notas Trimestrales ──────────────────────────────
   @Post('notas-trimestrales') @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
-  async postNotaTrimestral(@Body(new ZodValidationPipe(DTO.CreateNotaTrimestralSchema)) b: DTO.CreateNotaTrimestralDTO) { const r = await this.createNotaTrimestralUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const n = r.unwrap(); return { data: { id: n.id.get(), studentId: n.studentId, assignmentId: n.assignmentId, periodId: n.periodId, finalGrade: n.finalGrade, attendancePct: n.attendancePct } }; }
+  async postNotaTrimestral(@Body(new ZodValidationPipe(DTO.CreateNotaTrimestralSchema)) b: DTO.CreateNotaTrimestralDTO) {
+    const r = await this.createNotaTrimestralUC.execute(b);
+    if (r.isErr()) throw r.unwrapErr();
+    const n = r.unwrap();
+    // Invalidate cached PDF boletín for this student — grade data changed
+    await this.boletinInvalidation.invalidateForStudent(n.studentId);
+    return { data: { id: n.id.get(), studentId: n.studentId, assignmentId: n.assignmentId, periodId: n.periodId, finalGrade: n.finalGrade, attendancePct: n.attendancePct } };
+  }
 
   @Get('notas-trimestrales') @Roles('ROOT', { module: 'GRADES', action: 'READ' })
   async getNotasTrimestrales(@Query('studentId') sid: string, @Query('periodId') pid: string) { if (sid && pid) { const n = await this.listNotasTrimestralesUC.execute(sid, pid); return { data: n.map(x => ({ id: x.id.get(), assignmentId: x.assignmentId, finalGrade: x.finalGrade, attendancePct: x.attendancePct })) }; } return { data: [] }; }
 
   @Delete('notas-trimestrales/:id') @Roles('ROOT', { module: 'GRADES', action: 'DELETE' }) @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteNotaTrimestral(@Param('id') id: string) { await this.deleteNotaTrimestralUC.execute(id); }
+  async deleteNotaTrimestral(@Param('id') id: string) {
+    // Resolve studentId before deletion so we can invalidate the PDF
+    const client = TenantContext.getClient();
+    if (client) {
+      const nota = await client.notaTrimestral.findUnique({ where: { id }, select: { studentId: true } });
+      if (nota) await this.boletinInvalidation.invalidateForStudent(nota.studentId);
+    }
+    await this.deleteNotaTrimestralUC.execute(id);
+  }
 
   // ── Attendance ─────────────────────────────────────
   @Post('attendance') @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
@@ -323,7 +340,7 @@ export class PedagogyController {
     return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
   }
 
-  @Get('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  @Get('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async listCompetencies(@Query('subjectId') subjectId: string, @Query('active') active?: string) {
     if (!subjectId) throw new HttpException('subjectId es requerido', HttpStatus.UNPROCESSABLE_ENTITY);
     const activeFilter = active === 'true' ? true : active === 'false' ? false : undefined;
@@ -331,7 +348,7 @@ export class PedagogyController {
     return { data: competencies.map((c) => ({ uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active })) };
   }
 
-  @Get('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  @Get('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async getCompetency(@Param('uuid') uuid: string) {
     const c = await this.getCompUC.execute(uuid);
     if (!c) throw new HttpException('Competencia no encontrada', HttpStatus.NOT_FOUND);
@@ -353,14 +370,14 @@ export class PedagogyController {
 
   // ── Competency Valuations ───────────────────────────
 
-  @Get('competency-valuations') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  @Get('competency-valuations') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async listValuations(@Query('studentId') studentId: string, @Query('subjectId') subjectId: string) {
     if (!studentId || !subjectId) throw new HttpException('studentId y subjectId son requeridos', HttpStatus.UNPROCESSABLE_ENTITY);
     const vals = await this.listValUC.execute(studentId, subjectId);
     return { data: vals.map((v) => this.toValuationResponse(v)) };
   }
 
-  @Get('competency-valuations/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'read' })
+  @Get('competency-valuations/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async getValuation(@Param('uuid') uuid: string) {
     const r = await this.getValUC.execute(uuid);
     if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.NOT_FOUND);

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result, ValidationError, NotFoundError, EnrollmentRepository, Enrollment, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import type { FindByCourseParams } from '@educandow/domain';
+import type { AutoCreateCompetencyValuationsUC } from '../../pedagogy/use-cases/competency.use-cases';
 
 export interface CreateEnrollmentInput {
   studentId: string;
@@ -26,7 +28,10 @@ function buildLevel(level: string, modality?: string): Level {
 
 @Injectable()
 export class CreateEnrollmentUseCase {
-  constructor(private readonly repo: EnrollmentRepository) {}
+  constructor(
+    private readonly repo: EnrollmentRepository,
+    private readonly autoCreateValuationsUC?: AutoCreateCompetencyValuationsUC,
+  ) {}
 
   async execute(input: CreateEnrollmentInput): Promise<Result<Enrollment, ValidationError>> {
     const lvl = buildLevel(input.level, input.modality);
@@ -37,7 +42,7 @@ export class CreateEnrollmentUseCase {
       return err(new ValidationError('El estudiante ya tiene una inscripción activa en ese nivel para este año'));
     }
 
-    const enrollment = Enrollment.create({
+    const createResult = Enrollment.create({
       studentId: Id.reconstruct(input.studentId),
       institutionId: Id.reconstruct(input.institutionId),
       level: lvl,
@@ -46,7 +51,28 @@ export class CreateEnrollmentUseCase {
       division: input.division,
     });
 
+    if (createResult.isErr()) {
+      return err(createResult.unwrapErr());
+    }
+
+    const enrollment = createResult.unwrap();
     await this.repo.save(enrollment);
+
+    // Fire-and-forget: auto-create competency valuations for the new enrollment.
+    // Errors here must not fail the enrollment itself.
+    if (this.autoCreateValuationsUC) {
+      this.autoCreateValuationsUC
+        .executeForNewEnrollment(input.studentId, {
+          level: lvl.toCode(),
+          grade: input.grade,
+          division: input.division,
+          academicYear: input.academicYear,
+        })
+        .catch(() => {
+          // Intentionally swallowed — valuation auto-creation is best-effort
+        });
+    }
+
     return ok(enrollment);
   }
 }
@@ -95,9 +121,9 @@ export class ToggleEnrollmentFlagUseCase {
     }
 
     if (flag === 'printable') {
-      enrollment.setPrintable(!enrollment.printable);
+      enrollment.togglePrintable();
     } else {
-      enrollment.setPromoted(!enrollment.promoted);
+      enrollment.togglePromoted();
     }
 
     await this.repo.save(enrollment);
@@ -107,6 +133,10 @@ export class ToggleEnrollmentFlagUseCase {
 
 export interface BulkToggleEnrollmentFlagsInput {
   cycleId: string;
+  level?: number;
+  grade?: string;
+  division?: string;
+  academicYear?: string;
   flag: EnrollmentFlag;
   value: boolean;
 }
@@ -116,7 +146,15 @@ export class BulkToggleEnrollmentFlagsUseCase {
   constructor(private readonly repo: EnrollmentRepository) {}
 
   async execute(input: BulkToggleEnrollmentFlagsInput): Promise<number> {
-    const enrollments = await this.repo.findByCycleId(input.cycleId);
+    const criteria: FindByCourseParams = {
+      cycleId: input.cycleId,
+      level: input.level,
+      grade: input.grade,
+      division: input.division,
+      academicYear: input.academicYear,
+    };
+
+    const enrollments = await this.repo.findByCourse(criteria);
 
     for (const enrollment of enrollments) {
       if (input.flag === 'printable') {
@@ -124,9 +162,9 @@ export class BulkToggleEnrollmentFlagsUseCase {
       } else {
         enrollment.setPromoted(input.value);
       }
-      await this.repo.save(enrollment);
     }
 
+    await this.repo.saveMany(enrollments);
     return enrollments.length;
   }
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
 // Mock bcrypt and crypto for deterministic tests
 vi.mock('bcrypt', () => ({
@@ -26,10 +26,14 @@ const mockMasterClient = {
   },
 };
 
-const { CreateInstitutionAdminUseCase } = await import('../create-institution-admin.use-case');
+let CreateInstitutionAdminUseCase: typeof import('../create-institution-admin.use-case').CreateInstitutionAdminUseCase;
+
+beforeAll(async () => {
+  ({ CreateInstitutionAdminUseCase } = await import('../create-institution-admin.use-case'));
+});
 
 describe('CreateInstitutionAdminUseCase', () => {
-  let useCase: CreateInstitutionAdminUseCase;
+  let useCase: InstanceType<typeof CreateInstitutionAdminUseCase>;
 
   const defaultInput = {
     adminEmail: 'admin@school.edu',

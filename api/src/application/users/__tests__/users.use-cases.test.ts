@@ -17,6 +17,7 @@ describe('userToResponse', () => {
     id: 'user-1',
     email: 'test@test.com',
     name: 'Test User',
+    passwordHash: '$2b$12$hashedpassword',
     institutionId: 'inst-1',
     institution: { id: 'inst-1', name: 'Escuela X' } as const,
     level: null as number | null,

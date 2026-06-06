@@ -7,6 +7,7 @@ function mockGradoRepo(overrides: Partial<GradoRepository> = {}): GradoRepositor
     save: vi.fn().mockResolvedValue(undefined),
     findById: vi.fn().mockResolvedValue(null),
     findAll: vi.fn().mockResolvedValue([]),
+    delete: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

@@ -193,6 +193,8 @@ model Enrollment {
   printable    Boolean  @default(true)
   promoted     Boolean  @default(false)
 
+  activeGradingPeriod Int? @map("active_grading_period")
+
   active    Boolean   @default(true)
   deletedAt DateTime?
 

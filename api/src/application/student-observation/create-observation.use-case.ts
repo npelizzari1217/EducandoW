@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result,
-  ValidationError, ForbiddenError,
+  ForbiddenError,
   StudentObservation, ObservationType, ObservationTypeValue, Id,
   StudentObservationRepository,
   getHighestRoleRank,
@@ -32,17 +32,15 @@ export class CreateObservationUseCase {
       return err(new ForbiddenError('Only DIRECTOR+ roles can create PSYCHOPEDAGOGICAL observations'));
     }
 
-    // Validate content length
-    if (!input.content || input.content.length < 1 || input.content.length > 2000) {
-      return err(new ValidationError('Content must be between 1 and 2000 characters'));
-    }
-
-    const observation = StudentObservation.create({
+    // Entity validates content length (1-2000 chars) and returns Result
+    const observationResult = StudentObservation.create({
       studentId: Id.reconstruct(input.studentId),
       authorId: Id.reconstruct(input.authorId),
       type,
       content: input.content,
     });
+    if (observationResult.isErr()) return err(observationResult.unwrapErr());
+    const observation = observationResult.unwrap();
 
     await this.repo.save(observation);
     return ok(observation);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyModule } from '../pedagogy/pedagogy.module';
+import { EnrollmentModule } from '../enrollment/enrollment.module';
 import { CourseCycleController } from './course-cycle.controller';
 import {
   CreateCourseCycleUseCase,
@@ -16,15 +17,16 @@ import {
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
-import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository } from '@educandow/domain';
+import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, EnrollmentRepository } from '@educandow/domain';
 
 // Tokens exported by PedagogyModule
 const CourseSectionRepo = 'CourseSectionRepository';
 const AcademicCycleRepo = 'AcademicCycleRepository';
 const StudyPlanRepo = 'StudyPlanRepository';
+const EnrollmentRepo = 'EnrollmentRepository';
 
 @Module({
-  imports: [AuthModule, PedagogyModule],
+  imports: [AuthModule, PedagogyModule, EnrollmentModule],
   controllers: [CourseCycleController],
   providers: [
     PrismaCourseCycleRepository,
@@ -82,8 +84,8 @@ const StudyPlanRepo = 'StudyPlanRepository';
     },
     {
       provide: SetActivePeriodUseCase,
-      useFactory: (cc: PrismaCourseCycleRepository) => new SetActivePeriodUseCase(cc),
-      inject: [PrismaCourseCycleRepository],
+      useFactory: (cc: PrismaCourseCycleRepository, er: EnrollmentRepository) => new SetActivePeriodUseCase(cc, er),
+      inject: [PrismaCourseCycleRepository, EnrollmentRepo],
     },
   ],
   exports: [PrismaCourseCycleRepository],

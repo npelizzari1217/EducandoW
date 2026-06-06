@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnrollmentRepository, Enrollment, EnrollmentStatus, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
-import type { EnrollmentStatusValue } from '@educandow/domain';
+import type { EnrollmentStatusValue, FindByCourseParams } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -19,6 +19,7 @@ interface EnrollmentRow {
   promoted?: boolean;
   active?: boolean;
   deletedAt?: Date | null;
+  activeGradingPeriod?: number | null;
 }
 
 @Injectable()
@@ -64,6 +65,20 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
     return records.map((r) => this.toDomain(r));
   }
 
+  async findByCourse(params: FindByCourseParams): Promise<Enrollment[]> {
+    const records = await this.client.enrollment.findMany({
+      where: {
+        cycleId: params.cycleId,
+        ...(params.level !== undefined ? { level: params.level } : {}),
+        ...(params.grade !== undefined ? { grade: params.grade } : {}),
+        ...(params.division !== undefined ? { division: params.division } : {}),
+        ...(params.academicYear !== undefined ? { academicYear: params.academicYear } : {}),
+      },
+      orderBy: { academicYear: 'desc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
   async save(enrollment: Enrollment): Promise<void> {
     await this.client.enrollment.upsert({
       where: { id: enrollment.id.get() },
@@ -79,6 +94,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         enrolledAt: enrollment.enrolledAt,
         printable: enrollment.printable,
         promoted: enrollment.promoted,
+        activeGradingPeriod: enrollment.activeGradingPeriod,
       },
       update: {
         studentId: enrollment.studentId.get(),
@@ -90,8 +106,13 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
         status: enrollment.status.value,
         printable: enrollment.printable,
         promoted: enrollment.promoted,
+        activeGradingPeriod: enrollment.activeGradingPeriod,
       },
     });
+  }
+
+  async saveMany(enrollments: Enrollment[]): Promise<void> {
+    await Promise.all(enrollments.map((e) => this.save(e)));
   }
 
   async delete(id: string): Promise<void> {
@@ -119,6 +140,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       promoted: record.promoted ?? false,
       active: record.active ?? true,
       deletedAt: record.deletedAt ?? undefined,
+      activeGradingPeriod: record.activeGradingPeriod ?? null,
     });
   }
 }

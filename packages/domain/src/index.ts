@@ -35,7 +35,7 @@ export type { StudentGuardianRepository } from './personnel/repositories/student
 // Enrollment
 export { Enrollment, EnrollmentStatus } from './enrollment/entities';
 export type { EnrollmentStatusValue } from './enrollment/entities';
-export type { EnrollmentRepository } from './enrollment/repositories/enrollment-repository';
+export type { EnrollmentRepository, FindByCourseParams } from './enrollment/repositories/enrollment-repository';
 
 // CourseCycle
 export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
@@ -81,7 +81,7 @@ export { Curso, MesaExamen, RegimenAcademico, CalificacionSecundario } from './s
 export type { CursoProps, CreateCursoInput, MesaExamenProps, MesaExamenInscripcionProps, CreateMesaExamenInput, RegimenAcademicoProps, CreateRegimenAcademicoInput, CalificacionSecundarioProps, CreateCalificacionSecundarioInput } from './secundario';
 export { Orientacion, TurnoExamen, CondicionAlumno } from './secundario';
 export type { OrientacionCode, TurnoExamenCode, CondicionAlumnoCode } from './secundario';
-export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository, CalificacionSecundarioRepository } from './secundario';
+export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository, CalificacionSecundarioRepository, PendingExamDetail } from './secundario';
 
 // Terciario
 export { Carrera, InscripcionMateria, ActaExamen, Titulo } from './terciario';
