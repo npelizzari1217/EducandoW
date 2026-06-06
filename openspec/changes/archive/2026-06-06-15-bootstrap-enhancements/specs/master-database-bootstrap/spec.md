@@ -160,38 +160,6 @@ The script MUST run `npx ts-node prisma/seed.ts`. The seed MUST be idempotent â€
 
 ---
 
-### Requirement: Step-by-Step Output
-
-The script MUST print a clear status line per step indicating success or failure. The output MUST include the target database name before any destructive-capable operation begins.
-
-#### Scenario: All steps succeed
-
-- GIVEN the script runs and all steps pass
-- WHEN execution completes
-- THEN each step prints a success indicator
-- AND a final success summary is printed
-
-#### Scenario: A step fails
-
-- GIVEN a step exits with a non-zero code
-- WHEN the script catches the error
-- THEN a failure indicator is printed for that step with the error details
-- AND no subsequent steps are executed
-
----
-
-### Requirement: Bootstrap npm Script
-
-`api/package.json` MUST expose a `"bootstrap"` script entry that invokes `ts-node scripts/bootstrap.ts`.
-
-#### Scenario: Running bootstrap via package manager
-
-- GIVEN `api/package.json` has a `"bootstrap"` script
-- WHEN a developer runs `pnpm bootstrap` from `api/`
-- THEN the bootstrap script executes
-
----
-
 ### Requirement: System Sync SQL Application
 
 After seeding, the script MUST read `scripts/sync-system.sql` and execute its full contents against the master database via a `pg.Pool` connection. The SQL file MUST be executed as a single query. If execution fails, the script MUST print the error and exit with a non-zero code.
@@ -284,6 +252,38 @@ After all steps complete successfully, the script MUST print a dedicated credent
 - GIVEN the script exits early due to a step failure
 - WHEN execution is aborted
 - THEN the credentials block is NOT printed (partial success is not success)
+
+---
+
+### Requirement: Step-by-Step Output
+
+The script MUST print a clear status line per step indicating success or failure. The output MUST include the target database name before any destructive-capable operation begins.
+
+#### Scenario: All steps succeed
+
+- GIVEN the script runs and all steps pass
+- WHEN execution completes
+- THEN each step prints a success indicator
+- AND a final success summary is printed
+
+#### Scenario: A step fails
+
+- GIVEN a step exits with a non-zero code
+- WHEN the script catches the error
+- THEN a failure indicator is printed for that step with the error details
+- AND no subsequent steps are executed
+
+---
+
+### Requirement: Bootstrap npm Script
+
+`api/package.json` MUST expose a `"bootstrap"` script entry that invokes `ts-node scripts/bootstrap.ts`.
+
+#### Scenario: Running bootstrap via package manager
+
+- GIVEN `api/package.json` has a `"bootstrap"` script
+- WHEN a developer runs `pnpm bootstrap` from `api/`
+- THEN the bootstrap script executes
 
 ---
 
