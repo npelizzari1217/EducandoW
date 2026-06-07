@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaStudyPlanRepository } from '../prisma-study-plan.repository';
 import { TenantContext } from '../../../../auth/tenant.context';
+import { StudyPlan, Id, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 
 vi.mock('../../../../auth/tenant.context', () => ({
   TenantContext: {
@@ -8,74 +9,92 @@ vi.mock('../../../../auth/tenant.context', () => ({
   },
 }));
 
-// ── cascadeChildrenLevel ──────────────────────────────────────
+function makePlan(id: string, level: EducationalLevelCode, modality: EducationalModalityCode): StudyPlan {
+  return StudyPlan.reconstruct({
+    id: Id.reconstruct(id),
+    name: 'Plan Test',
+    level,
+    modality,
+    academicYear: '2026',
+    active: true,
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  });
+}
 
-describe('PrismaStudyPlanRepository — cascadeChildrenLevel', () => {
+// ── saveWithLevelCascade ──────────────────────────────────────
+
+describe('PrismaStudyPlanRepository — saveWithLevelCascade', () => {
   beforeEach(() => {
     vi.mocked(TenantContext.getClient).mockReset();
   });
 
-  it('updates CourseSections with separate level/modality and CourseCycles with composite (planId, level=3, modality=1 → 31)', async () => {
+  it('runs studyPlan.upsert + courseSection.updateMany + courseCycle.updateMany inside a single interactive transaction (level=3, modality=1 → composite 31)', async () => {
+    const mockUpsert = vi.fn().mockResolvedValue({});
     const mockCourseSectionUpdateMany = vi.fn().mockResolvedValue({ count: 2 });
     const mockCourseCycleUpdateMany = vi.fn().mockResolvedValue({ count: 2 });
-    const mockTransaction = vi
-      .fn()
-      .mockImplementation((arr: Promise<unknown>[]) => Promise.all(arr));
-
-    vi.mocked(TenantContext.getClient).mockReturnValue({
+    const txMock = {
+      studyPlan: { upsert: mockUpsert },
       courseSection: { updateMany: mockCourseSectionUpdateMany },
       courseCycle: { updateMany: mockCourseCycleUpdateMany },
+    };
+    const mockTransaction = vi.fn().mockImplementation(async (fn: (tx: typeof txMock) => Promise<void>) => fn(txMock));
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({
       $transaction: mockTransaction,
     } as any);
 
+    const plan = makePlan('plan-1', EducationalLevelCode.SECUNDARIO, EducationalModalityCode.TALLERES);
     const repo = new PrismaStudyPlanRepository();
-    await repo.cascadeChildrenLevel('plan-1', 3, 1);
+    await repo.saveWithLevelCascade(plan, 3, 1);
 
-    // CourseSections must receive separate level and modality columns
+    // All three writes must run inside a single $transaction call
+    expect(mockTransaction).toHaveBeenCalledOnce();
+
+    // studyPlan.upsert called inside tx with level=3, modality=1
+    expect(mockUpsert).toHaveBeenCalledOnce();
+    const upsertArg = mockUpsert.mock.calls[0][0];
+    expect(upsertArg.update.level).toBe(3);
+    expect(upsertArg.update.modality).toBe(1);
+    expect(upsertArg.create.level).toBe(3);
+    expect(upsertArg.create.modality).toBe(1);
+
+    // courseSection.updateMany: separate level and modality columns
     expect(mockCourseSectionUpdateMany).toHaveBeenCalledWith({
       where: { studyPlanCourses: { some: { studyPlanId: 'plan-1' } } },
       data: { level: 3, modality: 1 },
     });
 
-    // CourseCycles must receive the composite code (3 * 10 + 1 = 31)
+    // courseCycle.updateMany: composite code (3 * 10 + 1 = 31)
     expect(mockCourseCycleUpdateMany).toHaveBeenCalledWith({
       where: { studyPlanId: 'plan-1' },
       data: { level: 31 },
     });
-
-    // Both operations must run inside a single $transaction call
-    expect(mockTransaction).toHaveBeenCalledOnce();
-    const transactionArg = mockTransaction.mock.calls[0][0];
-    expect(Array.isArray(transactionArg)).toBe(true);
-    expect(transactionArg).toHaveLength(2);
   });
 
-  it('computes composite BEFORE any write (transaction receives two operations)', async () => {
-    const callOrder: string[] = [];
-    const mockCourseSectionUpdateMany = vi
-      .fn()
-      .mockImplementation(() => { callOrder.push('courseSection.updateMany'); return Promise.resolve({ count: 0 }); });
-    const mockCourseCycleUpdateMany = vi
-      .fn()
-      .mockImplementation(() => { callOrder.push('courseCycle.updateMany'); return Promise.resolve({ count: 0 }); });
-    const mockTransaction = vi
-      .fn()
-      .mockImplementation((arr: Promise<unknown>[]) => {
-        callOrder.push('$transaction');
-        return Promise.all(arr);
-      });
-
-    vi.mocked(TenantContext.getClient).mockReturnValue({
+  it('all writes occur inside the transaction callback — top-level client studyPlan.upsert is NOT called', async () => {
+    const topLevelUpsert = vi.fn();
+    const mockUpsert = vi.fn().mockResolvedValue({});
+    const mockCourseSectionUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const mockCourseCycleUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const txMock = {
+      studyPlan: { upsert: mockUpsert },
       courseSection: { updateMany: mockCourseSectionUpdateMany },
       courseCycle: { updateMany: mockCourseCycleUpdateMany },
+    };
+    const mockTransaction = vi.fn().mockImplementation(async (fn: (tx: typeof txMock) => Promise<void>) => fn(txMock));
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({
+      studyPlan: { upsert: topLevelUpsert },
       $transaction: mockTransaction,
     } as any);
 
+    const plan = makePlan('plan-2', EducationalLevelCode.PRIMARIO, EducationalModalityCode.COMUN);
     const repo = new PrismaStudyPlanRepository();
-    await repo.cascadeChildrenLevel('plan-2', 2, 0);
+    await repo.saveWithLevelCascade(plan, 2, 0);
 
-    // updateMany calls happen synchronously when building the array literal,
-    // before $transaction executes them — $transaction is called last
-    expect(callOrder[callOrder.length - 1]).toBe('$transaction');
+    // Top-level client must NOT be called; only tx's methods
+    expect(topLevelUpsert).not.toHaveBeenCalled();
+    expect(mockUpsert).toHaveBeenCalledOnce();
   });
 });

@@ -371,12 +371,9 @@ export class UpdateStudyPlanUC {
 
     if (levelChanged) {
       updated.changeLevel(newLevel, newModality);
-    }
-
-    await this.r.save(updated);
-
-    if (levelChanged) {
-      await this.r.cascadeChildrenLevel(id, newLevel, newModality);
+      await this.r.saveWithLevelCascade(updated, newLevel, newModality);
+    } else {
+      await this.r.save(updated);
     }
 
     return ok(updated);

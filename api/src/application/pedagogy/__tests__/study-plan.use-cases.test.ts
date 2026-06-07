@@ -36,7 +36,7 @@ const mockRepo = {
   removeSubject: vi.fn(),
   findPlanCourseById: vi.fn(),
   findPlanCoursesByPlan: vi.fn(),
-  cascadeChildrenLevel: vi.fn(),
+  saveWithLevelCascade: vi.fn(),
 };
 
 describe('UpdateStudyPlanUC', () => {
@@ -45,7 +45,7 @@ describe('UpdateStudyPlanUC', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRepo.save.mockResolvedValue(undefined);
-    mockRepo.cascadeChildrenLevel.mockResolvedValue(undefined);
+    mockRepo.saveWithLevelCascade.mockResolvedValue(undefined);
     uc = new UpdateStudyPlanUC(mockRepo as any);
   });
 
@@ -60,10 +60,10 @@ describe('UpdateStudyPlanUC', () => {
     expect(updated!.name).toBe('Nuevo Nombre');
     expect(updated!.active).toBe(false);
     expect(mockRepo.save).toHaveBeenCalledOnce();
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
-  it('updates level and modality, saves entity, and calls cascade with separate values', async () => {
+  it('updates level and modality: calls saveWithLevelCascade atomically (save NOT called)', async () => {
     const existing = makeExistingPlan(); // level=2 (PRIMARIO), modality=0 (COMUN)
     mockRepo.findById.mockResolvedValue(existing);
 
@@ -76,10 +76,10 @@ describe('UpdateStudyPlanUC', () => {
     const updated = result.unwrap();
     expect(updated!.level).toBe(EducationalLevelCode.SECUNDARIO);
     expect(updated!.modality).toBe(EducationalModalityCode.TALLERES);
-    expect(mockRepo.save).toHaveBeenCalledOnce();
-    expect(mockRepo.cascadeChildrenLevel).toHaveBeenCalledOnce();
-    expect(mockRepo.cascadeChildrenLevel).toHaveBeenCalledWith(
-      EXISTING_ID,
+    expect(mockRepo.save).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).toHaveBeenCalledOnce();
+    expect(mockRepo.saveWithLevelCascade).toHaveBeenCalledWith(
+      updated,
       EducationalLevelCode.SECUNDARIO,
       EducationalModalityCode.TALLERES,
     );
@@ -96,7 +96,7 @@ describe('UpdateStudyPlanUC', () => {
 
     expect(result.isOk()).toBe(true);
     expect(mockRepo.save).toHaveBeenCalledOnce();
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
   it('does not call cascade when level and modality are omitted', async () => {
@@ -106,18 +106,20 @@ describe('UpdateStudyPlanUC', () => {
     const result = await uc.execute(EXISTING_ID, { academicYear: '2027' });
 
     expect(result.isOk()).toBe(true);
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
-  it('calls cascade when only level changes (modality defaults to existing)', async () => {
+  it('calls saveWithLevelCascade when only level changes (modality defaults to existing)', async () => {
     const existing = makeExistingPlan(); // level=2, modality=0
     mockRepo.findById.mockResolvedValue(existing);
 
     const result = await uc.execute(EXISTING_ID, { level: EducationalLevelCode.SECUNDARIO });
 
     expect(result.isOk()).toBe(true);
-    expect(mockRepo.cascadeChildrenLevel).toHaveBeenCalledWith(
-      EXISTING_ID,
+    const updated = result.unwrap();
+    expect(mockRepo.save).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).toHaveBeenCalledWith(
+      updated,
       EducationalLevelCode.SECUNDARIO,
       EducationalModalityCode.COMUN, // existing modality preserved
     );
@@ -131,7 +133,7 @@ describe('UpdateStudyPlanUC', () => {
     expect(result.isOk()).toBe(true);
     expect(result.unwrap()).toBeNull();
     expect(mockRepo.save).not.toHaveBeenCalled();
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
   it('returns validation error for invalid level', async () => {
@@ -143,7 +145,7 @@ describe('UpdateStudyPlanUC', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     expect(mockRepo.save).not.toHaveBeenCalled();
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
   it('returns validation error for invalid nivel/modalidad combo (level=9, modality=2 → composite 92)', async () => {
@@ -155,15 +157,15 @@ describe('UpdateStudyPlanUC', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     expect(mockRepo.save).not.toHaveBeenCalled();
-    expect(mockRepo.cascadeChildrenLevel).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
   });
 
-  it('succeeds and cascades for valid nivel/modalidad combo with modality (level=2, modality=1)', async () => {
+  it('succeeds and cascades atomically for valid nivel/modalidad combo with modality (level=2, modality=1)', async () => {
     const existing = makeExistingPlan(); // level=2 (PRIMARIO), modality=0 (COMUN)
     mockRepo.findById.mockResolvedValue(existing);
 
     const result = await uc.execute(EXISTING_ID, {
-      level: EducationalLevelCode.PRIMARIO,    // 2
+      level: EducationalLevelCode.PRIMARIO,       // 2
       modality: EducationalModalityCode.TALLERES, // 1 → composite 21 valid
     });
 
@@ -171,9 +173,10 @@ describe('UpdateStudyPlanUC', () => {
     const updated = result.unwrap();
     expect(updated!.level).toBe(EducationalLevelCode.PRIMARIO);
     expect(updated!.modality).toBe(EducationalModalityCode.TALLERES);
-    expect(mockRepo.save).toHaveBeenCalledOnce();
-    expect(mockRepo.cascadeChildrenLevel).toHaveBeenCalledWith(
-      EXISTING_ID,
+    expect(mockRepo.save).not.toHaveBeenCalled();
+    expect(mockRepo.saveWithLevelCascade).toHaveBeenCalledOnce();
+    expect(mockRepo.saveWithLevelCascade).toHaveBeenCalledWith(
+      updated,
       EducationalLevelCode.PRIMARIO,
       EducationalModalityCode.TALLERES,
     );

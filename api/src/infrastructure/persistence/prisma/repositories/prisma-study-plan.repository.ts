@@ -43,11 +43,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
   }
 
   async save(plan: StudyPlan): Promise<void> {
-    await this.client.studyPlan.upsert({
-      where: { id: plan.id.get() },
-      update: { name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear, active: plan.active, deletedAt: plan.deletedAt ?? null },
-      create: { id: plan.id.get(), name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear },
-    });
+    await this.upsertPlan(this.client, plan);
   }
 
   async softDelete(id: string): Promise<void> {
@@ -132,27 +128,34 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     });
   }
 
-  // ── Level cascade ──
-  async cascadeChildrenLevel(planId: string, level: number, modality: number): Promise<void> {
-    // Compute composite BEFORE any write (validated upstream in the UC layer)
-    const compositeLevel = level * 10 + modality;
+  // ── Atomic level save + cascade ──
 
-    // Run both updateMany atomically: CourseSections get separate columns,
-    // CourseCycles get the composite code.
-    // NOTE: the plan save() in the UC is a separate call — full save+cascade
-    // atomicity would require an interactive transaction across the repo
-    // boundary. BUG 1 validation removes the throw-induced partial write, so
-    // this residual is accepted and documented.
-    await this.client.$transaction([
-      this.client.courseSection.updateMany({
+  async saveWithLevelCascade(plan: StudyPlan, level: number, modality: number): Promise<void> {
+    // Compute composite BEFORE the transaction (pure arithmetic; validated upstream)
+    const compositeLevel = level * 10 + modality;
+    const planId = plan.id.get();
+
+    await this.client.$transaction(async (tx) => {
+      await this.upsertPlan(tx as Pick<TenantPrismaClient, 'studyPlan'>, plan);
+      await tx.courseSection.updateMany({
         where: { studyPlanCourses: { some: { studyPlanId: planId } } },
         data: { level, modality },
-      }),
-      this.client.courseCycle.updateMany({
+      });
+      await tx.courseCycle.updateMany({
         where: { studyPlanId: planId },
         data: { level: compositeLevel },
-      }),
-    ]);
+      });
+    });
+  }
+
+  // ── Private helpers ──
+
+  private async upsertPlan(client: Pick<TenantPrismaClient, 'studyPlan'>, plan: StudyPlan): Promise<void> {
+    await client.studyPlan.upsert({
+      where: { id: plan.id.get() },
+      update: { name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear, active: plan.active, deletedAt: plan.deletedAt ?? null },
+      create: { id: plan.id.get(), name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear },
+    });
   }
 
   private toDomain(r: StudyPlanRow): StudyPlan {

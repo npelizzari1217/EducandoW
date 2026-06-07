@@ -21,6 +21,6 @@ export interface StudyPlanRepository {
   removeSubject(planCourseId: string, subjectId: string): Promise<void>;
   findPlanCourseById(id: string): Promise<StudyPlanCourseDto | null>;
   findPlanCoursesByPlan(planId: string): Promise<StudyPlanCourseDto[]>;
-  /** Cascade a level/modality change to all child rows of the plan. */
-  cascadeChildrenLevel(planId: string, level: number, modality: number): Promise<void>;
+  /** Atomically save the plan row and cascade level/modality to all child rows in a single transaction. */
+  saveWithLevelCascade(plan: StudyPlan, level: number, modality: number): Promise<void>;
 }
