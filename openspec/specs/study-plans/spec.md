@@ -100,13 +100,34 @@ Curricular management via Study Plans that group CourseSections and their associ
 
 ### Requirement: Delete Study Plan
 
-`DELETE /v1/study-plans/:id` MUST soft-delete the plan and cascade-delete all associated `StudyPlanCourse` and `StudyPlanSubject` junction records. Response SHALL be HTTP 204.
+`DELETE /v1/study-plans/:id` MUST check for dependent records (linked courses via `StudyPlanCourse` or active course cycles via `CourseCycle` with `deletedAt = null`). If dependents exist, the operation MUST be rejected with HTTP 409 and a structured error response. If no dependents exist, the plan MUST be soft-deleted. Response SHALL be HTTP 204 on success or HTTP 409 on conflict.
 
-#### Scenario: Soft-delete plan with cascading junctions
+#### Scenario: Delete blocked when plan has linked courses
 
-- GIVEN a plan `sp-1` with 3 courses and 5 subject associations
+- GIVEN a plan `sp-1` with 2 linked courses (`StudyPlanCourse` records)
 - WHEN `DELETE /v1/study-plans/sp-1` is called
-- THEN the plan is soft-deleted (`deletedAt` set) and all 8 junction records are removed
+- THEN the system returns HTTP 409 with error code `STUDY_PLAN_HAS_DEPENDENCIES` and details showing `{ courseCount: 2, courseCycleCount: 0 }`
+- AND the plan is NOT deleted
+
+#### Scenario: Delete blocked when plan has active course cycles
+
+- GIVEN a plan `sp-1` with 1 active course cycle (`CourseCycle` with `deletedAt = null`)
+- WHEN `DELETE /v1/study-plans/sp-1` is called
+- THEN the system returns HTTP 409 with error code `STUDY_PLAN_HAS_DEPENDENCIES` and details showing `{ courseCount: 0, courseCycleCount: 1 }`
+- AND the plan is NOT deleted
+
+#### Scenario: Delete succeeds when no dependents
+
+- GIVEN a plan `sp-1` with no linked courses and no active course cycles
+- WHEN `DELETE /v1/study-plans/sp-1` is called
+- THEN the plan is soft-deleted (`deletedAt` set to current UTC timestamp)
+- AND HTTP 204 is returned
+
+#### Scenario: Delete is idempotent (non-existent plan)
+
+- GIVEN a plan ID that does not exist
+- WHEN `DELETE /v1/study-plans/{nonExistentId}` is called
+- THEN the system returns HTTP 204 (no-op)
 
 ### Requirement: Manage Courses in Study Plan
 
