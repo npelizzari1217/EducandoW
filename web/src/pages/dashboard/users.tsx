@@ -7,13 +7,13 @@ import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { LevelCheckboxGroup } from '../../components/ui/level-checkbox-group';
 import apiClient from '../../api/client';
 import UserPrintView from '../../components/reports/UserPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import ModuleAccessGrid from '../../components/users/module-access-grid';
 import type { ModuleAccessItem } from '../../components/users/module-access-grid';
 import { LEVEL_CATALOG, LEVEL_LABELS as CATALOG_LABELS } from '../../constants/levels';
-import type { LevelOption } from '../../constants/levels';
 
 // ── Tipos ─────────────────────────────────────────────────
 
@@ -199,21 +199,6 @@ export default function UsersPage() {
     }).catch(() => {});
   }, []);
 
-  // ── Niveles educativos agrupados ──────────────────────
-  const LEVELS_GROUPED = useMemo(() => {
-    const groupLabels: Record<number, string> = {
-      1: 'Inicial', 2: 'Nivel Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
-    };
-    const grouped: Map<number, { label: string; options: Array<{ idx: number; opt: LevelOption }> }> = new Map();
-    for (let i = 0; i < LEVEL_CATALOG.length; i++) {
-      const opt = LEVEL_CATALOG[i];
-      if (!grouped.has(opt.levelCode)) {
-        grouped.set(opt.levelCode, { label: groupLabels[opt.levelCode] ?? `Nivel ${opt.levelCode}`, options: [] });
-      }
-      grouped.get(opt.levelCode)!.options.push({ idx: i, opt });
-    }
-    return grouped;
-  }, []);
 
   const toggleLevel = (idx: number) => {
     setForm(f => {
@@ -457,42 +442,8 @@ export default function UsersPage() {
               </div>
             </div>
 
-            {/* Niveles educativos — checkbox grid agrupado por nivel base */}
-            <div>
-              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>
-                Niveles educativos
-              </label>
-              <div className="flex flex-col gap-md" style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                {Array.from(LEVELS_GROUPED.entries()).map(([levelCode, group]) => (
-                  <div key={levelCode}>
-                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {group.label}
-                    </div>
-                    <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
-                      {group.options.map(({ idx, opt }) => (
-                        <label
-                          key={opt.code}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                            fontSize: 'var(--text-sm)', cursor: 'pointer',
-                            padding: '2px 8px', borderRadius: 'var(--radius-sm)',
-                            background: form.selectedLevels.has(idx) ? 'var(--color-primary-soft, rgba(99,102,241,0.12))' : 'transparent',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={form.selectedLevels.has(idx)}
-                            onChange={() => toggleLevel(idx)}
-                            style={{ accentColor: 'var(--color-primary)' }}
-                          />
-                          {opt.label}
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* Niveles educativos — componente compartido con Instituciones */}
+            <LevelCheckboxGroup selected={form.selectedLevels} onToggle={toggleLevel} />
 
             {/* Roles — radio buttons, un solo rol por usuario */}
             <div>

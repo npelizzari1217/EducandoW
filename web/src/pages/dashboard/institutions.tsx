@@ -7,8 +7,8 @@ import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { LevelCheckboxGroup } from '../../components/ui/level-checkbox-group';
 import { PEDAGOGICAL_LEVELS, LEVEL_LABELS } from '@/constants/levels';
-import type { LevelOption } from '@/constants/levels';
 
 interface InstitutionLevelEntry {
   level: number | string;  // API returns number; frontend sends string (Zod DTO expects string)
@@ -776,20 +776,12 @@ export default function InstitutionsPage() {
             </div>
           )}
 
-          {/* ── Niveles ── */}
-          <div style={{ borderBottom: '1px solid var(--color-border)', marginBottom: 'var(--space-md)', padding: '0.5rem 0', fontWeight: 600, fontSize: 'var(--text-base)' }}>
-            Niveles educativos
-          </div>
-          <div className="field">
-            <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
-              {PEDAGOGICAL_LEVELS.map((opt: LevelOption, idx: number) => (
-                <label key={opt.code} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.selectedLevels.has(idx)} onChange={() => toggleLevel(idx)} />{opt.label}
-                </label>
-              ))}
-            </div>
-            {fieldErrors.selectedLevels && <span className="field-error">{fieldErrors.selectedLevels}</span>}
-          </div>
+          {/* ── Niveles educativos — componente compartido con Usuarios ── */}
+          <LevelCheckboxGroup
+            selected={form.selectedLevels}
+            onToggle={toggleLevel}
+            error={fieldErrors.selectedLevels}
+          />
 
           <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)' }}>
             {editingId ? (
