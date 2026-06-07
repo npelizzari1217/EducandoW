@@ -56,6 +56,7 @@ export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';
 export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './pedagogy';
+export { StudyPlanHasDependenciesError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
 export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository, SubjectCompetencyRepository, CompetencyValuationRepository } from './pedagogy';

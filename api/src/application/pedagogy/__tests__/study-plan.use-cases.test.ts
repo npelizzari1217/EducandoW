@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CreateStudyPlanUC, UpdateStudyPlanUC } from '../use-cases/pedagogy.use-cases';
+import { CreateStudyPlanUC, UpdateStudyPlanUC, DeleteStudyPlanUC } from '../use-cases/pedagogy.use-cases';
 import {
   StudyPlan,
   Id,
   EducationalLevelCode,
   EducationalModalityCode,
   ValidationError,
+  StudyPlanHasDependenciesError,
 } from '@educandow/domain';
 import type { StudyPlanProps } from '@educandow/domain';
 
@@ -37,6 +38,7 @@ const mockRepo = {
   findPlanCourseById: vi.fn(),
   findPlanCoursesByPlan: vi.fn(),
   saveWithLevelCascade: vi.fn(),
+  getDependencies: vi.fn(),
 };
 
 describe('UpdateStudyPlanUC', () => {
@@ -232,5 +234,74 @@ describe('CreateStudyPlanUC', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     expect(mockRepo.save).not.toHaveBeenCalled();
+  });
+});
+
+// ── DeleteStudyPlanUC ─────────────────────────────────────────
+
+describe('DeleteStudyPlanUC', () => {
+  let uc: DeleteStudyPlanUC;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    uc = new DeleteStudyPlanUC(mockRepo as any);
+  });
+
+  it('returns err(StudyPlanHasDependenciesError) when plan has courses only', async () => {
+    mockRepo.findById.mockResolvedValue(makeExistingPlan());
+    mockRepo.getDependencies.mockResolvedValue({ courseCount: 2, courseCycleCount: 0 });
+
+    const result = await uc.execute(EXISTING_ID);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(StudyPlanHasDependenciesError);
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('returns err(StudyPlanHasDependenciesError) when plan has active cycles only', async () => {
+    mockRepo.findById.mockResolvedValue(makeExistingPlan());
+    mockRepo.getDependencies.mockResolvedValue({ courseCount: 0, courseCycleCount: 1 });
+
+    const result = await uc.execute(EXISTING_ID);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(StudyPlanHasDependenciesError);
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('returns err(StudyPlanHasDependenciesError) when plan has both courses and cycles', async () => {
+    mockRepo.findById.mockResolvedValue(makeExistingPlan());
+    mockRepo.getDependencies.mockResolvedValue({ courseCount: 1, courseCycleCount: 1 });
+
+    const result = await uc.execute(EXISTING_ID);
+
+    expect(result.isErr()).toBe(true);
+    const e = result.unwrapErr() as StudyPlanHasDependenciesError;
+    expect(e).toBeInstanceOf(StudyPlanHasDependenciesError);
+    expect(e.courseCount).toBe(1);
+    expect(e.courseCycleCount).toBe(1);
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+
+  it('returns ok(void) and calls softDelete when no dependencies', async () => {
+    mockRepo.findById.mockResolvedValue(makeExistingPlan());
+    mockRepo.getDependencies.mockResolvedValue({ courseCount: 0, courseCycleCount: 0 });
+    mockRepo.softDelete.mockResolvedValue(undefined);
+
+    const result = await uc.execute(EXISTING_ID);
+
+    expect(result.isOk()).toBe(true);
+    expect(mockRepo.softDelete).toHaveBeenCalledOnce();
+    expect(mockRepo.softDelete).toHaveBeenCalledWith(EXISTING_ID);
+  });
+
+  it('returns ok(void) when plan not found (idempotent) — getDependencies and softDelete NOT called', async () => {
+    mockRepo.findById.mockResolvedValue(null);
+
+    const result = await uc.execute('nonexistent-id');
+
+    expect(result.isOk()).toBe(true);
+    expect(mockRepo.getDependencies).not.toHaveBeenCalled();
+    expect(mockRepo.softDelete).not.toHaveBeenCalled();
   });
 });

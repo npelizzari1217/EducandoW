@@ -10,6 +10,7 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import type { AcademicCycle } from '@educandow/domain';
+import { StudyPlanHasDependenciesError } from '@educandow/domain';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -281,7 +282,19 @@ export class PedagogyController {
   async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, academicYear: p.academicYear, active: p.active, level: p.level, modality: p.modality } }; }
 
   @Delete('study-plans/:id') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'DELETE' }) @HttpCode(HttpStatus.NO_CONTENT)
-  async deletePlan(@Param('id') id: string) { await this.deletePlanUC.execute(id); }
+  async deletePlan(@Param('id') id: string) {
+    const r = await this.deletePlanUC.execute(id);
+    if (r.isErr()) {
+      const e = r.unwrapErr();
+      if (e instanceof StudyPlanHasDependenciesError) {
+        throw new HttpException(
+          { error: { message: e.message, code: e.code, details: { courseCount: e.courseCount, courseCycleCount: e.courseCycleCount } } },
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw new HttpException({ error: { message: e.message, code: e.code } }, HttpStatus.BAD_REQUEST);
+    }
+  }
 
   // ── Plan Courses ───────────────────────────────────
   @Get('study-plans/:id/courses') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'READ' })

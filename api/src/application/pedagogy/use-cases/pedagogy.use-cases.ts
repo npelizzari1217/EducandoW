@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ok, err, ValidationError, Id, Level, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode, Result } from '@educandow/domain';
 import type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
 import { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
-import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from '@educandow/domain';
+import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError, StudyPlanHasDependenciesError } from '@educandow/domain';
+import { DomainError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
 import type { UpdateAcademicCycleInput } from '@educandow/domain';
 import type { AutoCreateCompetencyValuationsUC } from './competency.use-cases';
@@ -384,7 +385,20 @@ export class ListStudyPlansUC { constructor(private r: StudyPlanRepository) {} a
 @Injectable()
 export class GetStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(id: string) { return this.r.findById(id); } }
 @Injectable()
-export class DeleteStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(id: string) { const existing = await this.r.findById(id); if (!existing) return; await this.r.softDelete(id); } }
+export class DeleteStudyPlanUC {
+  constructor(private r: StudyPlanRepository) {}
+
+  async execute(id: string): Promise<Result<void, DomainError>> {
+    const existing = await this.r.findById(id);
+    if (!existing) return ok(undefined);
+    const { courseCount, courseCycleCount } = await this.r.getDependencies(id);
+    if (courseCount > 0 || courseCycleCount > 0) {
+      return err(new StudyPlanHasDependenciesError(courseCount, courseCycleCount));
+    }
+    await this.r.softDelete(id);
+    return ok(undefined);
+  }
+}
 @Injectable()
 export class AddCourseToPlanUC {
   constructor(private planRepo: StudyPlanRepository, private courseRepo: CourseSectionRepository) {}

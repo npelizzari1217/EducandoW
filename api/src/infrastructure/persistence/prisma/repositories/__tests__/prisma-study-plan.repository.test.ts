@@ -98,3 +98,59 @@ describe('PrismaStudyPlanRepository — saveWithLevelCascade', () => {
     expect(mockUpsert).toHaveBeenCalledOnce();
   });
 });
+
+// ── getDependencies ───────────────────────────────────────────
+
+describe('PrismaStudyPlanRepository — getDependencies', () => {
+  beforeEach(() => {
+    vi.mocked(TenantContext.getClient).mockReset();
+  });
+
+  it('counts all studyPlanCourse rows for the given planId', async () => {
+    const mockStudyPlanCourseCount = vi.fn().mockResolvedValue(3);
+    const mockCourseCycleCount = vi.fn().mockResolvedValue(0);
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({
+      studyPlanCourse: { count: mockStudyPlanCourseCount },
+      courseCycle: { count: mockCourseCycleCount },
+    } as any);
+
+    const repo = new PrismaStudyPlanRepository();
+    const result = await repo.getDependencies('plan-x');
+
+    expect(result.courseCount).toBe(3);
+    expect(mockStudyPlanCourseCount).toHaveBeenCalledWith({ where: { studyPlanId: 'plan-x' } });
+  });
+
+  it('counts only courseCycle rows where deletedAt is null (soft-deleted excluded)', async () => {
+    const mockStudyPlanCourseCount = vi.fn().mockResolvedValue(0);
+    const mockCourseCycleCount = vi.fn().mockResolvedValue(1);
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({
+      studyPlanCourse: { count: mockStudyPlanCourseCount },
+      courseCycle: { count: mockCourseCycleCount },
+    } as any);
+
+    const repo = new PrismaStudyPlanRepository();
+    const result = await repo.getDependencies('plan-y');
+
+    expect(result.courseCycleCount).toBe(1);
+    expect(mockCourseCycleCount).toHaveBeenCalledWith({ where: { studyPlanId: 'plan-y', deletedAt: null } });
+  });
+
+  it('returns zero counts when no rows exist', async () => {
+    const mockStudyPlanCourseCount = vi.fn().mockResolvedValue(0);
+    const mockCourseCycleCount = vi.fn().mockResolvedValue(0);
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({
+      studyPlanCourse: { count: mockStudyPlanCourseCount },
+      courseCycle: { count: mockCourseCycleCount },
+    } as any);
+
+    const repo = new PrismaStudyPlanRepository();
+    const result = await repo.getDependencies('plan-z');
+
+    expect(result.courseCount).toBe(0);
+    expect(result.courseCycleCount).toBe(0);
+  });
+});

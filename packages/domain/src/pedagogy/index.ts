@@ -30,6 +30,7 @@ export { CycleCode } from './value-objects/cycle-code';
 
 // Errors
 export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError } from './errors/academic-cycle.errors';
+export { StudyPlanHasDependenciesError } from './errors/study-plan.errors';
 
 export type { SubjectRepository } from './repositories/subject-repository';
 export type { CourseSectionRepository } from './repositories/course-section-repository';

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiDelete, useApiCreate, useApiUpdate } from '../../hooks/use-api';
+import { useApiList, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,7 @@ import { StudyPlanDetailPrintLoader } from '../../components/reports/StudyPlanDe
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import { LEVEL_CATALOG } from '../../constants/levels';
 import { LevelCheckboxGroup } from '../../components/ui/level-checkbox-group';
+import { AlertModal } from '../../components/ui/alert-modal';
 
 interface StudyPlan {
   id: string;
@@ -90,7 +91,6 @@ export default function StudyPlansPage() {
   const tenantQueryParams = institutionId ? { institutionId } : undefined;
 
   const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans', tenantQueryParams);
-  const { del } = useApiDelete('/study-plans');
   const { creating, createError, create } = useApiCreate<{ name: string; level: number; modality?: number; academicYear: string }>('/study-plans', tenantQueryParams);
   const { update } = useApiUpdate<StudyPlan>('/study-plans', tenantQueryParams);
   useApiUpdate('/course-sections', tenantQueryParams); // kept for consistency, used by apiClient directly
@@ -129,6 +129,7 @@ export default function StudyPlansPage() {
   const [courseFormError, setCourseFormError] = useState('');
   const [showPrint, setShowPrint] = useState(false);
   const [detailPrintPlanId, setDetailPrintPlanId] = useState<string | null>(null);
+  const [alertModal, setAlertModal] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
   const userLevel = user?.userLevels?.[0]?.level;
   // Index into LEVEL_CATALOG for the user's base level (modalityCode 0 = común)
@@ -202,8 +203,12 @@ export default function StudyPlansPage() {
   };
 
   const handleDeletePlan = async (id: string) => {
-    await del(id);
-    reload();
+    try {
+      await apiClient.delete(`/study-plans/${id}`, { params: tenantQueryParams });
+      reload();
+    } catch (e: unknown) {
+      setAlertModal({ open: true, message: extractErrorMessage(e) });
+    }
   };
 
   // ── Fetch helpers (sin toggle, solo refrescan datos) ──
@@ -899,6 +904,12 @@ export default function StudyPlansPage() {
           );
         })
       )}
+      <AlertModal
+        open={alertModal.open}
+        title="No se puede eliminar"
+        message={alertModal.message}
+        onClose={() => setAlertModal(p => ({ ...p, open: false }))}
+      />
     </div>
   );
 }

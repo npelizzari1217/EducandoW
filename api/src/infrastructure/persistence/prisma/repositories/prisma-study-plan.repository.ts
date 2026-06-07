@@ -128,6 +128,16 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     });
   }
 
+  // ── Dependency check ──
+
+  async getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }> {
+    const [courseCount, courseCycleCount] = await Promise.all([
+      this.client.studyPlanCourse.count({ where: { studyPlanId: planId } }),
+      this.client.courseCycle.count({ where: { studyPlanId: planId, deletedAt: null } }),
+    ]);
+    return { courseCount, courseCycleCount };
+  }
+
   // ── Atomic level save + cascade ──
 
   async saveWithLevelCascade(plan: StudyPlan, level: number, modality: number): Promise<void> {

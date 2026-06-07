@@ -23,4 +23,6 @@ export interface StudyPlanRepository {
   findPlanCoursesByPlan(planId: string): Promise<StudyPlanCourseDto[]>;
   /** Atomically save the plan row and cascade level/modality to all child rows in a single transaction. */
   saveWithLevelCascade(plan: StudyPlan, level: number, modality: number): Promise<void>;
+  /** Returns the count of dependent records that would block a soft-delete. */
+  getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }>;
 }
