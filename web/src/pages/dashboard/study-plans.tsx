@@ -11,6 +11,7 @@ import StudyPlanPrintView from '../../components/reports/StudyPlanPrintView';
 import { StudyPlanDetailPrintLoader } from '../../components/reports/StudyPlanDetailPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import { LEVEL_CATALOG } from '../../constants/levels';
+import { LevelCheckboxGroup } from '../../components/ui/level-checkbox-group';
 
 interface StudyPlan {
   id: string;
@@ -52,13 +53,6 @@ const LEVEL_LABELS: Record<number, string> = {
   1: 'Inicial', 2: 'Primario', 3: 'Secundario', 4: 'Terciario', 9: 'Administración',
 };
 
-const LEVEL_OPTIONS = [
-  { value: '1', label: 'Inicial' },
-  { value: '2', label: 'Primario' },
-  { value: '3', label: 'Secundario' },
-  { value: '4', label: 'Terciario' },
-];
-
 const MODALITY_OPTIONS = [
   { value: 'COMUN', label: 'Común' },
   { value: 'TALLERES', label: 'Talleres' },
@@ -97,13 +91,17 @@ export default function StudyPlansPage() {
 
   const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans', tenantQueryParams);
   const { del } = useApiDelete('/study-plans');
-  const { creating, createError, create } = useApiCreate<{ name: string; level: number; academicYear: string }>('/study-plans', tenantQueryParams);
+  const { creating, createError, create } = useApiCreate<{ name: string; level: number; modality?: number; academicYear: string }>('/study-plans', tenantQueryParams);
   const { update } = useApiUpdate<StudyPlan>('/study-plans', tenantQueryParams);
   useApiUpdate('/course-sections', tenantQueryParams); // kept for consistency, used by apiClient directly
   useApiUpdate('/subjects', tenantQueryParams);
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', level: '', academicYear: String(new Date().getFullYear()) });
+  const [form, setForm] = useState<{ name: string; selectedLevel: Set<number>; academicYear: string }>({
+    name: '',
+    selectedLevel: new Set<number>(),
+    academicYear: String(new Date().getFullYear()),
+  });
 
   // ── Planes expandidos (múltiples, estilo acordeón) ──
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set());
@@ -116,7 +114,7 @@ export default function StudyPlansPage() {
 
   // ── Edición ──
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-  const [editPlanForm, setEditPlanForm] = useState({ name: '', academicYear: '' });
+  const [editPlanForm, setEditPlanForm] = useState<{ name: string; academicYear: string; selectedLevel: Set<number> }>({ name: '', academicYear: '', selectedLevel: new Set<number>() });
   const [editingCourse, setEditingCourse] = useState<{ courseSectionId: string | null; grade: string; division: string }>({ courseSectionId: null, grade: '', division: '' });
   const [editingSubject, setEditingSubject] = useState<{ subjectId: string | null; name: string }>({ subjectId: null, name: '' });
 
@@ -133,11 +131,16 @@ export default function StudyPlansPage() {
   const [detailPrintPlanId, setDetailPrintPlanId] = useState<string | null>(null);
 
   const userLevel = user?.userLevels?.[0]?.level;
-  const defaultLevel = userLevel && userLevel >= 1 && userLevel <= 4 ? String(userLevel) : '';
+  // Index into LEVEL_CATALOG for the user's base level (modalityCode 0 = común)
+  const defaultLevelIdx = (userLevel != null && userLevel >= 1 && userLevel <= 4)
+    ? LEVEL_CATALOG.findIndex(e => e.levelCode === userLevel && e.modalityCode === 0)
+    : -1;
 
   useEffect(() => {
-    if (defaultLevel) setForm(f => ({ ...f, level: defaultLevel }));
-  }, [defaultLevel]);
+    if (defaultLevelIdx >= 0) {
+      setForm(f => ({ ...f, selectedLevel: new Set([defaultLevelIdx]) }));
+    }
+  }, [defaultLevelIdx]);
 
   useEffect(() => {
     loadAvailableCourses();
@@ -151,29 +154,50 @@ export default function StudyPlansPage() {
   };
 
   const resetForm = () => {
-    setForm({ name: '', level: defaultLevel, academicYear: String(new Date().getFullYear()) });
+    const lvlSet = defaultLevelIdx >= 0 ? new Set([defaultLevelIdx]) : new Set<number>();
+    setForm({ name: '', selectedLevel: lvlSet, academicYear: String(new Date().getFullYear()) });
     setShowForm(false);
   };
 
   // ── Crear plan ──
   const handleCreatePlan = async () => {
+    const [selIdx] = [...form.selectedLevel];
+    const selOpt = selIdx !== undefined ? LEVEL_CATALOG[selIdx] : null;
+    const fallbackOpt = defaultLevelIdx >= 0 ? LEVEL_CATALOG[defaultLevelIdx] : null;
     const ok = await create({
       name: form.name,
-      level: parseInt(form.level) || parseInt(defaultLevel) || 2,
+      level: selOpt?.levelCode ?? fallbackOpt?.levelCode ?? 2,
+      modality: selOpt?.modalityCode ?? fallbackOpt?.modalityCode ?? 0,
       academicYear: form.academicYear,
     });
     if (ok) { resetForm(); reload(); }
   };
 
+  // ── Toggle nivel (single mode: reemplaza la selección) ──
+  const togglePlanLevel = (idx: number) => {
+    setForm(f => ({ ...f, selectedLevel: new Set([idx]) }));
+  };
+
   // ── Editar plan ──
   const startEditPlan = (plan: StudyPlan) => {
     setEditingPlanId(plan.id);
-    setEditPlanForm({ name: plan.name, academicYear: plan.academicYear });
+    const idx = LEVEL_CATALOG.findIndex(e => e.levelCode === plan.level && e.modalityCode === (plan.modality ?? 0));
+    setEditPlanForm({ name: plan.name, academicYear: plan.academicYear, selectedLevel: idx >= 0 ? new Set([idx]) : new Set<number>() });
+  };
+
+  const toggleEditPlanLevel = (idx: number) => {
+    setEditPlanForm(f => ({ ...f, selectedLevel: new Set([idx]) }));
   };
 
   const handleUpdatePlan = async () => {
     if (!editingPlanId) return;
-    const ok = await update(editingPlanId, editPlanForm);
+    const [selIdx] = [...editPlanForm.selectedLevel];
+    const selOpt = selIdx !== undefined ? LEVEL_CATALOG[selIdx] : null;
+    const ok = await update(editingPlanId, {
+      name: editPlanForm.name,
+      academicYear: editPlanForm.academicYear,
+      ...(selOpt ? { level: selOpt.levelCode, modality: selOpt.modalityCode } : {}),
+    });
     if (ok) { setEditingPlanId(null); reload(); }
   };
 
@@ -599,20 +623,21 @@ export default function StudyPlansPage() {
           {createError && <div style={{ background: '#fef2f2', color: '#dc2626', padding: '0.5rem', borderRadius: '8px', marginBottom: '0.75rem', fontSize: '0.82rem' }}>{createError}</div>}
           <div className="flex flex-col gap-md">
             <Input label="Nombre del plan" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Plan de Estudios Primaria 2026" />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              {isRoot ? (
-                <div>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 500, marginBottom: '0.25rem', display: 'block', color: '#475569' }}>Nivel educativo</label>
-                  <select value={form.level} onChange={e => setForm({ ...form, level: e.target.value })} style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem', background: '#fff', color: '#334155' }}>
-                    <option value="">Seleccionar nivel</option>
-                    {LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-              ) : (
-                <Input label="Nivel" value={LEVEL_LABELS[parseInt(form.level)] || ''} disabled />
-              )}
-              <Input label="Año lectivo" value={form.academicYear} onChange={e => setForm({ ...form, academicYear: e.target.value })} placeholder="2026" />
-            </div>
+            {isRoot ? (
+              <LevelCheckboxGroup
+                mode="single"
+                selected={form.selectedLevel}
+                onToggle={togglePlanLevel}
+                label="Nivel educativo"
+              />
+            ) : (
+              <Input
+                label="Nivel educativo"
+                value={form.selectedLevel.size > 0 ? (LEVEL_CATALOG[[...form.selectedLevel][0]]?.label ?? '') : ''}
+                disabled
+              />
+            )}
+            <Input label="Año lectivo" value={form.academicYear} onChange={e => setForm({ ...form, academicYear: e.target.value })} placeholder="2026" />
             <Button variant="success-soft" onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
           </div>
         </Card>
@@ -665,6 +690,22 @@ export default function StudyPlansPage() {
                       <label>Año</label>
                       <input value={editPlanForm.academicYear} onChange={e => setEditPlanForm({ ...editPlanForm, academicYear: e.target.value })} style={{ width: '80px' }} />
                     </div>
+                  </div>
+                  {isRoot ? (
+                    <LevelCheckboxGroup
+                      mode="single"
+                      selected={editPlanForm.selectedLevel}
+                      onToggle={toggleEditPlanLevel}
+                      label="Nivel educativo"
+                    />
+                  ) : (
+                    <Input
+                      label="Nivel educativo"
+                      value={editPlanForm.selectedLevel.size > 0 ? (LEVEL_CATALOG[[...editPlanForm.selectedLevel][0]]?.label ?? '') : ''}
+                      disabled
+                    />
+                  )}
+                  <div className="inline-form-row" style={{ marginTop: '0.5rem' }}>
                     <Button variant="success-soft" size="sm" onClick={handleUpdatePlan}>Guardar</Button>
                     <Button variant="danger-soft" size="sm" onClick={() => setEditingPlanId(null)}>Cancelar</Button>
                   </div>

@@ -132,6 +132,29 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     });
   }
 
+  // ── Level cascade ──
+  async cascadeChildrenLevel(planId: string, level: number, modality: number): Promise<void> {
+    // Compute composite BEFORE any write (validated upstream in the UC layer)
+    const compositeLevel = level * 10 + modality;
+
+    // Run both updateMany atomically: CourseSections get separate columns,
+    // CourseCycles get the composite code.
+    // NOTE: the plan save() in the UC is a separate call — full save+cascade
+    // atomicity would require an interactive transaction across the repo
+    // boundary. BUG 1 validation removes the throw-induced partial write, so
+    // this residual is accepted and documented.
+    await this.client.$transaction([
+      this.client.courseSection.updateMany({
+        where: { studyPlanCourses: { some: { studyPlanId: planId } } },
+        data: { level, modality },
+      }),
+      this.client.courseCycle.updateMany({
+        where: { studyPlanId: planId },
+        data: { level: compositeLevel },
+      }),
+    ]);
+  }
+
   private toDomain(r: StudyPlanRow): StudyPlan {
     return StudyPlan.reconstruct({
       id: Id.reconstruct(r.id),

@@ -5,6 +5,7 @@ import { EducationalModality, EducationalModalityCode } from '../../../shared/va
 import { Level, LevelType } from '../../../institution/value-objects/level';
 
 // Test entities from pedagogy context
+import { StudyPlan } from '../../../pedagogy/entities/study-plan';
 import { Subject } from '../../../pedagogy/entities/subject';
 import { CourseSection } from '../../../pedagogy/entities/course-section';
 import { SubjectAssignment } from '../../../pedagogy/entities/subject-assignment';
@@ -14,6 +15,58 @@ import { PeriodoEvaluacion } from '../../../pedagogy/entities/periodo-evaluacion
 import { NotaTrimestral } from '../../../pedagogy/entities/nota-trimestral';
 import { Attendance } from '../../../pedagogy/entities/attendance';
 import { GradeScale, GradeScaleValue } from '../../../pedagogy/entities/grade-scale';
+
+describe('StudyPlan', () => {
+  it('creates with name, level, modality and academicYear', () => {
+    const p = StudyPlan.create({
+      name: 'Plan Primario',
+      level: EducationalLevelCode.PRIMARIO,
+      modality: EducationalModalityCode.COMUN,
+      academicYear: '2026',
+    });
+    expect(p.name).toBe('Plan Primario');
+    expect(p.level).toBe(EducationalLevelCode.PRIMARIO);
+    expect(p.modality).toBe(EducationalModalityCode.COMUN);
+    expect(p.academicYear).toBe('2026');
+    expect(p.active).toBe(true);
+    expect(p.id.get()).toBeDefined();
+  });
+
+  it('reconstruct preserves all fields', () => {
+    const id = Id.reconstruct('plan-1');
+    const now = new Date('2026-01-01');
+    const p = StudyPlan.reconstruct({
+      id,
+      name: 'Plan Secundario',
+      level: EducationalLevelCode.SECUNDARIO,
+      modality: EducationalModalityCode.TALLERES,
+      academicYear: '2025',
+      active: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(p.id.get()).toBe('plan-1');
+    expect(p.level).toBe(EducationalLevelCode.SECUNDARIO);
+    expect(p.modality).toBe(EducationalModalityCode.TALLERES);
+    expect(p.active).toBe(false);
+  });
+
+  it('changeLevel updates level and modality', () => {
+    const p = StudyPlan.create({
+      name: 'Plan Inicial',
+      level: EducationalLevelCode.INICIAL,
+      modality: EducationalModalityCode.COMUN,
+      academicYear: '2026',
+    });
+    const prevUpdatedAt = p.updatedAt;
+
+    p.changeLevel(EducationalLevelCode.PRIMARIO, EducationalModalityCode.TALLERES);
+
+    expect(p.level).toBe(EducationalLevelCode.PRIMARIO);
+    expect(p.modality).toBe(EducationalModalityCode.TALLERES);
+    expect(p.updatedAt.getTime()).toBeGreaterThanOrEqual(prevUpdatedAt.getTime());
+  });
+});
 
 describe('Subject', () => {
   it('creates with name, level, institutionId', () => {

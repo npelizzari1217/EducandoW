@@ -183,6 +183,8 @@ export const UpdateStudyPlanSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido').optional(),
   active: z.boolean().optional(),
+  level: z.number().int().min(1).max(9).optional(),
+  modality: z.number().int().min(0).max(9).optional(),
 });
 export type UpdateStudyPlanDTO = z.infer<typeof UpdateStudyPlanSchema>;
 

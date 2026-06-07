@@ -7,13 +7,6 @@ import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFil
 import type { UpdateAcademicCycleInput } from '@educandow/domain';
 import type { AutoCreateCompetencyValuationsUC } from './competency.use-cases';
 
-const VALID_PEDAGOGICAL_LEVELS: EducationalLevelCode[] = [
-  EducationalLevelCode.INICIAL,
-  EducationalLevelCode.PRIMARIO,
-  EducationalLevelCode.SECUNDARIO,
-  EducationalLevelCode.TERCIARIO,
-  EducationalLevelCode.ADMINISTRACION,
-];
 
 function buildLevel(level: string, modality?: string): Level {
   const parsed = Level.create(level);
@@ -338,15 +331,57 @@ export class DeleteAttendanceUC { constructor(private r: AttendanceRepository) {
 // ── Study Plans ──────────────────────────────────────
 @Injectable()
 export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(input: { name: string; level: number; modality?: number; academicYear: string }): Promise<Result<StudyPlan, ValidationError>> {
-    const lvl = input.level as EducationalLevelCode;
-    if (!VALID_PEDAGOGICAL_LEVELS.includes(lvl)) return err(new ValidationError(`Nivel educativo inválido: ${input.level}. Debe ser 1 (Inicial), 2 (Primario), 3 (Secundario), 4 (Terciario), o 9 (Administración)`));
-    const p = StudyPlan.create({ name: input.name, level: lvl, modality: (input.modality ?? 0) as EducationalModalityCode, academicYear: input.academicYear });
+    const modality = input.modality ?? 0;
+    const compositeValidation = Level.create(input.level * 10 + modality);
+    if (compositeValidation.isErr()) {
+      return err(new ValidationError(`Combinación de nivel/modalidad inválida: nivel=${input.level}, modalidad=${modality}. Verifique que la modalidad sea válida para el nivel indicado.`));
+    }
+    const p = StudyPlan.create({ name: input.name, level: input.level as EducationalLevelCode, modality: modality as EducationalModalityCode, academicYear: input.academicYear });
     await this.r.save(p);
     return ok(p);
   }
 }
 @Injectable()
-export class UpdateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(id: string, input: { name?: string; academicYear?: string; active?: boolean }) { const existing = await this.r.findById(id); if (!existing) return ok(null); const updated = StudyPlan.reconstruct({ ...(existing as unknown as { props: StudyPlanProps }).props, name: input.name ?? existing.name, academicYear: input.academicYear ?? existing.academicYear, active: input.active ?? existing.active, updatedAt: new Date() }); await this.r.save(updated); return ok(updated); } }
+export class UpdateStudyPlanUC {
+  constructor(private r: StudyPlanRepository) {}
+
+  async execute(id: string, input: { name?: string; academicYear?: string; active?: boolean; level?: number; modality?: number }): Promise<Result<StudyPlan | null, ValidationError>> {
+    const existing = await this.r.findById(id);
+    if (!existing) return ok(null);
+
+    const newLevel = (input.level ?? existing.level) as EducationalLevelCode;
+    const newModality = (input.modality ?? existing.modality) as EducationalModalityCode;
+
+    if (input.level !== undefined || input.modality !== undefined) {
+      const compositeValidation = Level.create(newLevel * 10 + newModality);
+      if (compositeValidation.isErr()) {
+        return err(new ValidationError(`Combinación de nivel/modalidad inválida: nivel=${newLevel}, modalidad=${newModality}. Verifique que la modalidad sea válida para el nivel indicado.`));
+      }
+    }
+
+    const levelChanged = newLevel !== existing.level || newModality !== existing.modality;
+
+    const updated = StudyPlan.reconstruct({
+      ...(existing as unknown as { props: StudyPlanProps }).props,
+      name: input.name ?? existing.name,
+      academicYear: input.academicYear ?? existing.academicYear,
+      active: input.active ?? existing.active,
+      updatedAt: new Date(),
+    });
+
+    if (levelChanged) {
+      updated.changeLevel(newLevel, newModality);
+    }
+
+    await this.r.save(updated);
+
+    if (levelChanged) {
+      await this.r.cascadeChildrenLevel(id, newLevel, newModality);
+    }
+
+    return ok(updated);
+  }
+}
 @Injectable()
 export class ListStudyPlansUC { constructor(private r: StudyPlanRepository) {} async execute(level?: number) { return this.r.findAll(level); } }
 @Injectable()

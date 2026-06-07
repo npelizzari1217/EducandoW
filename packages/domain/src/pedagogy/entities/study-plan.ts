@@ -35,6 +35,12 @@ export class StudyPlan {
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 
+  changeLevel(level: EducationalLevelCode, modality: EducationalModalityCode): void {
+    this.props.level = level;
+    this.props.modality = modality;
+    this.props.updatedAt = new Date();
+  }
+
   softDelete(): void {
     this.props.active = false;
     this.props.deletedAt = new Date();
