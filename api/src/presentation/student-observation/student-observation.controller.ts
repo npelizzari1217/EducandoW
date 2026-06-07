@@ -13,7 +13,7 @@ import { DeleteObservationUseCase } from '../../application/student-observation/
 
 // ── Create + Delete (flat endpoints) ──────────────────────
 
-@Controller('v1/student-observations')
+@Controller('student-observations')
 @UseGuards(AuthGuard, RankGuard)
 export class StudentObservationWriteController {
   constructor(
@@ -69,7 +69,7 @@ export class StudentObservationWriteController {
 
 // ── Read endpoints (nested under students/courses) ────────
 
-@Controller('v1')
+@Controller()
 @UseGuards(AuthGuard, RankGuard)
 export class StudentObservationReadController {
   constructor(
