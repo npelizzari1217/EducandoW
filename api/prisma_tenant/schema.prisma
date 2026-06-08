@@ -230,8 +230,6 @@ model Subject {
   mesasExamen              MesaExamen[]
   regimenAcademico         RegimenAcademico[]
   materiasCarrera          MateriaCarrera[]
-  competencies             SubjectCompetency[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -294,22 +292,21 @@ model SubjectAssignment {
 // ── Subject Competencies ──────────────────────────────────
 
 model SubjectCompetency {
-  id           String   @id @default(uuid())
-  subjectId    String
-  name         String
-  periodActive Int      @default(4) @map("period_active")
-  active       Boolean  @default(true)
-  deletedAt    DateTime?
+  id                   String   @id @default(uuid())
+  studyPlanSubjectId   String
+  name                 String
+  active               Boolean  @default(true)
+  deletedAt            DateTime?
 
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  studyPlanSubject StudyPlanSubject @relation(fields: [studyPlanSubjectId], references: [id], onDelete: Cascade)
 
   valuations CompetencyValuation[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([subjectId, name])
-  @@index([subjectId])
+  @@unique([studyPlanSubjectId, name])
+  @@index([studyPlanSubjectId])
   @@map("subject_competencies")
 }
 
@@ -339,6 +336,7 @@ model CompetencyValuation {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // @fase3: add courseCycleId → UNIQUE(studentId, competencyId, courseCycleId) before populating multi-cycle data
   @@unique([studentId, competencyId])
   @@index([competencyId])
   @@index([studentId])
@@ -588,6 +586,8 @@ model StudyPlanSubject {
 
   studyPlanCourse StudyPlanCourse @relation(fields: [studyPlanCourseId], references: [id], onDelete: Cascade)
   subject         Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  competencies SubjectCompetency[]
 
   @@unique([studyPlanCourseId, subjectId])
   @@index([studyPlanCourseId])

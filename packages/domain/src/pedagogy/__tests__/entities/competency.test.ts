@@ -2,33 +2,41 @@ import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
 import { SubjectCompetency } from '../../entities/subject-competency';
 import { CompetencyValuation } from '../../entities/competency-valuation';
+import type { SubjectCompetencyRepository } from '../../repositories/subject-competency-repository';
+import type { CompetencyValuationRepository } from '../../repositories/competency-valuation-repository';
+import type { StudyPlanRepository } from '../../repositories/study-plan-repository';
 
 // ── SubjectCompetency ─────────────────────────────────────
 
 describe('SubjectCompetency', () => {
-  it('creates with subjectId, name and periodActive', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Lectura comprensiva', periodActive: 4 });
-    expect(c.subjectId).toBe('subj-1');
+  it('creates with studyPlanSubjectId and name', () => {
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Lectura comprensiva' });
+    expect(c.studyPlanSubjectId).toBe('sps-1');
     expect(c.name).toBe('Lectura comprensiva');
-    expect(c.periodActive).toBe(4);
     expect(c.active).toBe(true);
     expect(c.deletedAt).toBeUndefined();
     expect(c.id.get()).toBeDefined();
   });
 
   it('assigns a UUID on creation', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Escritura', periodActive: 2 });
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Escritura' });
     expect(c.id.get()).toHaveLength(36);
   });
 
+  it('does NOT expose subjectId or periodActive', () => {
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Comp A' });
+    expect((c as any).subjectId).toBeUndefined();
+    expect((c as any).periodActive).toBeUndefined();
+  });
+
   it('updateName changes the name', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Original', periodActive: 4 });
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Original' });
     c.updateName('Actualizado');
     expect(c.name).toBe('Actualizado');
   });
 
   it('setActive toggles active flag', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Comp A', periodActive: 4 });
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Comp A' });
     expect(c.active).toBe(true);
     c.setActive(false);
     expect(c.active).toBe(false);
@@ -36,14 +44,8 @@ describe('SubjectCompetency', () => {
     expect(c.active).toBe(true);
   });
 
-  it('setPeriodActive updates periodActive', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Comp A', periodActive: 4 });
-    c.setPeriodActive(2);
-    expect(c.periodActive).toBe(2);
-  });
-
   it('softDelete marks as inactive and sets deletedAt', () => {
-    const c = SubjectCompetency.create({ subjectId: 'subj-1', name: 'Comp B', periodActive: 4 });
+    const c = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Comp B' });
     expect(c.active).toBe(true);
     c.softDelete();
     expect(c.active).toBe(false);
@@ -54,19 +56,69 @@ describe('SubjectCompetency', () => {
     const deletedAt = new Date('2026-01-01');
     const c = SubjectCompetency.reconstruct({
       id: Id.create(),
-      subjectId: 'subj-2',
+      studyPlanSubjectId: 'sps-2',
       name: 'Comp reconstruct',
-      periodActive: 3,
       active: false,
       deletedAt,
     });
+    expect(c.studyPlanSubjectId).toBe('sps-2');
     expect(c.name).toBe('Comp reconstruct');
     expect(c.active).toBe(false);
     expect(c.deletedAt).toEqual(deletedAt);
   });
+
+  it('same name allowed across different studyPlanSubjectIds', () => {
+    const c1 = SubjectCompetency.create({ studyPlanSubjectId: 'sps-1', name: 'Resolución de problemas' });
+    const c2 = SubjectCompetency.create({ studyPlanSubjectId: 'sps-2', name: 'Resolución de problemas' });
+    expect(c1.studyPlanSubjectId).toBe('sps-1');
+    expect(c2.studyPlanSubjectId).toBe('sps-2');
+    expect(c1.name).toBe(c2.name);
+  });
 });
 
-// ── CompetencyValuation ───────────────────────────────────
+// ── Port signature compile-guards ────────────────────────
+
+describe('SubjectCompetencyRepository port signatures', () => {
+  it('exposes findActiveByStudyPlanSubject, findByStudyPlanSubjectAndName, findByStudyPlanSubject', () => {
+    const mockRepo: SubjectCompetencyRepository = {
+      findById: async () => null,
+      findActiveByStudyPlanSubject: async (_id: string) => [],
+      findByStudyPlanSubjectAndName: async (_id: string, _name: string) => null,
+      findByStudyPlanSubject: async (_id: string) => [],
+      save: async () => {},
+      delete: async () => {},
+    };
+    expect(typeof mockRepo.findActiveByStudyPlanSubject).toBe('function');
+    expect(typeof mockRepo.findByStudyPlanSubjectAndName).toBe('function');
+    expect(typeof mockRepo.findByStudyPlanSubject).toBe('function');
+  });
+});
+
+describe('CompetencyValuationRepository port signatures', () => {
+  it('exposes findByStudentAndStudyPlanSubject', () => {
+    const mockRepo: CompetencyValuationRepository = {
+      findById: async () => null,
+      findByStudentAndStudyPlanSubject: async (_studentId: string, _studyPlanSubjectId: string) => [],
+      findByStudentAndCompetency: async () => null,
+      save: async () => {},
+      bulkCreate: async () => {},
+      delete: async () => {},
+    };
+    expect(typeof mockRepo.findByStudentAndStudyPlanSubject).toBe('function');
+  });
+});
+
+describe('StudyPlanRepository port signatures', () => {
+  it('exposes findStudyPlanSubjectIds', () => {
+    // partial check via intersection — only assert the new method
+    const check: Pick<StudyPlanRepository, 'findStudyPlanSubjectIds'> = {
+      findStudyPlanSubjectIds: async (_courseSectionId: string, _subjectId: string) => [],
+    };
+    expect(typeof check.findStudyPlanSubjectIds).toBe('function');
+  });
+});
+
+// ── CompetencyValuation (regression, unchanged) ───────────
 
 describe('CompetencyValuation', () => {
   const defaults = {

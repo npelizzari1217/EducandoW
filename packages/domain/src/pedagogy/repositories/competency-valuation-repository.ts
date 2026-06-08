@@ -2,7 +2,7 @@ import type { CompetencyValuation } from '../entities/competency-valuation';
 
 export interface CompetencyValuationRepository {
   findById(id: string): Promise<CompetencyValuation | null>;
-  findByStudentAndSubject(studentId: string, subjectId: string): Promise<CompetencyValuation[]>;
+  findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]>;
   findByStudentAndCompetency(studentId: string, competencyId: string): Promise<CompetencyValuation | null>;
   save(valuation: CompetencyValuation): Promise<void>;
   /** Batch create valuations, skipping duplicates on (studentId, competencyId) */

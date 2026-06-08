@@ -25,4 +25,6 @@ export interface StudyPlanRepository {
   saveWithLevelCascade(plan: StudyPlan, level: number, modality: number): Promise<void>;
   /** Returns the count of dependent records that would block a soft-delete. */
   getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }>;
+  /** Returns all StudyPlanSubject IDs for a given courseSection + subject combination (may span multiple plans). */
+  findStudyPlanSubjectIds(courseSectionId: string, subjectId: string): Promise<string[]>;
 }
