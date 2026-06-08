@@ -460,20 +460,20 @@
 
 ---
 
-**T50 — [RED] Test de la página `grading-periods.tsx`**
+**[x] T50 — [RED] Test de la página `grading-periods.tsx`**
 - Descripción: Crear `web/src/pages/dashboard/__tests__/grading-periods.test.tsx`. Casos mínimos: (a) renderiza lista de plantillas con columnas nombre/nivel/modalidad; (b) muestra "Seleccioná una institución" si ROOT sin selección; (c) formulario de plantilla tiene campo de nombre, nivel, modalidad y sección de ítems (nombre + sortOrder); (d) agregar ítem al formulario agrega una fila dinámica; (e) sección de fechas aparece cuando se selecciona un ciclo lectivo; (f) los campos de fecha por ítem (startDate, endDate) están presentes en el formulario de fechas; (g) submit de fechas llama a `PUT /grading/period-templates/:id/dates`. Todos RED.
 - Paths:
   - `web/src/pages/dashboard/__tests__/grading-periods.test.tsx`
 - REQ: REQ-4, REQ-5, REQ-7
 
-**T51 — [GREEN] Página `grading-periods.tsx`**
+**[x] T51 — [GREEN] Página `grading-periods.tsx`**
 - Descripción: Crear `web/src/pages/dashboard/grading-periods.tsx`. Estructura: (1) Selector ROOT de institución (idéntico a `grading-scales.tsx`). (2) Tabla de plantillas con columnas: nombre, nivel, modalidad, cantidad de ítems, acciones. (3) Card expandible o modal para gestionar ítems de una plantilla (nombre + sortOrder, agregar/eliminar ítems dinámicamente). (4) Sección de CARGA DE FECHAS por ciclo: selector `<select>` de `AcademicCycle` via `useApiList('/academic-cycles')`, y una fila por cada ítem de la plantilla con campos `startDate`/`endDate` (tipo `date`). El submit de fechas hace `PUT /grading/period-templates/:id/dates` con `{ cycleId, dates: [{itemId, startDate, endDate}, ...] }`. Los tests de T50 deben pasar GREEN.
 - Paths:
   - `web/src/pages/dashboard/grading-periods.tsx`
 - REQ: REQ-4, REQ-5, REQ-6, REQ-7
 - ⚠ dep: T50
 
-**T52 — [GREEN] Ruta `/grading-periods` + entrada menú lateral**
+**[x] T52 — [GREEN] Ruta `/grading-periods` + entrada menú lateral**
 - Descripción: En `web/src/App.tsx` agregar ruta `<Route path="/grading-periods" element={<GradingPeriodsPage />} />` (lazy import). En `web/src/components/layout/sidebar.tsx` agregar ítem en el grupo **Sistema**: `{ path: '/grading-periods', label: 'Períodos de Calificación', moduleCode: 'GRADING_CONFIG' }`. Guard de visibilidad por módulo GRADING_CONFIG igual al ítem de escalas.
 - Paths:
   - `web/src/App.tsx`
@@ -481,7 +481,7 @@
 - REQ: REQ-7
 - ⚠ dep: T51
 
-**T53 — [GATE 1b-E] Tests front períodos + build web — GATE FINAL ENTREGA 1b**
+**[x] T53 — [GATE 1b-E] Tests front períodos + build web — GATE FINAL ENTREGA 1b**
 - Descripción: Ejecutar `cd web && npx vitest run --reporter=verbose`. Todos los tests de T24 y T50 deben pasar. Ejecutar `cd web && npm run build`. Sin errores TypeScript ni bundle. **GATE FINAL DE ENTREGA 1b**: la entrega está completa cuando este gate pasa. Puede abrirse PR de 1b de forma independiente.
 - Paths: (verificación)
 - REQ: todos los de 1b

@@ -40,6 +40,7 @@ import AttendanceTypesPage from './pages/dashboard/attendance-types';
 import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
 import GradingScalesPage from './pages/dashboard/grading-scales';
+import GradingPeriodsPage from './pages/dashboard/grading-periods';
 
 function App() {
   return (
@@ -86,6 +87,7 @@ function App() {
               <Route path="/observations" element={<ObservationsPage />} />
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
               <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
+              <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

@@ -10,11 +10,17 @@ import {
 } from '../../hooks/useAcademicCycles';
 import type { AcademicCycle, CreateAcademicCycleDto } from '../../types/academic-cycle';
 import apiClient from '../../api/client';
+import { extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+
+// ── Period dates types ─────────────────────────────────────
+
+interface PeriodTemplateItem { id: string; name: string; sort_order: number; }
+interface PeriodTemplate { id: string; name: string; level: number; modality: number; items: PeriodTemplateItem[]; }
 
 const LEVEL_LABELS: Record<number, string> = {
   1: 'Inicial', 2: 'Primario', 3: 'Secundario', 4: 'Terciario',
@@ -81,6 +87,19 @@ export default function AcademicCyclesPage() {
     code: '', name: '', level: 2, startDate: '', endDate: '',
   });
 
+  // ── Period dates state ─────────────────────────────────────
+  const [periodCycle, setPeriodCycle] = useState<AcademicCycle | null>(null);
+  const [periodTemplates, setPeriodTemplates] = useState<PeriodTemplate[]>([]);
+  const [periodTemplatesLoading, setPeriodTemplatesLoading] = useState(false);
+  const [selectedPeriodTemplateId, setSelectedPeriodTemplateId] = useState('');
+  const [periodDates, setPeriodDates] = useState<Record<string, { startDate: string; endDate: string }>>({});
+  const [periodDatesLoading, setPeriodDatesLoading] = useState(false);
+  const [periodDatesSaving, setPeriodDatesSaving] = useState(false);
+  const [periodDatesError, setPeriodDatesError] = useState('');
+  const [periodDatesSaved, setPeriodDatesSaved] = useState(false);
+
+  const selectedPeriodTemplate = periodTemplates.find(t => t.id === selectedPeriodTemplateId) ?? null;
+
   const resetForm = () => {
     setForm({ code: '', name: '', level: 2, startDate: '', endDate: '' });
     setEditing(null);
@@ -137,6 +156,102 @@ export default function AcademicCyclesPage() {
 
   const formTitle = editing ? 'Editar Ciclo Lectivo' : 'Nuevo Ciclo Lectivo';
   const instName = institutions.find(i => i.id === institutionId)?.name || config.name || institutionId;
+
+  // ── Period dates handlers ─────────────────────────────────
+
+  const openPeriodDates = async (cycle: AcademicCycle) => {
+    if (periodCycle?.uuid === cycle.uuid) {
+      setPeriodCycle(null);
+      setPeriodTemplates([]);
+      setSelectedPeriodTemplateId('');
+      setPeriodDates({});
+      setPeriodDatesError('');
+      return;
+    }
+    setPeriodCycle(cycle);
+    setPeriodTemplates([]);
+    setSelectedPeriodTemplateId('');
+    setPeriodDates({});
+    setPeriodDatesError('');
+    setPeriodDatesSaved(false);
+
+    setPeriodTemplatesLoading(true);
+    try {
+      const queryParams: Record<string, string> = { level: String(cycle.level) };
+      if (institutionId) queryParams.institutionId = institutionId;
+      const res = await apiClient.get('/grading/period-templates', { params: queryParams });
+      const templates: PeriodTemplate[] = res.data?.data ?? [];
+      setPeriodTemplates(templates);
+      // Auto-select first template if only one
+      if (templates.length === 1) {
+        setSelectedPeriodTemplateId(templates[0].id);
+        await loadPeriodDates(templates[0].id, cycle.uuid);
+      }
+    } catch {
+      setPeriodDatesError('Error al cargar plantillas de períodos');
+    } finally {
+      setPeriodTemplatesLoading(false);
+    }
+  };
+
+  const loadPeriodDates = async (templateId: string, cycleId: string) => {
+    setPeriodDatesLoading(true);
+    setPeriodDates({});
+    try {
+      const queryParams: Record<string, string> = { cycleId };
+      if (institutionId) queryParams.institutionId = institutionId;
+      const res = await apiClient.get(`/grading/period-templates/${templateId}/dates`, { params: queryParams });
+      const existingDates: Array<{ item_id: string; start_date: string; end_date: string }> = res.data?.data ?? [];
+      const map: Record<string, { startDate: string; endDate: string }> = {};
+      existingDates.forEach(d => {
+        map[d.item_id] = {
+          startDate: d.start_date ? d.start_date.split('T')[0] : '',
+          endDate: d.end_date ? d.end_date.split('T')[0] : '',
+        };
+      });
+      setPeriodDates(map);
+    } catch {
+      // ignore; form starts empty
+    } finally {
+      setPeriodDatesLoading(false);
+    }
+  };
+
+  const handlePeriodTemplateSelect = async (templateId: string) => {
+    setSelectedPeriodTemplateId(templateId);
+    setPeriodDates({});
+    if (templateId && periodCycle) {
+      await loadPeriodDates(templateId, periodCycle.uuid);
+    }
+  };
+
+  const handleSavePeriodDates = async () => {
+    if (!selectedPeriodTemplate || !periodCycle) return;
+    setPeriodDatesSaving(true);
+    setPeriodDatesError('');
+    setPeriodDatesSaved(false);
+    try {
+      const dates = selectedPeriodTemplate.items
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(item => ({
+          itemId: item.id,
+          startDate: periodDates[item.id]?.startDate ?? '',
+          endDate: periodDates[item.id]?.endDate ?? '',
+        }))
+        .filter(d => d.startDate && d.endDate);
+
+      await apiClient.put(
+        `/grading/period-templates/${selectedPeriodTemplate.id}/dates`,
+        { cycleId: periodCycle.uuid, dates },
+        institutionId ? { params: { institutionId } } : undefined,
+      );
+      setPeriodDatesSaved(true);
+    } catch (e: unknown) {
+      setPeriodDatesError(extractErrorMessage(e) || 'Error al guardar fechas');
+    } finally {
+      setPeriodDatesSaving(false);
+    }
+  };
 
   return (
     <div>
@@ -374,6 +489,14 @@ export default function AcademicCyclesPage() {
                         <Button size="sm" variant="danger" onClick={() => handleDelete(cycle.uuid)} disabled={deleting}>
                           Eliminar
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="action"
+                          onClick={() => openPeriodDates(cycle)}
+                          data-testid={`periods-btn-${cycle.uuid}`}
+                        >
+                          Períodos
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -383,6 +506,129 @@ export default function AcademicCyclesPage() {
           </Table>
         )}
       </Card>
+
+      {/* Period dates management section — new model, coexists with firstBim..fourthBim */}
+      {periodCycle && (
+        <Card title={`Fechas de Períodos — ${periodCycle.name} (${LEVEL_LABELS[periodCycle.level] ?? periodCycle.level})`}>
+          {periodTemplatesLoading ? (
+            <p className="text-sm text-gray-500 p-2">Cargando plantillas...</p>
+          ) : periodTemplates.length === 0 ? (
+            <p className="text-sm text-gray-500 p-2">
+              No hay plantillas de períodos para el nivel {LEVEL_LABELS[periodCycle.level] ?? periodCycle.level}.
+              Configurá las plantillas en la sección "Períodos de Calificación".
+            </p>
+          ) : (
+            <>
+              {periodTemplates.length > 1 && (
+                <div style={{ marginBottom: 'var(--space-md)' }}>
+                  <label
+                    htmlFor="period-template-select"
+                    style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}
+                  >
+                    Plantilla de períodos
+                  </label>
+                  <select
+                    id="period-template-select"
+                    style={{ ...SELECT_STYLE, maxWidth: '320px' }}
+                    value={selectedPeriodTemplateId}
+                    onChange={e => handlePeriodTemplateSelect(e.target.value)}
+                    aria-label="Plantilla de períodos"
+                    data-testid="period-template-select"
+                  >
+                    <option value="">Seleccioná una plantilla</option>
+                    {periodTemplates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {selectedPeriodTemplate && (
+                <>
+                  {periodDatesLoading ? (
+                    <p className="text-sm text-gray-500 p-2">Cargando fechas...</p>
+                  ) : (
+                    <>
+                      {periodDatesError && (
+                        <p className="text-sm text-red-600 mb-2">{periodDatesError}</p>
+                      )}
+                      {periodDatesSaved && !periodDatesError && (
+                        <p className="text-sm text-green-600 mb-2">Fechas guardadas correctamente.</p>
+                      )}
+
+                      <div style={{ marginBottom: 'var(--space-md)' }}>
+                        {[...selectedPeriodTemplate.items]
+                          .sort((a, b) => a.sort_order - b.sort_order)
+                          .map(item => (
+                            <div
+                              key={item.id}
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 200px 200px',
+                                gap: 'var(--space-md)',
+                                alignItems: 'center',
+                                padding: 'var(--space-sm)',
+                                borderBottom: '1px solid var(--color-border)',
+                              }}
+                              data-testid={`period-date-row-${item.id}`}
+                            >
+                              <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>
+                                {item.name}
+                              </span>
+                              <div>
+                                <label
+                                  style={{ fontSize: '0.75rem', marginBottom: '0.2rem', display: 'block', color: '#6b7280' }}
+                                >
+                                  Fecha inicio
+                                </label>
+                                <Input
+                                  type="date"
+                                  value={periodDates[item.id]?.startDate ?? ''}
+                                  onChange={e => setPeriodDates(prev => ({
+                                    ...prev,
+                                    [item.id]: { ...prev[item.id] ?? { startDate: '', endDate: '' }, startDate: e.target.value },
+                                  }))}
+                                  aria-label={`Fecha inicio ${item.name}`}
+                                  data-testid={`start-date-${item.id}`}
+                                />
+                              </div>
+                              <div>
+                                <label
+                                  style={{ fontSize: '0.75rem', marginBottom: '0.2rem', display: 'block', color: '#6b7280' }}
+                                >
+                                  Fecha fin
+                                </label>
+                                <Input
+                                  type="date"
+                                  value={periodDates[item.id]?.endDate ?? ''}
+                                  onChange={e => setPeriodDates(prev => ({
+                                    ...prev,
+                                    [item.id]: { ...prev[item.id] ?? { startDate: '', endDate: '' }, endDate: e.target.value },
+                                  }))}
+                                  aria-label={`Fecha fin ${item.name}`}
+                                  data-testid={`end-date-${item.id}`}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+
+                      <Button
+                        variant="success-soft"
+                        onClick={handleSavePeriodDates}
+                        loading={periodDatesSaving}
+                        data-testid="save-period-dates-btn"
+                      >
+                        Guardar fechas de períodos
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </Card>
+      )}
     </div>
   );
 }

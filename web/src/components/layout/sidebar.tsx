@@ -109,6 +109,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Módulos', path: '/modules' /* ROOT only — no moduleCode needed */ },
       { label: 'Tipos de asistencia', path: '/attendance-types', moduleCode: 'ATTENDANCE_TYPES' },
       { label: 'Escalas de Calificación', path: '/grading-scales', moduleCode: 'GRADING_CONFIG' },
+      { label: 'Períodos de Calificación', path: '/grading-periods', moduleCode: 'GRADING_CONFIG' },
     ],
   },
 ];
