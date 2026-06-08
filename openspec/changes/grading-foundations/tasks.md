@@ -272,27 +272,27 @@
 
 ---
 
-**T28 — Agregar modelos de períodos en schema tenant**
+**[x] T28 — Agregar modelos de períodos en schema tenant**
 - Descripción: En `api/prisma_tenant/schema.prisma` agregar los 3 modelos nuevos: `GradingPeriodTemplate` (`id`, `name`, `level: Int`, `modality: Int @default(0)`, `active: Boolean @default(true)`, `deletedAt DateTime?`, timestamps; `@@unique([level, modality, name])`; relación `items GradingPeriodTemplateItem[]`), `GradingPeriodTemplateItem` (`id`, `templateId String`, `name String`, `sortOrder Int ≥1`; `@@unique([templateId, sortOrder])`, `@@unique([templateId, name])`; `template` → `GradingPeriodTemplate`, `dates GradingPeriodDate[]`), `GradingPeriodDate` (`id`, `itemId String @map("template_item_id")`, `cycleId String` → `AcademicCycle.uuid`, `startDate DateTime @map("start_date")`, `endDate DateTime @map("end_date")`, timestamps; `@@unique([itemId, cycleId])`). Agregar relación inversa en `AcademicCycle`: `gradingPeriodDates GradingPeriodDate[]`. Los campos `firstBim..fourthBim` de `AcademicCycle` ya tienen comentario `@deprecated` de T01 — no modificar nada más.
 - Paths:
   - `api/prisma_tenant/schema.prisma`
 - REQ: REQ-4, REQ-5, REQ-6 (modelo base)
 
-**T29 — Escribir migración SQL para períodos**
+**[x] T29 — Escribir migración SQL para períodos**
 - Descripción: Crear `api/prisma_tenant/migrations/YYYYMMDD_grading_foundations_periods/migration.sql`. Crear las 3 tablas con sus columnas, constraints de FK (`template_item_id → grading_period_template_items.id ON DELETE CASCADE`, `cycle_id → academic_cycles.uuid ON DELETE CASCADE`), índices (`CREATE INDEX ON grading_period_dates (cycle_id)`, etc.) y constraints únicos (`UNIQUE(template_id, sort_order)`, `UNIQUE(template_item_id, cycle_id)`, etc.). Sin TRUNCATE ni ALTER de tablas existentes — solo CREATE TABLE.
 - Paths:
   - `api/prisma_tenant/migrations/YYYYMMDD_grading_foundations_periods/migration.sql`
 - REQ: REQ-4, REQ-5
 - ⚠ dep: T28
 
-**T30 — Agregar `seedGradingPeriods` al seed**
+**[x] T30 — Agregar `seedGradingPeriods` al seed**
 - Descripción: En `api/prisma/seed.ts` agregar la función `seedGradingPeriods(prisma: TenantPrismaClient)` que crea: plantilla `"Trimestral"` (level=2 Primario, modality=0) con ítems `["1° Trimestre"(1), "2° Trimestre"(2), "3° Trimestre"(3)]`; plantilla `"Trimestral Secundaria"` (level=3) con los mismos 3 ítems; plantilla `"Cuatrimestral Terciario"` (level=4) con ítems `["1° Cuatrimestre"(1), "2° Cuatrimestre"(2)]`. Sin cargar `GradingPeriodDate` (las fechas se cargan por ciclo). Llamar `seedGradingPeriods(prisma)` desde la función `main` del seed.
 - Paths:
   - `api/prisma/seed.ts`
 - REQ: REQ-4
 - ⚠ dep: T28
 
-**T31 — [GATE 1b-A] Build schema + cliente Prisma tenant (períodos)**
+**[x] T31 — [GATE 1b-A] Build schema + cliente Prisma tenant (períodos)**
 - Descripción: Ejecutar `cd api && npx prisma generate --schema=prisma_tenant/schema.prisma`. Verificar que los 3 nuevos modelos y la relación inversa de `AcademicCycle` están en el cliente generado. Ejecutar `cd api && npm run build` sin errores. El gate bloquea el inicio de 1b-B.
 - Paths: (verificación)
 - REQ: todos los de 1b-A
@@ -307,7 +307,7 @@
 
 ---
 
-**T32 — [RED] Tests unitarios de VOs y entidades de períodos**
+**[x] T32 — [RED] Tests unitarios de VOs y entidades de períodos**
 - Descripción: Crear `packages/domain/src/grading/__tests__/value-objects/period-sort-order.test.ts` (3 casos: sortOrder ≥ 1 válido; sortOrder = 0 inválido; sortOrder negativo inválido). Crear `packages/domain/src/grading/__tests__/entities/grading-period-template.test.ts` (6 casos: crear plantilla válida con 3 ítems; ítems con sortOrder duplicado lanza `PeriodSortOrderDuplicateError`; ítems con name duplicado lanza error; plantilla vacía se puede crear; reconstruct preserva ítems; softDelete). Crear `packages/domain/src/grading/__tests__/entities/grading-period-date.test.ts` (6 casos: fechas válidas dentro del ciclo pasan; startDate ≥ endDate falla con `PeriodDateInvalidRangeError`; fecha fuera del rango del ciclo falla con `PeriodDateOutOfCycleRangeError`; solapamiento con otro período del mismo ciclo falla con `PeriodDateOverlapError`; huecos entre períodos son permitidos; ciclos distintos son independientes). Todos deben fallar (RED).
 - Paths:
   - `packages/domain/src/grading/__tests__/value-objects/period-sort-order.test.ts`
@@ -315,35 +315,35 @@
   - `packages/domain/src/grading/__tests__/entities/grading-period-date.test.ts`
 - REQ: REQ-4 (4.1-4.3), REQ-5 (5.1-5.3), REQ-6 (6.1-6.3)
 
-**T33 — [GREEN] VO `PeriodSortOrder`**
+**[x] T33 — [GREEN] VO `PeriodSortOrder`**
 - Descripción: Crear `packages/domain/src/grading/value-objects/period-sort-order.ts`. Valida entero ≥ 1 (no acepta 0 ni negativos). Método `create(n)`: `Result<PeriodSortOrder, PeriodSortOrderInvalidError>`. Los tests de T32 para este VO deben pasar GREEN.
 - Paths:
   - `packages/domain/src/grading/value-objects/period-sort-order.ts`
 - REQ: REQ-4 (invariante 5: sortOrder ≥ 1)
 - ⚠ dep: T32
 
-**T34 — [GREEN] Errores de dominio de períodos**
+**[x] T34 — [GREEN] Errores de dominio de períodos**
 - Descripción: Ampliar `packages/domain/src/grading/errors/` con `grading-period.errors.ts`: `PeriodTemplateNameDuplicateError(level, modality, name)`, `PeriodTemplateNotFoundError(id)`, `PeriodSortOrderDuplicateError(sortOrders)`, `PeriodTemplateHasDatesError(id)`, `PeriodDateOutOfCycleRangeError(date, cycleStart, cycleEnd)`, `PeriodDateOverlapError(item1, item2)`, `PeriodDateInvalidRangeError(startDate, endDate)`, `PeriodSortOrderInvalidError(value)`. Cada una con `statusCode` HTTP correspondiente.
 - Paths:
   - `packages/domain/src/grading/errors/grading-period.errors.ts`
 - REQ: REQ-4 (4.2-4.3), REQ-5, REQ-6 (6.1-6.3), REQ-8
 - ⚠ dep: T33
 
-**T35 — [GREEN] Entidades `GradingPeriodTemplate` y `GradingPeriodTemplateItem`**
+**[x] T35 — [GREEN] Entidades `GradingPeriodTemplate` y `GradingPeriodTemplateItem`**
 - Descripción: Crear `packages/domain/src/grading/entities/grading-period-template.ts` con `GradingPeriodTemplate` (agregado raíz) y `GradingPeriodTemplateItem`. `GradingPeriodTemplate.create()` acepta `items[]` y llama a `assertItemsValid()` que verifica: sortOrder únicos entre ítems, sortOrder ≥ 1, names únicos. `reconstruct()` no re-valida. Los tests de T32 para templates deben pasar GREEN.
 - Paths:
   - `packages/domain/src/grading/entities/grading-period-template.ts`
 - REQ: REQ-4 (4.1, 4.3)
 - ⚠ dep: T33, T34
 
-**T36 — [GREEN] Entidad `GradingPeriodDate` con validación de fechas**
+**[x] T36 — [GREEN] Entidad `GradingPeriodDate` con validación de fechas**
 - Descripción: Crear `packages/domain/src/grading/entities/grading-period-date.ts` con `GradingPeriodDate`. Método estático `create(props, cycleStart, cycleEnd, siblings: GradingPeriodDate[])`: (1) `startDate < endDate` o lanza `PeriodDateInvalidRangeError`; (2) `startDate ≥ cycleStart && endDate ≤ cycleEnd` o lanza `PeriodDateOutOfCycleRangeError`; (3) no solapamiento con ningún elemento de `siblings` (lanza `PeriodDateOverlapError` si hay intersección). Los huecos entre períodos son explícitamente PERMITIDOS (no se validan). Lógica de solapamiento: dos rangos [a,b] y [c,d] se solapan si `a < d && c < b`. Los tests de T32 para fechas deben pasar GREEN.
 - Paths:
   - `packages/domain/src/grading/entities/grading-period-date.ts`
 - REQ: REQ-5 (5.1-5.3), REQ-6 (6.1-6.3)
 - ⚠ dep: T34
 
-**T37 — [GREEN] Puerto `GradingPeriodRepository` + actualizar index grading**
+**[x] T37 — [GREEN] Puerto `GradingPeriodRepository` + actualizar index grading**
 - Descripción: Crear `packages/domain/src/grading/repositories/grading-period.repository.ts` con la interface `GradingPeriodRepository`: `findTemplateById(id)` (con ítems), `listTemplates(filters?)`, `existsTemplateName(level, modality, name, excludeId?)`, `saveTemplate(t)` (upsert template + ítems en tx), `countDatesForTemplate(templateId)`, `softDeleteTemplate(id)`, `listDates(templateId, cycleId)`, `saveDates(itemId, cycleId, dates)`, `findDatesByCycle(templateId, cycleId)` (para overlap check). Actualizar `packages/domain/src/grading/index.ts` para exportar los nuevos VO, entidades, errores y puerto de períodos.
 - Paths:
   - `packages/domain/src/grading/repositories/grading-period.repository.ts`
@@ -351,7 +351,7 @@
 - REQ: REQ-4, REQ-5, REQ-6
 - ⚠ dep: T35, T36
 
-**T38 — [GATE 1b-B] Tests dominio períodos + build package**
+**[x] T38 — [GATE 1b-B] Tests dominio períodos + build package**
 - Descripción: Ejecutar `cd packages/domain && npx jest --testPathPattern="grading"`. Todos los tests de T05 (escalas) y T32 (períodos) deben pasar. Ejecutar `cd packages/domain && npm run build`. El gate bloquea el inicio de 1b-C.
 - Paths: (verificación)
 - REQ: todos los de 1b-B

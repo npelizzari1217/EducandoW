@@ -129,9 +129,10 @@ model AcademicCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
 
-  enrollments  Enrollment[]
-  attendances  Attendance[]
-  courseCycles CourseCycle[]
+  enrollments         Enrollment[]
+  attendances         Attendance[]
+  courseCycles        CourseCycle[]
+  gradingPeriodDates  GradingPeriodDate[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1043,4 +1044,55 @@ model StudentObservation {
   @@index([studentId])
   @@index([authorId])
   @@map("student_observations")
+}
+
+// ── Grading Periods ────────────────────────────────────────
+
+model GradingPeriodTemplate {
+  id        String   @id @default(uuid())
+  name      String              // "Trimestral", "Cuatrimestral"
+  level     Int                 // EducationalLevelCode (1-4)
+  modality  Int    @default(0)  // EducationalModalityCode (0-2)
+  active    Boolean @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items GradingPeriodTemplateItem[]
+
+  @@unique([level, modality, name])
+  @@index([level])
+  @@map("grading_period_templates")
+}
+
+model GradingPeriodTemplateItem {
+  id         String @id @default(uuid())
+  templateId String @map("template_id")
+  name       String              // "1° Trimestre", "2° Cuatrimestre"
+  sortOrder  Int                 // ≥ 1, unique within template
+
+  template GradingPeriodTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  dates    GradingPeriodDate[]
+
+  @@unique([templateId, sortOrder])
+  @@unique([templateId, name])
+  @@index([templateId])
+  @@map("grading_period_template_items")
+}
+
+model GradingPeriodDate {
+  id        String   @id @default(uuid())
+  itemId    String   @map("template_item_id")
+  cycleId   String   @map("cycle_id")           // → AcademicCycle.uuid
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  item  GradingPeriodTemplateItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  cycle AcademicCycle             @relation(fields: [cycleId], references: [uuid], onDelete: Cascade)
+
+  @@unique([itemId, cycleId])
+  @@index([cycleId])
+  @@map("grading_period_dates")
 }

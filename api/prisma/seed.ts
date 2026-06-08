@@ -527,6 +527,61 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
   console.log('✅ Terciaria grade scale seeded');
 }
 
+export async function seedGradingPeriods(prisma: TenantPrismaClient) {
+  const templates = [
+    {
+      id: 'gpt-primaria-trimestral',
+      name: 'Trimestral',
+      level: 2,
+      modality: 0,
+      items: [
+        { id: 'gpti-primaria-t1', name: '1° Trimestre', sortOrder: 1 },
+        { id: 'gpti-primaria-t2', name: '2° Trimestre', sortOrder: 2 },
+        { id: 'gpti-primaria-t3', name: '3° Trimestre', sortOrder: 3 },
+      ],
+    },
+    {
+      id: 'gpt-secundaria-trimestral',
+      name: 'Trimestral',
+      level: 3,
+      modality: 0,
+      items: [
+        { id: 'gpti-secundaria-t1', name: '1° Trimestre', sortOrder: 1 },
+        { id: 'gpti-secundaria-t2', name: '2° Trimestre', sortOrder: 2 },
+        { id: 'gpti-secundaria-t3', name: '3° Trimestre', sortOrder: 3 },
+      ],
+    },
+    {
+      id: 'gpt-terciaria-cuatrimestral',
+      name: 'Cuatrimestral',
+      level: 4,
+      modality: 0,
+      items: [
+        { id: 'gpti-terciaria-c1', name: '1° Cuatrimestre', sortOrder: 1 },
+        { id: 'gpti-terciaria-c2', name: '2° Cuatrimestre', sortOrder: 2 },
+      ],
+    },
+  ];
+
+  for (const t of templates) {
+    await prisma.gradingPeriodTemplate.upsert({
+      where: { level_modality_name: { level: t.level, modality: t.modality, name: t.name } },
+      create: { id: t.id, name: t.name, level: t.level, modality: t.modality },
+      update: {},
+    });
+
+    for (const item of t.items) {
+      await prisma.gradingPeriodTemplateItem.upsert({
+        where: { templateId_sortOrder: { templateId: t.id, sortOrder: item.sortOrder } },
+        create: { id: item.id, templateId: t.id, name: item.name, sortOrder: item.sortOrder },
+        update: { name: item.name },
+      });
+    }
+
+    console.log(`✅ Grading period template seeded: ${t.name} (level=${t.level})`);
+  }
+}
+
 // Only run main() when executed directly (not imported)
 if (require.main === module) {
   main()
