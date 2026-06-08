@@ -55,6 +55,7 @@ const navGroups: NavGroupDef[] = [
     items: [
       // Generic items — visible when any level exists
       { label: 'Competencias', path: '/competencias', moduleCode: 'GRADES', requiresLevel: true },
+      { label: 'Calificación de Competencias', path: '/competency-grading', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
     ],

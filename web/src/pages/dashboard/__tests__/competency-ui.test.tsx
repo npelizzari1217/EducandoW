@@ -329,33 +329,10 @@ describe('CompetenciesPage', () => {
     expect(allUrls.some((u: string) => u.includes('/subjects/') && u.includes('/competencies'))).toBe(false);
   });
 
-  it('Tab 2 calls /competency-valuations with studyPlanSubjectId and studentId — never calls dead route', async () => {
+  it('VTC-1/VTC-2: "Valoraciones por Alumno" tab is absent after cleanup', async () => {
     render(<CompetenciesPage />);
-
-    await selectSubject();
-
-    // Switch to Tab 2
-    await userEvent.click(screen.getByRole('button', { name: /valoraciones por alumno/i }));
-
-    // Enter student ID
-    const studentInput = screen.getByLabelText(/id del estudiante/i);
-    await userEvent.type(studentInput, 'student-uuid');
-
-    // Search
-    await userEvent.click(screen.getByRole('button', { name: /buscar valoraciones/i }));
-
-    await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(
-        '/competency-valuations',
-        expect.objectContaining({
-          params: expect.objectContaining({ studentId: 'student-uuid', studyPlanSubjectId: 'sps-1' }),
-        }),
-      );
-    });
-
-    // Dead route must NOT be called
-    const allUrls = (apiClient.get as any).mock.calls.map((c: unknown[]) => c[0] as string);
-    expect(allUrls.some((u: string) => u.includes('/students/') && u.includes('/competency-valuations'))).toBe(false);
+    // After VTC cleanup: the tab button must NOT be in the DOM
+    expect(screen.queryByRole('button', { name: /valoraciones por alumno/i })).not.toBeInTheDocument();
   });
 
   it('shows Copy button on Tab 1 when a subject is selected', async () => {
