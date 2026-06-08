@@ -82,6 +82,7 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: CUC.DeleteSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.DeleteSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
     { provide: CUC.ListCompetencyValuationsUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.ListCompetencyValuationsUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.GetCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.GetCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
+    { provide: CUC.ListBulkCompetencyValuationsUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.ListBulkCompetencyValuationsUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.CopySubjectCompetenciesUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.CopySubjectCompetenciesUC(r), inject: ['SubjectCompetencyRepository'] },
     { provide: CUC.AutoCreateCompetencyValuationsUC, useFactory: (comp: PrismaSubjectCompetencyRepo, val: PrismaCompetencyValuationRepo, sp: PrismaStudyPlanRepository) => new CUC.AutoCreateCompetencyValuationsUC(comp, val, sp), inject: ['SubjectCompetencyRepository', 'CompetencyValuationRepository', 'StudyPlanRepository'] },
     // PR3 — period grading repos + UC

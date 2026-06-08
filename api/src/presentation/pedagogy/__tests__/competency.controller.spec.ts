@@ -9,6 +9,7 @@ import {
   PeriodLockedError,
   GradeScaleNotConfiguredError,
 } from '@educandow/domain';
+import type { CompetencyValuationWithPeriods } from '@educandow/domain';
 import { CreateSubjectCompetencySchema, CopySubjectCompetenciesSchema, UpdatePeriodGradeSchema } from '../dto/competency.dto';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 
@@ -369,5 +370,93 @@ describe('PedagogyController — POST /subject-competencies/copy', () => {
     } catch (e) {
       expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller — GET /competency-valuations — bulk read branch (1a-T4)
+// BVR-1, BVR-2, BVR-3, BVR-4
+// ---------------------------------------------------------------------------
+
+describe('PedagogyController — GET /competency-valuations (bulk-read branch)', () => {
+  const mockBulkUC = { execute: vi.fn() };
+  let ctrl: PedagogyController;
+
+  function makeRow(id = 'v-1'): CompetencyValuationWithPeriods {
+    return {
+      valuationId:      id,
+      studentId:        's-1',
+      competencyId:     'c-1',
+      periodValuations: [],
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ctrl = buildController({ listBulkValUC: mockBulkUC });
+  });
+
+  it('BVR-2: throws HTTP 400 when only studyPlanSubjectId provided (no courseCycleId, no studentId)', async () => {
+    // No courseCycleId → legacy branch → no studentId → 400
+    await expect(
+      ctrl.listValuations(undefined as unknown as string, 'sps-1', undefined as unknown as string),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.listValuations(undefined as unknown as string, 'sps-1', undefined as unknown as string);
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+
+  it('BVR-3: throws HTTP 400 when courseCycleId present but studyPlanSubjectId missing', async () => {
+    await expect(
+      ctrl.listValuations(undefined as unknown as string, undefined as unknown as string, 'cc-1'),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.listValuations(undefined as unknown as string, undefined as unknown as string, 'cc-1');
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+
+  it('BVR-1: returns 200 with { data: [...] } when both courseCycleId + studyPlanSubjectId present', async () => {
+    mockBulkUC.execute.mockResolvedValue([makeRow()]);
+
+    const result = await ctrl.listValuations(undefined as unknown as string, 'sps-1', 'cc-1');
+
+    expect(result).toEqual({
+      data: [
+        {
+          valuationId:      'v-1',
+          studentId:        's-1',
+          competencyId:     'c-1',
+          periodValuations: [],
+        },
+      ],
+    });
+    expect(mockBulkUC.execute).toHaveBeenCalledWith({
+      courseCycleId:      'cc-1',
+      studyPlanSubjectId: 'sps-1',
+    });
+  });
+
+  it('BVR-4: returns 200 with { data: [] } when no valuations found (not 404)', async () => {
+    mockBulkUC.execute.mockResolvedValue([]);
+
+    const result = await ctrl.listValuations(undefined as unknown as string, 'sps-1', 'cc-new');
+
+    expect(result).toEqual({ data: [] });
+  });
+
+  it('legacy studentId branch still works when studentId present (backward compat)', async () => {
+    const mockListValUC = { execute: vi.fn().mockResolvedValue([]) };
+    const legacyCtrl = buildController({ listValUC: mockListValUC });
+
+    const result = await legacyCtrl.listValuations('student-1', 'sps-1', undefined as unknown as string);
+
+    expect(result).toEqual({ data: [] });
+    expect(mockListValUC.execute).toHaveBeenCalledWith('student-1', 'sps-1');
   });
 });

@@ -2,9 +2,16 @@
  * PR2 slim rewrite — maps the new CompetencyValuation schema.
  * Flat period columns (valuation1–4, modificable1–4, imprimible1–4, periodActive) removed.
  * courseCycleId added; unique constraint is now (studentId, competencyId, courseCycleId).
+ * PR slice 1a: adds findByCourseCycleAndStudyPlanSubject (bulk read with periodValuations include).
  */
 import { Injectable } from '@nestjs/common';
-import { CompetencyValuationRepository, CompetencyValuation, Id } from '@educandow/domain';
+import {
+  CompetencyValuationRepository,
+  CompetencyValuationWithPeriods,
+  CompetencyPeriodValuationData,
+  CompetencyValuation,
+  Id,
+} from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, CompetencyValuation as PrismaCompetencyValuation } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -19,6 +26,32 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
   async findById(id: string): Promise<CompetencyValuation | null> {
     const r = await this.client.competencyValuation.findUnique({ where: { id } });
     return r ? this.toDomain(r) : null;
+  }
+
+  async findByCourseCycleAndStudyPlanSubject(
+    courseCycleId: string,
+    studyPlanSubjectId: string,
+  ): Promise<CompetencyValuationWithPeriods[]> {
+    // 1. Resolve all active competencies for the given studyPlanSubject
+    const competencies = await this.client.subjectCompetency.findMany({
+      where: { studyPlanSubjectId, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (competencies.length === 0) return [];
+
+    // 2. Fetch parent valuations with period children included
+    const rows = await this.client.competencyValuation.findMany({
+      where: {
+        courseCycleId,
+        competencyId: { in: competencies.map((c) => c.id) },
+        deletedAt: null,
+      },
+      include: { periodValuations: true },
+    });
+
+    // 3. Map to read model
+    return rows.map((row) => this.toReadModel(row));
   }
 
   async findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
@@ -85,5 +118,32 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
       active: r.active,
       deletedAt: r.deletedAt ?? undefined,
     });
+  }
+
+  private toReadModel(
+    row: PrismaCompetencyValuation & {
+      periodValuations: Array<{
+        periodItemId:      string;
+        gradeScaleValueId: string | null;
+        gradeCode:         string | null;
+        internalStatus:    string | null;
+        modificable:       boolean;
+        imprimible:        boolean;
+      }>;
+    },
+  ): CompetencyValuationWithPeriods {
+    return {
+      valuationId:  row.id,
+      studentId:    row.studentId,
+      competencyId: row.competencyId,
+      periodValuations: row.periodValuations.map((pv): CompetencyPeriodValuationData => ({
+        periodItemId:      pv.periodItemId,
+        gradeScaleValueId: pv.gradeScaleValueId,
+        gradeCode:         pv.gradeCode,
+        internalStatus:    pv.internalStatus as CompetencyPeriodValuationData['internalStatus'],
+        modificable:       pv.modificable,
+        imprimible:        pv.imprimible,
+      })),
+    };
   }
 }

@@ -49,7 +49,11 @@ export type { AttendanceRepository } from './repositories/attendance-repository'
 export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } from './repositories/academic-cycle-repository';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';
 export type { SubjectCompetencyRepository } from './repositories/subject-competency-repository';
-export type { CompetencyValuationRepository } from './repositories/competency-valuation-repository';
+export type {
+  CompetencyValuationRepository,
+  CompetencyValuationWithPeriods,
+  CompetencyPeriodValuationData,
+} from './repositories/competency-valuation-repository';
 export type { CompetencyPeriodValuationRepository } from './repositories/competency-period-valuation-repository';
 
 // Competency valuation errors

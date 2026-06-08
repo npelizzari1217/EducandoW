@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaCourseCycleRepository } from '../prisma-course-cycle.repository';
 import { TenantContext } from '../../../../auth/tenant.context';
+import * as enrolledStudentsQuery from '../../queries/enrolled-students.query';
 import {
   CourseCycle,
   CourseName,
@@ -225,6 +226,43 @@ describe('PrismaCourseCycleRepository — findAll', () => {
     expect(result.total).toBe(2);
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(10);
+  });
+});
+
+// ── findEnrolledStudents ──────────────────────────────────────
+
+describe('PrismaCourseCycleRepository — findEnrolledStudents', () => {
+  it('delegates to findEnrolledStudentsByCourseCycle helper and returns students', async () => {
+    const mockFindEnrolled = vi.spyOn(enrolledStudentsQuery, 'findEnrolledStudentsByCourseCycle')
+      .mockResolvedValue([
+        { studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' },
+        { studentId: 'stu-2', firstName: 'Ana', lastName: 'López' },
+      ]);
+
+    const mockClient = {};
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+
+    const repo = new PrismaCourseCycleRepository();
+    const result = await repo.findEnrolledStudents('cc-uuid-1');
+
+    expect(mockFindEnrolled).toHaveBeenCalledWith(mockClient, 'cc-uuid-1');
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({ studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' });
+
+    mockFindEnrolled.mockRestore();
+  });
+
+  it('returns [] when helper returns empty list', async () => {
+    const mockFindEnrolled = vi.spyOn(enrolledStudentsQuery, 'findEnrolledStudentsByCourseCycle')
+      .mockResolvedValue([]);
+
+    vi.mocked(TenantContext.getClient).mockReturnValue({} as any);
+
+    const repo = new PrismaCourseCycleRepository();
+    const result = await repo.findEnrolledStudents('cc-empty');
+
+    expect(result).toEqual([]);
+    mockFindEnrolled.mockRestore();
   });
 });
 

@@ -19,6 +19,7 @@ import type {
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+import { findEnrolledStudentsByCourseCycle } from '../../../infrastructure/persistence/prisma/queries/enrolled-students.query';
 
 // ── SubjectCompetency CRUD ─────────────────────────────
 
@@ -163,6 +164,21 @@ export class CopySubjectCompetenciesUC {
 // ── CompetencyValuation Read Use Cases ─────────────────
 
 @Injectable()
+export class ListBulkCompetencyValuationsUC {
+  constructor(private repo: CompetencyValuationRepository) {}
+
+  async execute(input: {
+    courseCycleId:      string;
+    studyPlanSubjectId: string;
+  }) {
+    return this.repo.findByCourseCycleAndStudyPlanSubject(
+      input.courseCycleId,
+      input.studyPlanSubjectId,
+    );
+  }
+}
+
+@Injectable()
 export class GetCompetencyValuationUC {
   constructor(private repo: CompetencyValuationRepository) {}
 
@@ -221,8 +237,10 @@ export class AutoCreateCompetencyValuationsUC {
     ).flat();
     if (competencies.length === 0) return;
 
-    // 4. Enrolled students for this course section
-    const studentIds = await this.findEnrolledStudentIds(cc.courseId);
+    // 4. Enrolled students via shared infra helper (avoids circular DI;
+    //    helper is a plain function that takes the tenant client directly).
+    const enrolled = await findEnrolledStudentsByCourseCycle(this.client, courseCycleId);
+    const studentIds = enrolled.map((s) => s.studentId);
     if (studentIds.length === 0) return;
 
     // 5. Batch-create parent valuations — DB skipDuplicates handles re-runs
@@ -239,28 +257,6 @@ export class AutoCreateCompetencyValuationsUC {
     const c = TenantContext.getClient();
     if (!c) throw new Error('TenantContext: no client available');
     return c;
-  }
-
-  private async findEnrolledStudentIds(courseSectionId: string): Promise<string[]> {
-    const section = await this.client.courseSection.findUnique({
-      where: { id: courseSectionId },
-      select: { level: true, grade: true, division: true, academicYear: true },
-    });
-    if (!section) return [];
-
-    const enrollments = await this.client.enrollment.findMany({
-      where: {
-        level: section.level,
-        grade: section.grade,
-        division: section.division,
-        academicYear: section.academicYear,
-        status: 'ACTIVE',
-        deletedAt: null,
-      },
-      select: { studentId: true },
-    });
-
-    return enrollments.map((e) => e.studentId);
   }
 }
 

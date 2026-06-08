@@ -27,6 +27,7 @@ import {
   GetCourseCycleUseCase,
   ListCourseCyclesUseCase,
   GenerateCourseCyclesUseCase,
+  ListStudentsByCourseCycleUC,
 } from '../../application/course-cycle/use-cases/course-cycle.use-cases';
 import {
   GetActivePeriodUseCase,
@@ -46,6 +47,7 @@ export class CourseCycleController {
     private readonly generateUC: GenerateCourseCyclesUseCase,
     private readonly getGradingPeriodUC: GetActivePeriodUseCase,
     private readonly setGradingPeriodUC: SetActivePeriodUseCase,
+    private readonly listStudentsUC: ListStudentsByCourseCycleUC,
   ) {}
 
   @Post()
@@ -96,7 +98,14 @@ export class CourseCycleController {
   async get(@Param('uuid') uuid: string) {
     const result = await this.getUC.execute(uuid);
     if (result.isErr()) throw result.unwrapErr();
-    return { data: this.toResponse(result.unwrap()) };
+    const { cycle, modality } = result.unwrap();
+    return { data: this.toResponse(cycle, null, modality) };
+  }
+
+  @Get(':uuid/students')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
+  async listStudents(@Param('uuid') uuid: string) {
+    return { data: await this.listStudentsUC.execute(uuid) };
   }
 
   @Patch(':uuid')
@@ -202,6 +211,7 @@ export class CourseCycleController {
       thirdBimonth: { start: Date; end: Date } | null;
       fourthBimonth: { start: Date; end: Date } | null;
     } | null,
+    modality?: number | null,
   ) {
     // effectiveBimonthDates: use CourseCycle own dates first; fall back to AcademicCycle dates
     const eff1 = cc.firstBimonth ?? academicCycleDates?.firstBimonth ?? null;
@@ -216,6 +226,7 @@ export class CourseCycleController {
       cycleId: cc.cycleId,
       courseName: cc.courseName.get(),
       level: cc.level.get(),
+      modality: modality ?? null,
       active: cc.active,
       passingGrade: cc.passingGrade.get(),
       promotionText: cc.promotionText,

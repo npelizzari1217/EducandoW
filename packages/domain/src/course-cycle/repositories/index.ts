@@ -1,1 +1,1 @@
-export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult } from './course-cycle-repository';
+export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult, EnrolledStudent } from './course-cycle-repository';

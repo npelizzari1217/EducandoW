@@ -40,7 +40,7 @@ export type { EnrollmentRepository, FindByCourseParams } from './enrollment/repo
 // CourseCycle
 export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
 export type { CourseCycleProps, CreateCourseCycleInput, UpdateCourseCycleInput } from './course-cycle';
-export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult } from './course-cycle';
+export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult, EnrolledStudent } from './course-cycle';
 export { GradingPeriodCalculator } from './course-cycle';
 export type { DateRange } from './course-cycle';
 export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFoundError, BimonthPeriodInvalidError, AcademicCycleClosedError } from './course-cycle';
@@ -59,7 +59,7 @@ export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFou
 export { StudyPlanHasDependenciesError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, SubjectCompetencyRepository, CompetencyValuationRepository, CompetencyPeriodValuationRepository } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, SubjectCompetencyRepository, CompetencyValuationRepository, CompetencyPeriodValuationRepository, CompetencyValuationWithPeriods, CompetencyPeriodValuationData } from './pedagogy';
 export { CompetencyValuationNotFoundError, GradeScaleNotConfiguredError, PeriodItemNotInTemplateError, GradeScaleValueMismatchError, PeriodLockedError } from './pedagogy';
 export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';

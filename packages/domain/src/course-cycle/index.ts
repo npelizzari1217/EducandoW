@@ -12,7 +12,7 @@ export { GradingPeriodCalculator } from './services/grading-period-calculator';
 export type { DateRange } from './services/grading-period-calculator';
 
 // Repository (port)
-export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult } from './repositories/course-cycle-repository';
+export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult, EnrolledStudent } from './repositories/course-cycle-repository';
 
 // Errors
 export {

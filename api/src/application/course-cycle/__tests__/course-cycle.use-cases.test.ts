@@ -7,6 +7,7 @@ import {
   GetCourseCycleUseCase,
   ListCourseCyclesUseCase,
   GenerateCourseCyclesUseCase,
+  ListStudentsByCourseCycleUC,
 } from '../use-cases/course-cycle.use-cases';
 import type { CourseCycleRepository } from '@educandow/domain';
 import type { CourseSectionRepository } from '@educandow/domain';
@@ -59,6 +60,8 @@ function makeMockRepo(overrides: Record<string, unknown> = {}) {
     createMany: vi.fn().mockResolvedValue({ created: 0, skipped: 0, total: 0 }),
     softDelete: vi.fn().mockResolvedValue(undefined),
     findById: vi.fn().mockResolvedValue(null),
+    findGradingContextByUuid: vi.fn().mockResolvedValue(null),
+    findEnrolledStudents: vi.fn().mockResolvedValue([]),
     ...overrides,
   } as unknown as CourseCycleRepository;
 }
@@ -285,18 +288,37 @@ describe('ToggleCourseCycleActiveUseCase', () => {
 // ── GetCourseCycleUseCase ────────────────────────────────
 
 describe('GetCourseCycleUseCase', () => {
-  it('returns CourseCycle by uuid', async () => {
+  it('returns { cycle, modality } when CourseCycle found (CCM-1)', async () => {
     const cc = makeCC();
-    const mockRepo = makeMockRepo({ findByUuid: vi.fn().mockResolvedValue(cc) });
+    const mockRepo = makeMockRepo({
+      findByUuid: vi.fn().mockResolvedValue(cc),
+      findGradingContextByUuid: vi.fn().mockResolvedValue({ level: 20, modality: 0 }),
+    });
     const useCase = new GetCourseCycleUseCase(mockRepo);
 
     const result = await useCase.execute(cc.uuid);
 
     expect(result.isOk()).toBe(true);
-    expect(result.unwrap().uuid).toBe(cc.uuid);
+    const { cycle, modality } = result.unwrap();
+    expect(cycle.uuid).toBe(cc.uuid);
+    expect(modality).toBe(0);
   });
 
-  it('returns NotFound error', async () => {
+  it('returns modality=null when grading context not found', async () => {
+    const cc = makeCC();
+    const mockRepo = makeMockRepo({
+      findByUuid: vi.fn().mockResolvedValue(cc),
+      findGradingContextByUuid: vi.fn().mockResolvedValue(null),
+    });
+    const useCase = new GetCourseCycleUseCase(mockRepo);
+
+    const result = await useCase.execute(cc.uuid);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().modality).toBeNull();
+  });
+
+  it('returns NotFound error when cycle does not exist (CCM-2)', async () => {
     const mockRepo = makeMockRepo({ findByUuid: vi.fn().mockResolvedValue(null) });
     const useCase = new GetCourseCycleUseCase(mockRepo);
 
@@ -304,6 +326,51 @@ describe('GetCourseCycleUseCase', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(CourseCycleNotFoundError);
+  });
+});
+
+// ── ListStudentsByCourseCycleUC ──────────────────────────
+
+describe('ListStudentsByCourseCycleUC', () => {
+  it('SBC-1: returns enrolled students when cycle exists', async () => {
+    const cc = makeCC();
+    const students = [
+      { studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' },
+      { studentId: 'stu-2', firstName: 'Ana', lastName: 'López' },
+      { studentId: 'stu-3', firstName: 'Pedro', lastName: 'García' },
+    ];
+    const mockRepo = makeMockRepo({
+      findByUuid: vi.fn().mockResolvedValue(cc),
+      findEnrolledStudents: vi.fn().mockResolvedValue(students),
+    });
+    const useCase = new ListStudentsByCourseCycleUC(mockRepo);
+
+    const result = await useCase.execute(cc.uuid);
+
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({ studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' });
+    expect(mockRepo.findEnrolledStudents).toHaveBeenCalledWith(cc.uuid);
+  });
+
+  it('SBC-2: throws CourseCycleNotFoundError when cycle does not exist', async () => {
+    const mockRepo = makeMockRepo({ findByUuid: vi.fn().mockResolvedValue(null) });
+    const useCase = new ListStudentsByCourseCycleUC(mockRepo);
+
+    await expect(useCase.execute('cc-nonexistent')).rejects.toThrow(CourseCycleNotFoundError);
+    expect(mockRepo.findEnrolledStudents).not.toHaveBeenCalled();
+  });
+
+  it('SBC-3: returns [] when cycle exists but has no enrolled students', async () => {
+    const cc = makeCC();
+    const mockRepo = makeMockRepo({
+      findByUuid: vi.fn().mockResolvedValue(cc),
+      findEnrolledStudents: vi.fn().mockResolvedValue([]),
+    });
+    const useCase = new ListStudentsByCourseCycleUC(mockRepo);
+
+    const result = await useCase.execute(cc.uuid);
+
+    expect(result).toEqual([]);
   });
 });
 

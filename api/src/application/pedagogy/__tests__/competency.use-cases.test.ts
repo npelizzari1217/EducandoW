@@ -7,7 +7,9 @@ import {
   CopySubjectCompetenciesUC,
   UpdateSubjectCompetencyUC,
   GradePeriodValuationUC,
+  ListBulkCompetencyValuationsUC,
 } from '../use-cases/competency.use-cases';
+import type { CompetencyValuationWithPeriods } from '@educandow/domain';
 import {
   SubjectCompetency,
   CompetencyValuation,
@@ -177,7 +179,11 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
       enrollment: {
-        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }, { studentId: 'student-2' }]),
+        // Shape updated: helper returns { studentId, student: { firstName, lastName } }
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
+          { studentId: 'student-2', student: { firstName: 'Ana', lastName: 'López' } },
+        ]),
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
@@ -207,7 +213,9 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
       enrollment: {
-        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
+        ]),
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
@@ -319,7 +327,9 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
       enrollment: {
-        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
+        ]),
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
@@ -358,7 +368,9 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
       enrollment: {
-        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
+        ]),
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
@@ -369,6 +381,41 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
     // 1 student × 3 competencies (2 from sps-1 + 1 from sps-2)
     expect(created).toHaveLength(3);
+  });
+
+  // 1b-T4 regression guard: AutoCreate now uses the shared infra helper for enrollment.
+  // The studentId list produced must be identical; only the internal mechanism changes.
+  it('regression guard: still produces correct studentId[] after shared-helper refactor', async () => {
+    const comp = makeCompetency('comp-uuid-1', 'sps-1');
+    const competencyRepo = makeCompetencyRepo([comp]);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
+
+    const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+      courseSection: {
+        findUnique: vi.fn().mockResolvedValue({ level: 2, grade: '2°', division: 'B', academicYear: '2026' }),
+      },
+      enrollment: {
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'stu-a', student: { firstName: 'Mario', lastName: 'García' } },
+          { studentId: 'stu-b', student: { firstName: 'Lucia', lastName: 'Martínez' } },
+          { studentId: 'stu-c', student: { firstName: 'Pedro', lastName: 'Gómez' } },
+        ]),
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
+
+    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    await uc.execute({ courseCycleId: 'cc-regression' });
+
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetencyValuation[];
+    // 3 students × 1 competency = 3 valuations
+    expect(created).toHaveLength(3);
+    const createdStudentIds = created.map((v) => v.studentId).sort();
+    expect(createdStudentIds).toEqual(['stu-a', 'stu-b', 'stu-c'].sort());
   });
 });
 
@@ -866,5 +913,80 @@ describe('GradePeriodValuationUC', () => {
 
     expect(result.isOk()).toBe(false);
     expect(result.unwrapErr()).toBeInstanceOf(ValueNotFoundError);
+  });
+});
+
+// ── ListBulkCompetencyValuationsUC ────────────────────────
+// [1a-T2 RED→GREEN] Bulk-read use case delegating to findByCourseCycleAndStudyPlanSubject.
+
+describe('ListBulkCompetencyValuationsUC', () => {
+  function makeBulkValuationRepo(rows: CompetencyValuationWithPeriods[] = []): import('@educandow/domain').CompetencyValuationRepository {
+    return {
+      findById:                             vi.fn().mockResolvedValue(null),
+      findByStudentAndStudyPlanSubject:     vi.fn().mockResolvedValue([]),
+      findByCourseCycleAndStudyPlanSubject: vi.fn().mockResolvedValue(rows),
+      save:                                 vi.fn().mockResolvedValue(undefined),
+      bulkCreate:                           vi.fn().mockResolvedValue(undefined),
+      delete:                               vi.fn().mockResolvedValue(undefined),
+    } as unknown as import('@educandow/domain').CompetencyValuationRepository;
+  }
+
+  it('delegates to findByCourseCycleAndStudyPlanSubject with the given params', async () => {
+    const repo = makeBulkValuationRepo();
+    const uc = new ListBulkCompetencyValuationsUC(repo);
+
+    await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
+
+    expect(repo.findByCourseCycleAndStudyPlanSubject).toHaveBeenCalledWith('cc-1', 'sps-1');
+  });
+
+  it('returns the read-model list from the repo (BVR-1)', async () => {
+    const row: CompetencyValuationWithPeriods = {
+      valuationId:      'v-1',
+      studentId:        's-1',
+      competencyId:     'c-1',
+      periodValuations: [
+        {
+          periodItemId:      'item-3',
+          gradeScaleValueId: 'gsv-a',
+          gradeCode:         'MB',
+          internalStatus:    'APROBADO',
+          modificable:       true,
+          imprimible:        false,
+        },
+      ],
+    };
+    const repo = makeBulkValuationRepo([row]);
+    const uc = new ListBulkCompetencyValuationsUC(repo);
+
+    const result = await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].valuationId).toBe('v-1');
+    expect(result[0].periodValuations[0].gradeCode).toBe('MB');
+  });
+
+  it('returns [] when repo returns empty (BVR-4 — not 404)', async () => {
+    const repo = makeBulkValuationRepo([]);
+    const uc = new ListBulkCompetencyValuationsUC(repo);
+
+    const result = await uc.execute({ courseCycleId: 'cc-new', studyPlanSubjectId: 'sps-1' });
+
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns parent with periodValuations: [] when no children graded (BVR-5)', async () => {
+    const childless: CompetencyValuationWithPeriods = {
+      valuationId:      'v-2',
+      studentId:        's-2',
+      competencyId:     'c-1',
+      periodValuations: [],
+    };
+    const repo = makeBulkValuationRepo([childless]);
+    const uc = new ListBulkCompetencyValuationsUC(repo);
+
+    const result = await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
+
+    expect(result[0].periodValuations).toEqual([]);
   });
 });

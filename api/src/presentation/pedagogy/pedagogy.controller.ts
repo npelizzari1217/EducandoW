@@ -42,6 +42,7 @@ export class PedagogyController {
     private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
     private copyCompUC: CUC.CopySubjectCompetenciesUC,
     private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
+    private listBulkValUC: CUC.ListBulkCompetencyValuationsUC,
     private gradePeriodUC: CUC.GradePeriodValuationUC,
     private boletinInvalidation: BoletinInvalidationService,
   ) {}
@@ -399,7 +400,31 @@ export class PedagogyController {
   // ── Competency Valuations ───────────────────────────
 
   @Get('competency-valuations') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
-  async listValuations(@Query('studentId') studentId: string, @Query('studyPlanSubjectId') studyPlanSubjectId: string) {
+  async listValuations(
+    @Query('studentId') studentId: string,
+    @Query('studyPlanSubjectId') studyPlanSubjectId: string,
+    @Query('courseCycleId') courseCycleId: string,
+  ) {
+    // ── Bulk-read branch (PR slice 1a): courseCycleId acts as discriminator ──
+    if (courseCycleId) {
+      if (!studyPlanSubjectId) {
+        throw new HttpException(
+          { error: { message: 'courseCycleId y studyPlanSubjectId son requeridos juntos' } },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const rows = await this.listBulkValUC.execute({ courseCycleId, studyPlanSubjectId });
+      return {
+        data: rows.map((row) => ({
+          valuationId:      row.valuationId,
+          studentId:        row.studentId,
+          competencyId:     row.competencyId,
+          periodValuations: row.periodValuations,
+        })),
+      };
+    }
+
+    // ── Legacy branch: studentId + studyPlanSubjectId ──
     if (!studentId || !studyPlanSubjectId) throw new HttpException('studentId y studyPlanSubjectId son requeridos', HttpStatus.BAD_REQUEST);
     const vals = await this.listValUC.execute(studentId, studyPlanSubjectId);
     return { data: vals.map((v) => this.toValuationResponse(v)) };

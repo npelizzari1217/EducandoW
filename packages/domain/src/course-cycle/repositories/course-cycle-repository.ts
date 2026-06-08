@@ -1,5 +1,11 @@
 import type { CourseCycle } from '../entities/course-cycle';
 
+export interface EnrolledStudent {
+  studentId: string;
+  firstName: string;
+  lastName: string;
+}
+
 export interface CourseCycleFilters {
   level?: number;
   cycleId?: string;
@@ -36,4 +42,12 @@ export interface CourseCycleRepository {
    * Design §2: modality resolved via StudyPlan.modality (authoritative source).
    */
   findGradingContextByUuid(courseCycleUuid: string): Promise<{ level: number; modality: number } | null>;
+
+  /**
+   * Returns enrolled students for a CourseCycle, derived from the heuristic join
+   * (CourseCycle → CourseSection → Enrollment → Student). Empty array if cycle not
+   * found or has no active enrollments.
+   * Delegates to the shared infra helper findEnrolledStudentsByCourseCycle.
+   */
+  findEnrolledStudents(uuid: string): Promise<EnrolledStudent[]>;
 }

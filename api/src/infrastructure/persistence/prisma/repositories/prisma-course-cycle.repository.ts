@@ -12,8 +12,10 @@ import {
   LevelType,
   Id,
 } from '@educandow/domain';
+import type { EnrolledStudent } from '@educandow/domain';
 import type { Prisma, PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
+import { findEnrolledStudentsByCourseCycle } from '../queries/enrolled-students.query';
 
 type CourseCycleRow = Prisma.CourseCycleGetPayload<Record<string, never>>;
 
@@ -118,6 +120,15 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
         deletedAt: new Date(),
       },
     });
+  }
+
+  /**
+   * Returns enrolled students for a CourseCycle.
+   * Delegates to the shared infra helper to avoid duplicating the heuristic join
+   * and to avoid circular DI (helper is a plain function, not a cross-module UC dep).
+   */
+  async findEnrolledStudents(uuid: string): Promise<EnrolledStudent[]> {
+    return findEnrolledStudentsByCourseCycle(this.client, uuid);
   }
 
   /**

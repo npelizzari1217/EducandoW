@@ -11,6 +11,7 @@ import {
   GetCourseCycleUseCase,
   ListCourseCyclesUseCase,
   GenerateCourseCyclesUseCase,
+  ListStudentsByCourseCycleUC,
 } from '../../application/course-cycle/use-cases/course-cycle.use-cases';
 import {
   GetActivePeriodUseCase,
@@ -88,6 +89,11 @@ const EnrollmentRepo = 'EnrollmentRepository';
       provide: SetActivePeriodUseCase,
       useFactory: (cc: PrismaCourseCycleRepository, er: EnrollmentRepository) => new SetActivePeriodUseCase(cc, er),
       inject: [PrismaCourseCycleRepository, EnrollmentRepo],
+    },
+    {
+      provide: ListStudentsByCourseCycleUC,
+      useFactory: (r: PrismaCourseCycleRepository) => new ListStudentsByCourseCycleUC(r),
+      inject: [PrismaCourseCycleRepository],
     },
   ],
   exports: [PrismaCourseCycleRepository],

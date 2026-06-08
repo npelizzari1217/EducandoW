@@ -9,6 +9,25 @@ export const UpdatePeriodGradeSchema = z.object({
 
 export type UpdatePeriodGradeDto = z.infer<typeof UpdatePeriodGradeSchema>;
 
+// ── Bulk-read response DTO (PR slice 1a) ────────────────
+// GET /competency-valuations?courseCycleId=&studyPlanSubjectId=
+
+export interface BulkPeriodValuationDto {
+  periodItemId:      string;
+  gradeScaleValueId: string | null;
+  gradeCode:         string | null;
+  internalStatus:    string | null;
+  modificable:       boolean;
+  imprimible:        boolean;
+}
+
+export interface BulkValuationResponseDto {
+  valuationId:      string;
+  studentId:        string;
+  competencyId:     string;
+  periodValuations: BulkPeriodValuationDto[];
+}
+
 // ── Subject Competency ──────────────────────────────────
 
 export const CreateSubjectCompetencySchema = z.object({

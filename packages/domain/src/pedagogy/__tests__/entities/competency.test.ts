@@ -107,12 +107,14 @@ describe('CompetencyValuationRepository port signatures (PR2 slim)', () => {
     const mockRepo: CompetencyValuationRepository = {
       findById: async () => null,
       findByStudentAndStudyPlanSubject: async (_studentId: string, _studyPlanSubjectId: string) => [],
+      findByCourseCycleAndStudyPlanSubject: async () => [],
       save: async () => {},
       bulkCreate: async () => {},
       delete: async () => {},
     };
     expect(typeof mockRepo.findByStudentAndStudyPlanSubject).toBe('function');
     expect(typeof mockRepo.bulkCreate).toBe('function');
+    expect(typeof mockRepo.findByCourseCycleAndStudyPlanSubject).toBe('function');
     // findByStudentAndCompetency must NOT exist on the slim port
     expect((mockRepo as any).findByStudentAndCompetency).toBeUndefined();
   });

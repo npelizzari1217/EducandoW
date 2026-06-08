@@ -16,6 +16,7 @@ import {
   EducationalModalityCode,
   type UpdateCourseCycleInput as DomainUpdateCourseCycleInput,
 } from '@educandow/domain';
+import type { EnrolledStudent } from '@educandow/domain';
 import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
 import type { StudyPlanRepository } from '@educandow/domain';
@@ -254,12 +255,29 @@ export class ToggleCourseCycleActiveUseCase {
 export class GetCourseCycleUseCase {
   constructor(private readonly courseCycleRepo: CourseCycleRepository) {}
 
-  async execute(uuid: string): Promise<Result<CourseCycle, Error>> {
+  async execute(uuid: string): Promise<Result<{ cycle: CourseCycle; modality: number | null }, Error>> {
     const cc = await this.courseCycleRepo.findByUuid(uuid);
     if (!cc) {
       return err(new CourseCycleNotFoundError(uuid));
     }
-    return ok(cc);
+    const ctx = await this.courseCycleRepo.findGradingContextByUuid(uuid);
+    return ok({ cycle: cc, modality: ctx?.modality ?? null });
+  }
+}
+
+@Injectable()
+export class ListStudentsByCourseCycleUC {
+  constructor(private readonly repo: CourseCycleRepository) {}
+
+  /**
+   * Returns enrolled students for the given CourseCycle.
+   * Throws CourseCycleNotFoundError (→ HTTP 404) if cycle does not exist.
+   * Returns [] when cycle exists but has no active enrollments (SBC-3).
+   */
+  async execute(uuid: string): Promise<EnrolledStudent[]> {
+    const cc = await this.repo.findByUuid(uuid);
+    if (!cc) throw new CourseCycleNotFoundError(uuid);
+    return this.repo.findEnrolledStudents(uuid);
   }
 }
 
