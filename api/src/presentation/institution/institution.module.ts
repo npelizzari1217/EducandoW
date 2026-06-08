@@ -7,6 +7,7 @@ import {
   PrintInstitutionUseCase,
 } from '../../application/institution/use-cases/institution.use-cases';
 import { CreateInstitutionAdminUseCase } from '../../application/institution/use-cases/create-institution-admin.use-case';
+import { EnsureAttendanceTypesForLevelUseCase } from '../../application/attendance-type/use-cases/ensure-attendance-types-for-level.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaInstitutionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-institution.repository';
 import { PostgresAdminService } from '../../infrastructure/persistence/postgres-admin.service';
@@ -32,10 +33,15 @@ import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local
     },
     { provide: 'InstitutionRepository', useExisting: PrismaInstitutionRepository },
     {
+      provide: EnsureAttendanceTypesForLevelUseCase,
+      useFactory: (prisma: PrismaService) => new EnsureAttendanceTypesForLevelUseCase(prisma),
+      inject: [PrismaService],
+    },
+    {
       provide: CreateInstitutionUseCase,
-      useFactory: (r, adminSvc, adminUC) =>
-        new CreateInstitutionUseCase(r, adminSvc, adminUC),
-      inject: ['InstitutionRepository', PostgresAdminService, CreateInstitutionAdminUseCase],
+      useFactory: (r, adminSvc, adminUC, ensureTypes) =>
+        new CreateInstitutionUseCase(r, adminSvc, adminUC, ensureTypes),
+      inject: ['InstitutionRepository', PostgresAdminService, CreateInstitutionAdminUseCase, EnsureAttendanceTypesForLevelUseCase],
     },
     {
       provide: ListInstitutionsUseCase,
@@ -59,8 +65,8 @@ import { LocalDiskStorageAdapter } from '../../infrastructure/file-storage/local
     },
     {
       provide: UpdateInstitutionUseCase,
-      useFactory: (r) => new UpdateInstitutionUseCase(r),
-      inject: ['InstitutionRepository'],
+      useFactory: (r, ensureTypes) => new UpdateInstitutionUseCase(r, ensureTypes),
+      inject: ['InstitutionRepository', EnsureAttendanceTypesForLevelUseCase],
     },
     {
       provide: PrintInstitutionUseCase,

@@ -139,7 +139,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.1 — Tests RED: puerto/interfaz del repositorio
 
-- [ ] **T2.1.1** Crear test de contrato del puerto (mock)  
+- [x] **T2.1.1** Crear test de contrato del puerto (mock)  
   Archivo: `packages/domain/src/attendance-type/__tests__/repositories/attendance-type-repository.test.ts`  
   Verificar que el tipo `AttendanceTypeRepository` compila con todos sus métodos:
   `findById`, `findByLevelCode`, `list`, `save`, `delete`, `existsByLevelCode`.  
@@ -147,7 +147,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.2 — Implementación: puerto AttendanceTypeRepository
 
-- [ ] **T2.2.1** Crear interfaz del repositorio  
+- [x] **T2.2.1** Crear interfaz del repositorio  
   Archivo: `packages/domain/src/attendance-type/repositories/attendance-type-repository.ts`  
   Métodos:
   - `findById(id: string): Promise<AttendanceType | null>`
@@ -158,13 +158,13 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
   - `existsByLevelCode(level: number, code: string, excludeId?: string): Promise<boolean>`  
   REQ-2 / REQ-8
 
-- [ ] **T2.2.2** Exportar `AttendanceTypeRepository` desde el índice del módulo de dominio  
+- [x] **T2.2.2** Exportar `AttendanceTypeRepository` desde el índice del módulo de dominio  
   Archivos: `packages/domain/src/attendance-type/index.ts`, `packages/domain/src/index.ts`  
   REQ-1
 
 ### 2.3 — Tests RED: repo Prisma
 
-- [ ] **T2.3.1** Crear test del repo Prisma (con mock del TenantContext)  
+- [x] **T2.3.1** Crear test del repo Prisma (con mock del TenantContext)  
   Archivo: `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-attendance-type.repository.test.ts`  
   Tests RED con mock de `TenantContext.getClient()`:
   - `list()` sin filtros devuelve todos los tipos
@@ -178,7 +178,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.4 — Implementación: PrismaAttendanceTypeRepository
 
-- [ ] **T2.4.1** Crear repositorio Prisma tenant  
+- [x] **T2.4.1** Crear repositorio Prisma tenant  
   Archivo: `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository.ts`  
   Usa `TenantContext.getClient()` para acceso request-scoped.  
   Implementa todos los métodos del puerto: `findById`, `findByLevelCode`, `list`, `save`, `delete`, `existsByLevelCode`.  
@@ -187,7 +187,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.5 — Tests RED: use cases CRUD
 
-- [ ] **T2.5.1** Crear tests de los use cases CRUD  
+- [x] **T2.5.1** Crear tests de los use cases CRUD  
   Archivo: `api/src/application/attendance-type/__tests__/attendance-type.use-cases.test.ts`  
   Tests RED con mock del repositorio:
   - `CreateAttendanceTypeUseCase`: éxito con datos válidos → REQ-3 / Escenario 3.1
@@ -203,7 +203,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.6 — Implementación: use cases CRUD
 
-- [ ] **T2.6.1** Crear use cases CRUD  
+- [x] **T2.6.1** Crear use cases CRUD  
   Archivo: `api/src/application/attendance-type/use-cases/attendance-type.use-cases.ts`  
   Implementar:
   - `CreateAttendanceTypeUseCase` — llama `existsByLevelCode` antes de `save`; lanza `DomainError("ATTENDANCE_TYPE_CODE_DUPLICATE")` si duplicado
@@ -213,14 +213,14 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
   - `GetAttendanceTypeUseCase` — `findById` o `NotFoundError`  
   REQ-2 / REQ-3 / REQ-4 / REQ-5 / REQ-6 / REQ-7 / REQ-8 / REQ-12
 
-- [ ] **T2.6.2** Agregar `ATTENDANCE_TYPE_CODE_DUPLICATE` a la entidad de dominio  
+- [x] **T2.6.2** Agregar `ATTENDANCE_TYPE_CODE_DUPLICATE` a la entidad de dominio  
   Archivo: `packages/domain/src/attendance-type/errors/index.ts` (o un error class separada)  
   Clase `AttendanceTypeCodeDuplicateError extends DomainError` con `code = "ATTENDANCE_TYPE_CODE_DUPLICATE"`.  
   REQ-2
 
 ### 2.7 — Tests RED: EnsureAttendanceTypesForLevelUseCase
 
-- [ ] **T2.7.1** Crear tests del use case de cascada  
+- [x] **T2.7.1** Crear tests del use case de cascada  
   Archivo: `api/src/application/attendance-type/__tests__/ensure-attendance-types.use-case.test.ts`  
   Tests RED con mock de `PrismaService.getTenantClient()`:
   - Provisión para nivel SECUNDARIO sin tipos existentes crea exactamente 4 registros (SAB, DOM, P, X con valores correctos) → REQ-9 / Escenario 9.1
@@ -231,7 +231,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.8 — Implementación: EnsureAttendanceTypesForLevelUseCase
 
-- [ ] **T2.8.1** Crear use case de cascada  
+- [x] **T2.8.1** Crear use case de cascada  
   Archivo: `api/src/application/attendance-type/use-cases/ensure-attendance-types-for-level.use-case.ts`  
   Método: `ensure(dbName: string, levels: EducationalLevelCode[]): Promise<void>`  
   - Filtra `levels` para excluir `ADMINISTRACION (9)`
@@ -241,14 +241,14 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.9 — Tests RED: cascada en use cases de institución
 
-- [ ] **T2.9.1** Crear / ampliar tests de `CreateInstitutionUseCase` para la cascada  
+- [x] **T2.9.1** Crear / ampliar tests de `CreateInstitutionUseCase` para la cascada  
   Archivo: `api/src/application/institution/use-cases/__tests__/create-institution.test.ts`  
   Tests RED:
   - Al crear institución con `institution_levels`, `ensureTypes.ensure()` es llamado con el dbName correcto → REQ-10 / Escenario 10.1
   - Al crear institución sin `institution_levels`, `ensureTypes.ensure()` NO es llamado → REQ-10 / Escenario 10.2
   - Si `ensureTypes.ensure()` lanza, el error propaga hacia el catch compensatorio (instituciones no queda en estado inconsistente) → REQ-10 / ADR-03
 
-- [ ] **T2.9.2** Ampliar tests de `UpdateInstitutionUseCase` para la cascada  
+- [x] **T2.9.2** Ampliar tests de `UpdateInstitutionUseCase` para la cascada  
   Archivo: `api/src/application/institution/__tests__/update-institution-auth.test.ts` (o archivo nuevo en `use-cases/__tests__/`)  
   Tests RED:
   - Agregar nivel nuevo dispara `ensureTypes.ensure()` con los niveles actualizados → REQ-11 / Escenario 11.1
@@ -257,7 +257,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.10 — Implementación: enganche de cascada en use cases de institución
 
-- [ ] **T2.10.1** Inyectar `EnsureAttendanceTypesForLevelUseCase` en `CreateInstitutionUseCase`  
+- [x] **T2.10.1** Inyectar `EnsureAttendanceTypesForLevelUseCase` en `CreateInstitutionUseCase`  
   Archivo: `api/src/application/institution/use-cases/institution.use-cases.ts`  
   Cambios:
   - Agregar parámetro `ensureTypes: EnsureAttendanceTypesForLevelUseCase` al constructor
@@ -265,7 +265,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
   - Función auxiliar `distinctLevels` que deduplica `EducationalLevelCode` de `InstitutionLevelEntry[]`  
   REQ-10 / ADR-03
 
-- [ ] **T2.10.2** Inyectar `EnsureAttendanceTypesForLevelUseCase` en `UpdateInstitutionUseCase`  
+- [x] **T2.10.2** Inyectar `EnsureAttendanceTypesForLevelUseCase` en `UpdateInstitutionUseCase`  
   Archivo: `api/src/application/institution/use-cases/institution.use-cases.ts`  
   Cambios:
   - Agregar parámetro `ensureTypes: EnsureAttendanceTypesForLevelUseCase` al constructor
@@ -274,16 +274,16 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 2.11 — GATE Batch 2
 
-- [ ] **T2.11.1** Verificar tests de aplicación GREEN  
+- [x] **T2.11.1** Verificar tests de aplicación GREEN  
   Comando: `pnpm --filter api test -- --testPathPattern="attendance-type"`  
   Criterio: todos los tests de `attendance-type/__tests__/` y los tests de institución afectados pasan.  
   REQ-3 / REQ-4 / REQ-5 / REQ-6 / REQ-7 / REQ-8 / REQ-9 / REQ-10 / REQ-11
 
-- [ ] **T2.11.2** Verificar build del API  
+- [x] **T2.11.2** Verificar build del API  
   Comando: `pnpm --filter api build`  
   Criterio: 0 errores TypeScript.
 
-- [ ] **T2.11.3** Verificar lint del API  
+- [x] **T2.11.3** Verificar lint del API  
   Comando: `pnpm --filter api lint`  
   Criterio: 0 warnings ni errores.
 

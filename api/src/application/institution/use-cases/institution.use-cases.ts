@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError, ForbiddenError,
   InstitutionRepository,
@@ -8,6 +8,7 @@ import {
 import type { SmtpEncryption } from '@educandow/domain';
 import type { PostgresAdminService } from '../../../infrastructure/persistence/postgres-admin.service';
 import { CreateInstitutionAdminUseCase } from './create-institution-admin.use-case';
+import type { EnsureAttendanceTypesForLevelUseCase } from '../../attendance-type/use-cases/ensure-attendance-types-for-level.use-case';
 
 export interface InstitutionLevelInput {
   level: string;
@@ -99,6 +100,7 @@ export class CreateInstitutionUseCase {
     private readonly repo: InstitutionRepository,
     private readonly adminService: PostgresAdminService,
     private readonly adminUseCase: CreateInstitutionAdminUseCase,
+    private readonly ensureTypes?: EnsureAttendanceTypesForLevelUseCase,
   ) {}
 
   async execute(input: CreateInstitutionInput): Promise<Result<CreateInstitutionOutput, ValidationError>> {
@@ -201,6 +203,11 @@ export class CreateInstitutionUseCase {
 
       // ── Step 3: Run tenant migrations ─────────────────
       await this.adminService.runTenantMigrations(dbNameActual);
+
+      // ── Step 3b: Ensure system attendance types (cascade) ─
+      if (this.ensureTypes && institutionLevels.length > 0) {
+        await this.ensureTypes.ensure(dbNameActual, distinctLevels(institutionLevels));
+      }
 
       // ── Step 4: Create admin user (if email provided) ─
       let adminResult: { email: string; password: string } | undefined;
@@ -317,7 +324,12 @@ export class PrintInstitutionUseCase {
 
 @Injectable()
 export class UpdateInstitutionUseCase {
-  constructor(private readonly repo: InstitutionRepository) {}
+  private readonly logger = new Logger(UpdateInstitutionUseCase.name);
+
+  constructor(
+    private readonly repo: InstitutionRepository,
+    private readonly ensureTypes?: EnsureAttendanceTypesForLevelUseCase,
+  ) {}
 
   async execute(
     id: string,
@@ -470,11 +482,34 @@ export class UpdateInstitutionUseCase {
     });
 
     await this.repo.update(updated);
+
+    // ── Cascade: ensure system attendance types (best-effort) ─
+    if (this.ensureTypes && existing.dbName) {
+      try {
+        await this.ensureTypes.ensure(
+          existing.dbName,
+          distinctLevels(updated.institutionLevels ?? existing.institutionLevels ?? []),
+        );
+      } catch (e) {
+        this.logger.error('cascade attendance-types failed in update', e);
+      }
+    }
+
     return ok(updated);
   }
 }
 
 // ── Helpers ────────────────────────────────────────────────
+
+/**
+ * Deduplicate and extract unique EducationalLevelCode values from
+ * InstitutionLevelEntry[]. Used for the cascade cascade hook.
+ */
+function distinctLevels(
+  levels: { level: EducationalLevelCode; modality: EducationalModalityCode }[],
+): EducationalLevelCode[] {
+  return [...new Set(levels.map((l) => l.level))];
+}
 
 function parseInstitutionLevels(
   input: CreateInstitutionInput | UpdateInstitutionInput,
