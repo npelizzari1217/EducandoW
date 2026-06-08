@@ -128,6 +128,19 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     });
   }
 
+  // ── StudyPlanSubject navigation ──
+
+  async findStudyPlanSubjectIds(courseSectionId: string, subjectId: string): Promise<string[]> {
+    const rows = await this.client.studyPlanSubject.findMany({
+      where: {
+        studyPlanCourse: { courseSectionId },
+        subjectId,
+      },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   // ── Dependency check ──
 
   async getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }> {

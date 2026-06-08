@@ -276,9 +276,12 @@ export class CreateSubjectAssignmentUC {
     const a = SubjectAssignment.create(input);
     await this.r.save(a);
 
-    // Auto-create competency valuations if autoCreateUC is injected
+    // Auto-create competency valuations — fire-and-forget: failure MUST NOT propagate.
+    // Spec 2 Req 3 Scenario 2: SubjectAssignment creation succeeds regardless of AutoCreate outcome.
     if (this.autoCreateUC) {
-      await this.autoCreateUC.executeForSubjectAssignment(input.subjectId, input.courseSectionId);
+      this.autoCreateUC.executeForSubjectAssignment(input.subjectId, input.courseSectionId).catch((e) => {
+        console.error('[CreateSubjectAssignmentUC] AutoCreate failed (non-blocking):', e);
+      });
     }
 
     return ok(a);

@@ -16,25 +16,25 @@ export class PrismaSubjectCompetencyRepo implements SubjectCompetencyRepository 
     return r ? this.toDomain(r) : null;
   }
 
-  async findBySubject(subjectId: string): Promise<SubjectCompetency[]> {
+  async findByStudyPlanSubject(studyPlanSubjectId: string): Promise<SubjectCompetency[]> {
     const rs = await this.client.subjectCompetency.findMany({
-      where: { subjectId, deletedAt: null },
+      where: { studyPlanSubjectId },
       orderBy: { name: 'asc' },
     });
     return rs.map((r) => this.toDomain(r));
   }
 
-  async findActiveBySubject(subjectId: string): Promise<SubjectCompetency[]> {
+  async findActiveByStudyPlanSubject(studyPlanSubjectId: string): Promise<SubjectCompetency[]> {
     const rs = await this.client.subjectCompetency.findMany({
-      where: { subjectId, active: true, deletedAt: null },
+      where: { studyPlanSubjectId, active: true, deletedAt: null },
       orderBy: { name: 'asc' },
     });
     return rs.map((r) => this.toDomain(r));
   }
 
-  async findBySubjectAndName(subjectId: string, name: string): Promise<SubjectCompetency | null> {
+  async findByStudyPlanSubjectAndName(studyPlanSubjectId: string, name: string): Promise<SubjectCompetency | null> {
     const r = await this.client.subjectCompetency.findUnique({
-      where: { subjectId_name: { subjectId, name } },
+      where: { studyPlanSubjectId_name: { studyPlanSubjectId, name } },
     });
     return r ? this.toDomain(r) : null;
   }
@@ -44,14 +44,12 @@ export class PrismaSubjectCompetencyRepo implements SubjectCompetencyRepository 
       where: { id: c.id.get() },
       create: {
         id: c.id.get(),
-        subjectId: c.subjectId,
+        studyPlanSubjectId: c.studyPlanSubjectId,
         name: c.name,
-        periodActive: c.periodActive,
         active: c.active,
       },
       update: {
         name: c.name,
-        periodActive: c.periodActive,
         active: c.active,
         deletedAt: c.deletedAt ?? undefined,
       },
@@ -68,9 +66,8 @@ export class PrismaSubjectCompetencyRepo implements SubjectCompetencyRepository 
   private toDomain(r: PrismaSubjectCompetency): SubjectCompetency {
     return SubjectCompetency.reconstruct({
       id: Id.reconstruct(r.id),
-      subjectId: r.subjectId,
+      studyPlanSubjectId: r.studyPlanSubjectId,
       name: r.name,
-      periodActive: r.periodActive,
       active: r.active,
       deletedAt: r.deletedAt ?? undefined,
     });

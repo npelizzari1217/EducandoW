@@ -16,9 +16,9 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     return r ? this.toDomain(r) : null;
   }
 
-  async findByStudentAndSubject(studentId: string, subjectId: string): Promise<CompetencyValuation[]> {
+  async findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
     const competencyIds = await this.client.subjectCompetency.findMany({
-      where: { subjectId, deletedAt: null },
+      where: { studyPlanSubjectId, deletedAt: null },
       select: { id: true },
     });
 

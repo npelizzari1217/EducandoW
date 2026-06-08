@@ -79,7 +79,8 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: CUC.ListCompetencyValuationsUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.ListCompetencyValuationsUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.GetCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.GetCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.UpdateCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.UpdateCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
-    { provide: CUC.AutoCreateCompetencyValuationsUC, useFactory: (comp: PrismaSubjectCompetencyRepo, val: PrismaCompetencyValuationRepo) => new CUC.AutoCreateCompetencyValuationsUC(comp, val), inject: ['SubjectCompetencyRepository', 'CompetencyValuationRepository'] },
+    { provide: CUC.CopySubjectCompetenciesUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.CopySubjectCompetenciesUC(r), inject: ['SubjectCompetencyRepository'] },
+    { provide: CUC.AutoCreateCompetencyValuationsUC, useFactory: (comp: PrismaSubjectCompetencyRepo, val: PrismaCompetencyValuationRepo, sp: PrismaStudyPlanRepository) => new CUC.AutoCreateCompetencyValuationsUC(comp, val, sp), inject: ['SubjectCompetencyRepository', 'CompetencyValuationRepository', 'StudyPlanRepository'] },
   ],
 })
 export class PedagogyModule {}

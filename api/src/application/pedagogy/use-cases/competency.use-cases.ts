@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError } from '@educandow/domain';
+import { ok, err, Result, ValidationError, NotFoundError } from '@educandow/domain';
 import { SubjectCompetency, CompetencyValuation } from '@educandow/domain';
-import type { SubjectCompetencyRepository, CompetencyValuationRepository } from '@educandow/domain';
+import type {
+  SubjectCompetencyRepository,
+  CompetencyValuationRepository,
+  StudyPlanRepository,
+} from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
@@ -11,20 +15,23 @@ import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 export class CreateSubjectCompetencyUC {
   constructor(private repo: SubjectCompetencyRepository) {}
 
-  async execute(input: { subjectId: string; name: string; periodActive?: number }): Promise<Result<SubjectCompetency, Error>> {
+  async execute(input: { studyPlanSubjectId: string; name: string }): Promise<Result<SubjectCompetency, Error>> {
+    if (!input.studyPlanSubjectId || input.studyPlanSubjectId.trim().length === 0) {
+      return err(new ValidationError('El studyPlanSubjectId es requerido'));
+    }
+
     if (!input.name || input.name.trim().length === 0) {
       return err(new ValidationError('El nombre de la competencia no puede estar vacío'));
     }
 
-    const existing = await this.repo.findBySubjectAndName(input.subjectId, input.name);
-    if (existing && (!existing.deletedAt)) {
-      return err(new ValidationError(`Ya existe una competencia con el nombre "${input.name}" para esta materia`));
+    const existing = await this.repo.findByStudyPlanSubjectAndName(input.studyPlanSubjectId, input.name);
+    if (existing && !existing.deletedAt) {
+      return err(new ValidationError(`Ya existe una competencia con el nombre "${input.name}" para este plan`));
     }
 
     const competency = SubjectCompetency.create({
-      subjectId: input.subjectId,
+      studyPlanSubjectId: input.studyPlanSubjectId,
       name: input.name.trim(),
-      periodActive: input.periodActive ?? 4,
     });
 
     await this.repo.save(competency);
@@ -36,11 +43,8 @@ export class CreateSubjectCompetencyUC {
 export class ListSubjectCompetenciesUC {
   constructor(private repo: SubjectCompetencyRepository) {}
 
-  async execute(subjectId: string, active?: boolean): Promise<SubjectCompetency[]> {
-    if (active === true) {
-      return this.repo.findActiveBySubject(subjectId);
-    }
-    return this.repo.findBySubject(subjectId);
+  async execute(studyPlanSubjectId: string): Promise<SubjectCompetency[]> {
+    return this.repo.findActiveByStudyPlanSubject(studyPlanSubjectId);
   }
 }
 
@@ -57,21 +61,26 @@ export class GetSubjectCompetencyUC {
 export class UpdateSubjectCompetencyUC {
   constructor(private repo: SubjectCompetencyRepository) {}
 
-  async execute(id: string, input: { name?: string; periodActive?: number; active?: boolean }): Promise<Result<SubjectCompetency, Error>> {
+  async execute(id: string, input: { name?: string; active?: boolean }): Promise<Result<SubjectCompetency, Error>> {
     const existing = await this.repo.findById(id);
     if (!existing) {
-      return err(new ValidationError('Competencia no encontrada'));
+      return err(new NotFoundError('Competencia', id));
     }
 
     if (input.name !== undefined) {
       if (input.name.trim().length === 0) {
         return err(new ValidationError('El nombre de la competencia no puede estar vacío'));
       }
-      existing.updateName(input.name.trim());
-    }
 
-    if (input.periodActive !== undefined) {
-      existing.setPeriodActive(input.periodActive);
+      // Duplicate-name guard: reject rename if another active competency in the same
+      // studyPlanSubject already has this name. Idempotent: same id → not a conflict.
+      const trimmedName = input.name.trim();
+      const sibling = await this.repo.findByStudyPlanSubjectAndName(existing.studyPlanSubjectId, trimmedName);
+      if (sibling && !sibling.deletedAt && sibling.id.get() !== id) {
+        return err(new ValidationError(`Ya existe una competencia con el nombre "${trimmedName}" para este plan`));
+      }
+
+      existing.updateName(trimmedName);
     }
 
     if (input.active !== undefined) {
@@ -92,6 +101,54 @@ export class DeleteSubjectCompetencyUC {
   }
 }
 
+// ── Copy Use Case ──────────────────────────────────────
+
+@Injectable()
+export class CopySubjectCompetenciesUC {
+  constructor(private repo: SubjectCompetencyRepository) {}
+
+  async execute(input: {
+    sourceStudyPlanSubjectId: string;
+    targetStudyPlanSubjectId: string;
+  }): Promise<Result<{ copied: number; skipped: number }, Error>> {
+    if (!input.sourceStudyPlanSubjectId || input.sourceStudyPlanSubjectId.trim().length === 0) {
+      return err(new ValidationError('El sourceStudyPlanSubjectId es requerido'));
+    }
+
+    if (!input.targetStudyPlanSubjectId || input.targetStudyPlanSubjectId.trim().length === 0) {
+      return err(new ValidationError('El targetStudyPlanSubjectId es requerido'));
+    }
+
+    if (input.sourceStudyPlanSubjectId === input.targetStudyPlanSubjectId) {
+      return err(new ValidationError('El origen y destino no pueden ser el mismo plan de estudio de materia'));
+    }
+
+    const sources = await this.repo.findActiveByStudyPlanSubject(input.sourceStudyPlanSubjectId);
+
+    let copied = 0;
+    let skipped = 0;
+
+    for (const source of sources) {
+      const existing = await this.repo.findByStudyPlanSubjectAndName(
+        input.targetStudyPlanSubjectId,
+        source.name,
+      );
+      if (existing) {
+        skipped++;
+      } else {
+        const newCompetency = SubjectCompetency.create({
+          studyPlanSubjectId: input.targetStudyPlanSubjectId,
+          name: source.name,
+        });
+        await this.repo.save(newCompetency);
+        copied++;
+      }
+    }
+
+    return ok({ copied, skipped });
+  }
+}
+
 // ── CompetencyValuation Use Cases ──────────────────────
 
 @Injectable()
@@ -109,8 +166,8 @@ export class GetCompetencyValuationUC {
 export class ListCompetencyValuationsUC {
   constructor(private repo: CompetencyValuationRepository) {}
 
-  async execute(studentId: string, subjectId: string): Promise<CompetencyValuation[]> {
-    return this.repo.findByStudentAndSubject(studentId, subjectId);
+  async execute(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
+    return this.repo.findByStudentAndStudyPlanSubject(studentId, studyPlanSubjectId);
   }
 }
 
@@ -159,22 +216,30 @@ export class AutoCreateCompetencyValuationsUC {
   constructor(
     private competencyRepo: SubjectCompetencyRepository,
     private valuationRepo: CompetencyValuationRepository,
+    private studyPlanRepo: StudyPlanRepository,
   ) {}
 
   /**
-   * Given a course section ID and subject ID, find all enrolled students
-   * and create competency valuations for each (student × active competency).
+   * Given a subject ID and course section ID, navigate through the StudyPlan
+   * hierarchy to find active competencies, then create valuations for each
+   * enrolled student × active competency pair.
    */
   async executeForSubjectAssignment(subjectId: string, courseSectionId: string): Promise<void> {
-    // Get active competencies for the subject
-    const competencies = await this.competencyRepo.findActiveBySubject(subjectId);
+    // Navigate hierarchy: courseSection + subjectId → StudyPlanSubject IDs
+    const spsIds = await this.studyPlanRepo.findStudyPlanSubjectIds(courseSectionId, subjectId);
+    if (spsIds.length === 0) return;
+
+    // Flatten competencies from all matching StudyPlanSubjects
+    const competencies = (
+      await Promise.all(spsIds.map((id) => this.competencyRepo.findActiveByStudyPlanSubject(id)))
+    ).flat();
     if (competencies.length === 0) return;
 
     // Find enrolled students in this course section
     const studentIds = await this.findEnrolledStudentIds(courseSectionId);
     if (studentIds.length === 0) return;
 
-    // Build valuation records for each combination
+    // Build valuation records for each (student × competency) pair — skip existing
     const valuations: CompetencyValuation[] = [];
     for (const studentId of studentIds) {
       for (const competency of competencies) {
@@ -183,23 +248,7 @@ export class AutoCreateCompetencyValuationsUC {
           competency.id.get(),
         );
         if (!existing) {
-          valuations.push(CompetencyValuation.create({
-            competencyId: competency.id.get(),
-            studentId,
-            valuation1: null,
-            valuation2: null,
-            valuation3: null,
-            valuation4: null,
-            modificable1: true,
-            modificable2: true,
-            modificable3: true,
-            modificable4: true,
-            imprimible1: false,
-            imprimible2: false,
-            imprimible3: false,
-            imprimible4: false,
-            periodActive: 1,
-          }));
+          valuations.push(this.buildValuation(competency.id.get(), studentId));
         }
       }
     }
@@ -211,40 +260,35 @@ export class AutoCreateCompetencyValuationsUC {
 
   /**
    * Given a student ID and course section ID, create valuations for all
-   * active competencies linked to the course section's subject assignments.
+   * active competencies linked to the course section's subject assignments,
+   * navigating through the StudyPlan hierarchy.
    */
   async executeForEnrollment(studentId: string, courseSectionId: string): Promise<void> {
     const assignments = await this.findSubjectAssignments(courseSectionId);
     if (assignments.length === 0) return;
 
-    const valuations: CompetencyValuation[] = [];
+    // Resolve all StudyPlanSubject IDs for each assignment's subjectId
+    const spsIdArrays = await Promise.all(
+      assignments.map((a) => this.studyPlanRepo.findStudyPlanSubjectIds(courseSectionId, a.subjectId)),
+    );
+    const allSpsIds = spsIdArrays.flat();
+    if (allSpsIds.length === 0) return;
 
-    for (const assignment of assignments) {
-      const competencies = await this.competencyRepo.findActiveBySubject(assignment.subjectId);
-      for (const competency of competencies) {
-        const existing = await this.valuationRepo.findByStudentAndCompetency(
-          studentId,
-          competency.id.get(),
-        );
-        if (!existing) {
-          valuations.push(CompetencyValuation.create({
-            competencyId: competency.id.get(),
-            studentId,
-            valuation1: null,
-            valuation2: null,
-            valuation3: null,
-            valuation4: null,
-            modificable1: true,
-            modificable2: true,
-            modificable3: true,
-            modificable4: true,
-            imprimible1: false,
-            imprimible2: false,
-            imprimible3: false,
-            imprimible4: false,
-            periodActive: 1,
-          }));
-        }
+    // Flatten competencies from all matching StudyPlanSubjects
+    const competencyArrays = await Promise.all(
+      allSpsIds.map((id) => this.competencyRepo.findActiveByStudyPlanSubject(id)),
+    );
+    const competencies = competencyArrays.flat();
+    if (competencies.length === 0) return;
+
+    const valuations: CompetencyValuation[] = [];
+    for (const competency of competencies) {
+      const existing = await this.valuationRepo.findByStudentAndCompetency(
+        studentId,
+        competency.id.get(),
+      );
+      if (!existing) {
+        valuations.push(this.buildValuation(competency.id.get(), studentId));
       }
     }
 
@@ -314,5 +358,25 @@ export class AutoCreateCompetencyValuationsUC {
       select: { subjectId: true },
     });
     return assignments;
+  }
+
+  private buildValuation(competencyId: string, studentId: string): CompetencyValuation {
+    return CompetencyValuation.create({
+      competencyId,
+      studentId,
+      valuation1: null,
+      valuation2: null,
+      valuation3: null,
+      valuation4: null,
+      modificable1: true,
+      modificable2: true,
+      modificable3: true,
+      modificable4: true,
+      imprimible1: false,
+      imprimible2: false,
+      imprimible3: false,
+      imprimible4: false,
+      periodActive: 1,
+    });
   }
 }
