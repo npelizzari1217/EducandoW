@@ -56,9 +56,21 @@ When a `SubjectAssignment` is created linking a `Subject` to a course section, t
 system MUST auto-create one `CompetencyValuation` record for every combination of
 (enrolled student in that section) × (active competency of the assigned subject).
 
-Auto-creation MUST use batch insert (`createMany`) to avoid N+1 queries.
-Records MUST NOT be duplicated — the `(studentId, competencyId)` unique constraint
-MUST be used with `skipDuplicates: true`.
+As of Fase 2 (competency-hierarchy), the active competencies are resolved by navigating
+the StudyPlan hierarchy `CourseCycle → StudyPlan → StudyPlanCourse → StudyPlanSubject →
+SubjectCompetency`, NOT via the global `Subject`. Auto-creation MUST use batch insert
+(`createMany`) to avoid N+1 queries. Records MUST NOT be duplicated — the
+`(studentId, competencyId)` unique constraint MUST be used with `skipDuplicates: true`.
+
+Auto-creation is a SIDE EFFECT of `CreateSubjectAssignmentUC`: a failure in auto-creation
+MUST NOT propagate or roll back the SubjectAssignment creation (fire-and-forget, logged).
+
+#### Scenario: Auto-creation failure does not break SubjectAssignment
+
+- GIVEN auto-creation of valuations throws or returns a failure
+- WHEN a `SubjectAssignment` is created
+- THEN the `SubjectAssignment` creation still succeeds (HTTP 2xx)
+- AND the failure is logged, not propagated to the caller
 
 #### Scenario: SubjectAssignment triggers valuation auto-creation
 
@@ -134,22 +146,24 @@ The `imprimible{N}` flag MAY be updated independently of `modificable{N}`.
 
 ---
 
-### Requirement: Batch Retrieval by Student and Subject
+### Requirement: Batch Retrieval by Student and StudyPlanSubject
 
 The system SHALL expose an endpoint to retrieve all valuations for a given
-`studentId` and `subjectId` combination in a single call, for use in report cards
-and period grids.
+`studentId` and `studyPlanSubjectId` combination in a single call, for use in report
+cards and period grids. The valuations are resolved via a two-step join: resolve the
+`SubjectCompetency` ids for the `studyPlanSubjectId`, then fetch valuations whose
+`competencyId` is in that set.
 
-#### Scenario: Batch retrieval returns all valuations for student/subject
+#### Scenario: Batch retrieval returns all valuations for student/study-plan-subject
 
-- GIVEN 4 `CompetencyValuation` records exist for `studentId=10` across competencies of `subjectId=5`
-- WHEN `GET /v1/competency-valuations?studentId=10&subjectId=5` is called
+- GIVEN 4 `CompetencyValuation` records exist for `studentId=10` across competencies of `studyPlanSubjectId=5`
+- WHEN `GET /v1/competency-valuations?studentId=10&studyPlanSubjectId=5` is called
 - THEN the response contains all 4 records with all period fields
 
 #### Scenario: No valuations found returns empty list
 
-- GIVEN no valuations exist for the given `studentId` and `subjectId`
-- WHEN `GET /v1/competency-valuations?studentId=10&subjectId=5` is called
+- GIVEN no valuations exist for the given `studentId` and `studyPlanSubjectId`
+- WHEN `GET /v1/competency-valuations?studentId=10&studyPlanSubjectId=5` is called
 - THEN the response returns `{ data: [] }` with HTTP 200
 
 ---
@@ -160,7 +174,7 @@ The system MUST expose the following REST endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/competency-valuations` | Batch list by `studentId` + `subjectId` |
+| GET | `/v1/competency-valuations` | Batch list by `studentId` + `studyPlanSubjectId` |
 | GET | `/v1/competency-valuations/:uuid` | Get single valuation by UUID |
 | PATCH | `/v1/competency-valuations/:uuid` | Update period valuations and flags |
 
@@ -190,5 +204,5 @@ Read endpoints (GET) MUST enforce `@Roles('ROOT', { module: 'COURSES', action: '
 #### Scenario: User with read permission can retrieve valuations
 
 - GIVEN a user with role TEACHER and module COURSES with action `read`
-- WHEN `GET /v1/competency-valuations?studentId=10&subjectId=5` is called
+- WHEN `GET /v1/competency-valuations?studentId=10&studyPlanSubjectId=5` is called
 - THEN HTTP 200 is returned with the matching valuations
