@@ -91,6 +91,12 @@ export { RegimenMateria, EstadoInscripcion, EstadoTitulo, CondicionExamen } from
 export type { RegimenMateriaValue, EstadoInscripcionValue, EstadoTituloValue, CondicionExamenValue } from './terciario';
 export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, TituloRepository } from './terciario';
 
+// AttendanceType
+export { AttendanceType } from './attendance-type/entities/attendance-type';
+export type { CreateAttendanceTypeInput, ReconstructAttendanceTypeProps } from './attendance-type/entities/attendance-type';
+export { AttendanceTypeCode } from './attendance-type/value-objects/attendance-type-code';
+export { SystemAttendanceTypeError } from './attendance-type/errors/system-attendance-type-error';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';

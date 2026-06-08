@@ -297,24 +297,15 @@ async function main() {
   await ensureInstitutionLevels(prisma);
 }
 
-export async function seedAttendanceStatuses(prisma: TenantPrismaClient) {
-  const statuses = [
-    { code: 'PRE', description: 'Presente', absenceValue: 0, isPresent: true },
-    { code: 'AUS', description: 'Ausente', absenceValue: 1, isPresent: false },
-    { code: 'TAR', description: 'Llegada Tarde', absenceValue: 0.5, isPresent: false },
-    { code: 'JUS', description: 'Justificado', absenceValue: 0, isPresent: true },
-    { code: 'RET', description: 'Retiro Anticipado', absenceValue: 0.5, isPresent: false },
-  ];
-
-  for (const s of statuses) {
-    await prisma.attendanceStatus.upsert({
-      where: { code: s.code },
-      create: s,
-      update: { description: s.description, absenceValue: s.absenceValue, isPresent: s.isPresent },
-    });
-  }
-
-  console.log('✅ Attendance statuses seeded');
+/**
+ * @deprecated attendance_statuses replaced by attendance_types (Batch 1 migration).
+ * System types are now seeded per-level via seedSystemAttendanceTypes (Batch 3).
+ */
+export async function seedAttendanceStatuses(_prisma: TenantPrismaClient) {
+  // No-op: attendance_statuses table no longer exists.
+  // System attendance types (P, SAB, DOM, X) are created per educational level
+  // by seedSystemAttendanceTypes() (implemented in Batch 3).
+  console.log('ℹ️  seedAttendanceStatuses: skipped — replaced by seedSystemAttendanceTypes (Batch 3)');
 }
 
 // ── Ensure every active institution has at least one level ──────

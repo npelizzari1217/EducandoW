@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AttendanceRepository, Attendance, AttendanceStatusCode, Id } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, Attendance as PrismaAttendance, AttendanceStatus as PrismaAttendanceStatus } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient, Attendance as PrismaAttendance, AttendanceType as PrismaAttendanceType } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class PrismaAttendanceRepo implements AttendanceRepository {
   }
 
   async findById(id: string): Promise<Attendance | null> {
-    const r = await this.client.attendance.findUnique({ where: { id }, include: { status: true } });
+    const r = await this.client.attendance.findUnique({ where: { id }, include: { status: true } }); // status → attendanceType FK
     return r ? this.toDomain(r) : null;
   }
 
@@ -45,13 +45,14 @@ export class PrismaAttendanceRepo implements AttendanceRepository {
   async save(a: Attendance): Promise<void> {
     // Resolve status code → UUID for the FK
     const statusCode = a.statusId; // domain entity stores the code as statusId
-    const statusRecord = await this.client.attendanceStatus.findUnique({ where: { code: statusCode } });
+    const statusRecord = await this.client.attendanceType.findFirst({ where: { code: statusCode } });
     if (!statusRecord) throw new Error(`AttendanceStatus not found for code: ${statusCode}`);
 
     // Populate snapshot fields from the current status record
+    // absenceValue is Decimal in the DB (Decimal(4,2)) → convert to number
     const statusCodeSnapshot = a.statusCode ?? statusRecord.code;
     const statusDescription = a.statusDescription ?? statusRecord.description;
-    const absenceValue = a.absenceValue ?? statusRecord.absenceValue;
+    const absenceValue = a.absenceValue ?? Number(statusRecord.absenceValue);
     const isPresent = a.isPresent ?? statusRecord.isPresent;
 
     await this.client.attendance.upsert({
@@ -84,7 +85,7 @@ export class PrismaAttendanceRepo implements AttendanceRepository {
     await this.client.attendance.delete({ where: { id } });
   }
 
-  private toDomain(r: PrismaAttendance & { status?: PrismaAttendanceStatus | null }): Attendance {
+  private toDomain(r: PrismaAttendance & { status?: PrismaAttendanceType | null }): Attendance {
     return Attendance.reconstruct({
       id: Id.reconstruct(r.id),
       studentId: r.studentId,
@@ -96,7 +97,7 @@ export class PrismaAttendanceRepo implements AttendanceRepository {
         id: r.status.id,
         code: r.status.code as AttendanceStatusCode,
         description: r.status.description,
-        absenceValue: r.status.absenceValue,
+        absenceValue: Number(r.status.absenceValue), // Decimal(4,2) → number
         isPresent: r.status.isPresent,
         active: r.status.active,
       } : undefined,

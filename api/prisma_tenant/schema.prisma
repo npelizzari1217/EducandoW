@@ -480,20 +480,25 @@ model NotaTrimestral {
   @@map("notas_trimestrales")
 }
 
-model AttendanceStatus {
-  id           String   @id @default(uuid())
-  code         String   @unique   // "PRE", "AUS", "TAR", "JUS", "RET" (3 chars)
-  description  String              // "Presente", "Ausente", etc.
-  absenceValue Float    @default(0) // 0=no suma, 0.5=media falta, 1=ausencia completa
-  isPresent    Boolean  @default(true) // ¿cuenta como presente?
-  active       Boolean  @default(true)
+model AttendanceType {
+  id           String    @id @default(uuid())
+  level        Int                                       // EducationalLevelCode (1..4)
+  code         String                                    // ≤ 4 chars, mayúsculas: "P","SAB","DOM","X"
+  description  String
+  absenceValue Decimal   @default(0) @db.Decimal(4, 2)  // soporta 0, 0.5, 1, 1.5
+  isPresent    Boolean   @default(true)
+  assignable   Boolean   @default(true)                  // ¿seleccionable en la grilla diaria?
+  isSystem     Boolean   @default(false)                 // protegido: no editar/borrar
+  active       Boolean   @default(true)
   deletedAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   attendances Attendance[]
 
-  @@map("attendance_statuses")
+  @@unique([level, code])
+  @@index([level])
+  @@map("attendance_types")
 }
 
 model Attendance {
@@ -515,11 +520,11 @@ model Attendance {
   absenceValue      Float?    // 0, 0.5, 1 — value at time of recording
   isPresent         Boolean?  // true/false — present flag at time
 
-  student       Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseSection CourseSection    @relation(fields: [courseSectionId], references: [id])
-  subject       Subject?         @relation(fields: [subjectId], references: [id])
-  cycle         AcademicCycle?   @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
-  status        AttendanceStatus @relation(fields: [statusId], references: [id])
+  student       Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseSection CourseSection  @relation(fields: [courseSectionId], references: [id])
+  subject       Subject?       @relation(fields: [subjectId], references: [id])
+  cycle         AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
+  status        AttendanceType @relation(fields: [statusId], references: [id])
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
