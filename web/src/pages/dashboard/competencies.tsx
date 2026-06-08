@@ -6,21 +6,16 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../api/client';
+import { PlanCourseSubjectSelector } from './components/PlanCourseSubjectSelector';
+import { CopyCompetenciesDialog } from './components/CopyCompetenciesDialog';
 
-// ── Types ────────────────────────────────────────────────────
-
-interface Subject {
-  [key: string]: unknown;
-  id: string;
-  name: string;
-}
+// ── Types ─────────────────────────────────────────────────────────────────
 
 interface Competency {
   [key: string]: unknown;
   id: string;
-  subjectId: string;
+  studyPlanSubjectId: string;
   name: string;
-  periodActive?: number;
 }
 
 interface CompetencyValuation {
@@ -59,9 +54,14 @@ interface ValuationFormEntry {
   imprimible4: boolean;
 }
 
-// ── Confirm modal (reused from evaluation-pages pattern) ─────
+// ── Confirm modal ──────────────────────────────────────────────────────────
 
-function ConfirmModal({ title, message, onConfirm, onCancel }: { title: string; message: string; onConfirm: () => void; onCancel: () => void }) {
+function ConfirmModal({ title, message, onConfirm, onCancel }: {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div style={{ maxWidth: 400, width: '90%' }}>
@@ -77,7 +77,7 @@ function ConfirmModal({ title, message, onConfirm, onCancel }: { title: string; 
   );
 }
 
-// ── Edit competency modal ────────────────────────────────────
+// ── Edit competency modal ──────────────────────────────────────────────────
 
 function EditCompetencyModal({
   competency,
@@ -86,12 +86,11 @@ function EditCompetencyModal({
   saving,
 }: {
   competency: Competency;
-  onSave: (id: string, data: { name: string; periodActive?: number }) => void;
+  onSave: (id: string, data: { name: string }) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
   const [name, setName] = useState(competency.name);
-  const [periodActive, setPeriodActive] = useState(competency.periodActive != null ? String(competency.periodActive) : '');
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -99,23 +98,9 @@ function EditCompetencyModal({
         <Card title="Editar competencia">
           <div className="flex flex-col gap-md">
             <Input label="Nombre" value={name} onChange={e => setName(e.target.value)} />
-            <div>
-              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Período activo</label>
-              <select
-                value={periodActive}
-                onChange={e => setPeriodActive(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}
-              >
-                <option value="">Sin período</option>
-                <option value="1">Período 1</option>
-                <option value="2">Período 2</option>
-                <option value="3">Período 3</option>
-                <option value="4">Período 4</option>
-              </select>
-            </div>
             <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end' }}>
               <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-              <Button variant="success-soft" onClick={() => onSave(competency.id, { name, periodActive: periodActive ? parseInt(periodActive) : undefined })} loading={saving}>Guardar</Button>
+              <Button variant="success-soft" onClick={() => onSave(competency.id, { name })} loading={saving}>Guardar</Button>
             </div>
           </div>
         </Card>
@@ -124,17 +109,15 @@ function EditCompetencyModal({
   );
 }
 
-// ── TAB 1: Competencias por Materia ──────────────────────────
+// ── TAB 1: Competencias por Materia ───────────────────────────────────────
 
-function CompetenciesTab() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
+function CompetenciesTab({ studyPlanSubjectId }: { studyPlanSubjectId: string }) {
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', periodActive: '' });
+  const [formName, setFormName] = useState('');
   const { creating, createError, create } = useApiCreate('/subject-competencies');
 
   const { deleting, del } = useApiDelete('/subject-competencies');
@@ -142,28 +125,25 @@ function CompetenciesTab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [editCompetency, setEditCompetency] = useState<Competency | null>(null);
 
-  useEffect(() => {
-    apiClient.get('/subjects').then(r => setSubjects(r.data?.data ?? [])).catch(() => {});
-  }, []);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
 
   const loadCompetencies = async () => {
-    if (!selectedSubjectId) { setCompetencies([]); return; }
-    setLoading(true); setError('');
+    if (!studyPlanSubjectId) { setCompetencies([]); return; }
+    setLoading(true);
+    setError('');
     try {
-      const r = await apiClient.get(`/subjects/${selectedSubjectId}/competencies`);
+      const r = await apiClient.get('/subject-competencies', { params: { studyPlanSubjectId } });
       setCompetencies(r.data?.data ?? []);
     } catch { setError('Error al cargar competencias'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { loadCompetencies(); }, [selectedSubjectId]);
+  useEffect(() => { loadCompetencies(); }, [studyPlanSubjectId]);
 
   const handleCreate = async () => {
-    if (!form.name.trim()) return;
-    const body: Record<string, unknown> = { subjectId: selectedSubjectId, name: form.name };
-    if (form.periodActive) body.periodActive = parseInt(form.periodActive);
-    const ok = await create(body);
-    if (ok) { setShowForm(false); setForm({ name: '', periodActive: '' }); loadCompetencies(); }
+    if (!formName.trim()) return;
+    const ok = await create({ studyPlanSubjectId, name: formName.trim() });
+    if (ok) { setShowForm(false); setFormName(''); loadCompetencies(); }
   };
 
   const handleDelete = async () => {
@@ -173,54 +153,45 @@ function CompetenciesTab() {
     loadCompetencies();
   };
 
-  const handleEditSave = async (id: string, data: { name: string; periodActive?: number }) => {
+  const handleEditSave = async (id: string, data: { name: string }) => {
     const ok = await update(id, data);
     if (ok) { setEditCompetency(null); loadCompetencies(); }
   };
 
   return (
     <div>
-      <Card className="mt-md">
-        <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.5rem', display: 'block' }}>Materia</label>
-        <select
-          value={selectedSubjectId}
-          onChange={e => { setSelectedSubjectId(e.target.value); setShowForm(false); }}
-          style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}
-        >
-          <option value="">Seleccionar materia...</option>
-          {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-      </Card>
+      {error && (
+        <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+          {error}
+        </div>
+      )}
 
-      {error && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{error}</div>}
-
-      {selectedSubjectId && (
-        <div style={{ marginTop: 'var(--space-md)', display: 'flex', justifyContent: 'flex-end' }}>
+      {studyPlanSubjectId && (
+        <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <Button variant="ghost" onClick={() => setShowCopyDialog(true)}>
+            Copiar desde otro curso
+          </Button>
           <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => { setShowForm(!showForm); setError(''); }}>
             {showForm ? 'Cancelar' : 'Nueva competencia'}
           </Button>
         </div>
       )}
 
-      {showForm && selectedSubjectId && (
+      {showForm && studyPlanSubjectId && (
         <Card title="Nueva competencia" className="mt-md">
-          {createError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{createError}</div>}
-          <div className="flex flex-col gap-md">
-            <Input label="Nombre" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ej: Resuelve problemas de suma" required />
-            <div>
-              <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Período activo (opcional)</label>
-              <select
-                value={form.periodActive}
-                onChange={e => setForm({ ...form, periodActive: e.target.value })}
-                style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}
-              >
-                <option value="">Sin período</option>
-                <option value="1">Período 1</option>
-                <option value="2">Período 2</option>
-                <option value="3">Período 3</option>
-                <option value="4">Período 4</option>
-              </select>
+          {createError && (
+            <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+              {createError}
             </div>
+          )}
+          <div className="flex flex-col gap-md">
+            <Input
+              label="Nombre"
+              value={formName}
+              onChange={e => setFormName(e.target.value)}
+              placeholder="Ej: Resuelve problemas de suma"
+              required
+            />
             <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear competencia</Button>
           </div>
         </Card>
@@ -230,9 +201,9 @@ function CompetenciesTab() {
         <Table
           columns={[
             { key: 'name', header: 'Nombre' },
-            { key: 'periodActive', header: 'Período activo', render: (c: Competency) => c.periodActive ? `Período ${c.periodActive}` : '—' },
             {
-              key: 'actions', header: '',
+              key: 'actions',
+              header: '',
               render: (c: Competency) => (
                 <div style={{ display: 'flex', gap: '0.35rem' }}>
                   <Button variant="ghost" size="sm" onClick={() => setEditCompetency(c)}>Editar</Button>
@@ -241,8 +212,14 @@ function CompetenciesTab() {
               ),
             },
           ]}
-          data={selectedSubjectId ? competencies : []}
-          emptyMessage={loading ? 'Cargando...' : selectedSubjectId ? 'No hay competencias para esta materia' : 'Seleccioná una materia para ver las competencias'}
+          data={studyPlanSubjectId ? competencies : []}
+          emptyMessage={
+            loading
+              ? 'Cargando...'
+              : studyPlanSubjectId
+              ? 'No hay competencias para esta materia'
+              : 'Seleccioná un plan, curso y materia para ver las competencias'
+          }
         />
       </Card>
 
@@ -264,12 +241,24 @@ function CompetenciesTab() {
         />
       )}
 
-      {updateError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{updateError}</div>}
+      {updateError && (
+        <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+          {updateError}
+        </div>
+      )}
+
+      {showCopyDialog && studyPlanSubjectId && (
+        <CopyCompetenciesDialog
+          targetStudyPlanSubjectId={studyPlanSubjectId}
+          onSuccess={() => { setShowCopyDialog(false); loadCompetencies(); }}
+          onClose={() => setShowCopyDialog(false)}
+        />
+      )}
     </div>
   );
 }
 
-// ── TAB 2: Valoraciones por Alumno ───────────────────────────
+// ── TAB 2: Valoraciones por Alumno ────────────────────────────────────────
 
 function buildInitialForm(valuations: CompetencyValuation[]): Record<string, ValuationFormEntry> {
   const form: Record<string, ValuationFormEntry> = {};
@@ -292,10 +281,8 @@ function buildInitialForm(valuations: CompetencyValuation[]): Record<string, Val
   return form;
 }
 
-function ValuationsTab() {
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+function ValuationsTab({ studyPlanSubjectId }: { studyPlanSubjectId: string }) {
   const [studentId, setStudentId] = useState('');
-  const [valuationSubjectId, setValuationSubjectId] = useState('');
   const [valuations, setValuations] = useState<CompetencyValuation[]>([]);
   const [formState, setFormState] = useState<Record<string, ValuationFormEntry>>({});
   const [loading, setLoading] = useState(false);
@@ -303,15 +290,18 @@ function ValuationsTab() {
   const [error, setError] = useState('');
   const [searched, setSearched] = useState(false);
 
-  useEffect(() => {
-    apiClient.get('/subjects').then(r => setSubjects(r.data?.data ?? [])).catch(() => {});
-  }, []);
-
   const handleSearch = async () => {
-    if (!studentId.trim() || !valuationSubjectId) { setError('Ingresá el ID del estudiante y seleccioná una materia'); return; }
-    setLoading(true); setError(''); setSearched(true);
+    if (!studentId.trim() || !studyPlanSubjectId) {
+      setError('Ingresá el ID del estudiante y seleccioná una materia');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    setSearched(true);
     try {
-      const r = await apiClient.get(`/students/${studentId.trim()}/competency-valuations`, { params: { subjectId: valuationSubjectId } });
+      const r = await apiClient.get('/competency-valuations', {
+        params: { studentId: studentId.trim(), studyPlanSubjectId },
+      });
       const data: CompetencyValuation[] = r.data?.data ?? [];
       setValuations(data);
       setFormState(buildInitialForm(data));
@@ -339,7 +329,8 @@ function ValuationsTab() {
   };
 
   const handleSaveAll = async () => {
-    setSaving(true); setError('');
+    setSaving(true);
+    setError('');
     let successCount = 0;
     let failCount = 0;
     for (const original of valuations) {
@@ -361,16 +352,11 @@ function ValuationsTab() {
           imprimible4: f.imprimible4,
         });
         successCount++;
-      } catch {
-        failCount++;
-      }
+      } catch { failCount++; }
     }
     if (failCount > 0) setError(`Se guardaron ${successCount} cambios. ${failCount} fallaron.`);
     else if (successCount === 0) setError('No hay cambios para guardar');
-    else {
-      setError('');
-      handleSearch(); // reload
-    }
+    else { setError(''); handleSearch(); }
     setSaving(false);
   };
 
@@ -386,23 +372,13 @@ function ValuationsTab() {
   return (
     <div>
       <Card className="mt-md">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
-          <div>
-            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>ID del estudiante</label>
-            <Input value={studentId} onChange={e => setStudentId(e.target.value)} placeholder="Ej: 550e8400-e29b-..." />
-          </div>
-          <div>
-            <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Materia</label>
-            <select
-              value={valuationSubjectId}
-              onChange={e => setValuationSubjectId(e.target.value)}
-              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}
-            >
-              <option value="">Seleccionar materia...</option>
-              {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        </div>
+        <Input
+          id="student-id-input"
+          label="ID del estudiante"
+          value={studentId}
+          onChange={e => setStudentId(e.target.value)}
+          placeholder="Ej: 550e8400-e29b-..."
+        />
         <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)' }}>
           <Button variant="primary" onClick={handleSearch} loading={loading}>Buscar valoraciones</Button>
           {valuations.length > 0 && (
@@ -411,7 +387,11 @@ function ValuationsTab() {
         </div>
       </Card>
 
-      {error && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{error}</div>}
+      {error && (
+        <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+          {error}
+        </div>
+      )}
 
       {searched && valuations.length === 0 && !loading && !error && (
         <Card className="mt-lg">
@@ -483,9 +463,10 @@ function ValuationsTab() {
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────────
 
 export function CompetenciesPage() {
+  const [studyPlanSubjectId, setStudyPlanSubjectId] = useState('');
   const [activeTab, setActiveTab] = useState<'competencias' | 'valoraciones'>('competencias');
 
   return (
@@ -496,22 +477,30 @@ export function CompetenciesPage() {
         icon="🎯"
       />
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: 'var(--space-md)' }}>
+      {/* Shared Plan→Course→Subject selector */}
+      <Card className="mt-md">
+        <PlanCourseSubjectSelector onSubjectSelect={setStudyPlanSubjectId} />
+      </Card>
+
+      {/* Tab navigation */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'var(--space-md)', marginBottom: 'var(--space-md)' }}>
         <Button
           variant={activeTab === 'competencias' ? 'primary' : 'ghost'}
           onClick={() => setActiveTab('competencias')}
         >
-          🎯 Competencias por Materia
+          Competencias por Materia
         </Button>
         <Button
           variant={activeTab === 'valoraciones' ? 'primary' : 'ghost'}
           onClick={() => setActiveTab('valoraciones')}
         >
-          📊 Valoraciones por Alumno
+          Valoraciones por Alumno
         </Button>
       </div>
 
-      {activeTab === 'competencias' ? <CompetenciesTab /> : <ValuationsTab />}
+      {activeTab === 'competencias'
+        ? <CompetenciesTab studyPlanSubjectId={studyPlanSubjectId} />
+        : <ValuationsTab studyPlanSubjectId={studyPlanSubjectId} />}
     </div>
   );
 }
