@@ -314,7 +314,7 @@ const SYSTEM_ATTENDANCE_TYPES = [
   { code: 'P',   description: 'Presente',       isPresent: true,  absenceValue: 0, assignable: true  },
   { code: 'SAB', description: 'Sábado',          isPresent: false, absenceValue: 0, assignable: false },
   { code: 'DOM', description: 'Domingo',         isPresent: false, absenceValue: 0, assignable: false },
-  { code: 'X',   description: 'Día inexistente', isPresent: false, absenceValue: 0, assignable: false },
+  { code: 'X',   description: 'Día no utilizado', isPresent: false, absenceValue: 0, assignable: false },
 ] as const;
 
 /** Valid pedagogical levels (excludes ADMINISTRACION=9). */
