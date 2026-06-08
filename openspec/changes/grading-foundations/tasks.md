@@ -366,47 +366,47 @@
 
 ---
 
-**T39 — [RED] Tests de use cases de períodos**
+**[x] T39 — [RED] Tests de use cases de períodos**
 - Descripción: Crear `api/src/application/grading/__tests__/grading-period.use-cases.test.ts` con repo fake en memoria y `AcademicCycleRepository` mockeado. Casos: (a) `CreateGradingPeriodTemplateUseCase` — crea plantilla con 3 ítems; `PeriodTemplateNameDuplicateError` si nombre duplicado; `PeriodSortOrderDuplicateError` si ítems con orden repetido. (b) `DeleteGradingPeriodTemplateUseCase` — soft-delete exitoso; `PeriodTemplateHasDatesError` si tiene fechas asociadas. (c) `UpsertPeriodDatesUseCase` — upsert exitoso; `PeriodDateInvalidRangeError` si startDate ≥ endDate; `PeriodDateOutOfCycleRangeError` si fecha fuera del rango del ciclo; `PeriodDateOverlapError` si solapamiento con período existente del mismo ciclo. Todos RED.
 - Paths:
   - `api/src/application/grading/__tests__/grading-period.use-cases.test.ts`
 - REQ: REQ-4 (4.1-4.5), REQ-5 (5.1-5.3), REQ-6 (6.1-6.3)
 
-**T40 — [GREEN] Use case `grading-period-template.use-cases.ts`**
+**[x] T40 — [GREEN] Use case `grading-period-template.use-cases.ts`**
 - Descripción: Crear `api/src/application/grading/use-cases/grading-period-template.use-cases.ts` con `CreateGradingPeriodTemplateUseCase`, `UpdateGradingPeriodTemplateUseCase`, `DeleteGradingPeriodTemplateUseCase` (chequea `countDatesForTemplate > 0` → `PeriodTemplateHasDatesError`), `ListGradingPeriodTemplatesUseCase`, `GetGradingPeriodTemplateUseCase`. Los tests de T39 para templates deben pasar GREEN.
 - Paths:
   - `api/src/application/grading/use-cases/grading-period-template.use-cases.ts`
 - REQ: REQ-4
 - ⚠ dep: T39
 
-**T41 — [GREEN] Use case `grading-period-date.use-cases.ts`**
+**[x] T41 — [GREEN] Use case `grading-period-date.use-cases.ts`**
 - Descripción: Crear `api/src/application/grading/use-cases/grading-period-date.use-cases.ts` con `UpsertPeriodDatesUseCase` y `ListPeriodDatesUseCase`. `UpsertPeriodDatesUseCase.execute(templateId, cycleId, datesInput[])`: (1) carga el `AcademicCycle` via `AcademicCycleRepository` para obtener rango; (2) carga fechas existentes del ciclo para el templateId (`findDatesByCycle`); (3) por cada ítem, llama a `GradingPeriodDate.create(props, cycleStart, cycleEnd, siblings)` para validar; (4) guarda todas las fechas en transacción. Los tests de T39 para fechas deben pasar GREEN.
 - Paths:
   - `api/src/application/grading/use-cases/grading-period-date.use-cases.ts`
 - REQ: REQ-5, REQ-6
 - ⚠ dep: T39, T40
 
-**T42 — [RED] Tests del repositorio Prisma de períodos**
+**[x] T42 — [RED] Tests del repositorio Prisma de períodos**
 - Descripción: Crear `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-grading-period.repository.test.ts`. Casos: `saveTemplate` hace upsert con transacción para template + items; `findDatesByCycle` retorna fechas filtradas por cycleId; `countDatesForTemplate` cuenta correctamente. Deben fallar (RED).
 - Paths:
   - `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-grading-period.repository.test.ts`
 - REQ: REQ-4, REQ-5
 
-**T43 — [GREEN] `PrismaGradingPeriodRepository`**
+**[x] T43 — [GREEN] `PrismaGradingPeriodRepository`**
 - Descripción: Crear `api/src/infrastructure/persistence/prisma/repositories/prisma-grading-period.repository.ts`. Implementa `GradingPeriodRepository`. Usa `TenantContext.getClient()`. `saveTemplate(t)`: upsert template + borrar-y-recrear ítems en `$transaction`. `findTemplateById`: include items ordenados por sortOrder. `findDatesByCycle(templateId, cycleId)`: join template_items para filtrar por templateId y cycleId. `saveDates`: upsert individual por `[itemId, cycleId]`. Los tests de T42 deben pasar GREEN.
 - Paths:
   - `api/src/infrastructure/persistence/prisma/repositories/prisma-grading-period.repository.ts`
 - REQ: REQ-4, REQ-5, REQ-6
 - ⚠ dep: T42
 
-**T44 — [GREEN] Ampliar `GradingModule` con períodos y ciclos**
+**[x] T44 — [GREEN] Ampliar `GradingModule` con períodos y ciclos**
 - Descripción: Actualizar `api/src/presentation/grading/grading.module.ts` para agregar: `PrismaGradingPeriodRepository`, token `'GradingPeriodRepository'`, `PrismaAcademicCycleRepository` (ya existente en infra) con token `'AcademicCycleRepository'`, use cases de template y fechas con `useFactory`. El `AcademicCycleRepository` se necesita en `UpsertPeriodDatesUseCase` para validar rango del ciclo.
 - Paths:
   - `api/src/presentation/grading/grading.module.ts`
 - REQ: REQ-5, REQ-6
 - ⚠ dep: T43
 
-**T45 — [GATE 1b-C] Tests aplicación + infra períodos + build api**
+**[x] T45 — [GATE 1b-C] Tests aplicación + infra períodos + build api**
 - Descripción: Ejecutar `cd api && npx jest --testPathPattern="grading"`. Todos los tests de T13, T16, T39 y T42 deben pasar. Ejecutar `cd api && npm run build` sin errores. El gate bloquea el inicio de 1b-D.
 - Paths: (verificación)
 - REQ: todos los de 1b-C
@@ -421,14 +421,14 @@
 
 ---
 
-**T46 — [RED] Tests DTOs de períodos + tests controller períodos**
+**[x] T46 — [RED] Tests DTOs de períodos + tests controller períodos**
 - Descripción: Crear `api/src/presentation/grading/__tests__/dto-periods.test.ts`. Casos DTO: (a) `CreatePeriodTemplateDTO` válido; (b) sin `name` → 422; (c) ítems con `sortOrder` duplicado → 422 (escenario 4.3); (d) `UpsertPeriodDatesDTO`: `startDate` posterior a `endDate` → 422 (escenario 6.3). Crear `api/src/presentation/grading/__tests__/grading-periods.controller.test.ts`. Casos: (a) POST 201 crear plantilla con 3 ítems; (b) POST 409 nombre duplicado; (c) PUT/POST fechas 201 exitoso; (d) fechas fuera de rango → 422; (e) solapamiento → 422; (f) DELETE plantilla con fechas → 409; (g) GET 403 sin GRADING_CONFIG. Todos RED.
 - Paths:
   - `api/src/presentation/grading/__tests__/dto-periods.test.ts`
   - `api/src/presentation/grading/__tests__/grading-periods.controller.test.ts`
 - REQ: REQ-4 (4.1-4.5), REQ-5 (5.1-5.3), REQ-6 (6.1-6.3), REQ-7, REQ-8
 
-**T47 — [GREEN] DTOs Zod de períodos (3 DTOs)**
+**[x] T47 — [GREEN] DTOs Zod de períodos (3 DTOs)**
 - Descripción: Crear `api/src/presentation/grading/dto/create-period-template.dto.ts` (campos: `name: z.string().min(1)`, `level: z.number().int().min(1).max(4)`, `modality: z.number().int().min(0).max(2).default(0)`, `items: z.array(z.object({ name: z.string().min(1), sortOrder: z.number().int().min(1) })).min(1)` con refinement de sortOrder únicos), `update-period-template.dto.ts` (mismos campos opcionales), `upsert-period-dates.dto.ts` (campos: `templateId: z.string().uuid()`, `cycleId: z.string().uuid()`, `dates: z.array(z.object({ itemId: z.string().uuid(), startDate: z.coerce.date(), endDate: z.coerce.date() }))` con refinement `startDate < endDate`). Los tests de T46 para DTOs deben pasar GREEN.
 - Paths:
   - `api/src/presentation/grading/dto/create-period-template.dto.ts`
@@ -437,7 +437,7 @@
 - REQ: REQ-4, REQ-5, REQ-6, REQ-8
 - ⚠ dep: T46
 
-**T48 — [GREEN] `GradingPeriodsController`**
+**[x] T48 — [GREEN] `GradingPeriodsController`**
 - Descripción: Crear `api/src/presentation/grading/grading-periods.controller.ts`. Rutas: `POST /grading/period-templates` (201), `GET /grading/period-templates` (con `?level`, `?modality`), `GET /grading/period-templates/:id`, `PATCH /grading/period-templates/:id`, `DELETE /grading/period-templates/:id` (204), `GET /grading/period-templates/:id/dates?cycleId=...` (200), `PUT /grading/period-templates/:id/dates` (upsert, 200/201). `@Roles('ROOT', { module: 'GRADING_CONFIG', action: '...' })` en cada método. Actualizar `grading.module.ts` para agregar `GradingPeriodsController` al array `controllers`. Los tests de T46 para controller deben pasar GREEN.
 - Paths:
   - `api/src/presentation/grading/grading-periods.controller.ts`
@@ -445,7 +445,7 @@
 - REQ: REQ-4, REQ-5, REQ-6, REQ-7, REQ-8
 - ⚠ dep: T46, T47
 
-**T49 — [GATE 1b-D] Tests presentación períodos + build API completo**
+**[x] T49 — [GATE 1b-D] Tests presentación períodos + build API completo**
 - Descripción: Ejecutar `cd api && npx jest`. Todos los tests de grading (T13, T16, T19, T39, T42, T46) deben pasar. Ejecutar `cd api && npm run build`. Sin errores. El gate bloquea el inicio de 1b-E.
 - Paths: (verificación)
 - REQ: todos los de 1b-D

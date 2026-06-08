@@ -120,6 +120,39 @@ export {
 } from './grading';
 export type { GradeScaleRepository, GradeScaleFilters } from './grading';
 
+// Grading — Periods
+export { PeriodSortOrder } from './grading';
+export {
+  GradingPeriodTemplate,
+  GradingPeriodTemplateItem,
+} from './grading';
+export type {
+  CreateGradingPeriodTemplateInput,
+  ReconstructGradingPeriodTemplateProps,
+  CreateGradingPeriodTemplateItemInput,
+  ReconstructGradingPeriodTemplateItemProps,
+} from './grading';
+export { GradingPeriodDate } from './grading';
+export type {
+  CreateGradingPeriodDateInput,
+  ReconstructGradingPeriodDateProps,
+} from './grading';
+export {
+  PeriodTemplateNameDuplicateError,
+  PeriodTemplateNotFoundError,
+  PeriodSortOrderDuplicateError,
+  PeriodTemplateItemNameDuplicateError,
+  PeriodTemplateHasDatesError,
+  PeriodDateOutOfCycleRangeError,
+  PeriodDateOverlapError,
+  PeriodDateInvalidRangeError,
+  PeriodSortOrderInvalidError,
+} from './grading';
+export type {
+  GradingPeriodRepository,
+  GradingPeriodTemplateFilters,
+} from './grading';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';
