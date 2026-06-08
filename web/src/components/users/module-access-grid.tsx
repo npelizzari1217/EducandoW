@@ -84,6 +84,47 @@ const ModuleAccessGrid: FC<Props> = ({ availableModules, value, onChange }) => {
     [value, onChange],
   );
 
+  // Selecciona o deselecciona una acción en TODOS los módulos disponibles.
+  // Si todos ya tienen la acción → la quita en todos (deselect-all).
+  // Si alguno no la tiene → la agrega en todos (select-all).
+  const handleToggleColumn = useCallback(
+    (action: string) => {
+      // Clonar estado actual (mismo patrón que handleToggle)
+      const next = new Map<string, Set<string>>();
+      for (const item of value) {
+        next.set(item.moduleCode, new Set(item.actions));
+      }
+
+      // Verificar si toda la columna ya está seleccionada
+      const all = availableModules.every((m) => next.get(m.code)?.has(action));
+
+      for (const mod of availableModules) {
+        if (all) {
+          // Deseleccionar en todos; eliminar módulos que quedan con Set vacío
+          const set = next.get(mod.code);
+          if (set) {
+            set.delete(action);
+            if (set.size === 0) next.delete(mod.code);
+          }
+        } else {
+          // Seleccionar en todos los módulos disponibles
+          const set = next.get(mod.code) ?? new Set<string>();
+          set.add(action);
+          next.set(mod.code, set);
+        }
+      }
+
+      // Convertir Map → ModuleAccessItem[]
+      const result: ModuleAccessItem[] = [];
+      for (const [code, actionsSet] of next) {
+        result.push({ moduleCode: code, actions: Array.from(actionsSet) });
+      }
+
+      onChange(result);
+    },
+    [value, availableModules, onChange],
+  );
+
   if (availableModules.length === 0) {
     return null;
   }
@@ -122,23 +163,45 @@ const ModuleAccessGrid: FC<Props> = ({ availableModules, value, onChange }) => {
             >
               Módulo
             </th>
-            {ACTIONS.map((action) => (
-              <th
-                key={action}
-                style={{
-                  padding: '0.6rem 0.5rem',
-                  textAlign: 'center',
-                  fontWeight: 600,
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text-muted)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  width: '80px',
-                }}
-              >
-                {ACTION_LABELS[action] ?? action}
-              </th>
-            ))}
+            {ACTIONS.map((action) => {
+              // Tri-estado derivado de value + availableModules (sin estado propio)
+              const count = availableModules.filter((m) => isChecked(m.code, action)).length;
+              const all = count === availableModules.length && count > 0;
+              const some = count > 0 && !all;
+              return (
+                <th
+                  key={action}
+                  style={{
+                    padding: '0.6rem 0.5rem',
+                    textAlign: 'center',
+                    fontWeight: 600,
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--color-text-muted)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    width: '80px',
+                  }}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                    <span>{ACTION_LABELS[action] ?? action}</span>
+                    {/* indeterminate es propiedad sólo-DOM: se setea vía ref callback */}
+                    <input
+                      type="checkbox"
+                      data-testid={`column-header-${action}`}
+                      checked={all}
+                      ref={(el) => { if (el) el.indeterminate = some; }}
+                      onChange={() => handleToggleColumn(action)}
+                      style={{
+                        accentColor: 'var(--color-primary)',
+                        width: '1rem',
+                        height: '1rem',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
 
@@ -190,6 +253,7 @@ const ModuleAccessGrid: FC<Props> = ({ availableModules, value, onChange }) => {
                 >
                   <input
                     type="checkbox"
+                    data-testid={`cell-${mod.code}-${action}`}
                     checked={isChecked(mod.code, action)}
                     onChange={() => handleToggle(mod.code, action)}
                     style={{
