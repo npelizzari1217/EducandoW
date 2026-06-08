@@ -229,20 +229,20 @@
 
 ---
 
-**T24 — [RED] Test de la página `grading-scales.tsx`**
+**[x] T24 — [RED] Test de la página `grading-scales.tsx`**
 - Descripción: Crear `web/src/pages/dashboard/__tests__/grading-scales.test.tsx` con React Testing Library. Casos mínimos: (a) muestra mensaje "Seleccioná una institución" si usuario ROOT y no hay institución seleccionada; (b) renderiza tabla de escalas con columnas name/level/modality; (c) formulario de creación tiene campos name, level, modality; (d) el select de `internalStatus` en el formulario de valor tiene exactamente 4 opciones (`APROBADO`, `NO_APROBADO`, `EN_PROCESO`, `LIBRE`); (e) submit del formulario llama a `POST /grading/scales`; (f) tabla de valores de una escala muestra code, label, internalStatus ordenados por sortOrder. Todos deben fallar (RED).
 - Paths:
   - `web/src/pages/dashboard/__tests__/grading-scales.test.tsx`
 - REQ: REQ-1, REQ-2, REQ-3, REQ-7
 
-**T25 — [GREEN] Página `grading-scales.tsx`**
+**[x] T25 — [GREEN] Página `grading-scales.tsx`**
 - Descripción: Crear `web/src/pages/dashboard/grading-scales.tsx`. Espejo exacto de `attendance-types.tsx` en estructura (selector ROOT al tope, `useApiList`, `useApiDelete`, guard "Seleccioná una institución", Card + Table). Diferencias específicas: (1) Filtros por nivel y modalidad. (2) Tabla expandible o sección inline por escala que muestra sus `GradeScaleValue` ordenados por `sortOrder` (code, label, internalStatus como badge, sortOrder). (3) Formulario de valor con `<select>` fijo de 4 opciones de `internalStatus`. (4) `?institutionId` en requests cuando usuario es ROOT (idéntico al patrón existente). Los tests de T24 deben pasar GREEN.
 - Paths:
   - `web/src/pages/dashboard/grading-scales.tsx`
 - REQ: REQ-1, REQ-2, REQ-3, REQ-7
 - ⚠ dep: T24
 
-**T26 — [GREEN] Ruta `/grading-scales` + entrada menú lateral**
+**[x] T26 — [GREEN] Ruta `/grading-scales` + entrada menú lateral**
 - Descripción: En `web/src/App.tsx` agregar ruta `<Route path="/grading-scales" element={<GradingScalesPage />} />` (lazy import). En `web/src/components/layout/sidebar.tsx` agregar ítem en el grupo **Sistema** (junto a "Tipos de asistencia"): `{ path: '/grading-scales', label: 'Escalas de Calificación', moduleCode: 'GRADING_CONFIG' }`. Verificar que el guard de visibilidad por módulo funciona (oculto para usuarios sin GRADING_CONFIG).
 - Paths:
   - `web/src/App.tsx`
@@ -250,7 +250,7 @@
 - REQ: REQ-7 (acceso por módulo en menú)
 - ⚠ dep: T25
 
-**T27 — [GATE 1a-E] Tests front escalas + build web**
+**[x] T27 — [GATE 1a-E] Tests front escalas + build web**
 - Descripción: Ejecutar `cd web && npx vitest run --reporter=verbose`. Todos los tests de T24 deben pasar. Ejecutar `cd web && npm run build`. Sin errores TypeScript ni bundle. **GATE FINAL DE ENTREGA 1a**: la entrega está completa cuando este gate pasa. Puede abrirse PR de 1a de forma independiente.
 - Paths: (verificación)
 - REQ: todos los de 1a

@@ -39,6 +39,7 @@ import CourseCyclesPage from './pages/dashboard/course-cycles';
 import AttendanceTypesPage from './pages/dashboard/attendance-types';
 import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
+import GradingScalesPage from './pages/dashboard/grading-scales';
 
 function App() {
   return (
@@ -84,6 +85,7 @@ function App() {
               <Route path="/academic-cycles" element={<ProtectedRoute moduleCode="COURSES" action="READ"><AcademicCyclesPage /></ProtectedRoute>} />
               <Route path="/observations" element={<ObservationsPage />} />
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
+              <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
