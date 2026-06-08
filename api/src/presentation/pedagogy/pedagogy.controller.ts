@@ -10,7 +10,7 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import type { AcademicCycle } from '@educandow/domain';
-import { StudyPlanHasDependenciesError } from '@educandow/domain';
+import { StudyPlanHasDependenciesError, NotFoundError } from '@educandow/domain';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -39,6 +39,7 @@ export class PedagogyController {
     private createCompUC: CUC.CreateSubjectCompetencyUC, private listCompUC: CUC.ListSubjectCompetenciesUC,
     private getCompUC: CUC.GetSubjectCompetencyUC, private updateCompUC: CUC.UpdateSubjectCompetencyUC,
     private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
+    private copyCompUC: CUC.CopySubjectCompetenciesUC,
     private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
     private updateValUC: CUC.UpdateCompetencyValuationUC,
     private boletinInvalidation: BoletinInvalidationService,
@@ -348,32 +349,45 @@ export class PedagogyController {
   @Post('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: '*' })
   async createCompetency(@Body(new ZodValidationPipe(CDTO.CreateSubjectCompetencySchema)) b: CDTO.CreateSubjectCompetencyDTO) {
     const r = await this.createCompUC.execute(b);
-    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.CONFLICT);
+    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.BAD_REQUEST);
     const c = r.unwrap();
-    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+    return { data: { uuid: c.id.get(), studyPlanSubjectId: c.studyPlanSubjectId, name: c.name, active: c.active } };
   }
 
   @Get('subject-competencies') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
-  async listCompetencies(@Query('subjectId') subjectId: string, @Query('active') active?: string) {
-    if (!subjectId) throw new HttpException('subjectId es requerido', HttpStatus.UNPROCESSABLE_ENTITY);
-    const activeFilter = active === 'true' ? true : active === 'false' ? false : undefined;
-    const competencies = await this.listCompUC.execute(subjectId, activeFilter);
-    return { data: competencies.map((c) => ({ uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active })) };
+  async listCompetencies(@Query('studyPlanSubjectId') studyPlanSubjectId: string) {
+    if (!studyPlanSubjectId) throw new HttpException('studyPlanSubjectId es requerido', HttpStatus.BAD_REQUEST);
+    const competencies = await this.listCompUC.execute(studyPlanSubjectId);
+    return { data: competencies.map((c) => ({ uuid: c.id.get(), studyPlanSubjectId: c.studyPlanSubjectId, name: c.name, active: c.active })) };
+  }
+
+  // IMPORTANT: /copy must be declared before /:uuid to avoid NestJS treating "copy" as a param
+  @Post('subject-competencies/copy') @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async copyCompetencies(@Body(new ZodValidationPipe(CDTO.CopySubjectCompetenciesSchema)) b: CDTO.CopySubjectCompetenciesDTO) {
+    const r = await this.copyCompUC.execute(b);
+    if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST);
+    return { data: r.unwrap() };
   }
 
   @Get('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
   async getCompetency(@Param('uuid') uuid: string) {
     const c = await this.getCompUC.execute(uuid);
     if (!c) throw new HttpException('Competencia no encontrada', HttpStatus.NOT_FOUND);
-    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+    return { data: { uuid: c.id.get(), studyPlanSubjectId: c.studyPlanSubjectId, name: c.name, active: c.active } };
   }
 
   @Patch('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' })
   async updateCompetency(@Param('uuid') uuid: string, @Body(new ZodValidationPipe(CDTO.UpdateSubjectCompetencySchema)) b: CDTO.UpdateSubjectCompetencyDTO) {
     const r = await this.updateCompUC.execute(uuid, b);
-    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.UNPROCESSABLE_ENTITY);
+    if (r.isErr()) {
+      const error = r.unwrapErr();
+      if (error instanceof NotFoundError) {
+        throw new HttpException(error.message, HttpStatus.NOT_FOUND);
+      }
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
     const c = r.unwrap();
-    return { data: { uuid: c.id.get(), subjectId: c.subjectId, name: c.name, periodActive: c.periodActive, active: c.active } };
+    return { data: { uuid: c.id.get(), studyPlanSubjectId: c.studyPlanSubjectId, name: c.name, active: c.active } };
   }
 
   @Delete('subject-competencies/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' }) @HttpCode(HttpStatus.NO_CONTENT)
@@ -384,9 +398,9 @@ export class PedagogyController {
   // ── Competency Valuations ───────────────────────────
 
   @Get('competency-valuations') @Roles('ROOT', { module: 'COURSES', action: 'READ' })
-  async listValuations(@Query('studentId') studentId: string, @Query('subjectId') subjectId: string) {
-    if (!studentId || !subjectId) throw new HttpException('studentId y subjectId son requeridos', HttpStatus.UNPROCESSABLE_ENTITY);
-    const vals = await this.listValUC.execute(studentId, subjectId);
+  async listValuations(@Query('studentId') studentId: string, @Query('studyPlanSubjectId') studyPlanSubjectId: string) {
+    if (!studentId || !studyPlanSubjectId) throw new HttpException('studentId y studyPlanSubjectId son requeridos', HttpStatus.BAD_REQUEST);
+    const vals = await this.listValUC.execute(studentId, studyPlanSubjectId);
     return { data: vals.map((v) => this.toValuationResponse(v)) };
   }
 

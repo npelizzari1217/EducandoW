@@ -1,14 +1,12 @@
 import { z } from 'zod';
 
 export const CreateSubjectCompetencySchema = z.object({
-  subjectId: z.string().min(1, 'subjectId es requerido'),
+  studyPlanSubjectId: z.string().min(1, 'studyPlanSubjectId es requerido'),
   name: z.string().min(1, 'El nombre no puede estar vacío').max(255),
-  periodActive: z.number().int().min(1).max(4).default(4),
 });
 
 export const UpdateSubjectCompetencySchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  periodActive: z.number().int().min(1).max(4).optional(),
   active: z.boolean().optional(),
 });
 
@@ -28,6 +26,12 @@ export const UpdateCompetencyValuationSchema = z.object({
   periodActive: z.number().int().min(1).max(4).optional(),
 });
 
+export const CopySubjectCompetenciesSchema = z.object({
+  sourceStudyPlanSubjectId: z.string().min(1, 'sourceStudyPlanSubjectId es requerido'),
+  targetStudyPlanSubjectId: z.string().min(1, 'targetStudyPlanSubjectId es requerido'),
+});
+
 export type CreateSubjectCompetencyDTO = z.infer<typeof CreateSubjectCompetencySchema>;
 export type UpdateSubjectCompetencyDTO = z.infer<typeof UpdateSubjectCompetencySchema>;
 export type UpdateCompetencyValuationDTO = z.infer<typeof UpdateCompetencyValuationSchema>;
+export type CopySubjectCompetenciesDTO = z.infer<typeof CopySubjectCompetenciesSchema>;

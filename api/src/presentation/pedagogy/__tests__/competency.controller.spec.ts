@@ -1,0 +1,225 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { HttpException, HttpStatus } from '@nestjs/common';
+import { PedagogyController } from '../pedagogy.controller';
+import { ok, err, ValidationError, NotFoundError } from '@educandow/domain';
+import { CreateSubjectCompetencySchema, CopySubjectCompetenciesSchema } from '../dto/competency.dto';
+import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+
+// ---------------------------------------------------------------------------
+// Helper: build a minimal controller instance that bypasses the NestJS DI
+// constructor and injects only the mocks needed for each test group.
+// ---------------------------------------------------------------------------
+function buildController(mocks: Record<string, unknown>): PedagogyController {
+  const ctrl = Object.create(PedagogyController.prototype) as PedagogyController;
+  for (const [key, value] of Object.entries(mocks)) {
+    (ctrl as unknown as Record<string, unknown>)[key] = value;
+  }
+  return ctrl;
+}
+
+// ---------------------------------------------------------------------------
+// DTO / Zod schema validation tests
+// ---------------------------------------------------------------------------
+describe('CreateSubjectCompetencySchema — ZodValidationPipe', () => {
+  const pipe = new ZodValidationPipe(CreateSubjectCompetencySchema);
+
+  it('rejects a body that sends subjectId instead of studyPlanSubjectId (→ HTTP 400 via pipe)', () => {
+    expect(() => pipe.transform({ subjectId: 'sub-1', name: 'Comunicación oral' })).toThrow();
+  });
+
+  it('rejects a body missing the name field', () => {
+    expect(() => pipe.transform({ studyPlanSubjectId: 'sps-1' })).toThrow();
+  });
+
+  it('accepts a valid body', () => {
+    expect(() => pipe.transform({ studyPlanSubjectId: 'sps-1', name: 'Comunicación oral' })).not.toThrow();
+  });
+});
+
+describe('CopySubjectCompetenciesSchema — ZodValidationPipe', () => {
+  // This block will be RED until CopySubjectCompetenciesSchema is exported from competency.dto.ts
+  const pipe = new ZodValidationPipe(CopySubjectCompetenciesSchema);
+
+  it('rejects a body missing sourceStudyPlanSubjectId', () => {
+    expect(() => pipe.transform({ targetStudyPlanSubjectId: 'sps-2' })).toThrow();
+  });
+
+  it('rejects a body missing targetStudyPlanSubjectId', () => {
+    expect(() => pipe.transform({ sourceStudyPlanSubjectId: 'sps-1' })).toThrow();
+  });
+
+  it('rejects an empty body', () => {
+    expect(() => pipe.transform({})).toThrow();
+  });
+
+  it('accepts a valid body with both IDs', () => {
+    expect(() =>
+      pipe.transform({ sourceStudyPlanSubjectId: 'sps-1', targetStudyPlanSubjectId: 'sps-2' }),
+    ).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller method tests — manual validation paths
+// ---------------------------------------------------------------------------
+describe('PedagogyController — GET /subject-competencies', () => {
+  it('throws HTTP 400 when studyPlanSubjectId query param is absent', async () => {
+    const ctrl = buildController({});
+
+    await expect(ctrl.listCompetencies(undefined as unknown as string)).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.listCompetencies(undefined as unknown as string);
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
+
+describe('PedagogyController — GET /competency-valuations', () => {
+  it('throws HTTP 400 when studyPlanSubjectId query param is absent', async () => {
+    const ctrl = buildController({});
+
+    await expect(
+      ctrl.listValuations('student-1', undefined as unknown as string),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.listValuations('student-1', undefined as unknown as string);
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller method tests — POST /subject-competencies/copy
+// These will be RED until copyCompetencies() is added to the controller.
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Controller method tests — POST /subject-competencies (W1: duplicate → 400)
+// ---------------------------------------------------------------------------
+describe('PedagogyController — POST /subject-competencies duplicate name', () => {
+  const mockCreateUC = { execute: vi.fn() };
+  let ctrl: PedagogyController;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ctrl = buildController({ createCompUC: mockCreateUC });
+  });
+
+  it('throws HTTP 400 (not 409) when UC returns duplicate-name error (W1)', async () => {
+    mockCreateUC.execute.mockResolvedValue(
+      err(new ValidationError('Ya existe una competencia con el nombre "Lectura" para este plan')),
+    );
+
+    await expect(
+      ctrl.createCompetency({ studyPlanSubjectId: 'sps-1', name: 'Lectura' }),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.createCompetency({ studyPlanSubjectId: 'sps-1', name: 'Lectura' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller method tests — PATCH /subject-competencies/:uuid (W2: 400/404)
+// ---------------------------------------------------------------------------
+describe('PedagogyController — PATCH /subject-competencies/:uuid', () => {
+  const mockUpdateUC = { execute: vi.fn() };
+  let ctrl: PedagogyController;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ctrl = buildController({ updateCompUC: mockUpdateUC });
+  });
+
+  it('throws HTTP 404 when UC returns NotFoundError (W2)', async () => {
+    mockUpdateUC.execute.mockResolvedValue(
+      err(new NotFoundError('Competencia', 'some-uuid')),
+    );
+
+    await expect(
+      ctrl.updateCompetency('some-uuid', { name: 'Lectura' }),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.updateCompetency('some-uuid', { name: 'Lectura' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    }
+  });
+
+  it('throws HTTP 400 when UC returns ValidationError for duplicate name (W2)', async () => {
+    mockUpdateUC.execute.mockResolvedValue(
+      err(new ValidationError('Ya existe una competencia con el nombre "Lectura" para este plan')),
+    );
+
+    await expect(
+      ctrl.updateCompetency('some-uuid', { name: 'Lectura' }),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.updateCompetency('some-uuid', { name: 'Lectura' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('PedagogyController — POST /subject-competencies/copy', () => {
+  const mockCopyUC = { execute: vi.fn() };
+  let ctrl: PedagogyController;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ctrl = buildController({ copyCompUC: mockCopyUC });
+  });
+
+  it('returns HTTP 200 with { data: { copied, skipped } } on success', async () => {
+    mockCopyUC.execute.mockResolvedValue(ok({ copied: 2, skipped: 0 }));
+
+    const result = await ctrl.copyCompetencies({
+      sourceStudyPlanSubjectId: 'sps-1',
+      targetStudyPlanSubjectId: 'sps-2',
+    });
+
+    expect(result).toEqual({ data: { copied: 2, skipped: 0 } });
+    expect(mockCopyUC.execute).toHaveBeenCalledWith({
+      sourceStudyPlanSubjectId: 'sps-1',
+      targetStudyPlanSubjectId: 'sps-2',
+    });
+  });
+
+  it('returns HTTP 200 with partial { copied: 1, skipped: 1 } on partial copy', async () => {
+    mockCopyUC.execute.mockResolvedValue(ok({ copied: 1, skipped: 1 }));
+
+    const result = await ctrl.copyCompetencies({
+      sourceStudyPlanSubjectId: 'sps-1',
+      targetStudyPlanSubjectId: 'sps-2',
+    });
+
+    expect(result).toEqual({ data: { copied: 1, skipped: 1 } });
+  });
+
+  it('throws HTTP 400 when UC returns err (e.g. source === target)', async () => {
+    mockCopyUC.execute.mockResolvedValue(
+      err(new ValidationError('El origen y destino no pueden ser el mismo plan de estudio de materia')),
+    );
+
+    await expect(
+      ctrl.copyCompetencies({ sourceStudyPlanSubjectId: 'sps-1', targetStudyPlanSubjectId: 'sps-1' }),
+    ).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.copyCompetencies({ sourceStudyPlanSubjectId: 'sps-1', targetStudyPlanSubjectId: 'sps-1' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
