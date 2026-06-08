@@ -44,6 +44,7 @@ async function main() {
     { id: 'm-study-plans', code: 'STUDY_PLANS', name: 'Planes de estudio' },
     { id: 'm-classrooms', code: 'CLASSROOMS', name: 'Salas y aulas' },
     { id: 'm-attendance-types', code: 'ATTENDANCE_TYPES', name: 'Tipos de Asistencia' },
+    { id: 'm-grading-config', code: 'GRADING_CONFIG', name: 'Configuración de Calificación' },
   ];
 
   for (const m of modules) {
@@ -160,7 +161,7 @@ async function main() {
       actions: ALL_ACTIONS,
     },
     'r-admin': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms', 'm-attendance-types'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms', 'm-attendance-types', 'm-grading-config'],
       actions: ALL_ACTIONS,
     },
     'r-mgr': {
@@ -168,7 +169,7 @@ async function main() {
       actions: ALL_ACTIONS,
     },
     'r-director': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms', 'm-attendance-types'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms', 'm-attendance-types', 'm-grading-config'],
       actions: ALL_ACTIONS,
     },
     'r-secretario': {
@@ -404,31 +405,28 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
       name: 'Primaria Numérica',
       level: 2,
       modality: 0,
-      minValue: 1,
-      maxValue: 10,
-      isConceptual: false,
     },
-    update: { minValue: 1, maxValue: 10 },
+    update: {},
   });
 
   const primariaValues = [
-    { scaleId: 'gs-primaria', code: '10', label: 'Excelente (10)', numericValue: 10, isApproved: true, sortOrder: 10 },
-    { scaleId: 'gs-primaria', code: '9', label: 'Muy Bueno (9)', numericValue: 9, isApproved: true, sortOrder: 9 },
-    { scaleId: 'gs-primaria', code: '8', label: 'Muy Bueno (8)', numericValue: 8, isApproved: true, sortOrder: 8 },
-    { scaleId: 'gs-primaria', code: '7', label: 'Bueno (7)', numericValue: 7, isApproved: true, sortOrder: 7 },
-    { scaleId: 'gs-primaria', code: '6', label: 'Bueno (6)', numericValue: 6, isApproved: true, sortOrder: 6 },
-    { scaleId: 'gs-primaria', code: '5', label: 'Regular (5)', numericValue: 5, isApproved: false, sortOrder: 5 },
-    { scaleId: 'gs-primaria', code: '4', label: 'Regular (4)', numericValue: 4, isApproved: false, sortOrder: 4 },
-    { scaleId: 'gs-primaria', code: '3', label: 'Insuficiente (3)', numericValue: 3, isApproved: false, sortOrder: 3 },
-    { scaleId: 'gs-primaria', code: '2', label: 'Insuficiente (2)', numericValue: 2, isApproved: false, sortOrder: 2 },
-    { scaleId: 'gs-primaria', code: '1', label: 'Insuficiente (1)', numericValue: 1, isApproved: false, sortOrder: 1 },
+    { scaleId: 'gs-primaria', code: '10', label: 'Excelente (10)', internalStatus: 'APROBADO' as const, sortOrder: 10 },
+    { scaleId: 'gs-primaria', code: '9',  label: 'Muy Bueno (9)',  internalStatus: 'APROBADO' as const, sortOrder: 9  },
+    { scaleId: 'gs-primaria', code: '8',  label: 'Muy Bueno (8)',  internalStatus: 'APROBADO' as const, sortOrder: 8  },
+    { scaleId: 'gs-primaria', code: '7',  label: 'Bueno (7)',      internalStatus: 'APROBADO' as const, sortOrder: 7  },
+    { scaleId: 'gs-primaria', code: '6',  label: 'Bueno (6)',      internalStatus: 'APROBADO' as const, sortOrder: 6  },
+    { scaleId: 'gs-primaria', code: '5',  label: 'Regular (5)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 5 },
+    { scaleId: 'gs-primaria', code: '4',  label: 'Regular (4)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 4 },
+    { scaleId: 'gs-primaria', code: '3',  label: 'Insuficiente (3)', internalStatus: 'NO_APROBADO' as const, sortOrder: 3 },
+    { scaleId: 'gs-primaria', code: '2',  label: 'Insuficiente (2)', internalStatus: 'NO_APROBADO' as const, sortOrder: 2 },
+    { scaleId: 'gs-primaria', code: '1',  label: 'Insuficiente (1)', internalStatus: 'NO_APROBADO' as const, sortOrder: 1 },
   ];
 
   for (const v of primariaValues) {
     await prisma.gradeScaleValue.upsert({
       where: { scaleId_code: { scaleId: v.scaleId, code: v.code } },
       create: { id: `${v.scaleId}-${v.code}`, ...v },
-      update: v,
+      update: { label: v.label, internalStatus: v.internalStatus, sortOrder: v.sortOrder },
     });
   }
   console.log('✅ Primaria grade scale seeded');
@@ -441,22 +439,21 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
       name: 'Inicial Cualitativa',
       level: 1,
       modality: 0,
-      isConceptual: true,
     },
-    update: { isConceptual: true },
+    update: {},
   });
 
   const inicialValues = [
-    { scaleId: 'gs-inicial', code: 'DESTACADO', label: 'Destacado', isApproved: true, sortOrder: 3 },
-    { scaleId: 'gs-inicial', code: 'LOGRADO', label: 'Logrado', isApproved: true, sortOrder: 2 },
-    { scaleId: 'gs-inicial', code: 'EN_PROCESO', label: 'En Proceso', isApproved: false, sortOrder: 1 },
+    { scaleId: 'gs-inicial', code: 'DESTACADO',  label: 'Destacado',  internalStatus: 'APROBADO' as const,   sortOrder: 3 },
+    { scaleId: 'gs-inicial', code: 'LOGRADO',    label: 'Logrado',    internalStatus: 'APROBADO' as const,   sortOrder: 2 },
+    { scaleId: 'gs-inicial', code: 'EN_PROCESO', label: 'En Proceso', internalStatus: 'EN_PROCESO' as const, sortOrder: 1 },
   ];
 
   for (const v of inicialValues) {
     await prisma.gradeScaleValue.upsert({
       where: { scaleId_code: { scaleId: v.scaleId, code: v.code } },
       create: { id: `${v.scaleId}-${v.code}`, ...v },
-      update: v,
+      update: { label: v.label, internalStatus: v.internalStatus, sortOrder: v.sortOrder },
     });
   }
   console.log('✅ Inicial grade scale seeded');
@@ -469,31 +466,28 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
       name: 'Secundaria Numérica',
       level: 3,
       modality: 0,
-      minValue: 1,
-      maxValue: 10,
-      isConceptual: false,
     },
-    update: { minValue: 1, maxValue: 10 },
+    update: {},
   });
 
   const secundariaValues = [
-    { scaleId: 'gs-secundaria', code: '10', label: 'Excelente (10)', numericValue: 10, isApproved: true, sortOrder: 10 },
-    { scaleId: 'gs-secundaria', code: '9', label: 'Muy Bueno (9)', numericValue: 9, isApproved: true, sortOrder: 9 },
-    { scaleId: 'gs-secundaria', code: '8', label: 'Muy Bueno (8)', numericValue: 8, isApproved: true, sortOrder: 8 },
-    { scaleId: 'gs-secundaria', code: '7', label: 'Bueno (7)', numericValue: 7, isApproved: true, sortOrder: 7 },
-    { scaleId: 'gs-secundaria', code: '6', label: 'Bueno (6)', numericValue: 6, isApproved: true, sortOrder: 6 },
-    { scaleId: 'gs-secundaria', code: '5', label: 'Regular (5)', numericValue: 5, isApproved: false, sortOrder: 5 },
-    { scaleId: 'gs-secundaria', code: '4', label: 'Regular (4)', numericValue: 4, isApproved: false, sortOrder: 4 },
-    { scaleId: 'gs-secundaria', code: '3', label: 'Insuficiente (3)', numericValue: 3, isApproved: false, sortOrder: 3 },
-    { scaleId: 'gs-secundaria', code: '2', label: 'Insuficiente (2)', numericValue: 2, isApproved: false, sortOrder: 2 },
-    { scaleId: 'gs-secundaria', code: '1', label: 'Insuficiente (1)', numericValue: 1, isApproved: false, sortOrder: 1 },
+    { scaleId: 'gs-secundaria', code: '10', label: 'Excelente (10)', internalStatus: 'APROBADO' as const, sortOrder: 10 },
+    { scaleId: 'gs-secundaria', code: '9',  label: 'Muy Bueno (9)',  internalStatus: 'APROBADO' as const, sortOrder: 9  },
+    { scaleId: 'gs-secundaria', code: '8',  label: 'Muy Bueno (8)',  internalStatus: 'APROBADO' as const, sortOrder: 8  },
+    { scaleId: 'gs-secundaria', code: '7',  label: 'Bueno (7)',      internalStatus: 'APROBADO' as const, sortOrder: 7  },
+    { scaleId: 'gs-secundaria', code: '6',  label: 'Bueno (6)',      internalStatus: 'APROBADO' as const, sortOrder: 6  },
+    { scaleId: 'gs-secundaria', code: '5',  label: 'Regular (5)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 5 },
+    { scaleId: 'gs-secundaria', code: '4',  label: 'Regular (4)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 4 },
+    { scaleId: 'gs-secundaria', code: '3',  label: 'Insuficiente (3)', internalStatus: 'NO_APROBADO' as const, sortOrder: 3 },
+    { scaleId: 'gs-secundaria', code: '2',  label: 'Insuficiente (2)', internalStatus: 'NO_APROBADO' as const, sortOrder: 2 },
+    { scaleId: 'gs-secundaria', code: '1',  label: 'Insuficiente (1)', internalStatus: 'NO_APROBADO' as const, sortOrder: 1 },
   ];
 
   for (const v of secundariaValues) {
     await prisma.gradeScaleValue.upsert({
       where: { scaleId_code: { scaleId: v.scaleId, code: v.code } },
       create: { id: `${v.scaleId}-${v.code}`, ...v },
-      update: v,
+      update: { label: v.label, internalStatus: v.internalStatus, sortOrder: v.sortOrder },
     });
   }
   console.log('✅ Secundaria grade scale seeded');
@@ -506,31 +500,28 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
       name: 'Terciaria Numérica',
       level: 4,
       modality: 0,
-      minValue: 1,
-      maxValue: 10,
-      isConceptual: false,
     },
-    update: { minValue: 1, maxValue: 10 },
+    update: {},
   });
 
   const terciariaValues = [
-    { scaleId: 'gs-terciaria', code: '10', label: 'Excelente (10)', numericValue: 10, isApproved: true, sortOrder: 10 },
-    { scaleId: 'gs-terciaria', code: '9', label: 'Muy Bueno (9)', numericValue: 9, isApproved: true, sortOrder: 9 },
-    { scaleId: 'gs-terciaria', code: '8', label: 'Muy Bueno (8)', numericValue: 8, isApproved: true, sortOrder: 8 },
-    { scaleId: 'gs-terciaria', code: '7', label: 'Bueno (7)', numericValue: 7, isApproved: true, sortOrder: 7 },
-    { scaleId: 'gs-terciaria', code: '6', label: 'Bueno (6)', numericValue: 6, isApproved: true, sortOrder: 6 },
-    { scaleId: 'gs-terciaria', code: '5', label: 'Regular (5)', numericValue: 5, isApproved: false, sortOrder: 5 },
-    { scaleId: 'gs-terciaria', code: '4', label: 'Regular (4)', numericValue: 4, isApproved: false, sortOrder: 4 },
-    { scaleId: 'gs-terciaria', code: '3', label: 'Insuficiente (3)', numericValue: 3, isApproved: false, sortOrder: 3 },
-    { scaleId: 'gs-terciaria', code: '2', label: 'Insuficiente (2)', numericValue: 2, isApproved: false, sortOrder: 2 },
-    { scaleId: 'gs-terciaria', code: '1', label: 'Insuficiente (1)', numericValue: 1, isApproved: false, sortOrder: 1 },
+    { scaleId: 'gs-terciaria', code: '10', label: 'Excelente (10)', internalStatus: 'APROBADO' as const, sortOrder: 10 },
+    { scaleId: 'gs-terciaria', code: '9',  label: 'Muy Bueno (9)',  internalStatus: 'APROBADO' as const, sortOrder: 9  },
+    { scaleId: 'gs-terciaria', code: '8',  label: 'Muy Bueno (8)',  internalStatus: 'APROBADO' as const, sortOrder: 8  },
+    { scaleId: 'gs-terciaria', code: '7',  label: 'Bueno (7)',      internalStatus: 'APROBADO' as const, sortOrder: 7  },
+    { scaleId: 'gs-terciaria', code: '6',  label: 'Bueno (6)',      internalStatus: 'APROBADO' as const, sortOrder: 6  },
+    { scaleId: 'gs-terciaria', code: '5',  label: 'Regular (5)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 5 },
+    { scaleId: 'gs-terciaria', code: '4',  label: 'Regular (4)',    internalStatus: 'NO_APROBADO' as const, sortOrder: 4 },
+    { scaleId: 'gs-terciaria', code: '3',  label: 'Insuficiente (3)', internalStatus: 'NO_APROBADO' as const, sortOrder: 3 },
+    { scaleId: 'gs-terciaria', code: '2',  label: 'Insuficiente (2)', internalStatus: 'NO_APROBADO' as const, sortOrder: 2 },
+    { scaleId: 'gs-terciaria', code: '1',  label: 'Insuficiente (1)', internalStatus: 'NO_APROBADO' as const, sortOrder: 1 },
   ];
 
   for (const v of terciariaValues) {
     await prisma.gradeScaleValue.upsert({
       where: { scaleId_code: { scaleId: v.scaleId, code: v.code } },
       create: { id: `${v.scaleId}-${v.code}`, ...v },
-      update: v,
+      update: { label: v.label, internalStatus: v.internalStatus, sortOrder: v.sortOrder },
     });
   }
   console.log('✅ Terciaria grade scale seeded');

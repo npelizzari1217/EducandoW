@@ -50,8 +50,8 @@ export { StudentObservation, ObservationType, ObservationTypeValue } from './stu
 export type { StudentObservationProps, StudentObservationRepository } from './student-observation';
 
 // Pedagogy
-export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, GradeScale, GradeScaleValue, SubjectCompetency, CompetencyValuation } from './pedagogy';
-export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, GradeScaleProps, GradeScaleValueProps, SubjectCompetencyProps, CompetencyValuationProps } from './pedagogy';
+export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, SubjectCompetency, CompetencyValuation } from './pedagogy';
+export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, SubjectCompetencyProps, CompetencyValuationProps } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';
@@ -59,7 +59,7 @@ export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFou
 export { StudyPlanHasDependenciesError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, GradeScaleRepository, SubjectCompetencyRepository, CompetencyValuationRepository } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, SubjectAssignmentRepository, EvaluacionRepository, NotaRepository, PeriodoEvaluacionRepository, NotaTrimestralRepository, AttendanceRepository, SubjectCompetencyRepository, CompetencyValuationRepository } from './pedagogy';
 export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';
 
@@ -99,6 +99,26 @@ export { SystemAttendanceTypeError } from './attendance-type/errors/system-atten
 export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
 export type { AttendanceTypeRepository, AttendanceTypeFilters } from './attendance-type/repositories/attendance-type-repository';
+
+// Grading
+export { GradeInternalStatus, GradeValueCode } from './grading';
+export type { GradeInternalStatusValue } from './grading';
+export { GradeScale, GradeScaleValue } from './grading';
+export type {
+  CreateGradeScaleInput,
+  ReconstructGradeScaleProps,
+  CreateGradeScaleValueInput,
+  ReconstructGradeScaleValueProps,
+} from './grading';
+export {
+  InvalidInternalStatusError,
+  ScaleNameDuplicateError,
+  ScaleNotFoundError,
+  ScaleHasActiveValuesError,
+  ValueCodeDuplicateError,
+  ValueNotFoundError,
+} from './grading';
+export type { GradeScaleRepository, GradeScaleFilters } from './grading';
 
 // Auth
 export { User } from './auth/entities/user';

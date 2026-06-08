@@ -43,7 +43,8 @@ export class PrismaNotaRepo implements NotaRepository {
       if (gsv) {
         gradeCode = gradeCode ?? gsv.code;
         gradeLabel = gradeLabel ?? gsv.label;
-        isApproved = isApproved ?? gsv.isApproved;
+        // Derive isApproved from internalStatus (APROBADO → true, others → false)
+        isApproved = isApproved ?? (gsv.internalStatus === 'APROBADO');
       }
     }
 

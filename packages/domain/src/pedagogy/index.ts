@@ -14,8 +14,7 @@ export { NotaTrimestral } from './entities/nota-trimestral';
 export type { NotaTrimestralProps } from './entities/nota-trimestral';
 export { Attendance } from './entities/attendance';
 export type { AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity } from './entities/attendance';
-export { GradeScale, GradeScaleValue } from './entities/grade-scale';
-export type { GradeScaleProps, GradeScaleValueProps } from './entities/grade-scale';
+// GradeScale and GradeScaleValue moved to grading/ module — grading-foundations
 export { AcademicCycle } from './entities/academic-cycle';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './entities/academic-cycle';
 export { StudyPlan } from './entities/study-plan';
@@ -40,7 +39,7 @@ export type { NotaRepository } from './repositories/nota-repository';
 export type { PeriodoEvaluacionRepository } from './repositories/periodo-evaluacion-repository';
 export type { NotaTrimestralRepository } from './repositories/nota-trimestral-repository';
 export type { AttendanceRepository } from './repositories/attendance-repository';
-export type { GradeScaleRepository } from './repositories/grade-scale-repository';
+// GradeScaleRepository moved to grading/ module — grading-foundations
 export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } from './repositories/academic-cycle-repository';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';
 export type { SubjectCompetencyRepository } from './repositories/subject-competency-repository';

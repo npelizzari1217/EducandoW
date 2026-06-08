@@ -120,14 +120,14 @@ model AcademicCycle {
   active      Boolean   @default(true)
   deletedAt   DateTime?
 
-  firstBimStart  DateTime? @map("first_bim_start")
-  firstBimEnd    DateTime? @map("first_bim_end")
-  secondBimStart DateTime? @map("second_bim_start")
-  secondBimEnd   DateTime? @map("second_bim_end")
-  thirdBimStart  DateTime? @map("third_bim_start")
-  thirdBimEnd    DateTime? @map("third_bim_end")
-  fourthBimStart DateTime? @map("fourth_bim_start")
-  fourthBimEnd   DateTime? @map("fourth_bim_end")
+  firstBimStart  DateTime? @map("first_bim_start")   // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  firstBimEnd    DateTime? @map("first_bim_end")     // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  secondBimStart DateTime? @map("second_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  secondBimEnd   DateTime? @map("second_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  thirdBimStart  DateTime? @map("third_bim_start")   // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  thirdBimEnd    DateTime? @map("third_bim_end")     // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
 
   enrollments  Enrollment[]
   attendances  Attendance[]
@@ -154,15 +154,15 @@ model CourseCycle {
   active         Boolean   @default(true)
   passingGrade   Float
   promotionText  String?
-  firstBimStart  DateTime? @map("first_bim_start")
-  firstBimEnd    DateTime? @map("first_bim_end")
-  secondBimStart DateTime? @map("second_bim_start")
-  secondBimEnd   DateTime? @map("second_bim_end")
-  thirdBimStart  DateTime? @map("third_bim_start")
-  thirdBimEnd    DateTime? @map("third_bim_end")
-  fourthBimStart DateTime? @map("fourth_bim_start")
-  fourthBimEnd   DateTime? @map("fourth_bim_end")
-  activeGradingPeriod Int? @map("active_grading_period")
+  firstBimStart  DateTime? @map("first_bim_start")   // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  firstBimEnd    DateTime? @map("first_bim_end")     // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  secondBimStart DateTime? @map("second_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  secondBimEnd   DateTime? @map("second_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  thirdBimStart  DateTime? @map("third_bim_start")   // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  thirdBimEnd    DateTime? @map("third_bim_end")     // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
@@ -328,7 +328,7 @@ model CompetencyValuation {
   imprimible2  Boolean  @default(false)
   imprimible3  Boolean  @default(false)
   imprimible4  Boolean  @default(false)
-  periodActive Int      @default(1)
+  periodActive Int      @default(1) // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   active       Boolean  @default(true)
   deletedAt    DateTime?
 
@@ -346,18 +346,22 @@ model CompetencyValuation {
 
 // ── Grade Scales ─────────────────────────────────────────
 
+enum GradeInternalStatus {
+  APROBADO
+  NO_APROBADO
+  EN_PROCESO
+  LIBRE
+}
+
 model GradeScale {
-  id          String   @id @default(uuid())
-  name        String              // "Primaria Numérica", "Inicial Cualitativa"
-  level       Int                 // EducationalLevelCode (1-4)
-  modality    Int    @default(0)  // EducationalModalityCode (0-2)
-  minValue    Float?              // nota mínima (ej: 1)
-  maxValue    Float?              // nota máxima (ej: 10)
-  isConceptual Boolean @default(false) // true = cualitativa, false = numérica
-  active      Boolean @default(true)
-  deletedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(uuid())
+  name      String              // "Cualitativa", "Numérica 1-10"
+  level     Int                 // EducationalLevelCode (1-4)
+  modality  Int    @default(0)  // EducationalModalityCode (0-2)
+  active    Boolean @default(true)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   values GradeScaleValue[]
 
@@ -365,19 +369,19 @@ model GradeScale {
   @@unique([level, modality, name])
   @@map("grade_scales")
 }
+// ELIMINADOS: minValue, maxValue, isConceptual — grading-foundations
 
 model GradeScaleValue {
-  id          String   @id @default(uuid())
-  scaleId     String              // FK → GradeScale
-  code        String              // "10", "9", "DESTACADO", "A"
-  label       String              // "Excelente (10)", "Destacado"
-  numericValue Float?             // valor numérico si aplica
-  isApproved  Boolean             // ¿aprueba?
-  sortOrder   Int    @default(0)  // orden de display
-  active      Boolean @default(true)
-  deletedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String              @id @default(uuid())
+  scaleId        String              // FK → GradeScale
+  code           String              // alfanumérico libre: "10", "A+", "Logrado"
+  label          String              // "Muy Bueno"
+  internalStatus GradeInternalStatus // reemplaza isApproved bool
+  sortOrder      Int    @default(0)  // orden de display
+  active         Boolean @default(true)
+  deletedAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   scale GradeScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
   notas Nota[]
@@ -386,6 +390,7 @@ model GradeScaleValue {
   @@unique([scaleId, code])
   @@map("grade_scale_values")
 }
+// ELIMINADOS: isApproved (→ internalStatus), numericValue — grading-foundations
 
 // ── Evaluation ───────────────────────────────────────────
 
@@ -640,7 +645,7 @@ model InformeEvolutivo {
   id                    String   @id @default(uuid())
   studentId             String   @map("student_id")
   salaId                String   @map("sala_id")
-  periodo               String                      // "1T" | "2T" | "3T"
+  periodo               String                      // "1T" | "2T" | "3T" // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fecha                 DateTime
   observacionesGenerales String? @map("observaciones_generales")
   active                Boolean  @default(true)
@@ -897,7 +902,7 @@ model MateriaCarrera {
   carreraId    String  @map("carrera_id")
   subjectId    String  @map("subject_id")
   anio         Int     @map("anio")
-  cuatrimestre String                    // "1C"|"2C"|"ANUAL"
+  cuatrimestre String                    // "1C"|"2C"|"ANUAL" // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   horasCatedra Int     @map("horas_catedra")
   regimen      String                    // "PROMOCIONAL"|"REGULAR"|"LIBRE"
 

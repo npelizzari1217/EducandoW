@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
-import { EducationalLevel, EducationalLevelCode } from '../../../shared/value-objects/educational-level';
-import { EducationalModality, EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
+import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
+import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
 import { Level, LevelType } from '../../../institution/value-objects/level';
 
 // Test entities from pedagogy context
@@ -14,7 +14,7 @@ import { Nota } from '../../../pedagogy/entities/nota';
 import { PeriodoEvaluacion } from '../../../pedagogy/entities/periodo-evaluacion';
 import { NotaTrimestral } from '../../../pedagogy/entities/nota-trimestral';
 import { Attendance } from '../../../pedagogy/entities/attendance';
-import { GradeScale, GradeScaleValue } from '../../../pedagogy/entities/grade-scale';
+// GradeScale and GradeScaleValue moved to grading/__tests__/entities/ — grading-foundations
 
 describe('StudyPlan', () => {
   it('creates with name, level, modality and academicYear', () => {
@@ -234,76 +234,5 @@ describe('Attendance', () => {
   });
 });
 
-describe('GradeScale', () => {
-  it('creates a numeric grade scale for primaria', () => {
-    const gs = GradeScale.create({
-      name: 'Primaria Numérica',
-      level: EducationalLevel.fromCode(EducationalLevelCode.PRIMARIO),
-      modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
-      minValue: 1,
-      maxValue: 10,
-      isConceptual: false,
-    });
-    expect(gs.name).toBe('Primaria Numérica');
-    expect(gs.level.code).toBe(EducationalLevelCode.PRIMARIO);
-    expect(gs.modality.code).toBe(EducationalModalityCode.COMUN);
-    expect(gs.minValue).toBe(1);
-    expect(gs.maxValue).toBe(10);
-    expect(gs.isConceptual).toBe(false);
-  });
-
-  it('creates a conceptual grade scale for inicial', () => {
-    const gs = GradeScale.create({
-      name: 'Inicial Cualitativa',
-      level: EducationalLevel.fromCode(EducationalLevelCode.INICIAL),
-      modality: EducationalModality.fromCode(EducationalModalityCode.COMUN),
-      isConceptual: true,
-    });
-    expect(gs.isConceptual).toBe(true);
-    expect(gs.minValue).toBeUndefined();
-  });
-});
-
-describe('GradeScaleValue', () => {
-  it('creates a numeric grade scale value', () => {
-    const gsv = GradeScaleValue.create({
-      scaleId: Id.reconstruct('gs-primaria'),
-      code: '10',
-      label: 'Excelente (10)',
-      numericValue: 10,
-      isApproved: true,
-      sortOrder: 10,
-    });
-    expect(gsv.code).toBe('10');
-    expect(gsv.label).toBe('Excelente (10)');
-    expect(gsv.numericValue).toBe(10);
-    expect(gsv.isApproved).toBe(true);
-    expect(gsv.sortOrder).toBe(10);
-  });
-
-  it('creates a conceptual grade scale value', () => {
-    const gsv = GradeScaleValue.create({
-      scaleId: Id.reconstruct('gs-inicial'),
-      code: 'DESTACADO',
-      label: 'Destacado',
-      isApproved: true,
-      sortOrder: 3,
-    });
-    expect(gsv.code).toBe('DESTACADO');
-    expect(gsv.numericValue).toBeUndefined();
-  });
-
-  it('softDelete marks as inactive', () => {
-    const gsv = GradeScaleValue.create({
-      scaleId: Id.reconstruct('gs-primaria'),
-      code: '5',
-      label: 'Regular (5)',
-      isApproved: false,
-      sortOrder: 5,
-    });
-    expect(gsv.active).toBe(true);
-    gsv.softDelete();
-    expect(gsv.active).toBe(false);
-    expect(gsv.deletedAt).toBeInstanceOf(Date);
-  });
-});
+// GradeScale tests moved to grading/__tests__/entities/grade-scale.test.ts — grading-foundations
+// GradeScaleValue tests moved to grading/__tests__/entities/grade-scale-value.test.ts — grading-foundations
