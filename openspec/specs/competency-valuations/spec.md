@@ -319,7 +319,8 @@ The system MUST expose the following REST endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/competency-valuations` | List by `studentId` + `studyPlanSubjectId` (Fase 4 read shape TBD) |
+| GET | `/v1/competency-valuations?courseCycleId=&studyPlanSubjectId=` | Bulk read: all valuations + period children for a cycle/subject pair (Fase 3b) |
+| GET | `/v1/competency-valuations?studentId=&studyPlanSubjectId=` | Legacy: list by student + subject (Fase 2; unchanged) |
 | GET | `/v1/competency-valuations/:uuid` | Get single valuation by UUID |
 | PATCH | `/v1/competency-valuations/:uuid/periods/:periodItemId` | Grade a specific period |
 
@@ -330,7 +331,109 @@ The old flat `PATCH /v1/competency-valuations/:uuid` endpoint (Fase 2) is **remo
 Fase 3. Use `PATCH /v1/competency-valuations/:uuid/periods/:periodItemId` instead.
 
 Batch retrieval by `subjectId` (Fase 2 endpoint) is **removed** as of Fase 3.
-The GET list endpoint shape for the new normalized model is deferred to Fase 4.
+
+---
+
+### Requirement: Bulk Read — Parent Valuations + Period Children (Fase 3b)
+
+> Added: competency-grading-ui Fase 3b (2026-06-09). Archive: `openspec/changes/archive/2026-06-09-competency-grading-ui/specs/bulk-valuations-read/spec.md`
+
+The system MUST expose:
+
+```
+GET /v1/competency-valuations?courseCycleId=<uuid>&studyPlanSubjectId=<id>
+```
+
+**Both query params are REQUIRED.** Omitting either MUST return HTTP 400.
+
+**Response shape** (HTTP 200):
+
+```json
+{
+  "data": [
+    {
+      "valuationId": "<uuid>",
+      "studentId": "<uuid or id>",
+      "competencyId": "<id>",
+      "periodValuations": [
+        {
+          "periodItemId": "<id>",
+          "gradeScaleValueId": "<uuid | null>",
+          "gradeCode": "<string | null>",
+          "internalStatus": "APROBADO | NO_APROBADO | EN_PROCESO | LIBRE | null",
+          "modificable": true,
+          "imprimible": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+`periodValuations` contains ONLY lazily-created `CompetencyPeriodValuation` children
+(those materialized by at least one prior PATCH). A parent with no graded periods MUST
+return `periodValuations: []` — not `null` and not omitted.
+
+**Processing contract** (order-enforced):
+
+1. Validate `courseCycleId` and `studyPlanSubjectId` are both present → HTTP 400 if either missing.
+2. Resolve all `CompetencyValuation` records where `courseCycleId` matches AND `competencyId`
+   belongs to a competency of the given `studyPlanSubjectId` (via `SubjectCompetency`).
+3. For each parent, join its `CompetencyPeriodValuation` children.
+4. Return `{ "data": [...] }`. Empty is valid — returns `{ "data": [] }` with HTTP 200.
+
+**HTTP mapping**:
+
+| Situation                                          | HTTP Status |
+|----------------------------------------------------|-------------|
+| Valuations returned (including empty list)         | 200 OK      |
+| `courseCycleId` param missing                      | 400         |
+| `studyPlanSubjectId` param missing                 | 400         |
+
+#### Scenario BVR-1: Happy path — parents with and without period children
+
+- GIVEN `courseCycleId="cc-1"` has 2 students each with 2 competencies for `studyPlanSubjectId=10`
+- AND student "s-1" / competency "c-1" has one graded period child: `(periodItemId=3, gradeCode="MB", modificable=true)`
+- AND student "s-2" / competency "c-1" has no graded period children
+- WHEN `GET /v1/competency-valuations?courseCycleId=cc-1&studyPlanSubjectId=10`
+- THEN HTTP 200 is returned with `data` containing 4 entries (2 students × 2 competencies)
+- AND the entry for (s-1, c-1) has `periodValuations` with 1 child where `gradeCode="MB"`
+- AND the entry for (s-2, c-1) has `periodValuations: []`
+
+#### Scenario BVR-2: Missing `courseCycleId` → 400
+
+- GIVEN the request omits `courseCycleId`
+- WHEN `GET /v1/competency-valuations?studyPlanSubjectId=10`
+- THEN HTTP 400 is returned
+
+#### Scenario BVR-3: Missing `studyPlanSubjectId` → 400
+
+- GIVEN the request omits `studyPlanSubjectId`
+- WHEN `GET /v1/competency-valuations?courseCycleId=cc-1`
+- THEN HTTP 400 is returned
+
+#### Scenario BVR-4: No matching valuations → empty list, not 404
+
+- GIVEN `courseCycleId="cc-new"` has no `CompetencyValuation` records
+- WHEN `GET /v1/competency-valuations?courseCycleId=cc-new&studyPlanSubjectId=10`
+- THEN HTTP 200 is returned with `{ "data": [] }`
+
+#### Scenario BVR-5: Parent with no graded periods returns empty array, not null
+
+- GIVEN a `CompetencyValuation` for (s-1, c-1, cc-1) exists with no `CompetencyPeriodValuation` children
+- WHEN `GET /v1/competency-valuations?courseCycleId=cc-1&studyPlanSubjectId=10`
+- THEN the matching entry is present in `data` with `"periodValuations": []`
+
+#### Scenario BVR-6: Correct child join — children attached only to their parent
+
+- GIVEN valuations for (s-1, c-1) and (s-2, c-1) both exist in cc-1
+- AND (s-1, c-1) has a period child for `periodItemId=3` with `gradeCode="MB"`
+- AND (s-2, c-1) has a period child for `periodItemId=3` with `gradeCode="B"`
+- WHEN `GET /v1/competency-valuations?courseCycleId=cc-1&studyPlanSubjectId=10`
+- THEN the entry for (s-1, c-1) contains only `gradeCode="MB"` in its `periodValuations`
+- AND the entry for (s-2, c-1) contains only `gradeCode="B"` in its `periodValuations`
+
+---
 
 #### Scenario: Get single valuation — not found
 

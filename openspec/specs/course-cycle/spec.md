@@ -282,7 +282,7 @@ The system MUST expose the following REST endpoints:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/v1/course-cycles` | List with filters; paginated; ordered by `courseName ASC` |
-| GET | `/v1/course-cycles/:id` | Get by ID — returns effective bimester dates |
+| GET | `/v1/course-cycles/:id` | Get by ID — returns effective bimester dates + `modality` (Fase 3b) |
 | POST | `/v1/course-cycles` | Create |
 | PATCH | `/v1/course-cycles/:id` | Update (blocked if `active=false`) |
 | DELETE | `/v1/course-cycles/:id` | Soft delete (blocked if `active=false`) |
@@ -291,9 +291,12 @@ The system MUST expose the following REST endpoints:
 | POST | `/v1/course-cycles/generate` | Bulk generate |
 | GET | `/v1/course-cycles/:id/grading-period` | Get active grading period with source |
 | PATCH | `/v1/course-cycles/:id/grading-period` | Set or clear explicit period override |
+| GET | `/v1/course-cycles/:uuid/students` | List enrolled students for the cycle (Fase 3b) |
 
 `GET /v1/course-cycles` MUST support query filters: `?level=`, `?cycleId=`, `?active=`. Filters SHOULD be combinable. The response for GET (single and list) MUST include `effectiveBimonthDates` — the CourseCycle's own dates if not null, otherwise those of the linked AcademicCycle.
 (Previously: no `effectiveBimonthDates` in response; bimester dates were always own fields; grading-period endpoints did not exist)
+
+`GET /v1/course-cycles/:uuid` (single) MUST also include `modality` as a NUMERIC code in its response (added Fase 3b — see Requirement: modality in CourseCycle Single Response below).
 
 #### Scenario: GET CourseCycle without own dates — returns AcademicCycle dates as effective
 
@@ -326,6 +329,102 @@ The system MUST expose the following REST endpoints:
 - GIVEN no `CourseCycle` exists with `id=999`
 - WHEN `GET /v1/course-cycles/999` is called
 - THEN the system returns HTTP 404 with `CourseCycleNotFoundError`
+
+---
+
+### Requirement: modality in CourseCycle Single Response (Fase 3b)
+
+> Added: competency-grading-ui Fase 3b (2026-06-09). Archive: `openspec/changes/archive/2026-06-09-competency-grading-ui/specs/course-cycle-modality/spec.md`
+
+`GET /v1/course-cycles/:uuid` MUST include `modality` in its response body.
+
+The response MUST contain at minimum:
+
+```json
+{
+  "uuid": "<uuid>",
+  "level": "<number>",
+  "modality": "<number|null>",
+  "studyPlanId": "<id>"
+}
+```
+
+`level` and `modality` are NUMERIC codes (resolved via `findGradingContextByUuid`), NOT
+strings. The frontend maps codes → labels for display. All fields present before this
+change remain present and unchanged. `modality` MUST NOT be `null` if the CourseCycle
+record has a modality value.
+
+#### Scenario CCM-1: Response includes modality field
+
+- GIVEN a CourseCycle with uuid="cc-1", level code 2 (PRIMARIO), modality code 0 (COMUN)
+- WHEN `GET /v1/course-cycles/cc-1`
+- THEN HTTP 200 is returned
+- AND the response body contains `"modality": 0` (numeric code)
+- AND `"level": 2` is also present (existing field, unchanged)
+
+#### Scenario CCM-2: CourseCycle not found — behavior unchanged
+
+- GIVEN no CourseCycle with uuid="cc-none"
+- WHEN `GET /v1/course-cycles/cc-none`
+- THEN HTTP 404 is returned (no change to error behavior)
+
+---
+
+### Requirement: Enrolled Students for a CourseCycle (Fase 3b)
+
+> Added: competency-grading-ui Fase 3b (2026-06-09). Archive: `openspec/changes/archive/2026-06-09-competency-grading-ui/specs/students-by-cycle/spec.md`
+
+The system MUST expose:
+
+```
+GET /v1/course-cycles/:uuid/students
+```
+
+**Response shape** (HTTP 200) — wrapped in `{ data }` per project convention:
+
+```json
+{
+  "data": [
+    {
+      "studentId": "<uuid or id>",
+      "firstName": "<string>",
+      "lastName": "<string>"
+    }
+  ]
+}
+```
+
+The list is DERIVED from the existing internal `findEnrolledStudentIds` logic — there is
+no explicit Enrollment→CourseCycle FK until Fase 4. This is intentional. Empty list is a
+valid response (HTTP 200 `{ "data": [] }`).
+
+CourseCycle not found → HTTP 404.
+
+**HTTP mapping**:
+
+| Situation                                | HTTP Status |
+|------------------------------------------|-------------|
+| Students returned (including empty list) | 200 OK      |
+| CourseCycle uuid not found               | 404         |
+
+#### Scenario SBC-1: Happy path — returns enrolled students
+
+- GIVEN CourseCycle with uuid="cc-1" exists and has 3 enrolled students
+- WHEN `GET /v1/course-cycles/cc-1/students`
+- THEN HTTP 200 is returned with a list of 3 entries
+- AND each entry contains `studentId`, `firstName`, `lastName`
+
+#### Scenario SBC-2: Course cycle not found → 404
+
+- GIVEN no CourseCycle with uuid="cc-nonexistent"
+- WHEN `GET /v1/course-cycles/cc-nonexistent/students`
+- THEN HTTP 404 is returned
+
+#### Scenario SBC-3: Course cycle with no enrolled students → empty list, not 404
+
+- GIVEN CourseCycle with uuid="cc-empty" exists but has no enrolled students
+- WHEN `GET /v1/course-cycles/cc-empty/students`
+- THEN HTTP 200 is returned with `{ "data": [] }`
 
 ---
 
