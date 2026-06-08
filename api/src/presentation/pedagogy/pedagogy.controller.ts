@@ -10,7 +10,8 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import type { AcademicCycle } from '@educandow/domain';
-import { StudyPlanHasDependenciesError, NotFoundError } from '@educandow/domain';
+import { StudyPlanHasDependenciesError, NotFoundError, CompetencyValuationNotFoundError, ValueNotFoundError } from '@educandow/domain';
+import type { CompetencyPeriodValuation } from '@educandow/domain';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -41,7 +42,7 @@ export class PedagogyController {
     private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
     private copyCompUC: CUC.CopySubjectCompetenciesUC,
     private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
-    private updateValUC: CUC.UpdateCompetencyValuationUC,
+    private gradePeriodUC: CUC.GradePeriodValuationUC,
     private boletinInvalidation: BoletinInvalidationService,
   ) {}
 
@@ -411,11 +412,46 @@ export class PedagogyController {
     return { data: this.toValuationResponse(r.unwrap()) };
   }
 
-  @Patch('competency-valuations/:uuid') @Roles('ROOT', { module: 'COURSES', action: '*' })
-  async updateValuation(@Param('uuid') uuid: string, @Body(new ZodValidationPipe(CDTO.UpdateCompetencyValuationSchema)) b: CDTO.UpdateCompetencyValuationDTO) {
-    const r = await this.updateValUC.execute(uuid, b as Record<string, unknown>);
-    if (r.isErr()) throw new HttpException(r.unwrapErr().message, HttpStatus.UNPROCESSABLE_ENTITY);
-    return { data: this.toValuationResponse(r.unwrap()) };
+  // IMPORTANT: PATCH /:uuid/periods/:periodItemId is a nested sub-resource on competency-valuations.
+  // It must be declared here (after GET /:uuid) with a distinct HTTP method — no route collision.
+  @Patch('competency-valuations/:uuid/periods/:periodItemId')
+  @Roles('ROOT', { module: 'COURSES', action: '*' })
+  async gradePeriod(
+    @Param('uuid') uuid: string,
+    @Param('periodItemId') periodItemId: string,
+    @Body(new ZodValidationPipe(CDTO.UpdatePeriodGradeSchema)) body: CDTO.UpdatePeriodGradeDto,
+  ) {
+    // Pre-resolve studentId for boletin invalidation (same pattern as deleteNotaTrimestral)
+    const client = TenantContext.getClient();
+    let studentId: string | undefined;
+    if (client) {
+      const v = await client.competencyValuation.findUnique({
+        where: { id: uuid },
+        select: { studentId: true },
+      });
+      studentId = v?.studentId ?? undefined;
+    }
+
+    const result = await this.gradePeriodUC.execute({
+      valuationUuid: uuid,
+      periodItemId,
+      gradeScaleValueId: body.gradeScaleValueId,
+    });
+
+    if (result.isErr()) {
+      const e = result.unwrapErr();
+      if (e instanceof CompetencyValuationNotFoundError || e instanceof ValueNotFoundError) {
+        throw new HttpException({ error: { message: e.message, code: e.code } }, HttpStatus.NOT_FOUND);
+      }
+      throw new HttpException({ error: { message: e.message, code: e.code } }, HttpStatus.BAD_REQUEST);
+    }
+
+    // Invalidate cached PDF boletín for this student — grade data changed
+    if (studentId) {
+      await this.boletinInvalidation.invalidateForStudent(studentId);
+    }
+
+    return { data: this.toPeriodValuationResponse(result.unwrap()) };
   }
 
   private toValuationResponse(v: import('@educandow/domain').CompetencyValuation) {
@@ -423,19 +459,20 @@ export class PedagogyController {
       uuid: v.id.get(),
       competencyId: v.competencyId,
       studentId: v.studentId,
-      valuation1: v.valuation1,
-      valuation2: v.valuation2,
-      valuation3: v.valuation3,
-      valuation4: v.valuation4,
-      modificable1: v.modificable1,
-      modificable2: v.modificable2,
-      modificable3: v.modificable3,
-      modificable4: v.modificable4,
-      imprimible1: v.imprimible1,
-      imprimible2: v.imprimible2,
-      imprimible3: v.imprimible3,
-      imprimible4: v.imprimible4,
-      periodActive: v.periodActive,
+      courseCycleId: v.courseCycleId,
+    };
+  }
+
+  private toPeriodValuationResponse(child: CompetencyPeriodValuation) {
+    return {
+      id: child.id,
+      valuationId: child.valuationId,
+      periodItemId: child.periodItemId,
+      gradeScaleValueId: child.gradeScaleValueId,
+      gradeCode: child.gradeCode,
+      internalStatus: child.internalStatus,
+      modificable: child.modificable,
+      imprimible: child.imprimible,
     };
   }
 }

@@ -7,7 +7,6 @@ import {
 } from '../enrollment.use-cases';
 import type { EnrollmentRepository } from '@educandow/domain';
 import { Enrollment, Id, Level, LevelType, EnrollmentStatus } from '@educandow/domain';
-import type { AutoCreateCompetencyValuationsUC } from '../../../pedagogy/use-cases/competency.use-cases';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,23 +43,20 @@ function makeMockRepo(overrides: Partial<EnrollmentRepository> = {}): Enrollment
 
 // ── CreateEnrollmentUseCase ───────────────────────────────────────────────────
 
+// Design §3: auto-creation trigger moved from CreateEnrollmentUseCase to
+// GenerateCourseCyclesUseCase. CreateEnrollmentUseCase no longer fires auto-creation.
+
 describe('CreateEnrollmentUseCase', () => {
   let repo: EnrollmentRepository;
-  let autoCreateUC: AutoCreateCompetencyValuationsUC;
 
   beforeEach(() => {
     repo = makeMockRepo({
       findActive: vi.fn().mockResolvedValue(null),
     });
-    autoCreateUC = {
-      executeForNewEnrollment: vi.fn().mockResolvedValue(undefined),
-      executeForEnrollment: vi.fn().mockResolvedValue(undefined),
-      executeForSubjectAssignment: vi.fn().mockResolvedValue(undefined),
-    } as unknown as AutoCreateCompetencyValuationsUC;
   });
 
-  it('creates enrollment successfully and triggers auto-creation', async () => {
-    const uc = new CreateEnrollmentUseCase(repo, autoCreateUC);
+  it('creates enrollment successfully', async () => {
+    const uc = new CreateEnrollmentUseCase(repo);
     const result = await uc.execute({
       studentId: '00000000-0000-0000-0000-000000000001',
       institutionId: '00000000-0000-0000-0000-000000000002',
@@ -72,17 +68,13 @@ describe('CreateEnrollmentUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repo.save).toHaveBeenCalled();
-    expect(autoCreateUC.executeForNewEnrollment).toHaveBeenCalledWith(
-      '00000000-0000-0000-0000-000000000001',
-      expect.objectContaining({ grade: '3°', division: 'A', academicYear: '2026' }),
-    );
   });
 
   it('returns err when enrollment already exists for level and year', async () => {
     const existing = makeEnrollment();
     vi.mocked(repo.findActive).mockResolvedValue(existing);
 
-    const uc = new CreateEnrollmentUseCase(repo, autoCreateUC);
+    const uc = new CreateEnrollmentUseCase(repo);
     const result = await uc.execute({
       studentId: '00000000-0000-0000-0000-000000000001',
       institutionId: '00000000-0000-0000-0000-000000000002',
@@ -91,35 +83,7 @@ describe('CreateEnrollmentUseCase', () => {
     });
 
     expect(result.isErr()).toBe(true);
-    expect(autoCreateUC.executeForNewEnrollment).not.toHaveBeenCalled();
-  });
-
-  it('does NOT throw if auto-creation fails (fire-and-forget acceptable)', async () => {
-    vi.mocked(autoCreateUC.executeForNewEnrollment as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('No client available'),
-    );
-
-    const uc = new CreateEnrollmentUseCase(repo, autoCreateUC);
-    // Should not throw even if auto-creation fails
-    await expect(
-      uc.execute({
-        studentId: '00000000-0000-0000-0000-000000000001',
-        institutionId: '00000000-0000-0000-0000-000000000002',
-        level: 'PRIMARIO',
-        academicYear: '2026',
-      }),
-    ).resolves.toBeDefined();
-  });
-
-  it('works without autoCreateUC (backward compat — autoCreateUC is optional)', async () => {
-    const uc = new CreateEnrollmentUseCase(repo);
-    const result = await uc.execute({
-      studentId: '00000000-0000-0000-0000-000000000001',
-      institutionId: '00000000-0000-0000-0000-000000000002',
-      level: 'PRIMARIO',
-      academicYear: '2026',
-    });
-    expect(result.isOk()).toBe(true);
+    expect(repo.save).not.toHaveBeenCalled();
   });
 });
 

@@ -120,6 +120,27 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
     });
   }
 
+  /**
+   * Returns the (level, modality) grading-config pair for a CourseCycle.
+   * Path: CourseCycle.studyPlanId → StudyPlan.{level, modality}.
+   * Design §2: StudyPlan is the authoritative modality source for CourseCycle grading.
+   */
+  async findGradingContextByUuid(courseCycleUuid: string): Promise<{ level: number; modality: number } | null> {
+    const row = await this.client.courseCycle.findUnique({
+      where: { uuid: courseCycleUuid },
+      select: { studyPlanId: true },
+    });
+    if (!row) return null;
+
+    const plan = await this.client.studyPlan.findUnique({
+      where: { id: row.studyPlanId },
+      select: { level: true, modality: true },
+    });
+    if (!plan) return null;
+
+    return { level: plan.level, modality: plan.modality };
+  }
+
   private toDomain(record: CourseCycleRow): CourseCycle {
     const courseName = CourseName.reconstruct(record.courseName);
     const passingGrade = PassingGrade.reconstruct(record.passingGrade);

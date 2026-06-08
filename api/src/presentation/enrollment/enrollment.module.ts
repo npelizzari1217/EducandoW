@@ -6,7 +6,6 @@ import {
   CreateEnrollmentUseCase, ListEnrollmentsUseCase, GetEnrollmentUseCase, DeleteEnrollmentUseCase,
   ToggleEnrollmentFlagUseCase, BulkToggleEnrollmentFlagsUseCase,
 } from '../../application/enrollment/use-cases/enrollment.use-cases';
-import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaEnrollmentRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-enrollment.repository';
 
 @Module({
@@ -17,9 +16,8 @@ import { PrismaEnrollmentRepository } from '../../infrastructure/persistence/pri
     { provide: 'EnrollmentRepository', useExisting: PrismaEnrollmentRepository },
     {
       provide: CreateEnrollmentUseCase,
-      useFactory: (r: PrismaEnrollmentRepository, auto: AutoCreateCompetencyValuationsUC) =>
-        new CreateEnrollmentUseCase(r, auto),
-      inject: ['EnrollmentRepository', AutoCreateCompetencyValuationsUC],
+      useFactory: (r: PrismaEnrollmentRepository) => new CreateEnrollmentUseCase(r),
+      inject: ['EnrollmentRepository'],
     },
     { provide: ListEnrollmentsUseCase, useFactory: (r) => new ListEnrollmentsUseCase(r), inject: ['EnrollmentRepository'] },
     { provide: GetEnrollmentUseCase, useFactory: (r) => new GetEnrollmentUseCase(r), inject: ['EnrollmentRepository'] },

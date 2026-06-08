@@ -171,6 +171,8 @@ model CourseCycle {
   studyPlan StudyPlan      @relation(fields: [studyPlanId], references: [id])
   cycle     AcademicCycle   @relation(fields: [cycleId], references: [uuid])
 
+  competencyValuations CompetencyValuation[]
+
   @@unique([courseId, cycleId])
   @@index([cycleId])
   @@index([studyPlanId])
@@ -311,36 +313,50 @@ model SubjectCompetency {
 }
 
 model CompetencyValuation {
-  id           String   @id @default(uuid())
-  competencyId String
-  studentId    String
-  valuation1   String?
-  valuation2   String?
-  valuation3   String?
-  valuation4   String?
-  modificable1 Boolean  @default(true)
-  modificable2 Boolean  @default(true)
-  modificable3 Boolean  @default(true)
-  modificable4 Boolean  @default(true)
-  imprimible1  Boolean  @default(false)
-  imprimible2  Boolean  @default(false)
-  imprimible3  Boolean  @default(false)
-  imprimible4  Boolean  @default(false)
-  periodActive Int      @default(1) // @deprecated grading-foundations: reemplazado por GradingPeriodDate
-  active       Boolean  @default(true)
-  deletedAt    DateTime?
+  id            String   @id @default(uuid())
+  competencyId  String
+  studentId     String
+  courseCycleId String   @map("course_cycle_id")
+  active        Boolean  @default(true)
+  deletedAt     DateTime?
 
-  competency SubjectCompetency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
-  student    Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  competency  SubjectCompetency @relation(fields: [competencyId], references: [id], onDelete: Cascade)
+  student     Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseCycle CourseCycle       @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+
+  periodValuations CompetencyPeriodValuation[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  // @fase3: add courseCycleId → UNIQUE(studentId, competencyId, courseCycleId) before populating multi-cycle data
-  @@unique([studentId, competencyId])
+  @@unique([studentId, competencyId, courseCycleId])
   @@index([competencyId])
   @@index([studentId])
+  @@index([courseCycleId])
   @@map("competency_valuations")
+}
+
+model CompetencyPeriodValuation {
+  id               String              @id @default(uuid())
+  valuationId      String              @map("valuation_id")
+  periodItemId     String              @map("period_item_id")
+  gradeScaleValueId String?            @map("grade_scale_value_id")
+  gradeCode        String?             @map("grade_code")
+  internalStatus   GradeInternalStatus? @map("internal_status")
+  modificable      Boolean             @default(true)
+  imprimible       Boolean             @default(false)
+
+  valuation   CompetencyValuation       @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+  periodItem  GradingPeriodTemplateItem @relation(fields: [periodItemId], references: [id], onDelete: Restrict)
+  gradeValue  GradeScaleValue?          @relation(fields: [gradeScaleValueId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([valuationId, periodItemId])
+  @@index([valuationId])
+  @@index([periodItemId])
+  @@map("competency_period_valuations")
 }
 
 // ── Grade Scales ─────────────────────────────────────────
@@ -384,6 +400,7 @@ model GradeScaleValue {
 
   scale GradeScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
   notas Nota[]
+  competencyPeriodValuations CompetencyPeriodValuation[]
 
   @@index([scaleId])
   @@unique([scaleId, code])
@@ -1073,6 +1090,7 @@ model GradingPeriodTemplateItem {
 
   template GradingPeriodTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   dates    GradingPeriodDate[]
+  competencyPeriodValuations CompetencyPeriodValuation[]
 
   @@unique([templateId, sortOrder])
   @@unique([templateId, name])

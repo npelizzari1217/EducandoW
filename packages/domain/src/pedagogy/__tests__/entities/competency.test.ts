@@ -1,3 +1,10 @@
+/**
+ * T2.3 [RED] → T2.4 [GREEN]
+ * Rewrites CompetencyValuation tests to the slim entity that carries
+ * courseCycleId instead of flat period fields.
+ * Specs: MVM-1 (parent with courseCycleId), MVM-3 (different cycles OK).
+ */
+
 import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
 import { SubjectCompetency } from '../../entities/subject-competency';
@@ -5,6 +12,7 @@ import { CompetencyValuation } from '../../entities/competency-valuation';
 import type { SubjectCompetencyRepository } from '../../repositories/subject-competency-repository';
 import type { CompetencyValuationRepository } from '../../repositories/competency-valuation-repository';
 import type { StudyPlanRepository } from '../../repositories/study-plan-repository';
+import type { CourseCycleRepository } from '../../../course-cycle/repositories/course-cycle-repository';
 
 // ── SubjectCompetency ─────────────────────────────────────
 
@@ -94,128 +102,116 @@ describe('SubjectCompetencyRepository port signatures', () => {
   });
 });
 
-describe('CompetencyValuationRepository port signatures', () => {
-  it('exposes findByStudentAndStudyPlanSubject', () => {
+describe('CompetencyValuationRepository port signatures (PR2 slim)', () => {
+  it('exposes findByStudentAndStudyPlanSubject and bulkCreate; NOT findByStudentAndCompetency', () => {
     const mockRepo: CompetencyValuationRepository = {
       findById: async () => null,
       findByStudentAndStudyPlanSubject: async (_studentId: string, _studyPlanSubjectId: string) => [],
-      findByStudentAndCompetency: async () => null,
       save: async () => {},
       bulkCreate: async () => {},
       delete: async () => {},
     };
     expect(typeof mockRepo.findByStudentAndStudyPlanSubject).toBe('function');
+    expect(typeof mockRepo.bulkCreate).toBe('function');
+    // findByStudentAndCompetency must NOT exist on the slim port
+    expect((mockRepo as any).findByStudentAndCompetency).toBeUndefined();
   });
 });
 
 describe('StudyPlanRepository port signatures', () => {
-  it('exposes findStudyPlanSubjectIds', () => {
-    // partial check via intersection — only assert the new method
-    const check: Pick<StudyPlanRepository, 'findStudyPlanSubjectIds'> = {
+  it('exposes findStudyPlanSubjectIds (per-section) and findStudyPlanSubjectIdsByPlan (per-plan)', () => {
+    const check: Pick<StudyPlanRepository, 'findStudyPlanSubjectIds' | 'findStudyPlanSubjectIdsByPlan'> = {
       findStudyPlanSubjectIds: async (_courseSectionId: string, _subjectId: string) => [],
+      findStudyPlanSubjectIdsByPlan: async (_planId: string) => [],
     };
     expect(typeof check.findStudyPlanSubjectIds).toBe('function');
+    expect(typeof check.findStudyPlanSubjectIdsByPlan).toBe('function');
   });
 });
 
-// ── CompetencyValuation (regression, unchanged) ───────────
+describe('CourseCycleRepository port signatures', () => {
+  it('exposes findGradingContextByUuid returning {level, modality} or null', () => {
+    const check: Pick<CourseCycleRepository, 'findGradingContextByUuid'> = {
+      findGradingContextByUuid: async (_uuid: string) => ({ level: 1, modality: 0 }),
+    };
+    expect(typeof check.findGradingContextByUuid).toBe('function');
+  });
+});
 
-describe('CompetencyValuation', () => {
-  const defaults = {
-    competencyId: 'comp-1',
-    studentId: 'student-1',
-    valuation1: null as string | null,
-    valuation2: null as string | null,
-    valuation3: null as string | null,
-    valuation4: null as string | null,
-    modificable1: true,
-    modificable2: true,
-    modificable3: true,
-    modificable4: true,
-    imprimible1: false,
-    imprimible2: false,
-    imprimible3: false,
-    imprimible4: false,
-    periodActive: 1,
-  };
+// ── CompetencyValuation slim entity (PR2) ────────────────
 
-  it('creates with correct defaults', () => {
-    const v = CompetencyValuation.create(defaults);
+describe('CompetencyValuation slim', () => {
+  it('create({competencyId, studentId, courseCycleId}) sets all three fields', () => {
+    const v = CompetencyValuation.create({
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-uuid-1',
+    });
     expect(v.competencyId).toBe('comp-1');
     expect(v.studentId).toBe('student-1');
-    expect(v.valuation1).toBeNull();
-    expect(v.valuation2).toBeNull();
-    expect(v.valuation3).toBeNull();
-    expect(v.valuation4).toBeNull();
-    expect(v.modificable1).toBe(true);
-    expect(v.modificable2).toBe(true);
-    expect(v.modificable3).toBe(true);
-    expect(v.modificable4).toBe(true);
-    expect(v.imprimible1).toBe(false);
-    expect(v.imprimible2).toBe(false);
-    expect(v.imprimible3).toBe(false);
-    expect(v.imprimible4).toBe(false);
-    expect(v.periodActive).toBe(1);
+    expect(v.courseCycleId).toBe('cc-uuid-1');
     expect(v.active).toBe(true);
-  });
-
-  it('assigns a UUID on creation', () => {
-    const v = CompetencyValuation.create(defaults);
+    expect(v.deletedAt).toBeUndefined();
     expect(v.id.get()).toHaveLength(36);
   });
 
-  it('isModificable returns correct flag per period', () => {
-    const v = CompetencyValuation.create({ ...defaults, modificable2: false });
-    expect(v.isModificable(1)).toBe(true);
-    expect(v.isModificable(2)).toBe(false);
-    expect(v.isModificable(3)).toBe(true);
-    expect(v.isModificable(4)).toBe(true);
+  it('two valuations for same student+competency but different cycles are distinct (MVM-3)', () => {
+    const v1 = CompetencyValuation.create({
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-uuid-A',
+    });
+    const v2 = CompetencyValuation.create({
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-uuid-B',
+    });
+    expect(v1.courseCycleId).toBe('cc-uuid-A');
+    expect(v2.courseCycleId).toBe('cc-uuid-B');
+    expect(v1.id.get()).not.toBe(v2.id.get());
   });
 
-  it('setValuation updates the correct period', () => {
-    const v = CompetencyValuation.create(defaults);
-    v.setValuation(1, 'Logrado');
-    v.setValuation(3, 'En proceso');
-    expect(v.valuation1).toBe('Logrado');
-    expect(v.valuation2).toBeNull();
-    expect(v.valuation3).toBe('En proceso');
-    expect(v.valuation4).toBeNull();
-  });
-
-  it('setValuation can set back to null', () => {
-    const v = CompetencyValuation.create(defaults);
-    v.setValuation(1, 'Logrado');
-    v.setValuation(1, null);
-    expect(v.valuation1).toBeNull();
-  });
-
-  it('setModificable updates the correct period flag', () => {
-    const v = CompetencyValuation.create(defaults);
-    v.setModificable(2, false);
-    expect(v.modificable2).toBe(false);
-    expect(v.isModificable(2)).toBe(false);
-  });
-
-  it('setImprimible updates the correct period flag', () => {
-    const v = CompetencyValuation.create(defaults);
-    v.setImprimible(1, true);
-    v.setImprimible(4, true);
-    expect(v.imprimible1).toBe(true);
-    expect(v.imprimible2).toBe(false);
-    expect(v.imprimible4).toBe(true);
-  });
-
-  it('setPeriodActive updates periodActive', () => {
-    const v = CompetencyValuation.create(defaults);
-    v.setPeriodActive(3);
-    expect(v.periodActive).toBe(3);
-  });
-
-  it('softDelete marks inactive and sets deletedAt', () => {
-    const v = CompetencyValuation.create(defaults);
+  it('softDelete sets active=false and deletedAt', () => {
+    const v = CompetencyValuation.create({
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-uuid-1',
+    });
     expect(v.active).toBe(true);
     v.softDelete();
     expect(v.active).toBe(false);
     expect(v.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('reconstruct preserves all slim fields', () => {
+    const deletedAt = new Date('2026-01-01');
+    const v = CompetencyValuation.reconstruct({
+      id: Id.create(),
+      competencyId: 'comp-2',
+      studentId: 'student-2',
+      courseCycleId: 'cc-uuid-X',
+      active: false,
+      deletedAt,
+    });
+    expect(v.competencyId).toBe('comp-2');
+    expect(v.studentId).toBe('student-2');
+    expect(v.courseCycleId).toBe('cc-uuid-X');
+    expect(v.active).toBe(false);
+    expect(v.deletedAt).toEqual(deletedAt);
+  });
+
+  it('does NOT expose flat period fields (valuation1, modificable1, etc.)', () => {
+    const v = CompetencyValuation.create({
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-uuid-1',
+    });
+    expect((v as any).valuation1).toBeUndefined();
+    expect((v as any).modificable1).toBeUndefined();
+    expect((v as any).imprimible1).toBeUndefined();
+    expect((v as any).periodActive).toBeUndefined();
+    expect((v as any).setValuation).toBeUndefined();
+    expect((v as any).setModificable).toBeUndefined();
+    expect((v as any).setPeriodActive).toBeUndefined();
   });
 });

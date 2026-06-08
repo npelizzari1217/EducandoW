@@ -331,12 +331,14 @@ describe('GenerateCourseCyclesUseCase', () => {
   let mockRepo: ReturnType<typeof makeMockRepo>;
   let mockPlanRepo: ReturnType<typeof makeMockStudyPlanRepo>;
   let mockCycleRepo: ReturnType<typeof makeMockAcademicCycleRepo>;
+  // autoCreateUC is fire-and-forget; mock to avoid unhandled rejections
+  const mockAutoCreateUC = { execute: vi.fn().mockResolvedValue(undefined) } as never;
 
   beforeEach(() => {
     mockRepo = makeMockRepo();
     mockPlanRepo = makeMockStudyPlanRepo();
     mockCycleRepo = makeMockAcademicCycleRepo();
-    useCase = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo);
+    useCase = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, mockAutoCreateUC);
   });
 
   // 1. All new — no pre-existing CourseCycles
@@ -495,5 +497,26 @@ describe('GenerateCourseCyclesUseCase', () => {
     await expect(
       useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' }),
     ).rejects.toThrow(AcademicCycleClosedError);
+  });
+
+  // ACT-5: autoCreateUC rejection is fire-and-forget — generate still succeeds
+  it('succeeds even when autoCreateUC.execute rejects (fire-and-forget isolation)', async () => {
+    const failingAutoCreateUC = { execute: vi.fn().mockRejectedValue(new Error('boom')) } as never;
+    const uc = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, failingAutoCreateUC);
+
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+    ]);
+    mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+    const result = await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    expect(result.created).toBe(1);
+    expect(result.updated).toBe(0);
+    expect(result.total).toBe(1);
   });
 });

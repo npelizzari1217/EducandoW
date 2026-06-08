@@ -141,6 +141,20 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
     return rows.map((r) => r.id);
   }
 
+  /**
+   * Returns all StudyPlanSubject IDs that belong to any StudyPlanCourse under the given plan.
+   * Design §6.2: CourseCycle.studyPlanId → StudyPlanCourse[] → StudyPlanSubject[]
+   */
+  async findStudyPlanSubjectIdsByPlan(planId: string): Promise<string[]> {
+    const rows = await this.client.studyPlanSubject.findMany({
+      where: {
+        studyPlanCourse: { studyPlanId: planId },
+      },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
   // ── Dependency check ──
 
   async getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }> {

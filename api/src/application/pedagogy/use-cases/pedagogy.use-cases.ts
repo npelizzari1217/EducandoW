@@ -6,9 +6,6 @@ import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNot
 import { DomainError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
 import type { UpdateAcademicCycleInput } from '@educandow/domain';
-import type { AutoCreateCompetencyValuationsUC } from './competency.use-cases';
-
-
 function buildLevel(level: string, modality?: string): Level {
   const parsed = Level.create(level);
   if (parsed.isOk()) return parsed.unwrap();
@@ -269,21 +266,11 @@ export class UpdateCourseSectionUC {
 export class CreateSubjectAssignmentUC {
   constructor(
     private r: SubjectAssignmentRepository,
-    private autoCreateUC?: AutoCreateCompetencyValuationsUC,
   ) {}
 
   async execute(input: { subjectId: string; teacherId: string; courseSectionId: string }) {
     const a = SubjectAssignment.create(input);
     await this.r.save(a);
-
-    // Auto-create competency valuations — fire-and-forget: failure MUST NOT propagate.
-    // Spec 2 Req 3 Scenario 2: SubjectAssignment creation succeeds regardless of AutoCreate outcome.
-    if (this.autoCreateUC) {
-      this.autoCreateUC.executeForSubjectAssignment(input.subjectId, input.courseSectionId).catch((e) => {
-        console.error('[CreateSubjectAssignmentUC] AutoCreate failed (non-blocking):', e);
-      });
-    }
-
     return ok(a);
   }
 }

@@ -6,12 +6,32 @@ import {
   ListCompetencyValuationsUC,
   CopySubjectCompetenciesUC,
   UpdateSubjectCompetencyUC,
+  GradePeriodValuationUC,
 } from '../use-cases/competency.use-cases';
-import { SubjectCompetency, CompetencyValuation, Id } from '@educandow/domain';
+import {
+  SubjectCompetency,
+  CompetencyValuation,
+  CompetencyPeriodValuation,
+  GradingPeriodTemplate,
+  GradeScale,
+  GradeScaleValue,
+  Id,
+  CompetencyValuationNotFoundError,
+  GradeScaleNotConfiguredError,
+  PeriodItemNotInTemplateError,
+  GradeScaleValueMismatchError,
+  PeriodLockedError,
+  ValueNotFoundError,
+  PeriodTemplateNotFoundError,
+} from '@educandow/domain';
 import type {
   SubjectCompetencyRepository,
   CompetencyValuationRepository,
   StudyPlanRepository,
+  CompetencyPeriodValuationRepository,
+  CourseCycleRepository,
+  GradeScaleRepository,
+  GradingPeriodRepository,
 } from '@educandow/domain';
 
 // ── Mock TenantContext ────────────────────────────────────
@@ -45,9 +65,8 @@ function makeCompetencyRepo(competencies: SubjectCompetency[] = []): SubjectComp
   } as unknown as SubjectCompetencyRepository;
 }
 
-function makeValuationRepo(existing: CompetencyValuation | null = null): CompetencyValuationRepository {
+function makeValuationRepo(): CompetencyValuationRepository {
   return {
-    findByStudentAndCompetency: vi.fn().mockResolvedValue(existing),
     findByStudentAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
     findById: vi.fn().mockResolvedValue(null),
     bulkCreate: vi.fn().mockResolvedValue(undefined),
@@ -56,9 +75,10 @@ function makeValuationRepo(existing: CompetencyValuation | null = null): Compete
   } as unknown as CompetencyValuationRepository;
 }
 
-function makeStudyPlanRepo(spsIds: string[] = []): StudyPlanRepository {
+function makeStudyPlanRepo(spsIdsByPlan: string[] = []): StudyPlanRepository {
   return {
-    findStudyPlanSubjectIds: vi.fn().mockResolvedValue(spsIds),
+    findStudyPlanSubjectIds: vi.fn().mockResolvedValue(spsIdsByPlan),
+    findStudyPlanSubjectIdsByPlan: vi.fn().mockResolvedValue(spsIdsByPlan),
     findById: vi.fn().mockResolvedValue(null),
     findAll: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
@@ -76,11 +96,11 @@ function makeStudyPlanRepo(spsIds: string[] = []): StudyPlanRepository {
 
 function makePrismaClient(overrides: Record<string, unknown> = {}) {
   return {
+    courseCycle: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
     courseSection: {
       findUnique: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-    subjectAssignment: {
       findMany: vi.fn().mockResolvedValue([]),
     },
     enrollment: {
@@ -88,17 +108,6 @@ function makePrismaClient(overrides: Record<string, unknown> = {}) {
     },
     ...overrides,
   };
-}
-
-function makeExistingValuation(competencyId: string, studentId: string): CompetencyValuation {
-  return CompetencyValuation.create({
-    competencyId,
-    studentId,
-    valuation1: null, valuation2: null, valuation3: null, valuation4: null,
-    modificable1: true, modificable2: true, modificable3: true, modificable4: true,
-    imprimible1: false, imprimible2: false, imprimible3: false, imprimible4: false,
-    periodActive: 1,
-  });
 }
 
 // ── CreateSubjectCompetencyUC ─────────────────────────────
@@ -144,24 +153,58 @@ describe('ListSubjectCompetenciesUC', () => {
   });
 });
 
-// ── AutoCreateCompetencyValuationsUC.executeForSubjectAssignment ──
+// ── AutoCreateCompetencyValuationsUC.execute({ courseCycleId }) ──
+// [TDD RED→GREEN] New trigger: CourseCycle instantiation is the sole creation path.
+// Old executeForSubjectAssignment / executeForEnrollment / executeForNewEnrollment removed.
 
-describe('AutoCreateCompetencyValuationsUC.executeForSubjectAssignment', () => {
+describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('navigates through StudyPlan hierarchy to create valuations', async () => {
+  it('creates parent valuations for all (student × competency) pairs in a CourseCycle', async () => {
     const comp1 = makeCompetency('comp-uuid-1', 'sps-1');
     const comp2 = makeCompetency('comp-uuid-2', 'sps-1');
     const competencyRepo = makeCompetencyRepo([comp1, comp2]);
-    const valuationRepo = makeValuationRepo(null);
+    const valuationRepo = makeValuationRepo();
     const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
 
     const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
       courseSection: {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-        findMany: vi.fn().mockResolvedValue([]),
+      },
+      enrollment: {
+        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }, { studentId: 'student-2' }]),
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
+
+    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
+
+    expect(studyPlanRepo.findStudyPlanSubjectIdsByPlan).toHaveBeenCalledWith('plan-1');
+    expect(competencyRepo.findActiveByStudyPlanSubject).toHaveBeenCalledWith('sps-1');
+    expect(valuationRepo.bulkCreate).toHaveBeenCalledTimes(1);
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
+    // 2 students × 2 competencies = 4 valuations
+    expect(created).toHaveLength(4);
+  });
+
+  it('each created valuation carries the correct courseCycleId', async () => {
+    const comp = makeCompetency('comp-uuid-1', 'sps-1');
+    const competencyRepo = makeCompetencyRepo([comp]);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
+
+    const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+      courseSection: {
+        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
       enrollment: {
         findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
@@ -170,49 +213,60 @@ describe('AutoCreateCompetencyValuationsUC.executeForSubjectAssignment', () => {
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
     const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForSubjectAssignment('subj-1', 'section-1');
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
-    expect(studyPlanRepo.findStudyPlanSubjectIds).toHaveBeenCalledWith('section-1', 'subj-1');
-    expect(competencyRepo.findActiveByStudyPlanSubject).toHaveBeenCalledWith('sps-1');
-    expect(valuationRepo.bulkCreate).toHaveBeenCalledTimes(1);
-    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
-    expect(created).toHaveLength(2);
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetencyValuation[];
+    expect(created[0].courseCycleId).toBe('cc-uuid-1');
+    expect(created[0].studentId).toBe('student-1');
+    expect(created[0].competencyId).toBe('comp-uuid-1');
   });
 
-  it('no-op when findStudyPlanSubjectIds returns empty array', async () => {
+  it('no-op when CourseCycle not found', async () => {
     const competencyRepo = makeCompetencyRepo([]);
-    const valuationRepo = makeValuationRepo(null);
+    const valuationRepo = makeValuationRepo();
     const studyPlanRepo = makeStudyPlanRepo([]);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForSubjectAssignment('subj-1', 'section-1');
+    const prismaClient = makePrismaClient({
+      courseCycle: { findUnique: vi.fn().mockResolvedValue(null) },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    expect(competencyRepo.findActiveByStudyPlanSubject).not.toHaveBeenCalled();
+    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    await uc.execute({ courseCycleId: 'cc-nonexistent' });
+
+    expect(studyPlanRepo.findStudyPlanSubjectIdsByPlan).not.toHaveBeenCalled();
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
   });
 
-  it('no-op when zero competencies found', async () => {
+  it('no-op when study plan has no subjects', async () => {
     const competencyRepo = makeCompetencyRepo([]);
-    const valuationRepo = makeValuationRepo(null);
-    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo([]); // returns empty
+
+    const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
     const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForSubjectAssignment('subj-1', 'section-1');
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
   });
 
-  it('does not duplicate if valuation already exists (idempotency)', async () => {
-    const comp = makeCompetency('comp-uuid-1', 'sps-1');
-    const existingValuation = makeExistingValuation('comp-uuid-1', 'student-1');
-    const competencyRepo = makeCompetencyRepo([comp]);
-    const valuationRepo = makeValuationRepo(existingValuation);
+  it('no-op when no competencies configured for any subject', async () => {
+    const competencyRepo = makeCompetencyRepo([]); // no competencies
+    const valuationRepo = makeValuationRepo();
     const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
 
     const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
       courseSection: {
         findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-        findMany: vi.fn().mockResolvedValue([]),
       },
       enrollment: {
         findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
@@ -221,150 +275,100 @@ describe('AutoCreateCompetencyValuationsUC.executeForSubjectAssignment', () => {
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
     const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForSubjectAssignment('subj-1', 'section-1');
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
   });
-});
 
-// ── AutoCreateCompetencyValuationsUC.executeForEnrollment ──
-
-describe('AutoCreateCompetencyValuationsUC.executeForEnrollment', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('creates valuations for all competencies via hierarchy when enrolling', async () => {
-    const comp1 = makeCompetency('comp-uuid-1', 'sps-1');
-    const comp2 = makeCompetency('comp-uuid-2', 'sps-1');
-    const competencyRepo = makeCompetencyRepo([comp1, comp2]);
-    const valuationRepo = makeValuationRepo(null);
+  it('no-op when no students enrolled in the course section', async () => {
+    const comp = makeCompetency('comp-uuid-1', 'sps-1');
+    const competencyRepo = makeCompetencyRepo([comp]);
+    const valuationRepo = makeValuationRepo();
     const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
 
     const prismaClient = makePrismaClient({
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{ subjectId: 'subj-1' }]),
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+      courseSection: {
+        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
+      },
+      enrollment: {
+        findMany: vi.fn().mockResolvedValue([]), // no students
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
     const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForEnrollment('student-1', 'section-1');
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
-    expect(studyPlanRepo.findStudyPlanSubjectIds).toHaveBeenCalledWith('section-1', 'subj-1');
-    expect(competencyRepo.findActiveByStudyPlanSubject).toHaveBeenCalledWith('sps-1');
+    expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
+  });
+
+  it('calls bulkCreate with full set; skipDuplicates at DB layer handles idempotency', async () => {
+    const comp = makeCompetency('comp-uuid-1', 'sps-1');
+    const competencyRepo = makeCompetencyRepo([comp]);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
+
+    const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+      courseSection: {
+        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
+      },
+      enrollment: {
+        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
+
+    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
+
+    // bulkCreate is always called with the full set; the DB handles skipDuplicates
     expect(valuationRepo.bulkCreate).toHaveBeenCalledTimes(1);
     const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
-    expect(created).toHaveLength(2);
+    expect(created).toHaveLength(1);
   });
 
-  it('skips creation when no subject assignments exist', async () => {
-    const competencyRepo = makeCompetencyRepo([]);
-    const valuationRepo = makeValuationRepo(null);
-    const studyPlanRepo = makeStudyPlanRepo([]);
+  it('handles multiple study-plan subjects with multiple competencies each', async () => {
+    const comp1 = makeCompetency('comp-1', 'sps-1');
+    const comp2 = makeCompetency('comp-2', 'sps-1');
+    const comp3 = makeCompetency('comp-3', 'sps-2');
+
+    const competencyRepo = {
+      ...makeCompetencyRepo(),
+      findActiveByStudyPlanSubject: vi.fn().mockImplementation((spsId: string) => {
+        if (spsId === 'sps-1') return Promise.resolve([comp1, comp2]);
+        if (spsId === 'sps-2') return Promise.resolve([comp3]);
+        return Promise.resolve([]);
+      }),
+    } as unknown as SubjectCompetencyRepository;
+
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo(['sps-1', 'sps-2']);
 
     const prismaClient = makePrismaClient({
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([]),
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-    });
-    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
-
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForEnrollment('student-1', 'section-1');
-
-    expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
-  });
-
-  it('skips creation when subject has no active competencies via hierarchy', async () => {
-    const competencyRepo = makeCompetencyRepo([]);
-    const valuationRepo = makeValuationRepo(null);
-    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
-
-    const prismaClient = makePrismaClient({
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{ subjectId: 'subj-1' }]),
-      },
-    });
-    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
-
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForEnrollment('student-1', 'section-1');
-
-    expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
-  });
-
-  it('does not duplicate if valuation already exists', async () => {
-    const comp = makeCompetency('comp-uuid-1', 'sps-1');
-    const existingValuation = makeExistingValuation('comp-uuid-1', 'student-1');
-    const competencyRepo = makeCompetencyRepo([comp]);
-    const valuationRepo = makeValuationRepo(existingValuation);
-    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
-
-    const prismaClient = makePrismaClient({
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{ subjectId: 'subj-1' }]),
-      },
-    });
-    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
-
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForEnrollment('student-1', 'section-1');
-
-    expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
-  });
-});
-
-// ── AutoCreateCompetencyValuationsUC.executeForNewEnrollment ──
-
-describe('AutoCreateCompetencyValuationsUC.executeForNewEnrollment', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('finds course sections by enrollment data and creates valuations via hierarchy', async () => {
-    const comp = makeCompetency('comp-uuid-1', 'sps-1');
-    const competencyRepo = makeCompetencyRepo([comp]);
-    const valuationRepo = makeValuationRepo(null);
-    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
-
-    const prismaClient = makePrismaClient({
       courseSection: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'section-1' }]),
-        findUnique: vi.fn().mockResolvedValue(null),
+        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
       },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{ subjectId: 'subj-1' }]),
-      },
-    });
-    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
-
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForNewEnrollment('student-1', { level: 2, grade: '3°', division: 'A', academicYear: '2026' });
-
-    expect(prismaClient.courseSection.findMany).toHaveBeenCalled();
-    expect(studyPlanRepo.findStudyPlanSubjectIds).toHaveBeenCalled();
-    expect(competencyRepo.findActiveByStudyPlanSubject).toHaveBeenCalled();
-    expect(valuationRepo.bulkCreate).toHaveBeenCalledTimes(1);
-  });
-
-  it('skips if no course sections match enrollment data', async () => {
-    const competencyRepo = makeCompetencyRepo([]);
-    const valuationRepo = makeValuationRepo(null);
-    const studyPlanRepo = makeStudyPlanRepo([]);
-
-    const prismaClient = makePrismaClient({
-      courseSection: {
-        findMany: vi.fn().mockResolvedValue([]),
-        findUnique: vi.fn().mockResolvedValue(null),
+      enrollment: {
+        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
       },
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
     const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
-    await uc.executeForNewEnrollment('student-1', { level: 2, grade: '3°', division: 'A', academicYear: '2026' });
+    await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
-    expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
+    // 1 student × 3 competencies (2 from sps-1 + 1 from sps-2)
+    expect(created).toHaveLength(3);
   });
 });
 
@@ -517,9 +521,350 @@ describe('UpdateSubjectCompetencyUC', () => {
 
 describe('ListCompetencyValuationsUC', () => {
   it('calls findByStudentAndStudyPlanSubject with studyPlanSubjectId', async () => {
-    const valuationRepo = makeValuationRepo(null);
+    const valuationRepo = makeValuationRepo();
     const uc = new ListCompetencyValuationsUC(valuationRepo);
     await uc.execute('student-1', 'sps-1');
     expect(valuationRepo.findByStudentAndStudyPlanSubject).toHaveBeenCalledWith('student-1', 'sps-1');
+  });
+});
+
+// ── GradePeriodValuationUC ────────────────────────────────
+// [TDD RED→GREEN] Grade a (valuation, periodItem) pair with lazy child creation.
+
+describe('GradePeriodValuationUC', () => {
+  // ── Internal helpers (scoped to this describe) ─────────
+
+  function makeParent(): CompetencyValuation {
+    return CompetencyValuation.reconstruct({
+      id: Id.reconstruct('v-1'),
+      competencyId: 'comp-1',
+      studentId: 'student-1',
+      courseCycleId: 'cc-1',
+      active: true,
+    });
+  }
+
+  function makeTemplate(itemIds: string[] = ['item-7']): GradingPeriodTemplate {
+    return GradingPeriodTemplate.reconstruct({
+      id: 'template-1',
+      name: 'Template',
+      level: 1,
+      modality: 0,
+      active: true,
+      deletedAt: null,
+      items: itemIds.map((id, i) => ({ id, templateId: 'template-1', name: `Item ${i + 1}`, sortOrder: i + 1 })),
+    });
+  }
+
+  function makeScale(id = 'scale-1'): GradeScale {
+    return GradeScale.reconstruct({ id, name: 'Scale', level: 1, modality: 0, active: true, deletedAt: null, values: [] });
+  }
+
+  function makeScaleValue(id = 'gsv-a', scaleId = 'scale-1'): GradeScaleValue {
+    return GradeScaleValue.reconstruct({
+      id,
+      scaleId,
+      code: 'MB',
+      label: 'Muy Bueno',
+      internalStatus: 'APROBADO',
+      sortOrder: 1,
+      active: true,
+      deletedAt: null,
+    });
+  }
+
+  function makeValRepo(val?: CompetencyValuation | null): CompetencyValuationRepository {
+    return {
+      findById: vi.fn().mockResolvedValue(val ?? null),
+      findByStudentAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
+      bulkCreate: vi.fn().mockResolvedValue(undefined),
+      save: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+    } as unknown as CompetencyValuationRepository;
+  }
+
+  function makeCCRepo(ctx?: { level: number; modality: number } | null): CourseCycleRepository {
+    return {
+      findGradingContextByUuid: vi.fn().mockResolvedValue(ctx ?? null),
+      findById: vi.fn().mockResolvedValue(null),
+      findByUuid: vi.fn().mockResolvedValue(null),
+      findByPair: vi.fn().mockResolvedValue(null),
+      findAll: vi.fn().mockResolvedValue({ data: [], page: 1, pageSize: 10, total: 0 }),
+      save: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ created: 0, updated: 0, total: 0 }),
+      softDelete: vi.fn().mockResolvedValue(undefined),
+    } as unknown as CourseCycleRepository;
+  }
+
+  function makeGradingPeriodRepo(template?: GradingPeriodTemplate | null): GradingPeriodRepository {
+    return {
+      findActiveTemplateByLevelModality: vi.fn().mockResolvedValue(template ?? null),
+      findTemplateById: vi.fn().mockResolvedValue(null),
+      listTemplates: vi.fn().mockResolvedValue([]),
+      existsTemplateName: vi.fn().mockResolvedValue(false),
+      saveTemplate: vi.fn().mockResolvedValue(undefined),
+      countDatesForTemplate: vi.fn().mockResolvedValue(0),
+      softDeleteTemplate: vi.fn().mockResolvedValue(undefined),
+      listDates: vi.fn().mockResolvedValue([]),
+      saveDates: vi.fn().mockResolvedValue(undefined),
+      findDatesByCycle: vi.fn().mockResolvedValue([]),
+    } as unknown as GradingPeriodRepository;
+  }
+
+  function makeGradeScaleRepo(scale?: GradeScale | null, value?: GradeScaleValue | null): GradeScaleRepository {
+    return {
+      findActiveByLevelModality: vi.fn().mockResolvedValue(scale ?? null),
+      findValueById: vi.fn().mockResolvedValue(value ?? null),
+      findById: vi.fn().mockResolvedValue(null),
+      list: vi.fn().mockResolvedValue([]),
+      existsByName: vi.fn().mockResolvedValue(false),
+      countActiveValues: vi.fn().mockResolvedValue(0),
+      save: vi.fn().mockResolvedValue(undefined),
+      softDelete: vi.fn().mockResolvedValue(undefined),
+      saveValue: vi.fn().mockResolvedValue(undefined),
+      softDeleteValue: vi.fn().mockResolvedValue(undefined),
+      existsValueCode: vi.fn().mockResolvedValue(false),
+    } as unknown as GradeScaleRepository;
+  }
+
+  function makePeriodRepo(child?: CompetencyPeriodValuation | null): CompetencyPeriodValuationRepository {
+    return {
+      findByValuationAndPeriod: vi.fn().mockResolvedValue(child ?? null),
+      save: vi.fn().mockResolvedValue(undefined),
+      listByValuation: vi.fn().mockResolvedValue([]),
+    } as unknown as CompetencyPeriodValuationRepository;
+  }
+
+  // ── GPE-1: Happy path lazy create ─────────────────────
+
+  it('GPE-1: lazy-creates child row and snapshots grade on first grade', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const scaleValue = makeScaleValue('gsv-a', 'scale-1');
+    const periodRepo = makePeriodRepo(); // null → lazy create
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, scaleValue),
+      periodRepo,
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a' });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.valuationId).toBe('v-1');
+    expect(child.periodItemId).toBe('item-7');
+    expect(child.gradeCode).toBe('MB');
+    expect(child.internalStatus).toBe('APROBADO');
+    expect(child.gradeScaleValueId).toBe('gsv-a');
+    expect(periodRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  // ── GPE-2: Update existing child row ──────────────────
+
+  it('GPE-2: updates existing child row and re-snapshots grade', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const newValue = makeScaleValue('gsv-mb', 'scale-1');
+    const existingChild = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-old',
+      gradeCode: 'B',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: false,
+    });
+    const periodRepo = makePeriodRepo(existingChild);
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, newValue),
+      periodRepo,
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-mb' });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.id).toBe('child-1');
+    expect(child.gradeCode).toBe('MB'); // re-snapshotted from gsv-mb
+    expect(child.gradeScaleValueId).toBe('gsv-mb');
+    expect(periodRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  // ── GPE-3: Clear grade ────────────────────────────────
+
+  it('GPE-3: clears grade when gradeScaleValueId is null', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const existingChild = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      gradeCode: 'MB',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: false,
+    });
+    const periodRepo = makePeriodRepo(existingChild);
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(), // scale not needed for clear
+      periodRepo,
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: null });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.gradeScaleValueId).toBeNull();
+    expect(child.gradeCode).toBeNull();
+    expect(child.internalStatus).toBeNull();
+    expect(periodRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  // ── GPE-4: Locked period ──────────────────────────────
+
+  it('GPE-4: returns PeriodLockedError when child has modificable=false', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const scaleValue = makeScaleValue();
+    const lockedChild = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      gradeCode: 'MB',
+      internalStatus: 'APROBADO',
+      modificable: false,
+      imprimible: false,
+    });
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, scaleValue),
+      makePeriodRepo(lockedChild),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(PeriodLockedError);
+  });
+
+  // ── GPE-5: Valuation not found ────────────────────────
+
+  it('GPE-5: returns CompetencyValuationNotFoundError when valuation not found', async () => {
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(null),
+      makeCCRepo(),
+      makeGradingPeriodRepo(),
+      makeGradeScaleRepo(),
+      makePeriodRepo(),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'nonexistent', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(CompetencyValuationNotFoundError);
+  });
+
+  // ── GPE-6: Template not configured ────────────────────
+
+  it('GPE-6: returns PeriodTemplateNotFoundError when no active template for level+modality', async () => {
+    const parent = makeParent();
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(null), // no template
+      makeGradeScaleRepo(),
+      makePeriodRepo(),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(PeriodTemplateNotFoundError);
+  });
+
+  // ── GPE-7: periodItemId not in template ───────────────
+
+  it('GPE-7: returns PeriodItemNotInTemplateError when periodItemId is not in template', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']); // only item-7 is valid
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(),
+      makePeriodRepo(),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-99', gradeScaleValueId: 'gsv-a' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(PeriodItemNotInTemplateError);
+  });
+
+  // ── GPE-8: Scale value belongs to wrong scale ─────────
+
+  it('GPE-8: returns GradeScaleValueMismatchError when scaleValue.scaleId !== scale.id', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale('scale-1');
+    const wrongValue = makeScaleValue('gsv-z', 'scale-OTHER'); // different scale
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, wrongValue),
+      makePeriodRepo(),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-z' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(GradeScaleValueMismatchError);
+  });
+
+  // ── GPE-9: Grade scale value UUID not found ───────────
+
+  it('GPE-9: returns ValueNotFoundError when gradeScaleValueId is not found', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const gradeScaleRepo = makeGradeScaleRepo(scale, null); // value = null → not found
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      gradeScaleRepo,
+      makePeriodRepo(),
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-unknown' });
+
+    expect(result.isOk()).toBe(false);
+    expect(result.unwrapErr()).toBeInstanceOf(ValueNotFoundError);
   });
 });

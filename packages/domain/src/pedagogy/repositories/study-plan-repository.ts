@@ -27,4 +27,10 @@ export interface StudyPlanRepository {
   getDependencies(planId: string): Promise<{ courseCount: number; courseCycleCount: number }>;
   /** Returns all StudyPlanSubject IDs for a given courseSection + subject combination (may span multiple plans). */
   findStudyPlanSubjectIds(courseSectionId: string, subjectId: string): Promise<string[]>;
+  /**
+   * Returns all StudyPlanSubject IDs that belong to any StudyPlanCourse under the given plan.
+   * Used by AutoCreateCompetencyValuationsUC to enumerate all competency-bearing subjects in a cycle.
+   * Design §6.2: CourseCycle.studyPlanId → StudyPlanCourse[] → StudyPlanSubject[]
+   */
+  findStudyPlanSubjectIdsByPlan(planId: string): Promise<string[]>;
 }

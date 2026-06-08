@@ -30,4 +30,10 @@ export interface CourseCycleRepository {
   save(courseCycle: CourseCycle): Promise<void>;
   createMany(courseCycles: CourseCycle[]): Promise<CreateManyResult>;
   softDelete(id: string): Promise<void>;
+  /**
+   * Returns the (level, modality) pair for grading config lookup, derived from
+   * CourseCycle → StudyPlan. Returns null when the cycle does not exist.
+   * Design §2: modality resolved via StudyPlan.modality (authoritative source).
+   */
+  findGradingContextByUuid(courseCycleUuid: string): Promise<{ level: number; modality: number } | null>;
 }

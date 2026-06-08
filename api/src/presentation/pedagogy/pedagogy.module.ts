@@ -16,6 +16,10 @@ import { PrismaAcademicCycleRepository } from '../../infrastructure/persistence/
 import { PrismaStudyPlanRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-study-plan.repository';
 import { PrismaSubjectCompetencyRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-competency.repository';
 import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
+import { PrismaCompetencyPeriodValuationRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-period-valuation.repository';
+import { PrismaGradeScaleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grade-scale.repository';
+import { PrismaGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grading-period.repository';
+import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 
 const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaSubjectAssignmentRepo, PrismaEvaluacionRepo, PrismaNotaRepo, PrismaPeriodoEvaluacionRepo, PrismaNotaTrimestralRepo, PrismaAttendanceRepo, PrismaAcademicCycleRepository, PrismaStudyPlanRepository, PrismaSubjectCompetencyRepo, PrismaCompetencyValuationRepo];
 const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignmentRepository', 'EvaluacionRepository', 'NotaRepository', 'PeriodoEvaluacionRepository', 'NotaTrimestralRepository', 'AttendanceRepository', 'AcademicCycleRepository', 'StudyPlanRepository', 'SubjectCompetencyRepository', 'CompetencyValuationRepository'];
@@ -35,7 +39,7 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: UC.ListCourseSectionsUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.ListCourseSectionsUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.DeleteCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.DeleteCourseSectionUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.UpdateCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.UpdateCourseSectionUC(r), inject: ['CourseSectionRepository'] },
-    { provide: UC.CreateSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo, auto: CUC.AutoCreateCompetencyValuationsUC) => new UC.CreateSubjectAssignmentUC(r, auto), inject: ['SubjectAssignmentRepository', CUC.AutoCreateCompetencyValuationsUC] },
+    { provide: UC.CreateSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.CreateSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.ListSubjectAssignmentsUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.ListSubjectAssignmentsUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.DeleteSubjectAssignmentUC, useFactory: (r: PrismaSubjectAssignmentRepo) => new UC.DeleteSubjectAssignmentUC(r), inject: ['SubjectAssignmentRepository'] },
     { provide: UC.CreateEvaluacionUC, useFactory: (r: PrismaEvaluacionRepo) => new UC.CreateEvaluacionUC(r), inject: ['EvaluacionRepository'] },
@@ -78,9 +82,28 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'SubjectAssignme
     { provide: CUC.DeleteSubjectCompetencyUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.DeleteSubjectCompetencyUC(r), inject: ['SubjectCompetencyRepository'] },
     { provide: CUC.ListCompetencyValuationsUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.ListCompetencyValuationsUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.GetCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.GetCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
-    { provide: CUC.UpdateCompetencyValuationUC, useFactory: (r: PrismaCompetencyValuationRepo) => new CUC.UpdateCompetencyValuationUC(r), inject: ['CompetencyValuationRepository'] },
     { provide: CUC.CopySubjectCompetenciesUC, useFactory: (r: PrismaSubjectCompetencyRepo) => new CUC.CopySubjectCompetenciesUC(r), inject: ['SubjectCompetencyRepository'] },
     { provide: CUC.AutoCreateCompetencyValuationsUC, useFactory: (comp: PrismaSubjectCompetencyRepo, val: PrismaCompetencyValuationRepo, sp: PrismaStudyPlanRepository) => new CUC.AutoCreateCompetencyValuationsUC(comp, val, sp), inject: ['SubjectCompetencyRepository', 'CompetencyValuationRepository', 'StudyPlanRepository'] },
+    // PR3 — period grading repos + UC
+    PrismaCompetencyPeriodValuationRepository,
+    { provide: 'CompetencyPeriodValuationRepository', useExisting: PrismaCompetencyPeriodValuationRepository },
+    PrismaGradeScaleRepository,
+    { provide: 'GradeScaleRepository', useExisting: PrismaGradeScaleRepository },
+    PrismaGradingPeriodRepository,
+    { provide: 'GradingPeriodRepository', useExisting: PrismaGradingPeriodRepository },
+    PrismaCourseCycleRepository,
+    { provide: 'CourseCycleRepository', useExisting: PrismaCourseCycleRepository },
+    {
+      provide: CUC.GradePeriodValuationUC,
+      useFactory: (
+        val: PrismaCompetencyValuationRepo,
+        cc: PrismaCourseCycleRepository,
+        period: PrismaGradingPeriodRepository,
+        scale: PrismaGradeScaleRepository,
+        periodVal: PrismaCompetencyPeriodValuationRepository,
+      ) => new CUC.GradePeriodValuationUC(val, cc, period, scale, periodVal),
+      inject: ['CompetencyValuationRepository', 'CourseCycleRepository', 'GradingPeriodRepository', 'GradeScaleRepository', 'CompetencyPeriodValuationRepository'],
+    },
   ],
 })
 export class PedagogyModule {}

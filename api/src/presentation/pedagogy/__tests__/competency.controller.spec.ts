@@ -1,9 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { PedagogyController } from '../pedagogy.controller';
-import { ok, err, ValidationError, NotFoundError } from '@educandow/domain';
-import { CreateSubjectCompetencySchema, CopySubjectCompetenciesSchema } from '../dto/competency.dto';
+import {
+  ok, err, ValidationError, NotFoundError,
+  CompetencyPeriodValuation,
+  CompetencyValuationNotFoundError,
+  ValueNotFoundError,
+  PeriodLockedError,
+  GradeScaleNotConfiguredError,
+} from '@educandow/domain';
+import { CreateSubjectCompetencySchema, CopySubjectCompetenciesSchema, UpdatePeriodGradeSchema } from '../dto/competency.dto';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+
+// Mock TenantContext so the controller's pre-resolve clientCall is a no-op
+vi.mock('../../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn().mockReturnValue(null),
+    getInstitutionId: vi.fn().mockReturnValue(null),
+  },
+}));
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal controller instance that bypasses the NestJS DI
@@ -164,6 +179,139 @@ describe('PedagogyController — PATCH /subject-competencies/:uuid', () => {
 
     try {
       await ctrl.updateCompetency('some-uuid', { name: 'Lectura' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DTO — UpdatePeriodGradeSchema
+// ---------------------------------------------------------------------------
+describe('UpdatePeriodGradeSchema — ZodValidationPipe', () => {
+  const pipe = new ZodValidationPipe(UpdatePeriodGradeSchema);
+
+  it('accepts a valid UUID gradeScaleValueId', () => {
+    expect(() => pipe.transform({ gradeScaleValueId: '123e4567-e89b-12d3-a456-426614174000' })).not.toThrow();
+  });
+
+  it('accepts null gradeScaleValueId (clear grade)', () => {
+    expect(() => pipe.transform({ gradeScaleValueId: null })).not.toThrow();
+  });
+
+  it('rejects a non-UUID string', () => {
+    expect(() => pipe.transform({ gradeScaleValueId: 'not-a-uuid' })).toThrow();
+  });
+
+  it('rejects missing gradeScaleValueId key', () => {
+    expect(() => pipe.transform({})).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Controller — PATCH /competency-valuations/:uuid/periods/:periodItemId
+// ---------------------------------------------------------------------------
+describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:periodItemId', () => {
+  const mockGradePeriodUC = { execute: vi.fn() };
+  const mockBoletinInvalidation = { invalidateForStudent: vi.fn().mockResolvedValue(undefined) };
+  let ctrl: PedagogyController;
+
+  function makeChild(): CompetencyPeriodValuation {
+    return CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      gradeCode: 'MB',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: false,
+    });
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    ctrl = buildController({
+      gradePeriodUC: mockGradePeriodUC,
+      boletinInvalidation: mockBoletinInvalidation,
+    });
+  });
+
+  it('returns HTTP 200 with period valuation data on success', async () => {
+    mockGradePeriodUC.execute.mockResolvedValue(ok(makeChild()));
+
+    const result = await ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a' });
+
+    expect(result).toEqual({
+      data: {
+        id: 'child-1',
+        valuationId: 'v-1',
+        periodItemId: 'item-7',
+        gradeScaleValueId: 'gsv-a',
+        gradeCode: 'MB',
+        internalStatus: 'APROBADO',
+        modificable: true,
+        imprimible: false,
+      },
+    });
+    expect(mockGradePeriodUC.execute).toHaveBeenCalledWith({
+      valuationUuid: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+    });
+  });
+
+  it('returns HTTP 404 when UC returns CompetencyValuationNotFoundError', async () => {
+    mockGradePeriodUC.execute.mockResolvedValue(
+      err(new CompetencyValuationNotFoundError('v-nonexistent')),
+    );
+
+    await expect(ctrl.gradePeriod('v-nonexistent', 'item-7', { gradeScaleValueId: 'gsv-a' })).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.gradePeriod('v-nonexistent', 'item-7', { gradeScaleValueId: 'gsv-a' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    }
+  });
+
+  it('returns HTTP 404 when UC returns ValueNotFoundError', async () => {
+    mockGradePeriodUC.execute.mockResolvedValue(
+      err(new ValueNotFoundError('gsv-unknown')),
+    );
+
+    await expect(ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-unknown' })).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-unknown' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
+    }
+  });
+
+  it('returns HTTP 400 when UC returns PeriodLockedError', async () => {
+    mockGradePeriodUC.execute.mockResolvedValue(
+      err(new PeriodLockedError('item-7')),
+    );
+
+    await expect(ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a' })).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a' });
+    } catch (e) {
+      expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
+    }
+  });
+
+  it('returns HTTP 400 when UC returns GradeScaleNotConfiguredError', async () => {
+    mockGradePeriodUC.execute.mockResolvedValue(
+      err(new GradeScaleNotConfiguredError(1, 0)),
+    );
+
+    await expect(ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a' })).rejects.toBeInstanceOf(HttpException);
+
+    try {
+      await ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a' });
     } catch (e) {
       expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }

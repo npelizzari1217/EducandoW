@@ -16,6 +16,7 @@ import {
   GetActivePeriodUseCase,
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
+import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, EnrollmentRepository } from '@educandow/domain';
 
@@ -71,8 +72,9 @@ const EnrollmentRepo = 'EnrollmentRepository';
         cc: PrismaCourseCycleRepository,
         sp: StudyPlanRepository,
         ac: AcademicCycleRepository,
-      ) => new GenerateCourseCyclesUseCase(cc, sp, ac),
-      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo],
+        autoCreate: AutoCreateCompetencyValuationsUC,
+      ) => new GenerateCourseCyclesUseCase(cc, sp, ac, autoCreate),
+      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo, AutoCreateCompetencyValuationsUC],
     },
     {
       provide: GetActivePeriodUseCase,

@@ -20,6 +20,7 @@ import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
 import type { StudyPlanRepository } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
+import type { AutoCreateCompetencyValuationsUC } from '../../pedagogy/use-cases/competency.use-cases';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -277,6 +278,7 @@ export class GenerateCourseCyclesUseCase {
     private readonly courseCycleRepo: CourseCycleRepository,
     private readonly studyPlanRepo: StudyPlanRepository,
     private readonly academicCycleRepo: AcademicCycleRepository,
+    private readonly autoCreateUC: AutoCreateCompetencyValuationsUC,
   ) {}
 
   async execute(input: GenerateCourseCyclesInput): Promise<CreateManyResult> {
@@ -348,6 +350,11 @@ export class GenerateCourseCyclesUseCase {
             fourthBimonth: null,
           });
           await this.courseCycleRepo.save(cc);
+          // Fire-and-forget: auto-create CompetencyValuation parents for this new CourseCycle.
+          // Failure must NOT block cycle generation.
+          this.autoCreateUC.execute({ courseCycleId: cc.uuid }).catch((e) => {
+            console.error('[GenerateCourseCycles] AutoCreate failed (non-blocking):', e);
+          });
           created++;
         }
         total++;

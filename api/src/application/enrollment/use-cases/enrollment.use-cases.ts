@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result, ValidationError, NotFoundError, EnrollmentRepository, Enrollment, Id, Level, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
 import type { FindByCourseParams } from '@educandow/domain';
-import type { AutoCreateCompetencyValuationsUC } from '../../pedagogy/use-cases/competency.use-cases';
 
 export interface CreateEnrollmentInput {
   studentId: string;
@@ -30,7 +29,6 @@ function buildLevel(level: string, modality?: string): Level {
 export class CreateEnrollmentUseCase {
   constructor(
     private readonly repo: EnrollmentRepository,
-    private readonly autoCreateValuationsUC?: AutoCreateCompetencyValuationsUC,
   ) {}
 
   async execute(input: CreateEnrollmentInput): Promise<Result<Enrollment, ValidationError>> {
@@ -57,22 +55,6 @@ export class CreateEnrollmentUseCase {
 
     const enrollment = createResult.unwrap();
     await this.repo.save(enrollment);
-
-    // Fire-and-forget: auto-create competency valuations for the new enrollment.
-    // Errors here must not fail the enrollment itself.
-    if (this.autoCreateValuationsUC) {
-      this.autoCreateValuationsUC
-        .executeForNewEnrollment(input.studentId, {
-          level: lvl.toCode(),
-          grade: input.grade,
-          division: input.division,
-          academicYear: input.academicYear,
-        })
-        .catch(() => {
-          // Intentionally swallowed — valuation auto-creation is best-effort
-        });
-    }
-
     return ok(enrollment);
   }
 }

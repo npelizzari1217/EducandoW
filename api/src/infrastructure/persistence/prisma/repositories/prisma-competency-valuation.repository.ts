@@ -1,3 +1,8 @@
+/**
+ * PR2 slim rewrite — maps the new CompetencyValuation schema.
+ * Flat period columns (valuation1–4, modificable1–4, imprimible1–4, periodActive) removed.
+ * courseCycleId added; unique constraint is now (studentId, competencyId, courseCycleId).
+ */
 import { Injectable } from '@nestjs/common';
 import { CompetencyValuationRepository, CompetencyValuation, Id } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, CompetencyValuation as PrismaCompetencyValuation } from '@prisma/tenant-client';
@@ -34,13 +39,6 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     return rs.map((r) => this.toDomain(r));
   }
 
-  async findByStudentAndCompetency(studentId: string, competencyId: string): Promise<CompetencyValuation | null> {
-    const r = await this.client.competencyValuation.findUnique({
-      where: { studentId_competencyId: { studentId, competencyId } },
-    });
-    return r ? this.toDomain(r) : null;
-  }
-
   async save(v: CompetencyValuation): Promise<void> {
     await this.client.competencyValuation.upsert({
       where: { id: v.id.get() },
@@ -48,35 +46,11 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
         id: v.id.get(),
         competencyId: v.competencyId,
         studentId: v.studentId,
-        valuation1: v.valuation1,
-        valuation2: v.valuation2,
-        valuation3: v.valuation3,
-        valuation4: v.valuation4,
-        modificable1: v.modificable1,
-        modificable2: v.modificable2,
-        modificable3: v.modificable3,
-        modificable4: v.modificable4,
-        imprimible1: v.imprimible1,
-        imprimible2: v.imprimible2,
-        imprimible3: v.imprimible3,
-        imprimible4: v.imprimible4,
-        periodActive: v.periodActive,
+        courseCycleId: v.courseCycleId,
       },
       update: {
-        valuation1: v.valuation1,
-        valuation2: v.valuation2,
-        valuation3: v.valuation3,
-        valuation4: v.valuation4,
-        modificable1: v.modificable1,
-        modificable2: v.modificable2,
-        modificable3: v.modificable3,
-        modificable4: v.modificable4,
-        imprimible1: v.imprimible1,
-        imprimible2: v.imprimible2,
-        imprimible3: v.imprimible3,
-        imprimible4: v.imprimible4,
-        periodActive: v.periodActive,
-        deletedAt: v.deletedAt ?? undefined,
+        active: v.active,
+        deletedAt: v.deletedAt ?? null,
       },
     });
   }
@@ -89,19 +63,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
         id: v.id.get(),
         competencyId: v.competencyId,
         studentId: v.studentId,
-        valuation1: v.valuation1,
-        valuation2: v.valuation2,
-        valuation3: v.valuation3,
-        valuation4: v.valuation4,
-        modificable1: v.modificable1,
-        modificable2: v.modificable2,
-        modificable3: v.modificable3,
-        modificable4: v.modificable4,
-        imprimible1: v.imprimible1,
-        imprimible2: v.imprimible2,
-        imprimible3: v.imprimible3,
-        imprimible4: v.imprimible4,
-        periodActive: v.periodActive,
+        courseCycleId: v.courseCycleId,
       })),
       skipDuplicates: true,
     });
@@ -119,19 +81,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
       id: Id.reconstruct(r.id),
       competencyId: r.competencyId,
       studentId: r.studentId,
-      valuation1: r.valuation1,
-      valuation2: r.valuation2,
-      valuation3: r.valuation3,
-      valuation4: r.valuation4,
-      modificable1: r.modificable1,
-      modificable2: r.modificable2,
-      modificable3: r.modificable3,
-      modificable4: r.modificable4,
-      imprimible1: r.imprimible1,
-      imprimible2: r.imprimible2,
-      imprimible3: r.imprimible3,
-      imprimible4: r.imprimible4,
-      periodActive: r.periodActive,
+      courseCycleId: r.courseCycleId,
       active: r.active,
       deletedAt: r.deletedAt ?? undefined,
     });

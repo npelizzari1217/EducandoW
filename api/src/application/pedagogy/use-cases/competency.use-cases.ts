@@ -1,10 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, NotFoundError } from '@educandow/domain';
-import { SubjectCompetency, CompetencyValuation } from '@educandow/domain';
+import { ok, err, Result, ValidationError, NotFoundError, DomainError } from '@educandow/domain';
+import { SubjectCompetency, CompetencyValuation, CompetencyPeriodValuation } from '@educandow/domain';
+import {
+  CompetencyValuationNotFoundError,
+  GradeScaleNotConfiguredError,
+  PeriodItemNotInTemplateError,
+  GradeScaleValueMismatchError,
+} from '@educandow/domain';
+import { PeriodTemplateNotFoundError, ValueNotFoundError } from '@educandow/domain';
 import type {
   SubjectCompetencyRepository,
   CompetencyValuationRepository,
   StudyPlanRepository,
+  CompetencyPeriodValuationRepository,
+  CourseCycleRepository,
+  GradeScaleRepository,
+  GradingPeriodRepository,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
@@ -149,7 +160,7 @@ export class CopySubjectCompetenciesUC {
   }
 }
 
-// ── CompetencyValuation Use Cases ──────────────────────
+// ── CompetencyValuation Read Use Cases ─────────────────
 
 @Injectable()
 export class GetCompetencyValuationUC {
@@ -171,45 +182,11 @@ export class ListCompetencyValuationsUC {
   }
 }
 
-@Injectable()
-export class UpdateCompetencyValuationUC {
-  constructor(private repo: CompetencyValuationRepository) {}
-
-  async execute(uuid: string, input: Record<string, unknown>): Promise<Result<CompetencyValuation, Error>> {
-    const v = await this.repo.findById(uuid);
-    if (!v) return err(new ValidationError('Valoración no encontrada'));
-
-    for (let period = 1; period <= 4; period++) {
-      const valKey = `valuation${period}`;
-      const modKey = `modificable${period}`;
-      const impKey = `imprimible${period}`;
-
-      if (impKey in input) {
-        v.setImprimible(period as 1 | 2 | 3 | 4, input[impKey] as boolean);
-      }
-
-      if (valKey in input) {
-        if (!v.isModificable(period as 1 | 2 | 3 | 4)) {
-          return err(new ValidationError(`El período ${period} no es modificable`));
-        }
-        v.setValuation(period as 1 | 2 | 3 | 4, input[valKey] as string | null);
-      }
-
-      if (modKey in input) {
-        v.setModificable(period as 1 | 2 | 3 | 4, input[modKey] as boolean);
-      }
-    }
-
-    if ('periodActive' in input) {
-      v.setPeriodActive(input.periodActive as number);
-    }
-
-    await this.repo.save(v);
-    return ok(v);
-  }
-}
-
 // ── Auto-Creation ──────────────────────────────────────
+//
+// Sole trigger: CourseCycle instantiation (GenerateCourseCyclesUseCase).
+// Old executeForSubjectAssignment / executeForEnrollment / executeForNewEnrollment removed
+// per Design §3 decision: cycle-blind paths can't derive courseCycleId without Fase-4 FK.
 
 @Injectable()
 export class AutoCreateCompetencyValuationsUC {
@@ -220,81 +197,42 @@ export class AutoCreateCompetencyValuationsUC {
   ) {}
 
   /**
-   * Given a subject ID and course section ID, navigate through the StudyPlan
-   * hierarchy to find active competencies, then create valuations for each
-   * enrolled student × active competency pair.
+   * Resolves a CourseCycle → StudyPlan subjects → active competencies, then
+   * finds enrolled students for the CourseCycle's courseSection, and batch-creates
+   * CompetencyValuation parent rows (studentId, competencyId, courseCycleId).
+   * skipDuplicates at DB level ensures idempotency.
    */
-  async executeForSubjectAssignment(subjectId: string, courseSectionId: string): Promise<void> {
-    // Navigate hierarchy: courseSection + subjectId → StudyPlanSubject IDs
-    const spsIds = await this.studyPlanRepo.findStudyPlanSubjectIds(courseSectionId, subjectId);
+  async execute({ courseCycleId }: { courseCycleId: string }): Promise<void> {
+    // 1. Resolve CourseCycle row directly via TenantContext (avoids circular DI;
+    //    consistent with enrollment-lookup pattern below).
+    const cc = await this.client.courseCycle.findUnique({
+      where: { uuid: courseCycleId },
+      select: { courseId: true, studyPlanId: true },
+    });
+    if (!cc) return;
+
+    // 2. All StudyPlanSubject IDs under this plan
+    const spsIds = await this.studyPlanRepo.findStudyPlanSubjectIdsByPlan(cc.studyPlanId);
     if (spsIds.length === 0) return;
 
-    // Flatten competencies from all matching StudyPlanSubjects
+    // 3. All active competencies across those subjects
     const competencies = (
       await Promise.all(spsIds.map((id) => this.competencyRepo.findActiveByStudyPlanSubject(id)))
     ).flat();
     if (competencies.length === 0) return;
 
-    // Find enrolled students in this course section
-    const studentIds = await this.findEnrolledStudentIds(courseSectionId);
+    // 4. Enrolled students for this course section
+    const studentIds = await this.findEnrolledStudentIds(cc.courseId);
     if (studentIds.length === 0) return;
 
-    // Build valuation records for each (student × competency) pair — skip existing
-    const valuations: CompetencyValuation[] = [];
-    for (const studentId of studentIds) {
-      for (const competency of competencies) {
-        const existing = await this.valuationRepo.findByStudentAndCompetency(
-          studentId,
-          competency.id.get(),
-        );
-        if (!existing) {
-          valuations.push(this.buildValuation(competency.id.get(), studentId));
-        }
-      }
-    }
-
-    if (valuations.length > 0) {
-      await this.valuationRepo.bulkCreate(valuations);
-    }
-  }
-
-  /**
-   * Given a student ID and course section ID, create valuations for all
-   * active competencies linked to the course section's subject assignments,
-   * navigating through the StudyPlan hierarchy.
-   */
-  async executeForEnrollment(studentId: string, courseSectionId: string): Promise<void> {
-    const assignments = await this.findSubjectAssignments(courseSectionId);
-    if (assignments.length === 0) return;
-
-    // Resolve all StudyPlanSubject IDs for each assignment's subjectId
-    const spsIdArrays = await Promise.all(
-      assignments.map((a) => this.studyPlanRepo.findStudyPlanSubjectIds(courseSectionId, a.subjectId)),
+    // 5. Batch-create parent valuations — DB skipDuplicates handles re-runs
+    const valuations = studentIds.flatMap((studentId) =>
+      competencies.map((c) =>
+        CompetencyValuation.create({ competencyId: c.id.get(), studentId, courseCycleId }),
+      ),
     );
-    const allSpsIds = spsIdArrays.flat();
-    if (allSpsIds.length === 0) return;
 
-    // Flatten competencies from all matching StudyPlanSubjects
-    const competencyArrays = await Promise.all(
-      allSpsIds.map((id) => this.competencyRepo.findActiveByStudyPlanSubject(id)),
-    );
-    const competencies = competencyArrays.flat();
-    if (competencies.length === 0) return;
-
-    const valuations: CompetencyValuation[] = [];
-    for (const competency of competencies) {
-      const existing = await this.valuationRepo.findByStudentAndCompetency(
-        studentId,
-        competency.id.get(),
-      );
-      if (!existing) {
-        valuations.push(this.buildValuation(competency.id.get(), studentId));
-      }
-    }
-
-    if (valuations.length > 0) {
-      await this.valuationRepo.bulkCreate(valuations);
-    }
+    await this.valuationRepo.bulkCreate(valuations);
   }
 
   private get client(): TenantPrismaClient {
@@ -324,59 +262,91 @@ export class AutoCreateCompetencyValuationsUC {
 
     return enrollments.map((e) => e.studentId);
   }
+}
 
-  /**
-   * Given an enrollment's level/grade/division/academicYear, find all matching
-   * course sections and create valuations for the student across all active
-   * competencies of each section's subject assignments.
-   */
-  async executeForNewEnrollment(
-    studentId: string,
-    enrollmentData: { level: number; grade?: string; division?: string; academicYear: string },
-  ): Promise<void> {
-    const sections = await this.client.courseSection.findMany({
-      where: {
-        level: enrollmentData.level,
-        grade: enrollmentData.grade ?? null,
-        division: enrollmentData.division ?? null,
-        academicYear: enrollmentData.academicYear,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
+// ── GradePeriodValuationUC ─────────────────────────────
 
-    if (sections.length === 0) return;
+/**
+ * Grades (or clears the grade of) a specific period within a CompetencyValuation.
+ *
+ * Validates:
+ *   - Parent valuation exists.
+ *   - Cycle's (level, modality) resolves to an active GradingPeriodTemplate.
+ *   - periodItemId belongs to that template.
+ *   - gradeScaleValueId (if not null) exists and belongs to the active GradeScale for (level, modality).
+ *   - Child row is not locked (modificable=false).
+ *
+ * On success: lazily creates the child row if absent, persists, returns ok(child).
+ * Design §7 — grade PATCH pseudocode.
+ */
+@Injectable()
+export class GradePeriodValuationUC {
+  constructor(
+    private valuationRepo: CompetencyValuationRepository,
+    private courseCycleRepo: CourseCycleRepository,
+    private gradingPeriodRepo: GradingPeriodRepository,
+    private gradeScaleRepo: GradeScaleRepository,
+    private periodRepo: CompetencyPeriodValuationRepository,
+  ) {}
 
-    for (const section of sections) {
-      await this.executeForEnrollment(studentId, section.id);
+  async execute(input: {
+    valuationUuid: string;
+    periodItemId: string;
+    gradeScaleValueId: string | null;
+  }): Promise<Result<CompetencyPeriodValuation, DomainError>> {
+    // 1. Resolve parent valuation
+    const parent = await this.valuationRepo.findById(input.valuationUuid);
+    if (!parent) return err(new CompetencyValuationNotFoundError(input.valuationUuid));
+
+    // 2. Resolve (level, modality) from CourseCycle via StudyPlan (Design §2)
+    const ctx = await this.courseCycleRepo.findGradingContextByUuid(parent.courseCycleId);
+    if (!ctx) return err(new CompetencyValuationNotFoundError(input.valuationUuid));
+
+    // 3. Resolve active grading period template for (level, modality)
+    const template = await this.gradingPeriodRepo.findActiveTemplateByLevelModality(ctx.level, ctx.modality);
+    if (!template) return err(new PeriodTemplateNotFoundError(`(level=${ctx.level}, modality=${ctx.modality})`));
+
+    // 4. Validate periodItemId belongs to the template
+    if (!template.items.some((i) => i.id === input.periodItemId)) {
+      return err(new PeriodItemNotInTemplateError(input.periodItemId, template.id));
     }
-  }
 
-  private async findSubjectAssignments(courseSectionId: string): Promise<{ subjectId: string }[]> {
-    const assignments = await this.client.subjectAssignment.findMany({
-      where: { courseSectionId, deletedAt: null },
-      select: { subjectId: true },
-    });
-    return assignments;
-  }
+    // 5. Lazy-create or load existing child row
+    let child =
+      (await this.periodRepo.findByValuationAndPeriod(parent.id.get(), input.periodItemId)) ??
+      CompetencyPeriodValuation.create({ valuationId: parent.id.get(), periodItemId: input.periodItemId });
 
-  private buildValuation(competencyId: string, studentId: string): CompetencyValuation {
-    return CompetencyValuation.create({
-      competencyId,
-      studentId,
-      valuation1: null,
-      valuation2: null,
-      valuation3: null,
-      valuation4: null,
-      modificable1: true,
-      modificable2: true,
-      modificable3: true,
-      modificable4: true,
-      imprimible1: false,
-      imprimible2: false,
-      imprimible3: false,
-      imprimible4: false,
-      periodActive: 1,
-    });
+    // 6. Apply grade or clear (lock check lives inside entity invariant)
+    if (input.gradeScaleValueId === null) {
+      const r = child.clearGrade();
+      if (r.isErr()) return err(r.unwrapErr());
+    } else {
+      // Resolve scale value (404 if missing)
+      const scaleValue = await this.gradeScaleRepo.findValueById(input.gradeScaleValueId);
+      if (!scaleValue) return err(new ValueNotFoundError(input.gradeScaleValueId));
+
+      // Resolve active scale for (level, modality) (400 if not configured)
+      const scale = await this.gradeScaleRepo.findActiveByLevelModality(ctx.level, ctx.modality);
+      if (!scale) return err(new GradeScaleNotConfiguredError(ctx.level, ctx.modality));
+
+      // Validate scale membership
+      if (scaleValue.scaleId !== scale.id) {
+        return err(new GradeScaleValueMismatchError(input.gradeScaleValueId, scale.id));
+      }
+
+      // Snapshot gradeCode + internalStatus at write time
+      const r = child.assignGrade({
+        gradeScaleValueId: input.gradeScaleValueId,
+        gradeCode: scaleValue.code,
+        internalStatus: scaleValue.internalStatus,
+      });
+      if (r.isErr()) return err(r.unwrapErr());
+    }
+
+    // 7. Persist (upsert on valuationId + periodItemId)
+    await this.periodRepo.save(child);
+
+    // 8. Return child row
+    return ok(child);
   }
 }

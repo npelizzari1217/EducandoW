@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CreateSubjectAssignmentUC } from '../use-cases/pedagogy.use-cases';
-import { AutoCreateCompetencyValuationsUC } from '../use-cases/competency.use-cases';
 import type { SubjectAssignmentRepository } from '@educandow/domain';
 
 // ── Mocks ─────────────────────────────────────────────────
@@ -20,16 +19,14 @@ function makeSubjectAssignmentRepo(): SubjectAssignmentRepository {
   } as unknown as SubjectAssignmentRepository;
 }
 
-// ── CreateSubjectAssignmentUC — AutoCreate isolation ──────
+// ── CreateSubjectAssignmentUC ──────────────────────────────
+// Auto-create trigger was removed from SubjectAssignment (Design §3):
+// CourseCycle instantiation is now the sole auto-create path.
 
-describe('CreateSubjectAssignmentUC — AutoCreate isolation (Spec 2 Req 3 Scenario 2)', () => {
-  it('still returns ok when AutoCreate throws (fire-and-forget)', async () => {
+describe('CreateSubjectAssignmentUC', () => {
+  it('creates subject assignment and returns ok', async () => {
     const repo = makeSubjectAssignmentRepo();
-    const autoCreate = {
-      executeForSubjectAssignment: vi.fn().mockRejectedValue(new Error('DB connection failed')),
-    } as unknown as AutoCreateCompetencyValuationsUC;
-
-    const uc = new CreateSubjectAssignmentUC(repo, autoCreate);
+    const uc = new CreateSubjectAssignmentUC(repo);
     const result = await uc.execute({
       subjectId: 'subj-1',
       teacherId: 'teacher-1',
@@ -38,23 +35,21 @@ describe('CreateSubjectAssignmentUC — AutoCreate isolation (Spec 2 Req 3 Scena
 
     expect(result.isOk()).toBe(true);
     expect(repo.save).toHaveBeenCalledTimes(1);
-    expect(autoCreate.executeForSubjectAssignment).toHaveBeenCalledWith('subj-1', 'section-1');
   });
 
-  it('still returns ok when AutoCreate returns a rejected promise', async () => {
+  it('saves the assignment with the correct input fields', async () => {
     const repo = makeSubjectAssignmentRepo();
-    const autoCreate = {
-      executeForSubjectAssignment: vi.fn().mockReturnValue(Promise.reject(new Error('AutoCreate failed silently'))),
-    } as unknown as AutoCreateCompetencyValuationsUC;
-
-    const uc = new CreateSubjectAssignmentUC(repo, autoCreate);
-    const result = await uc.execute({
+    const uc = new CreateSubjectAssignmentUC(repo);
+    await uc.execute({
       subjectId: 'subj-2',
-      teacherId: 'teacher-1',
+      teacherId: 'teacher-2',
       courseSectionId: 'section-2',
     });
 
-    expect(result.isOk()).toBe(true);
     expect(repo.save).toHaveBeenCalledTimes(1);
+    const saved = (repo.save as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(saved.subjectId).toBe('subj-2');
+    expect(saved.teacherId).toBe('teacher-2');
+    expect(saved.courseSectionId).toBe('section-2');
   });
 });
