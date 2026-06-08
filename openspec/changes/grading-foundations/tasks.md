@@ -134,40 +134,40 @@
 
 ---
 
-**T13 — [RED] Tests de use cases de escalas**
+**[x] T13 — [RED] Tests de use cases de escalas**
 - Descripción: Crear `api/src/application/grading/__tests__/grade-scale.use-cases.test.ts` con repo fake en memoria. Casos mínimos: (a) `CreateGradeScaleUseCase` — crea escala exitosamente; rechaza con `ScaleNameDuplicateError` si nombre duplicado por level+modality. (b) `UpdateGradeScaleUseCase` — actualiza nombre; retorna `ScaleNotFoundError` si no existe. (c) `DeleteGradeScaleUseCase` — soft-delete exitoso; retorna `ScaleHasActiveValuesError` si tiene valores activos; `ScaleNotFoundError` si no existe. (d) `CreateGradeScaleValueUseCase` — crea valor; `ValueCodeDuplicateError` si code duplicado. (e) `DeleteGradeScaleValueUseCase` — soft-delete valor; `ValueNotFoundError` si no existe. Todos deben fallar (RED).
 - Paths:
   - `api/src/application/grading/__tests__/grade-scale.use-cases.test.ts`
 - REQ: REQ-1 (1.1-1.5), REQ-2 (2.1-2.6)
 
-**T14 — [GREEN] Use case `grade-scale.use-cases.ts`**
+**[x] T14 — [GREEN] Use case `grade-scale.use-cases.ts`**
 - Descripción: Crear `api/src/application/grading/use-cases/grade-scale.use-cases.ts` con `CreateGradeScaleUseCase`, `UpdateGradeScaleUseCase`, `DeleteGradeScaleUseCase` (chequea `countActiveValues > 0` → `ScaleHasActiveValuesError`), `ListGradeScalesUseCase`, `GetGradeScaleUseCase`. Patrón idéntico a `attendance-type.use-cases.ts`: `@Injectable`, `Result<T, DomainError>`, constructor recibe repository por token DI. Los tests de T13 para escalas deben pasar GREEN.
 - Paths:
   - `api/src/application/grading/use-cases/grade-scale.use-cases.ts`
 - REQ: REQ-1, REQ-3
 - ⚠ dep: T13
 
-**T15 — [GREEN] Use case `grade-scale-value.use-cases.ts`**
+**[x] T15 — [GREEN] Use case `grade-scale-value.use-cases.ts`**
 - Descripción: Crear `api/src/application/grading/use-cases/grade-scale-value.use-cases.ts` con `CreateGradeScaleValueUseCase`, `UpdateGradeScaleValueUseCase`, `DeleteGradeScaleValueUseCase`. Validaciones: code duplicado via `existsValueCode`, `internalStatus` via `GradeInternalStatus.create()`. Los tests de T13 para valores deben pasar GREEN.
 - Paths:
   - `api/src/application/grading/use-cases/grade-scale-value.use-cases.ts`
 - REQ: REQ-2
 - ⚠ dep: T13, T14
 
-**T16 — [RED] Tests del repositorio Prisma de escalas**
+**[x] T16 — [RED] Tests del repositorio Prisma de escalas**
 - Descripción: Crear `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-grade-scale.repository.test.ts`. Test de integración mínimo con Nest Test module + `TenantContext` mockeado: verificar que `list()` mapea correctamente `internalStatus` a dominio; `save()` hace upsert; `countActiveValues()` filtra `deletedAt=null`. Deben fallar (RED).
 - Paths:
   - `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-grade-scale.repository.test.ts`
 - REQ: REQ-1, REQ-2, REQ-3
 
-**T17 — [GREEN] `PrismaGradeScaleRepository`**
+**[x] T17 — [GREEN] `PrismaGradeScaleRepository`**
 - Descripción: Crear `api/src/infrastructure/persistence/prisma/repositories/prisma-grade-scale.repository.ts`. Implementa `GradeScaleRepository`. Usa `TenantContext.getClient()` para obtener el cliente Prisma tenant (mismo patrón que `PrismaAttendanceTypeRepository`). Métodos: `findById` (include values ordenados por sortOrder), `list(filters)` (filtros level/modality/active, include values), `existsByName` (con excludeId opcional), `countActiveValues` (where deletedAt=null), `save` (upsert escala), `softDelete`, `findValueById`, `saveValue` (upsert value), `softDeleteValue`, `existsValueCode`. `toDomain()` y `toDomainValue()` privados. Los tests de T16 deben pasar GREEN.
 - Paths:
   - `api/src/infrastructure/persistence/prisma/repositories/prisma-grade-scale.repository.ts`
 - REQ: REQ-1, REQ-2, REQ-3
 - ⚠ dep: T16
 
-**T18 — [GATE 1a-C] Tests aplicación + infra escalas + build api**
+**[x] T18 — [GATE 1a-C] Tests aplicación + infra escalas + build api**
 - Descripción: Ejecutar `cd api && npx jest --testPathPattern="grading"`. Todos los tests de T13 y T16 deben pasar. Ejecutar `cd api && npm run build`. Sin errores de compilación. El gate bloquea el inicio de 1a-D.
 - Paths: (verificación)
 - REQ: todos los de 1a-C
@@ -182,14 +182,14 @@
 
 ---
 
-**T19 — [RED] Tests DTOs de escalas + tests controller escalas**
+**[x] T19 — [RED] Tests DTOs de escalas + tests controller escalas**
 - Descripción: Crear `api/src/presentation/grading/__tests__/dto-scales.test.ts`. Casos DTO: (a) `CreateGradeScaleDTO` válido pasa; (b) sin `name` devuelve 422; (c) sin `level` devuelve 422; (d) `level` fuera de rango (ej. 5) rechazado. (e) `CreateGradeScaleValueDTO`: `internalStatus` con valor fuera del enum devuelve 422 (escenario 2.2); `code` vacío devuelve 422 (escenario 8.3). Crear `api/src/presentation/grading/__tests__/grading-scales.controller.test.ts`. Casos controller (Nest test module + repo/use-cases mockeados): (a) POST 201 Created al crear escala válida; (b) POST 409 Conflict al duplicado; (c) GET 200 al listar; (d) GET 404 al ID inexistente; (e) DELETE 204 exitoso; (f) DELETE 409 con valores activos; (g) GET 403 sin módulo GRADING_CONFIG. Todos deben fallar (RED).
 - Paths:
   - `api/src/presentation/grading/__tests__/dto-scales.test.ts`
   - `api/src/presentation/grading/__tests__/grading-scales.controller.test.ts`
 - REQ: REQ-1 (1.1-1.5), REQ-2 (2.1-2.6), REQ-7 (7.3), REQ-8
 
-**T20 — [GREEN] DTOs Zod de escalas (4 DTOs)**
+**[x] T20 — [GREEN] DTOs Zod de escalas (4 DTOs)**
 - Descripción: Crear los 4 DTOs Zod: `api/src/presentation/grading/dto/create-grade-scale.dto.ts` (campos: `name: z.string().min(1)`, `level: z.number().int().min(1).max(4)`, `modality: z.number().int().min(0).max(2).default(0)`), `api/src/presentation/grading/dto/update-grade-scale.dto.ts` (mismos campos opcionales), `api/src/presentation/grading/dto/create-grade-scale-value.dto.ts` (campos: `code: z.string().min(1)`, `label: z.string().min(1)`, `internalStatus: z.enum(['APROBADO','NO_APROBADO','EN_PROCESO','LIBRE'])`, `sortOrder: z.number().int().min(0).default(0)`), `api/src/presentation/grading/dto/update-grade-scale-value.dto.ts` (mismos opcionales). El `z.enum` en `internalStatus` genera automáticamente 422 vía `ZodValidationPipe`. Los tests de T19 para DTOs deben pasar GREEN.
 - Paths:
   - `api/src/presentation/grading/dto/create-grade-scale.dto.ts`
@@ -199,14 +199,14 @@
 - REQ: REQ-1, REQ-2, REQ-8
 - ⚠ dep: T19
 
-**T21 — [GREEN] `GradingScalesController`**
+**[x] T21 — [GREEN] `GradingScalesController`**
 - Descripción: Crear `api/src/presentation/grading/grading-scales.controller.ts`. Rutas: `POST /grading/scales` (201), `GET /grading/scales` (filtros `?level`, `?modality`, `?institutionId` para ROOT), `GET /grading/scales/:id` (200/404), `PATCH /grading/scales/:id` (200), `DELETE /grading/scales/:id` (204), `POST /grading/scales/:id/values` (201), `PATCH /grading/scales/:id/values/:valueId` (200), `DELETE /grading/scales/:id/values/:valueId` (204). Cada método con `@Roles('ROOT', { module: 'GRADING_CONFIG', action: '...' })` y `@UseGuards(AuthGuard, RolesGuard)`. `toResponse()` helper privado. Mapeo `result.isErr() → throw` siguiendo el filtro global de excepciones. Los tests de T19 para controller deben pasar GREEN.
 - Paths:
   - `api/src/presentation/grading/grading-scales.controller.ts`
 - REQ: REQ-1, REQ-2, REQ-3, REQ-7, REQ-8
 - ⚠ dep: T19, T20
 
-**T22 — [GREEN] `GradingModule` (escalas) + registro en `AppModule`**
+**[x] T22 — [GREEN] `GradingModule` (escalas) + registro en `AppModule`**
 - Descripción: Crear `api/src/presentation/grading/grading.module.ts` con `imports: [AuthModule]`, `controllers: [GradingScalesController]`, `providers`: `PrismaService`, `PrismaGradeScaleRepository`, token `'GradeScaleRepository'`, use cases de escalas con `useFactory`. Mismo patrón que `attendance-type.module.ts`. Modificar `api/src/app.module.ts` para importar `GradingModule` (+3 líneas).
 - Paths:
   - `api/src/presentation/grading/grading.module.ts`
@@ -214,7 +214,7 @@
 - REQ: REQ-1, REQ-2, REQ-3, REQ-7
 - ⚠ dep: T21
 
-**T23 — [GATE 1a-D] Tests presentación + build API completo**
+**[x] T23 — [GATE 1a-D] Tests presentación + build API completo**
 - Descripción: Ejecutar `cd api && npx jest --testPathPattern="grading"`. Todos los tests de T19 deben pasar. Ejecutar `cd api && npm run build`. Verificar endpoints vía smoke test opcional (`curl POST /grading/scales` en entorno local). El gate bloquea el inicio de 1a-E.
 - Paths: (verificación)
 - REQ: todos los de 1a-D
