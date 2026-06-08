@@ -336,6 +336,18 @@ describe('UpdateGradeScaleValueUseCase', () => {
     expect(repo.saveValue).toHaveBeenCalledTimes(1);
   });
 
+  it('updates internalStatus successfully', async () => {
+    const value = makeValue(); // internalStatus 'APROBADO'
+    repo.findValueById.mockResolvedValue(value);
+
+    const result = await useCase.execute('value-uuid-1', { internalStatus: 'EN_PROCESO' });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.saveValue).toHaveBeenCalledTimes(1);
+    const saved = repo.saveValue.mock.calls[0][0] as GradeScaleValue;
+    expect(saved.internalStatus).toBe('EN_PROCESO');
+  });
+
   it('returns ValueNotFoundError when value does not exist', async () => {
     repo.findValueById.mockResolvedValue(null);
 
