@@ -176,8 +176,8 @@ describe('UpsertPeriodDatesSchema', () => {
     expect(() => pipe.transform(withoutCycleId)).toThrow(BadRequestException);
   });
 
-  it('accepts empty dates array (partial load is permitted)', () => {
+  it('rejects empty dates array → 400 (Debe enviar al menos un período)', () => {
     const pipe = new ZodValidationPipe(UpsertPeriodDatesSchema);
-    expect(() => pipe.transform({ ...validUpsertDates, dates: [] })).not.toThrow();
+    expect(() => pipe.transform({ ...validUpsertDates, dates: [] })).toThrow(BadRequestException);
   });
 });

@@ -14,6 +14,7 @@ import {
 } from '../use-cases/grading-period-date.use-cases';
 import {
   GradingPeriodTemplate,
+  GradingPeriodDate,
   PeriodTemplateNameDuplicateError,
   PeriodTemplateNotFoundError,
   PeriodSortOrderDuplicateError,
@@ -299,6 +300,51 @@ describe('UpsertPeriodDatesUseCase', () => {
     ]);
 
     expect(result.isOk()).toBe(true);
+  });
+
+  // ── Cross-batch overlap (T41 robustness) ─────────────────────
+
+  it('[cross-batch] returns PeriodDateOverlapError when incoming date overlaps a PERSISTED date from a different item', async () => {
+    // item-1 already persisted in DB with dates [Mar 1 – Jun 30]
+    const persistedItemA = GradingPeriodDate.reconstruct({
+      id: 'date-id-persisted',
+      itemId: 'item-1',
+      cycleId: 'cycle-uuid-1',
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-06-30'),
+    });
+    periodRepo.findDatesByCycle.mockResolvedValue([persistedItemA]);
+
+    // Now upsert item-2 with [May 1 – Aug 31] — overlaps item-1's persisted range
+    const result = await useCase.execute('template-uuid-1', 'cycle-uuid-1', [
+      { itemId: 'item-2', startDate: new Date('2026-05-01'), endDate: new Date('2026-08-31') },
+    ]);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(PeriodDateOverlapError);
+    expect(periodRepo.saveDates).not.toHaveBeenCalled();
+  });
+
+  it('[cross-batch] updating item A with new dates does NOT conflict with its own persisted version', async () => {
+    // item-1 already persisted with [Mar 1 – Jun 30]; we re-send item-1 with new range [Apr 1 – Aug 31]
+    // which would overlap the OLD version — but the old version should be excluded from sibling check
+    const oldDateA = GradingPeriodDate.reconstruct({
+      id: 'date-id-persisted',
+      itemId: 'item-1',
+      cycleId: 'cycle-uuid-1',
+      startDate: new Date('2026-03-01'),
+      endDate: new Date('2026-06-30'),
+    });
+    periodRepo.findDatesByCycle.mockResolvedValue([oldDateA]);
+
+    // Update item-1 with a new range that overlaps the old one
+    const result = await useCase.execute('template-uuid-1', 'cycle-uuid-1', [
+      { itemId: 'item-1', startDate: new Date('2026-04-01'), endDate: new Date('2026-08-31') },
+    ]);
+
+    // Must succeed — self-overlap is not an overlap error
+    expect(result.isOk()).toBe(true);
+    expect(periodRepo.saveDates).toHaveBeenCalledTimes(1);
   });
 });
 

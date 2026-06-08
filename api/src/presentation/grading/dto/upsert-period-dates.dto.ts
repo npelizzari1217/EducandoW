@@ -18,7 +18,7 @@ const PeriodDateEntrySchema = z
 
 export const UpsertPeriodDatesSchema = z.object({
   cycleId: z.string().uuid('cycleId must be a valid UUID'),
-  dates: z.array(PeriodDateEntrySchema),
+  dates: z.array(PeriodDateEntrySchema).min(1, 'Debe enviar al menos un período'),
 });
 
 export type UpsertPeriodDatesDTO = z.infer<typeof UpsertPeriodDatesSchema>;

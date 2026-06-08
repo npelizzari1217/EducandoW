@@ -28,7 +28,7 @@ export class UpsertPeriodDatesUseCase {
   ) {}
 
   async execute(
-    _templateId: string,
+    templateId: string,
     cycleId: string,
     datesInput: UpsertPeriodDateInput[],
   ): Promise<
@@ -51,7 +51,15 @@ export class UpsertPeriodDatesUseCase {
       } as unknown as DomainError);
     }
 
-    // 2. Validate and create all dates (sequential — each item uses previously validated as siblings)
+    // 2. Load already-persisted dates for this template+cycle (cross-batch overlap check).
+    //    Exclude items that are being updated in this batch — their old version is being replaced,
+    //    so validating the new version against itself would be a false positive.
+    const existingDates = await this.periodRepo.findDatesByCycle(templateId, cycleId);
+    const incomingItemIds = new Set(datesInput.map((d) => d.itemId));
+    const persistedOtherDates = existingDates.filter((d) => !incomingItemIds.has(d.itemId));
+
+    // 3. Validate and create all dates (sequential — each item uses persisted-other + previously
+    //    validated-in-batch as siblings to detect both cross-batch and within-batch overlaps)
     const validated: GradingPeriodDate[] = [];
     for (const input of datesInput) {
       let periodDate: GradingPeriodDate;
@@ -60,7 +68,7 @@ export class UpsertPeriodDatesUseCase {
           { itemId: input.itemId, cycleId, startDate: input.startDate, endDate: input.endDate },
           cycle.startDate,
           cycle.endDate,
-          validated, // siblings = already validated in this batch
+          [...persistedOtherDates, ...validated], // siblings = persisted others + already validated in batch
         );
       } catch (e) {
         return err(e as DomainError);
@@ -68,7 +76,7 @@ export class UpsertPeriodDatesUseCase {
       validated.push(periodDate);
     }
 
-    // 3. Persist all validated dates
+    // 4. Persist all validated dates
     for (const date of validated) {
       await this.periodRepo.saveDates(date.itemId, date.cycleId, {
         startDate: date.startDate,
