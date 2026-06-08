@@ -54,6 +54,7 @@ function makeMockClient() {
   return {
     gradeScale: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       upsert: vi.fn(),
@@ -61,6 +62,7 @@ function makeMockClient() {
     },
     gradeScaleValue: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       upsert: vi.fn(),
@@ -221,6 +223,47 @@ describe('PrismaGradeScaleRepository — softDelete', () => {
       where: { id: 'scale-uuid-1' },
       data: { active: false, deletedAt: expect.any(Date) },
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// findActiveByLevelModality (T1.9)
+// ═══════════════════════════════════════════════════════════
+
+describe('PrismaGradeScaleRepository — findActiveByLevelModality', () => {
+  let repo: PrismaGradeScaleRepository;
+  let mockClient: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaGradeScaleRepository();
+  });
+
+  it('returns null when no active scale exists for the (level, modality)', async () => {
+    mockClient.gradeScale.findFirst.mockResolvedValue(null);
+    const result = await repo.findActiveByLevelModality(2, 0);
+    expect(result).toBeNull();
+  });
+
+  it('returns mapped GradeScale when an active scale exists', async () => {
+    mockClient.gradeScale.findFirst.mockResolvedValue(makeScaleRow({ level: 3, modality: 1 }));
+    const result = await repo.findActiveByLevelModality(3, 1);
+    expect(result).toBeInstanceOf(GradeScale);
+    expect(result!.level).toBe(3);
+    expect(result!.modality).toBe(1);
+    expect(result!.active).toBe(true);
+  });
+
+  it('queries with active=true, deletedAt=null, ordered by updatedAt desc', async () => {
+    mockClient.gradeScale.findFirst.mockResolvedValue(null);
+    await repo.findActiveByLevelModality(2, 0);
+    expect(mockClient.gradeScale.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ level: 2, modality: 0, active: true, deletedAt: null }),
+        orderBy: { updatedAt: 'desc' },
+      }),
+    );
   });
 });
 

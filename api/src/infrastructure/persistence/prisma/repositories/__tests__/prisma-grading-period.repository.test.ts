@@ -61,6 +61,7 @@ function makeMockClient() {
   return {
     gradingPeriodTemplate: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
       upsert: vi.fn(),
@@ -208,6 +209,51 @@ describe('PrismaGradingPeriodRepository — listTemplates', () => {
     expect(mockClient.gradingPeriodTemplate.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ level: 2 }),
+      }),
+    );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// findActiveTemplateByLevelModality (T1.10)
+// ═══════════════════════════════════════════════════════════
+
+describe('PrismaGradingPeriodRepository — findActiveTemplateByLevelModality', () => {
+  let repo: PrismaGradingPeriodRepository;
+  let mockClient: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaGradingPeriodRepository();
+  });
+
+  it('returns null when no active template exists for the (level, modality)', async () => {
+    mockClient.gradingPeriodTemplate.findFirst.mockResolvedValue(null);
+    const result = await repo.findActiveTemplateByLevelModality(2, 0);
+    expect(result).toBeNull();
+  });
+
+  it('returns mapped GradingPeriodTemplate when an active template exists', async () => {
+    mockClient.gradingPeriodTemplate.findFirst.mockResolvedValue(
+      makeTemplateRow({ items: [makeItemRow()] }),
+    );
+    const result = await repo.findActiveTemplateByLevelModality(2, 0);
+    expect(result).toBeInstanceOf(GradingPeriodTemplate);
+    expect(result!.level).toBe(2);
+    expect(result!.modality).toBe(0);
+    expect(result!.active).toBe(true);
+    expect(result!.items).toHaveLength(1);
+  });
+
+  it('queries with active=true, deletedAt=null, ordered by updatedAt desc, includes items', async () => {
+    mockClient.gradingPeriodTemplate.findFirst.mockResolvedValue(null);
+    await repo.findActiveTemplateByLevelModality(3, 1);
+    expect(mockClient.gradingPeriodTemplate.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ level: 3, modality: 1, active: true, deletedAt: null }),
+        orderBy: { updatedAt: 'desc' },
+        include: expect.objectContaining({ items: expect.anything() }),
       }),
     );
   });

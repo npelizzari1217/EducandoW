@@ -37,4 +37,11 @@ export interface GradingPeriodRepository {
    * Used by UpsertPeriodDatesUseCase for overlap validation before saving.
    */
   findDatesByCycle(templateId: string, cycleId: string): Promise<GradingPeriodDate[]>;
+
+  /**
+   * Returns the single active GradingPeriodTemplate (with items) for the given (level, modality).
+   * Convention: exactly one active template per (level, modality). If multiple exist,
+   * returns the most recently updated. Returns null if none found.
+   */
+  findActiveTemplateByLevelModality(level: number, modality: number): Promise<GradingPeriodTemplate | null>;
 }

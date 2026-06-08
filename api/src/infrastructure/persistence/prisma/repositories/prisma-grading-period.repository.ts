@@ -102,6 +102,18 @@ export class PrismaGradingPeriodRepository implements GradingPeriodRepository {
     });
   }
 
+  async findActiveTemplateByLevelModality(
+    level: number,
+    modality: number,
+  ): Promise<GradingPeriodTemplate | null> {
+    const r = await this.client.gradingPeriodTemplate.findFirst({
+      where: { level, modality, active: true, deletedAt: null },
+      orderBy: { updatedAt: 'desc' },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return r ? this.toDomainTemplate(r) : null;
+  }
+
   async countDatesForTemplate(templateId: string): Promise<number> {
     return this.client.gradingPeriodDate.count({
       where: { item: { templateId } },

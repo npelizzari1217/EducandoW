@@ -14,6 +14,13 @@ export interface GradeScaleRepository {
   save(scale: GradeScale): Promise<void>;
   softDelete(id: string): Promise<void>;
 
+  /**
+   * Returns the single active GradeScale for the given (level, modality).
+   * Convention: exactly one active scale per (level, modality). If multiple exist,
+   * returns the most recently updated. Returns null if none found.
+   */
+  findActiveByLevelModality(level: number, modality: number): Promise<GradeScale | null>;
+
   // value operations
   findValueById(id: string): Promise<GradeScaleValue | null>;
   saveValue(value: GradeScaleValue): Promise<void>;

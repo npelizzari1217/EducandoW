@@ -23,6 +23,12 @@ export { SubjectCompetency } from './entities/subject-competency';
 export type { SubjectCompetencyProps } from './entities/subject-competency';
 export { CompetencyValuation } from './entities/competency-valuation';
 export type { CompetencyValuationProps } from './entities/competency-valuation';
+export { CompetencyPeriodValuation } from './entities/competency-period-valuation';
+export type {
+  CreateCompetencyPeriodValuationInput,
+  ReconstructCompetencyPeriodValuationProps,
+  AssignGradeInput,
+} from './entities/competency-period-valuation';
 
 // Value Objects
 export { CycleCode } from './value-objects/cycle-code';
@@ -44,3 +50,13 @@ export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } f
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';
 export type { SubjectCompetencyRepository } from './repositories/subject-competency-repository';
 export type { CompetencyValuationRepository } from './repositories/competency-valuation-repository';
+export type { CompetencyPeriodValuationRepository } from './repositories/competency-period-valuation-repository';
+
+// Competency valuation errors
+export {
+  CompetencyValuationNotFoundError,
+  GradeScaleNotConfiguredError,
+  PeriodItemNotInTemplateError,
+  GradeScaleValueMismatchError,
+  PeriodLockedError,
+} from './errors/competency-valuation.errors';

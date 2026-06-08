@@ -49,6 +49,15 @@ export class PrismaGradeScaleRepository implements GradeScaleRepository {
     return rows.map((r) => this.toDomain(r));
   }
 
+  async findActiveByLevelModality(level: number, modality: number): Promise<GradeScale | null> {
+    const r = await this.client.gradeScale.findFirst({
+      where: { level, modality, active: true, deletedAt: null },
+      orderBy: { updatedAt: 'desc' },
+      include: { values: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } } },
+    });
+    return r ? this.toDomain(r) : null;
+  }
+
   async existsByName(level: number, modality: number, name: string, excludeId?: string): Promise<boolean> {
     const where: Record<string, unknown> = { level, modality, name, deletedAt: null };
     if (excludeId) where.NOT = { id: excludeId };
