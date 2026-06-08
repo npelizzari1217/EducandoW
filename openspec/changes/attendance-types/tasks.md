@@ -296,7 +296,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.1 — Tests RED: DTOs y validación
 
-- [ ] **T3.1.1** Crear tests de validación de DTOs  
+- [x] **T3.1.1** Crear tests de validación de DTOs  
   Archivo: `api/src/presentation/attendance-type/__tests__/dto-validation.test.ts`  
   Tests RED con `ZodValidationPipe`:
   - `CreateAttendanceTypeDto`: `code` de 5+ chars → 400 → REQ-1 / Escenario 1.1
@@ -308,7 +308,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.2 — Tests RED: controller HTTP
 
-- [ ] **T3.2.1** Crear tests de integración del controller con supertest  
+- [x] **T3.2.1** Crear tests de integración del controller con supertest  
   Archivo: `api/src/presentation/attendance-type/__tests__/attendance-type.controller.test.ts`  
   Tests RED:
   - POST con datos válidos → 201 con `{ data: {...} }` → REQ-12 / Escenario 12.1
@@ -328,19 +328,19 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.3 — Implementación: DTOs zod
 
-- [ ] **T3.3.1** Crear `CreateAttendanceTypeDto`  
+- [x] **T3.3.1** Crear `CreateAttendanceTypeDto`  
   Archivo: `api/src/presentation/attendance-type/dto/create-attendance-type.dto.ts`  
   Schema Zod: `code` string max 4 chars uppercase, `description` string non-empty, `absenceValue` number min 0, `level` enum z.literal(1,2,3,4), `assignable` boolean, `active` boolean optional default true.  
   REQ-1 / REQ-3
 
-- [ ] **T3.3.2** Crear `UpdateAttendanceTypeDto`  
+- [x] **T3.3.2** Crear `UpdateAttendanceTypeDto`  
   Archivo: `api/src/presentation/attendance-type/dto/update-attendance-type.dto.ts`  
   Schema Zod: solo campos `description` (string optional), `absenceValue` (number ≥ 0, optional), `active` (boolean optional), `assignable` (boolean optional). NO incluir `code` ni `level`.  
   REQ-4 / Escenario 4.2
 
 ### 3.4 — Implementación: controller
 
-- [ ] **T3.4.1** Crear `AttendanceTypeController`  
+- [x] **T3.4.1** Crear `AttendanceTypeController`  
   Archivo: `api/src/presentation/attendance-type/attendance-type.controller.ts`  
   Endpoints:
   - `POST /attendance-types` — `@Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'CREATE' })` → 201
@@ -353,7 +353,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.5 — Implementación: mapeo de errores en AppExceptionFilter
 
-- [ ] **T3.5.1** Registrar errores de dominio de attendance-type en `DOMAIN_STATUS`  
+- [x] **T3.5.1** Registrar errores de dominio de attendance-type en `DOMAIN_STATUS`  
   Archivo: `api/src/presentation/shared/filters/exception.filter.ts`  
   Agregar al mapa:
   - `ATTENDANCE_TYPE_CODE_DUPLICATE: 409`
@@ -363,7 +363,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.6 — Implementación: módulo NestJS
 
-- [ ] **T3.6.1** Crear `AttendanceTypeModule`  
+- [x] **T3.6.1** Crear `AttendanceTypeModule`  
   Archivo: `api/src/presentation/attendance-type/attendance-type.module.ts`  
   Registrar:
   - `PrismaService`, `TenantContext`
@@ -372,21 +372,21 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
   - `AttendanceTypeController`  
   REQ-3
 
-- [ ] **T3.6.2** Registrar `AttendanceTypeModule` en `AppModule`  
+- [x] **T3.6.2** Registrar `AttendanceTypeModule` en `AppModule`  
   Archivo: `api/src/app.module.ts`  
   Agregar `AttendanceTypeModule` al array `imports`.  
   REQ-3
 
 ### 3.7 — Implementación: seed de permisos y tipos de sistema
 
-- [ ] **T3.7.1** Agregar módulo `ATTENDANCE_TYPES` al seed maestro  
+- [x] **T3.7.1** Agregar módulo `ATTENDANCE_TYPES` al seed maestro  
   Archivo: `api/prisma/seed.ts`  
   Cambios:
   - Agregar `{ id: 'm-attendance-types', code: 'ATTENDANCE_TYPES', name: 'Tipos de Asistencia' }` al array `modules[]`
   - Asignar acciones READ/CREATE/UPDATE/DELETE al rol ROOT (ALL_ACTIONS) y a `r-admin` y `r-director`  
   REQ-13 / Escenario 13.4
 
-- [ ] **T3.7.2** Actualizar seed tenant para generar tipos de sistema  
+- [x] **T3.7.2** Actualizar seed tenant para generar tipos de sistema  
   Archivo: `api/prisma/seed-tenant.ts`  
   Cambios:
   - Agregar función `seedSystemAttendanceTypes(client: TenantPrismaClient, levels: EducationalLevelCode[])` que hace upsert de P/SAB/DOM/X por cada nivel pedagógico
@@ -395,7 +395,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.8 — Tests RED: página front
 
-- [ ] **T3.8.1** Crear tests de la página front  
+- [x] **T3.8.1** Crear tests de la página front  
   Archivo: `web/src/pages/dashboard/__tests__/attendance-types.test.tsx`  
   Tests RED (Vitest + React Testing Library):
   - La página renderiza sin errores → REQ-14
@@ -406,7 +406,7 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.9 — Implementación: página front
 
-- [ ] **T3.9.1** Crear página `attendance-types.tsx`  
+- [x] **T3.9.1** Crear página `attendance-types.tsx`  
   Archivo: `web/src/pages/dashboard/attendance-types.tsx`  
   Espejo de `web/src/pages/dashboard/institutions.tsx`:
   - `PremiumHeader` + `Card` + `Table` + form inline/modal
@@ -420,12 +420,12 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.10 — Implementación: ruta y entrada de menú
 
-- [ ] **T3.10.1** Agregar ruta en `App.tsx`  
+- [x] **T3.10.1** Agregar ruta en `App.tsx`  
   Archivo: `web/src/App.tsx`  
   Agregar ruta protegida: `<Route path="/attendance-types" element={<AttendanceTypesPage />} />`  
   REQ-14 / Escenario 14.1
 
-- [ ] **T3.10.2** Agregar entrada de menú en `sidebar.tsx`  
+- [x] **T3.10.2** Agregar entrada de menú en `sidebar.tsx`  
   Archivo: `web/src/components/layout/sidebar.tsx`  
   Agregar dentro del grupo **"Sistema"** (crear el grupo si no existe):
   `{ label: 'Tipos de asistencia', to: '/attendance-types', moduleCode: 'ATTENDANCE_TYPES', icon: ... }`  
@@ -433,23 +433,23 @@ Batch 3 depende de que Batch 2 esté mergeado y los use cases + repos disponible
 
 ### 3.11 — GATE Batch 3
 
-- [ ] **T3.11.1** Verificar tests de presentación GREEN (API)  
+- [x] **T3.11.1** Verificar tests de presentación GREEN (API)  
   Comando: `pnpm --filter api test -- --testPathPattern="attendance-type"`  
   Criterio: tests de controller y DTO pasan. REQ-12 / REQ-13
 
-- [ ] **T3.11.2** Verificar tests front GREEN  
+- [x] **T3.11.2** Verificar tests front GREEN  
   Comando: `pnpm --filter web test -- --testPathPattern="attendance-types"`  
   Criterio: tests de `attendance-types.test.tsx` pasan. REQ-14
 
-- [ ] **T3.11.3** Verificar build completo del monorepo  
+- [x] **T3.11.3** Verificar build completo del monorepo  
   Comando: `pnpm build`  
   Criterio: 0 errores TypeScript en todos los paquetes.
 
-- [ ] **T3.11.4** Verificar lint completo  
+- [x] **T3.11.4** Verificar lint completo  
   Comando: `pnpm lint`  
   Criterio: 0 errores ni warnings.
 
-- [ ] **T3.11.5** Verificar criterios de aceptación transversales  
+- [x] **T3.11.5** Verificar criterios de aceptación transversales  
   - `pnpm test` completo → todos los tests pasan (dominio, API, front)
   - Confirmar que `attendance_statuses` no existe en tenant DB (reemplazada por `attendance_types`)
   - Confirmar que `attendances` no tiene registros con referencias rotas

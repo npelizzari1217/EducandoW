@@ -43,6 +43,7 @@ async function main() {
     { id: 'm-reports', code: 'REPORTS', name: 'Reportes' },
     { id: 'm-study-plans', code: 'STUDY_PLANS', name: 'Planes de estudio' },
     { id: 'm-classrooms', code: 'CLASSROOMS', name: 'Salas y aulas' },
+    { id: 'm-attendance-types', code: 'ATTENDANCE_TYPES', name: 'Tipos de Asistencia' },
   ];
 
   for (const m of modules) {
@@ -159,7 +160,7 @@ async function main() {
       actions: ALL_ACTIONS,
     },
     'r-admin': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms', 'm-attendance-types'],
       actions: ALL_ACTIONS,
     },
     'r-mgr': {
@@ -167,7 +168,7 @@ async function main() {
       actions: ALL_ACTIONS,
     },
     'r-director': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms'],
+      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms', 'm-attendance-types'],
       actions: ALL_ACTIONS,
     },
     'r-secretario': {
@@ -306,6 +307,56 @@ export async function seedAttendanceStatuses(_prisma: TenantPrismaClient) {
   // System attendance types (P, SAB, DOM, X) are created per educational level
   // by seedSystemAttendanceTypes() (implemented in Batch 3).
   console.log('ℹ️  seedAttendanceStatuses: skipped — replaced by seedSystemAttendanceTypes (Batch 3)');
+}
+
+/** System attendance types per educational level (P, SAB, DOM, X). */
+const SYSTEM_ATTENDANCE_TYPES = [
+  { code: 'P',   description: 'Presente',       isPresent: true,  absenceValue: 0, assignable: true  },
+  { code: 'SAB', description: 'Sábado',          isPresent: false, absenceValue: 0, assignable: false },
+  { code: 'DOM', description: 'Domingo',         isPresent: false, absenceValue: 0, assignable: false },
+  { code: 'X',   description: 'Día inexistente', isPresent: false, absenceValue: 0, assignable: false },
+] as const;
+
+/** Valid pedagogical levels (excludes ADMINISTRACION=9). */
+const PEDAGOGICAL_LEVELS_CODES = [
+  EducationalLevelCode.INICIAL,
+  EducationalLevelCode.PRIMARIO,
+  EducationalLevelCode.SECUNDARIO,
+  EducationalLevelCode.TERCIARIO,
+] as const;
+
+/**
+ * Upserts system attendance types (P, SAB, DOM, X) for each provided pedagogical level.
+ * Idempotent: update:{} means it won't overwrite admin customizations.
+ */
+export async function seedSystemAttendanceTypes(
+  prisma: TenantPrismaClient,
+  levels?: readonly EducationalLevelCode[],
+) {
+  const targetLevels = (levels ?? PEDAGOGICAL_LEVELS_CODES).filter(
+    (l) => l !== EducationalLevelCode.ADMINISTRACION,
+  );
+
+  for (const level of targetLevels) {
+    for (const sysType of SYSTEM_ATTENDANCE_TYPES) {
+      await prisma.attendanceType.upsert({
+        where: { level_code: { level, code: sysType.code } },
+        create: {
+          level,
+          code: sysType.code,
+          description: sysType.description,
+          absenceValue: sysType.absenceValue,
+          isPresent: sysType.isPresent,
+          assignable: sysType.assignable,
+          isSystem: true,
+          active: true,
+        },
+        update: {}, // no-op: never overwrite admin customizations
+      });
+    }
+  }
+
+  console.log(`✅ System attendance types seeded for levels: ${targetLevels.join(', ')}`);
 }
 
 // ── Ensure every active institution has at least one level ──────

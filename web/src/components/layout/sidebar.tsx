@@ -107,6 +107,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Instituciones', path: '/institutions', moduleCode: 'INSTITUTIONS' },
       { label: 'Perfiles', path: '/profiles', moduleCode: 'USERS' },
       { label: 'Módulos', path: '/modules' /* ROOT only — no moduleCode needed */ },
+      { label: 'Tipos de asistencia', path: '/attendance-types', moduleCode: 'ATTENDANCE_TYPES' },
     ],
   },
 ];

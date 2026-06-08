@@ -5,7 +5,7 @@
  * Usage: DATABASE_URL=postgresql://... npx ts-node prisma/seed-tenant.ts
  */
 import { PrismaClient } from '@prisma/tenant-client';
-import { seedAttendanceStatuses, seedGradeScales } from './seed';
+import { seedAttendanceStatuses, seedGradeScales, seedSystemAttendanceTypes } from './seed';
 
 async function main() {
   const prisma = new PrismaClient({
@@ -13,6 +13,7 @@ async function main() {
   });
 
   await seedAttendanceStatuses(prisma);
+  await seedSystemAttendanceTypes(prisma); // seeds P, SAB, DOM, X for all pedagogical levels
   await seedGradeScales(prisma);
 
   await prisma.$disconnect();
