@@ -39,6 +39,11 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
+    if (!url) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true); setError('');
     try { const res = await apiClient.get(url, { params }); setData(adaptListResponse<T>(res)); }
     catch { setError('Error al cargar datos'); }
@@ -49,9 +54,15 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
   return { data, loading, error, reload: load };
 }
 
-export function useApiDelete(url: string) {
+export function useApiDelete(url: string, queryParams?: Record<string, string>) {
   const [deleting, setDeleting] = useState(false);
-  const del = async (id: string) => { setDeleting(true); try { await apiClient.delete(`${url}/${id}`); return true; } catch { return false; } finally { setDeleting(false); } };
+  const del = async (id: string) => {
+    setDeleting(true);
+    try {
+      await apiClient.delete(`${url}/${id}`, queryParams ? { params: queryParams } : undefined);
+      return true;
+    } catch { return false; } finally { setDeleting(false); }
+  };
   return { deleting, del };
 }
 

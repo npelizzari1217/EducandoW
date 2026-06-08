@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
@@ -20,7 +20,9 @@ vi.mock('../../../api/client', () => ({
   },
 }));
 
-// ── Mock useAuth (ROOT has full access) ──
+// ── Configurable auth mock (ROOT vs non-ROOT) ──
+
+let mockUserRoles: string[] = ['ROOT'];
 
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
@@ -28,8 +30,8 @@ vi.mock('../../../context/auth-context', () => ({
       id: 'user-root',
       email: 'root@edu.com',
       name: 'Root',
-      role: 'ROOT',
-      roles: ['ROOT'],
+      role: mockUserRoles[0] ?? 'ROOT',
+      get roles() { return mockUserRoles; },
       modules: [
         { moduleCode: 'ATTENDANCE_TYPES', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
       ],
@@ -43,11 +45,19 @@ vi.mock('../../../context/auth-context', () => ({
   }),
 }));
 
-// ── Mock useInstitution ──
+// ── Configurable institution mock ──
+
+let mockInstitutionConfig = {
+  id: 'inst-1',
+  name: 'Escuela Test',
+  levels: [10, 20],
+  send_email: false,
+  send_messages: false,
+};
 
 vi.mock('../../../context/institution-context', () => ({
   useInstitution: () => ({
-    config: { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false },
+    config: mockInstitutionConfig,
     isLoading: false,
     error: null,
     reload: vi.fn(),
@@ -57,7 +67,7 @@ vi.mock('../../../context/institution-context', () => ({
 
 // ── Mock adaptListResponse (used by useApiList) ──
 
-vi.mock('../../../api/adapters', () => ({
+vi.mock('../../../api/adapters/index', () => ({
   adaptListResponse: (res: any) => {
     const d = res?.data?.data;
     return Array.isArray(d) ? d : [];
@@ -88,16 +98,37 @@ const CUSTOM_TYPE = {
   active: true,
 };
 
+const INSTITUTIONS = [
+  { id: 'inst-1', name: 'Escuela Test' },
+  { id: 'inst-2', name: 'Colegio Otro' },
+];
+
 function setupApiMock() {
   mockApiGet.mockReset();
   mockApiPost.mockReset();
   mockApiPatch.mockReset();
   mockApiDelete.mockReset();
 
-  mockApiGet.mockResolvedValue({
-    data: { data: [SYSTEM_TYPE, CUSTOM_TYPE] },
+  mockApiGet.mockImplementation((url: string) => {
+    if (url === '/institutions') {
+      return Promise.resolve({ data: { data: INSTITUTIONS } });
+    }
+    return Promise.resolve({ data: { data: [SYSTEM_TYPE, CUSTOM_TYPE] } });
   });
-  mockApiPost.mockResolvedValue({ data: { data: { id: 'new-1', code: 'AUS', description: 'Ausente', absence_value: 1, level: 2, assignable: true, is_system: false, active: true } } });
+  mockApiPost.mockResolvedValue({
+    data: {
+      data: {
+        id: 'new-1',
+        code: 'AUS',
+        description: 'Ausente',
+        absence_value: 1,
+        level: 2,
+        assignable: true,
+        is_system: false,
+        active: true,
+      },
+    },
+  });
   mockApiPatch.mockResolvedValue({ data: { data: {} } });
   mockApiDelete.mockResolvedValue({});
 }
@@ -119,12 +150,18 @@ function renderPage() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// COMPONENT TESTS
+// EXISTING COMPONENT TESTS (must remain green)
 // ═══════════════════════════════════════════════════════════
 
 describe('AttendanceTypesPage', () => {
   beforeEach(() => {
+    mockUserRoles = ['ROOT'];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
     setupApiMock();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('renders without errors', async () => {
@@ -217,6 +254,238 @@ describe('AttendanceTypesPage', () => {
     await waitFor(() => {
       const errorEl = screen.queryByText(/máx|4 caracteres|máximo/i);
       expect(errorEl).toBeInTheDocument();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// ROOT USER — institution selector and institutionId in calls
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypesPage — ROOT user', () => {
+  beforeEach(() => {
+    mockUserRoles = ['ROOT'];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders an institution selector (combobox) for ROOT', async () => {
+    renderPage();
+
+    // The institution selector should be visible
+    await waitFor(() => {
+      const select = screen.queryByLabelText('Institución');
+      expect(select).toBeInTheDocument();
+    });
+  });
+
+  it('populates institution selector with options fetched from /institutions', async () => {
+    renderPage();
+
+    // Wait for institutions to load
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/institutions');
+    });
+
+    // Institution names should appear as options (use getAllByText since the name may
+    // also appear in PremiumHeader's institution display)
+    await waitFor(() => {
+      expect(screen.getAllByText('Escuela Test').length).toBeGreaterThan(0);
+      // "Colegio Otro" only appears inside the selector options
+      expect(screen.getByText('Colegio Otro')).toBeInTheDocument();
+    });
+  });
+
+  it('does NOT request /attendance-types before ROOT selects an institution', async () => {
+    // ROOT starts with no pre-selected institution
+    mockInstitutionConfig = { id: '', name: '', levels: [], send_email: false, send_messages: false };
+
+    renderPage();
+
+    // Wait for /institutions to be fetched
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/institutions');
+    });
+
+    // /attendance-types should NOT have been called yet
+    const attendanceCalls = mockApiGet.mock.calls.filter((args: any[]) => args[0] === '/attendance-types');
+    expect(attendanceCalls.length).toBe(0);
+  });
+
+  it('requests /attendance-types with institutionId after ROOT selects an institution', async () => {
+    // ROOT starts with no pre-selected institution
+    mockInstitutionConfig = { id: '', name: '', levels: [], send_email: false, send_messages: false };
+    const user = userEvent.setup();
+
+    renderPage();
+
+    // Wait for institutions list to load
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/institutions');
+    });
+
+    // Find institution selector and select an institution
+    const institutionSelect = await screen.findByLabelText('Institución');
+    await user.selectOptions(institutionSelect, 'inst-1');
+
+    // Now /attendance-types should be called with institutionId
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith(
+        '/attendance-types',
+        { params: { institutionId: 'inst-1' } },
+      );
+    });
+  });
+
+  it('passes institutionId in POST when ROOT creates a type', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    // Wait for data to load (ROOT starts with inst-1)
+    await waitFor(() => {
+      expect(screen.getByText('TAR')).toBeInTheDocument();
+    });
+
+    // Open create form
+    const newBtn = await screen.findByText(/Nuevo tipo/i);
+    await user.click(newBtn);
+
+    // Fill form
+    const codeInput = await screen.findByPlaceholderText(/P, SAB/i);
+    await user.type(codeInput, 'AUS');
+
+    // Description is the second textbox (the Input component doesn't add htmlFor
+    // without an id/name prop, so we locate it by position)
+    const textboxes = screen.getAllByRole('textbox');
+    const descInput = textboxes[1];
+    await user.type(descInput, 'Ausente');
+
+    // Submit
+    const createBtn = screen.getByText(/Crear tipo/i);
+    await user.click(createBtn);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/attendance-types',
+        expect.objectContaining({ code: 'AUS' }),
+        { params: { institutionId: 'inst-1' } },
+      );
+    });
+  });
+
+  it('passes institutionId in PATCH when ROOT edits a type', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('TAR')).toBeInTheDocument();
+    });
+
+    // Click Editar on the custom type row
+    const editBtns = screen.getAllByText('Editar');
+    await user.click(editBtns[0]);
+
+    // Save without changes
+    const saveBtn = await screen.findByText(/Guardar cambios/i);
+    await user.click(saveBtn);
+
+    await waitFor(() => {
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        `/attendance-types/${CUSTOM_TYPE.id}`,
+        expect.any(Object),
+        { params: { institutionId: 'inst-1' } },
+      );
+    });
+  });
+
+  it('passes institutionId in DELETE when ROOT deletes a type', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('TAR')).toBeInTheDocument();
+    });
+
+    // Click the Eliminar button in the table row (first match)
+    const allEliminarBtns = screen.getAllByText('Eliminar');
+    await user.click(allEliminarBtns[0]);
+
+    // Confirm in modal
+    await waitFor(() => {
+      expect(screen.getByText('Confirmar eliminación')).toBeInTheDocument();
+    });
+
+    // Click the confirm Eliminar button inside the modal
+    const modalEliminarBtns = screen.getAllByText('Eliminar');
+    // The last button should be the modal confirm
+    await user.click(modalEliminarBtns[modalEliminarBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(mockApiDelete).toHaveBeenCalledWith(
+        `/attendance-types/${CUSTOM_TYPE.id}`,
+        { params: { institutionId: 'inst-1' } },
+      );
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// NON-ROOT USER — no selector, no institutionId in calls
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypesPage — non-ROOT user', () => {
+  beforeEach(() => {
+    mockUserRoles = ['TEACHER'];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('does NOT render an institution selector for non-ROOT', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Tipos de Asistencia/i).length).toBeGreaterThan(0);
+    });
+
+    // No institution selector (label "Institución" linked to a select)
+    expect(screen.queryByLabelText('Institución')).toBeNull();
+  });
+
+  it('does NOT call /institutions for non-ROOT', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      // Page renders and attendance-types are loaded
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    // /institutions should NOT be called
+    expect(mockApiGet).not.toHaveBeenCalledWith('/institutions');
+  });
+
+  it('calls /attendance-types WITHOUT institutionId for non-ROOT', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    // /attendance-types was called
+    const attendanceCalls = mockApiGet.mock.calls.filter((args: any[]) => args[0] === '/attendance-types');
+    expect(attendanceCalls.length).toBeGreaterThan(0);
+
+    // None of the calls included an institutionId param
+    attendanceCalls.forEach((args: any[]) => {
+      const config = args[1] as { params?: Record<string, string> } | undefined;
+      expect(config?.params?.institutionId).toBeUndefined();
     });
   });
 });

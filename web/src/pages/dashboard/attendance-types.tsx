@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import apiClient from '../../api/client';
@@ -18,6 +19,8 @@ const LEVEL_OPTIONS = [
 ];
 
 // ── Types ──
+
+interface Institution { id: string; name: string; }
 
 interface AttendanceTypeRow {
   id: string;
@@ -61,8 +64,29 @@ const LEVEL_LABELS: Record<number, string> = {
 
 export default function AttendanceTypesPage() {
   const { user } = useAuth();
-  const { data, loading, reload } = useApiList<AttendanceTypeRow>('/attendance-types');
-  const { deleting, del } = useApiDelete('/attendance-types');
+  const { config } = useInstitution();
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
+
+  // ROOT institution selector
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [institutionId, setInstitutionId] = useState(isRoot ? (config.id ?? '') : '');
+
+  // Load institutions list for ROOT
+  useEffect(() => {
+    if (!isRoot) return;
+    apiClient.get('/institutions').then(r => {
+      setInstitutions(r.data?.data ?? []);
+    }).catch(() => {});
+  }, [isRoot]);
+
+  // API query params: ROOT passes institutionId when selected; non-ROOT passes nothing
+  const rootQueryParams = (isRoot && institutionId) ? { institutionId } : undefined;
+
+  // List URL: skip fetch when ROOT has not yet selected an institution
+  const listUrl = (isRoot && !institutionId) ? '' : '/attendance-types';
+
+  const { data, loading, reload } = useApiList<AttendanceTypeRow>(listUrl, rootQueryParams);
+  const { deleting, del } = useApiDelete('/attendance-types', rootQueryParams);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<AttendanceTypeForm>(EMPTY_FORM);
@@ -76,7 +100,6 @@ export default function AttendanceTypesPage() {
   const [filterLevel, setFilterLevel] = useState<string>('');
   const [filterActive, setFilterActive] = useState<string>('');
 
-  const isRoot = user?.roles?.includes('ROOT') ?? false;
   const userModules = user?.modules ?? [];
   const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
     isRoot || userModules.some((m: { moduleCode: string; actions: string[] }) => m.moduleCode === moduleCode && actions.some((a) => m.actions.includes(a)));
@@ -110,7 +133,7 @@ export default function AttendanceTypesPage() {
     if (!validateForm()) return;
     setSaving(true); setSaveError('');
     try {
-      await apiClient.post('/attendance-types', buildPayload());
+      await apiClient.post('/attendance-types', buildPayload(), { params: rootQueryParams });
       setShowForm(false);
       setForm(EMPTY_FORM);
       setFieldErrors({});
@@ -147,7 +170,7 @@ export default function AttendanceTypesPage() {
         absenceValue: Number(form.absenceValue),
         assignable: form.assignable,
         active: form.active,
-      });
+      }, { params: rootQueryParams });
       setShowForm(false);
       setForm(EMPTY_FORM);
       setEditingId(null);
@@ -187,6 +210,8 @@ export default function AttendanceTypesPage() {
     return true;
   });
 
+  const canCreate = hasModuleAction('ATTENDANCE_TYPES', 'CREATE') && (!isRoot || !!institutionId);
+
   return (
     <div>
       <PremiumHeader
@@ -195,7 +220,7 @@ export default function AttendanceTypesPage() {
         icon="📋"
         stats={[{ label: 'tipos', value: String(data.length) }]}
       >
-        {hasModuleAction('ATTENDANCE_TYPES', 'CREATE') && (
+        {canCreate && (
           <Button
             variant={showForm ? 'danger-soft' : 'success-soft'}
             onClick={() => {
@@ -208,237 +233,281 @@ export default function AttendanceTypesPage() {
         )}
       </PremiumHeader>
 
-      {showForm && (
-        <Card title={editingId ? 'Editar tipo de asistencia' : 'Nuevo tipo de asistencia'} className="mt-md">
-          {saveError && (
-            <div style={{
-              background: 'var(--color-danger-light)',
-              color: 'var(--color-danger)',
-              padding: 'var(--space-sm)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 'var(--space-md)',
-              fontSize: 'var(--text-sm)',
-            }}>
-              {saveError}
-            </div>
+      {/* Institution selector — ROOT only */}
+      {isRoot && (
+        <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-end', marginBottom: 'var(--space-md)' }}>
+          <div>
+            <label
+              htmlFor="institution-select"
+              style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}
+            >
+              Institución
+            </label>
+            <select
+              id="institution-select"
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+              style={{
+                padding: '0.5rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-text)',
+                fontSize: 'var(--text-sm)',
+                minWidth: '220px',
+              }}
+            >
+              <option value="">Seleccioná una institución</option>
+              {institutions.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Guard: ROOT must select an institution before seeing data */}
+      {isRoot && !institutionId ? (
+        <Card className="mt-md">
+          <p style={{ color: 'var(--color-text-muted)', padding: 'var(--space-md)', textAlign: 'center' }}>
+            Seleccioná una institución para ver los tipos de asistencia.
+          </p>
+        </Card>
+      ) : (
+        <>
+          {showForm && (
+            <Card title={editingId ? 'Editar tipo de asistencia' : 'Nuevo tipo de asistencia'} className="mt-md">
+              {saveError && (
+                <div style={{
+                  background: 'var(--color-danger-light)',
+                  color: 'var(--color-danger)',
+                  padding: 'var(--space-sm)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 'var(--space-md)',
+                  fontSize: 'var(--text-sm)',
+                }}>
+                  {saveError}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-md">
+                {/* Code — only on create, invariant on edit */}
+                {!editingId && (
+                  <Input
+                    label="Código * (máx. 4 caracteres)"
+                    value={form.code}
+                    onChange={(e) => update('code', e.target.value.toUpperCase())}
+                    placeholder="P, SAB, DOM, TAR..."
+                    maxLength={4}
+                    error={fieldErrors.code}
+                    id="level-code-input"
+                  />
+                )}
+
+                <Input
+                  label="Descripción *"
+                  value={form.description}
+                  onChange={(e) => update('description', e.target.value)}
+                  error={fieldErrors.description}
+                />
+
+                <Input
+                  label="Valor de ausencia (0 = presente; 0.5, 1 = ausencia parcial/total)"
+                  value={form.absenceValue}
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  onChange={(e) => update('absenceValue', e.target.value)}
+                  error={fieldErrors.absenceValue}
+                />
+
+                {/* Level selector — only on create (invariant on edit) */}
+                {!editingId && (
+                  <div className="field">
+                    <label className="field-label" htmlFor="attendance-level-select">Nivel educativo *</label>
+                    <select
+                      id="attendance-level-select"
+                      name="level"
+                      className="input"
+                      value={form.level}
+                      onChange={(e) => update('level', Number(e.target.value))}
+                      style={{ width: '100%' }}
+                      aria-label="Nivel educativo"
+                    >
+                      {LEVEL_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="field">
+                  <label className="field-label">Asignable manualmente</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.assignable}
+                      onChange={(e) => update('assignable', e.target.checked)}
+                    />
+                    <span style={{ fontSize: 'var(--text-sm)' }}>
+                      {form.assignable ? 'Sí — visible en la grilla diaria' : 'No — solo para autorrelleno'}
+                    </span>
+                  </label>
+                </div>
+
+                <div className="field">
+                  <label className="field-label">Estado</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
+                    <input
+                      type="checkbox"
+                      checked={form.active}
+                      onChange={(e) => update('active', e.target.checked)}
+                    />
+                    <span style={{ fontSize: 'var(--text-sm)' }}>{form.active ? 'Activo' : 'Inactivo'}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)' }}>
+                {editingId ? (
+                  <Button variant="success-soft" onClick={handleSave} loading={saving}>Guardar cambios</Button>
+                ) : (
+                  <Button variant="success-soft" onClick={handleCreate} loading={saving}>Crear tipo</Button>
+                )}
+              </div>
+            </Card>
           )}
 
-          <div className="flex flex-col gap-md">
-            {/* Code — only on create, invariant on edit */}
-            {!editingId && (
-              <Input
-                label="Código * (máx. 4 caracteres)"
-                value={form.code}
-                onChange={(e) => update('code', e.target.value.toUpperCase())}
-                placeholder="P, SAB, DOM, TAR..."
-                maxLength={4}
-                error={fieldErrors.code}
-                id="level-code-input"
-              />
-            )}
-
-            <Input
-              label="Descripción *"
-              value={form.description}
-              onChange={(e) => update('description', e.target.value)}
-              error={fieldErrors.description}
-            />
-
-            <Input
-              label="Valor de ausencia (0 = presente; 0.5, 1 = ausencia parcial/total)"
-              value={form.absenceValue}
-              type="number"
-              min="0"
-              step="0.5"
-              onChange={(e) => update('absenceValue', e.target.value)}
-              error={fieldErrors.absenceValue}
-            />
-
-            {/* Level selector — only on create (invariant on edit) */}
-            {!editingId && (
-              <div className="field">
-                <label className="field-label" htmlFor="attendance-level-select">Nivel educativo *</label>
+          {/* ── Filters ── */}
+          <Card className="mt-md">
+            <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
+              <div className="field" style={{ minWidth: 160 }}>
+                <label className="field-label">Filtrar por nivel</label>
                 <select
-                  id="attendance-level-select"
-                  name="level"
                   className="input"
-                  value={form.level}
-                  onChange={(e) => update('level', Number(e.target.value))}
+                  value={filterLevel}
+                  onChange={(e) => setFilterLevel(e.target.value)}
                   style={{ width: '100%' }}
-                  aria-label="Nivel educativo"
+                  aria-label="Filtrar por nivel"
                 >
+                  <option value="">Todos</option>
                   {LEVEL_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
               </div>
-            )}
-
-            <div className="field">
-              <label className="field-label">Asignable manualmente</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                <input
-                  type="checkbox"
-                  checked={form.assignable}
-                  onChange={(e) => update('assignable', e.target.checked)}
-                />
-                <span style={{ fontSize: 'var(--text-sm)' }}>
-                  {form.assignable ? 'Sí — visible en la grilla diaria' : 'No — solo para autorrelleno'}
-                </span>
-              </label>
+              <div className="field" style={{ minWidth: 160 }}>
+                <label className="field-label">Filtrar por estado</label>
+                <select
+                  className="input"
+                  value={filterActive}
+                  onChange={(e) => setFilterActive(e.target.value)}
+                  style={{ width: '100%' }}
+                  aria-label="Filtrar por estado"
+                >
+                  <option value="">Todos</option>
+                  <option value="true">Activos</option>
+                  <option value="false">Inactivos</option>
+                </select>
+              </div>
             </div>
 
-            <div className="field">
-              <label className="field-label">Estado</label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                <input
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => update('active', e.target.checked)}
-                />
-                <span style={{ fontSize: 'var(--text-sm)' }}>{form.active ? 'Activo' : 'Inactivo'}</span>
-              </label>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 'var(--space-lg)', display: 'flex', gap: 'var(--space-md)' }}>
-            {editingId ? (
-              <Button variant="success-soft" onClick={handleSave} loading={saving}>Guardar cambios</Button>
-            ) : (
-              <Button variant="success-soft" onClick={handleCreate} loading={saving}>Crear tipo</Button>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* ── Filters ── */}
-      <Card className="mt-md">
-        <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
-          <div className="field" style={{ minWidth: 160 }}>
-            <label className="field-label">Filtrar por nivel</label>
-            <select
-              className="input"
-              value={filterLevel}
-              onChange={(e) => setFilterLevel(e.target.value)}
-              style={{ width: '100%' }}
-              aria-label="Filtrar por nivel"
-            >
-              <option value="">Todos</option>
-              {LEVEL_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field" style={{ minWidth: 160 }}>
-            <label className="field-label">Filtrar por estado</label>
-            <select
-              className="input"
-              value={filterActive}
-              onChange={(e) => setFilterActive(e.target.value)}
-              style={{ width: '100%' }}
-              aria-label="Filtrar por estado"
-            >
-              <option value="">Todos</option>
-              <option value="true">Activos</option>
-              <option value="false">Inactivos</option>
-            </select>
-          </div>
-        </div>
-
-        <Table
-          columns={[
-            { key: 'code', header: 'Código' },
-            { key: 'description', header: 'Descripción' },
-            {
-              key: 'level',
-              header: 'Nivel',
-              render: (row: Record<string, unknown>) => LEVEL_LABELS[row.level as number] ?? String(row.level),
-            },
-            {
-              key: 'absence_value',
-              header: 'Valor ausencia',
-              render: (row: Record<string, unknown>) => String(row.absence_value),
-            },
-            {
-              key: 'assignable',
-              header: 'Asignable',
-              render: (row: Record<string, unknown>) => (row.assignable ? 'Sí' : 'No'),
-            },
-            {
-              key: 'active',
-              header: 'Estado',
-              render: (row: Record<string, unknown>) => (
-                <span style={{ color: row.active ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
-                  {row.active ? 'Activo' : 'Inactivo'}
-                </span>
-              ),
-            },
-            {
-              key: 'is_system',
-              header: 'Sistema',
-              render: (row: Record<string, unknown>) => (row.is_system ? '🔒 Sistema' : '—'),
-            },
-            {
-              key: 'actions',
-              header: '',
-              render: (row: Record<string, unknown>) => {
-                const r = row as unknown as AttendanceTypeRow;
-                // System types cannot be edited or deleted
-                if (r.is_system) {
-                  return (
-                    <span
-                      title="Los tipos de sistema no se pueden editar ni eliminar"
-                      style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}
-                    >
-                      Solo lectura
+            <Table
+              columns={[
+                { key: 'code', header: 'Código' },
+                { key: 'description', header: 'Descripción' },
+                {
+                  key: 'level',
+                  header: 'Nivel',
+                  render: (row: Record<string, unknown>) => LEVEL_LABELS[row.level as number] ?? String(row.level),
+                },
+                {
+                  key: 'absence_value',
+                  header: 'Valor ausencia',
+                  render: (row: Record<string, unknown>) => String(row.absence_value),
+                },
+                {
+                  key: 'assignable',
+                  header: 'Asignable',
+                  render: (row: Record<string, unknown>) => (row.assignable ? 'Sí' : 'No'),
+                },
+                {
+                  key: 'active',
+                  header: 'Estado',
+                  render: (row: Record<string, unknown>) => (
+                    <span style={{ color: row.active ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+                      {row.active ? 'Activo' : 'Inactivo'}
                     </span>
-                  );
-                }
-                const canEdit = hasModuleAction('ATTENDANCE_TYPES', 'READ', 'UPDATE');
-                const canDelete = hasModuleAction('ATTENDANCE_TYPES', 'DELETE');
-                if (!canEdit && !canDelete) return null;
-                return (
-                  <div style={{ display: 'flex', gap: '0.25rem' }}>
-                    {canEdit && (
-                      <Button variant="action" size="sm" onClick={() => handleEdit(r)}>Editar</Button>
-                    )}
-                    {canDelete && (
-                      <Button variant="danger-soft" size="sm" onClick={() => setDeleteTarget(r)}>Eliminar</Button>
-                    )}
-                  </div>
-                );
-              },
-            },
-          ]}
-          data={filteredData as unknown as Record<string, unknown>[]}
-          emptyMessage={loading ? 'Cargando...' : 'No hay tipos de asistencia'}
-        />
-      </Card>
+                  ),
+                },
+                {
+                  key: 'is_system',
+                  header: 'Sistema',
+                  render: (row: Record<string, unknown>) => (row.is_system ? '🔒 Sistema' : '—'),
+                },
+                {
+                  key: 'actions',
+                  header: '',
+                  render: (row: Record<string, unknown>) => {
+                    const r = row as unknown as AttendanceTypeRow;
+                    // System types cannot be edited or deleted
+                    if (r.is_system) {
+                      return (
+                        <span
+                          title="Los tipos de sistema no se pueden editar ni eliminar"
+                          style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}
+                        >
+                          Solo lectura
+                        </span>
+                      );
+                    }
+                    const canEdit = hasModuleAction('ATTENDANCE_TYPES', 'READ', 'UPDATE');
+                    const canDelete = hasModuleAction('ATTENDANCE_TYPES', 'DELETE');
+                    if (!canEdit && !canDelete) return null;
+                    return (
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        {canEdit && (
+                          <Button variant="action" size="sm" onClick={() => handleEdit(r)}>Editar</Button>
+                        )}
+                        {canDelete && (
+                          <Button variant="danger-soft" size="sm" onClick={() => setDeleteTarget(r)}>Eliminar</Button>
+                        )}
+                      </div>
+                    );
+                  },
+                },
+              ]}
+              data={filteredData as unknown as Record<string, unknown>[]}
+              emptyMessage={loading ? 'Cargando...' : 'No hay tipos de asistencia'}
+            />
+          </Card>
 
-      {/* Delete confirmation modal */}
-      {deleteTarget && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-        }}>
-          <div style={{
-            background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-lg)', maxWidth: 400, width: '100%',
-            boxShadow: 'var(--shadow-lg)',
-          }}>
-            <h3 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-lg)', fontWeight: 600 }}>
-              Confirmar eliminación
-            </h3>
-            <p style={{ marginBottom: 'var(--space-md)' }}>
-              ¿Estás seguro de que querés eliminar el tipo <strong>{deleteTarget.code}</strong>?
-            </p>
-            <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
-              <Button variant="danger-soft" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
-              <Button onClick={handleDeleteConfirm} loading={deleting}>Eliminar</Button>
+          {/* Delete confirmation modal */}
+          {deleteTarget && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+            }}>
+              <div style={{
+                background: 'var(--color-surface)', borderRadius: 'var(--radius-lg)',
+                padding: 'var(--space-lg)', maxWidth: 400, width: '100%',
+                boxShadow: 'var(--shadow-lg)',
+              }}>
+                <h3 style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-lg)', fontWeight: 600 }}>
+                  Confirmar eliminación
+                </h3>
+                <p style={{ marginBottom: 'var(--space-md)' }}>
+                  ¿Estás seguro de que querés eliminar el tipo <strong>{deleteTarget.code}</strong>?
+                </p>
+                <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'flex-end' }}>
+                  <Button variant="danger-soft" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+                  <Button onClick={handleDeleteConfirm} loading={deleting}>Eliminar</Button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );
