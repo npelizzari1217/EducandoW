@@ -30,6 +30,27 @@ export type {
   AssignGradeInput,
 } from './entities/competency-period-valuation';
 
+// ── Grading Primario (Fase 4, PR1) ─────────────────────────────────────────────
+export { SubjectGradingPeriod } from './entities/subject-grading-period';
+export type {
+  SnapshotSubjectGradingPeriodInput,
+  ReconstructSubjectGradingPeriodProps,
+} from './entities/subject-grading-period';
+
+export { SubjectPeriodGrade } from './entities/subject-period-grade';
+export type {
+  CreateSubjectPeriodGradeInput,
+  ReconstructSubjectPeriodGradeProps,
+  AssignSubjectPeriodGradeInput,
+  SetFlagsInput,
+} from './entities/subject-period-grade';
+
+export { PedagogicalFlags } from './value-objects/pedagogical-flags';
+export type { PedagogicalFlagsInput } from './value-objects/pedagogical-flags';
+
+export type { SubjectGradingPeriodRepository } from './repositories/subject-grading-period-repository';
+export type { SubjectPeriodGradeRepository } from './repositories/subject-period-grade-repository';
+
 // Value Objects
 export { CycleCode } from './value-objects/cycle-code';
 

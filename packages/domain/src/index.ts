@@ -52,6 +52,13 @@ export type { StudentObservationProps, StudentObservationRepository } from './st
 // Pedagogy
 export { Subject, CourseSection, SubjectAssignment, Evaluacion, Nota, PeriodoEvaluacion, NotaTrimestral, Attendance, SubjectCompetency, CompetencyValuation, CompetencyPeriodValuation } from './pedagogy';
 export type { SubjectProps, CourseSectionProps, SubjectAssignmentProps, EvaluacionProps, NotaProps, PeriodoEvaluacionProps, NotaTrimestralProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, SubjectCompetencyProps, CompetencyValuationProps, CreateCompetencyPeriodValuationInput, ReconstructCompetencyPeriodValuationProps, AssignGradeInput } from './pedagogy';
+
+// Pedagogy — Grading Primario (Fase 4, PR1)
+export { SubjectGradingPeriod, SubjectPeriodGrade, PedagogicalFlags } from './pedagogy';
+export type { SnapshotSubjectGradingPeriodInput, ReconstructSubjectGradingPeriodProps } from './pedagogy';
+export type { CreateSubjectPeriodGradeInput, ReconstructSubjectPeriodGradeProps, AssignSubjectPeriodGradeInput, SetFlagsInput } from './pedagogy';
+export type { PedagogicalFlagsInput } from './pedagogy';
+export type { SubjectGradingPeriodRepository, SubjectPeriodGradeRepository } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';

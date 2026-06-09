@@ -46,6 +46,7 @@ model Student {
   actaExamenNotas         ActaExamenNota[]
   titulos                 Titulo[]
   observations            StudentObservation[]
+  subjectPeriodGrades     SubjectPeriodGrade[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -173,6 +174,8 @@ model CourseCycle {
   cycle     AcademicCycle   @relation(fields: [cycleId], references: [uuid])
 
   competencyValuations CompetencyValuation[]
+  subjectGradingPeriods SubjectGradingPeriod[]
+  subjectPeriodGrades   SubjectPeriodGrade[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -233,6 +236,8 @@ model Subject {
   mesasExamen              MesaExamen[]
   regimenAcademico         RegimenAcademico[]
   materiasCarrera          MateriaCarrera[]
+  subjectGradingPeriods    SubjectGradingPeriod[]
+  subjectPeriodGrades      SubjectPeriodGrade[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -402,6 +407,7 @@ model GradeScaleValue {
   scale GradeScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
   notas Nota[]
   competencyPeriodValuations CompetencyPeriodValuation[]
+  subjectPeriodGrades        SubjectPeriodGrade[]
 
   @@index([scaleId])
   @@unique([scaleId, code])
@@ -1063,6 +1069,56 @@ model StudentObservation {
   @@index([studentId])
   @@index([authorId])
   @@map("student_observations")
+}
+
+// ── Subject Grading (Fase 4) ───────────────────────────────
+
+// Snapshot of the period structure for one Materia×Curso×Ciclo. Immutable copy. (AD-4)
+model SubjectGradingPeriod {
+  id            String  @id @default(uuid())
+  courseCycleId String  @map("course_cycle_id")   // → CourseCycle.uuid
+  subjectId     String  @map("subject_id")
+  periodOrdinal Int     @map("period_ordinal")     // = GradingPeriodTemplateItem.sortOrder at snapshot time
+  periodName    String  @map("period_name")        // = GradingPeriodTemplateItem.name at snapshot time
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+  subject     Subject     @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, subjectId, periodOrdinal])
+  @@index([courseCycleId, subjectId])
+  @@map("subject_grading_periods")
+}
+
+// Alphanumeric subject-level period grade + per-period pedagogical flags (AD-3).
+model SubjectPeriodGrade {
+  id                String               @id @default(uuid())
+  studentId         String               @map("student_id")
+  courseCycleId     String               @map("course_cycle_id")   // → CourseCycle.uuid
+  subjectId         String               @map("subject_id")
+  periodOrdinal     Int                  @map("period_ordinal")     // matches SubjectGradingPeriod.periodOrdinal
+  gradeScaleValueId String?              @map("grade_scale_value_id")
+  gradeCode         String?              @map("grade_code")          // snapshot of the code
+  internalStatus    GradeInternalStatus? @map("internal_status")
+  // Per-period pedagogical flags (AD-3)
+  pa                Boolean              @default(false)
+  ppi               Boolean              @default(false)
+  pp                Boolean              @default(false)
+
+  student     Student          @relation(fields: [studentId],         references: [id], onDelete: Cascade)
+  courseCycle CourseCycle      @relation(fields: [courseCycleId],     references: [uuid], onDelete: Restrict)
+  subject     Subject          @relation(fields: [subjectId],         references: [id], onDelete: Cascade)
+  gradeValue  GradeScaleValue? @relation(fields: [gradeScaleValueId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, courseCycleId, subjectId, periodOrdinal])
+  @@index([courseCycleId, subjectId])
+  @@index([studentId])
+  @@map("subject_period_grades")
 }
 
 // ── Grading Periods ────────────────────────────────────────
