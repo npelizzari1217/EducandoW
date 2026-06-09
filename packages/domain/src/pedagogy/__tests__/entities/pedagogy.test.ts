@@ -17,19 +17,29 @@ import { Attendance } from '../../../pedagogy/entities/attendance';
 // GradeScale and GradeScaleValue moved to grading/__tests__/entities/ — grading-foundations
 
 describe('StudyPlan', () => {
-  it('creates with name, level, modality and academicYear', () => {
+  it('creates with name, level, modality and optional cycleUuid', () => {
     const p = StudyPlan.create({
       name: 'Plan Primario',
       level: EducationalLevelCode.PRIMARIO,
       modality: EducationalModalityCode.COMUN,
-      academicYear: '2026',
+      cycleUuid: 'cycle-uuid-1',
     });
     expect(p.name).toBe('Plan Primario');
     expect(p.level).toBe(EducationalLevelCode.PRIMARIO);
     expect(p.modality).toBe(EducationalModalityCode.COMUN);
-    expect(p.academicYear).toBe('2026');
+    expect(p.cycleUuid).toBe('cycle-uuid-1');
     expect(p.active).toBe(true);
     expect(p.id.get()).toBeDefined();
+  });
+
+  it('creates without cycleUuid (nullable)', () => {
+    const p = StudyPlan.create({
+      name: 'Plan Sin Ciclo',
+      level: EducationalLevelCode.PRIMARIO,
+      modality: EducationalModalityCode.COMUN,
+    });
+    expect(p.cycleUuid).toBeUndefined();
+    expect(p.active).toBe(true);
   });
 
   it('reconstruct preserves all fields', () => {
@@ -40,7 +50,7 @@ describe('StudyPlan', () => {
       name: 'Plan Secundario',
       level: EducationalLevelCode.SECUNDARIO,
       modality: EducationalModalityCode.TALLERES,
-      academicYear: '2025',
+      cycleUuid: 'cycle-abc',
       active: false,
       createdAt: now,
       updatedAt: now,
@@ -48,6 +58,7 @@ describe('StudyPlan', () => {
     expect(p.id.get()).toBe('plan-1');
     expect(p.level).toBe(EducationalLevelCode.SECUNDARIO);
     expect(p.modality).toBe(EducationalModalityCode.TALLERES);
+    expect(p.cycleUuid).toBe('cycle-abc');
     expect(p.active).toBe(false);
   });
 
@@ -56,7 +67,6 @@ describe('StudyPlan', () => {
       name: 'Plan Inicial',
       level: EducationalLevelCode.INICIAL,
       modality: EducationalModalityCode.COMUN,
-      academicYear: '2026',
     });
     const prevUpdatedAt = p.updatedAt;
 

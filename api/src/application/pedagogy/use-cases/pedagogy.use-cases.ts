@@ -230,7 +230,6 @@ export class CreateCourseSectionUC { constructor(private r: CourseSectionReposit
       const plan = await this.planRepo.findById(input.studyPlanId);
       if (!plan) return err(new ValidationError(`Plan de estudio ${input.studyPlanId} no encontrado`));
       levelVal = Level.fromParts(plan.level as EducationalLevelCode, plan.modality ?? EducationalModalityCode.COMUN);
-      academicYear = plan.academicYear || academicYear;
     }
 
     const name = input.name || [input.grade, input.division].filter(Boolean).join(' ') || input.level;
@@ -321,13 +320,13 @@ export class DeleteAttendanceUC { constructor(private r: AttendanceRepository) {
 
 // ── Study Plans ──────────────────────────────────────
 @Injectable()
-export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(input: { name: string; level: number; modality?: number; academicYear: string }): Promise<Result<StudyPlan, ValidationError>> {
+export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} async execute(input: { name: string; level: number; modality?: number; cycleUuid?: string }): Promise<Result<StudyPlan, ValidationError>> {
     const modality = input.modality ?? 0;
     const compositeValidation = Level.create(input.level * 10 + modality);
     if (compositeValidation.isErr()) {
       return err(new ValidationError(`Combinación de nivel/modalidad inválida: nivel=${input.level}, modalidad=${modality}. Verifique que la modalidad sea válida para el nivel indicado.`));
     }
-    const p = StudyPlan.create({ name: input.name, level: input.level as EducationalLevelCode, modality: modality as EducationalModalityCode, academicYear: input.academicYear });
+    const p = StudyPlan.create({ name: input.name, level: input.level as EducationalLevelCode, modality: modality as EducationalModalityCode, cycleUuid: input.cycleUuid });
     await this.r.save(p);
     return ok(p);
   }
@@ -336,7 +335,7 @@ export class CreateStudyPlanUC { constructor(private r: StudyPlanRepository) {} 
 export class UpdateStudyPlanUC {
   constructor(private r: StudyPlanRepository) {}
 
-  async execute(id: string, input: { name?: string; academicYear?: string; active?: boolean; level?: number; modality?: number }): Promise<Result<StudyPlan | null, ValidationError>> {
+  async execute(id: string, input: { name?: string; cycleUuid?: string | null; active?: boolean; level?: number; modality?: number }): Promise<Result<StudyPlan | null, ValidationError>> {
     const existing = await this.r.findById(id);
     if (!existing) return ok(null);
 
@@ -355,7 +354,7 @@ export class UpdateStudyPlanUC {
     const updated = StudyPlan.reconstruct({
       ...(existing as unknown as { props: StudyPlanProps }).props,
       name: input.name ?? existing.name,
-      academicYear: input.academicYear ?? existing.academicYear,
+      cycleUuid: input.cycleUuid !== undefined ? (input.cycleUuid ?? undefined) : existing.cycleUuid,
       active: input.active ?? existing.active,
       updatedAt: new Date(),
     });

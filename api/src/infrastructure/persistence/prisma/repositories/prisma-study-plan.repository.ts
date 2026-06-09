@@ -8,7 +8,7 @@ interface StudyPlanRow {
   name: string;
   level: number;
   modality: number;
-  academicYear: string;
+  cycleId: string | null;
   active: boolean;
   deletedAt: Date | null;
   createdAt: Date;
@@ -190,8 +190,8 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
   private async upsertPlan(client: Pick<TenantPrismaClient, 'studyPlan'>, plan: StudyPlan): Promise<void> {
     await client.studyPlan.upsert({
       where: { id: plan.id.get() },
-      update: { name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear, active: plan.active, deletedAt: plan.deletedAt ?? null },
-      create: { id: plan.id.get(), name: plan.name, level: plan.level, modality: plan.modality, academicYear: plan.academicYear },
+      update: { name: plan.name, level: plan.level, modality: plan.modality, cycleId: plan.cycleUuid ?? null, active: plan.active, deletedAt: plan.deletedAt ?? null },
+      create: { id: plan.id.get(), name: plan.name, level: plan.level, modality: plan.modality, cycleId: plan.cycleUuid ?? null },
     });
   }
 
@@ -201,7 +201,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
       name: r.name,
       level: r.level as EducationalLevelCode,
       modality: r.modality as EducationalModalityCode,
-      academicYear: r.academicYear,
+      cycleUuid: r.cycleId ?? undefined,
       active: r.active,
       deletedAt: r.deletedAt ?? undefined,
       createdAt: r.createdAt,

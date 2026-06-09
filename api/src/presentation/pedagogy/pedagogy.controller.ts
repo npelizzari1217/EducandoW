@@ -231,7 +231,7 @@ export class PedagogyController {
 
   // ── Study Plans ─────────────────────────────────────
   @Post('study-plans') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'CREATE' })
-  async createPlan(@Body(new ZodValidationPipe(DTO.CreateStudyPlanSchema)) b: DTO.CreateStudyPlanDTO) { const r = await this.createPlanUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const p = r.unwrap(); return { data: { id: p.id.get(), name: p.name, level: p.level, academicYear: p.academicYear } }; }
+  async createPlan(@Body(new ZodValidationPipe(DTO.CreateStudyPlanSchema)) b: DTO.CreateStudyPlanDTO) { const r = await this.createPlanUC.execute(b); if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST); const p = r.unwrap(); return { data: { id: p.id.get(), name: p.name, level: p.level, cycleUuid: p.cycleUuid ?? null } }; }
 
   @Get('study-plans') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'READ' })
   async listPlans(@Query('level') l?: string) {
@@ -243,7 +243,7 @@ export class PedagogyController {
         name: p.name,
         level: p.level,
         modality: p.modality,
-        academicYear: p.academicYear,
+        cycleUuid: p.cycleUuid ?? null,
         active: p.active,
         institutionId: institutionId ?? undefined,
       })),
@@ -261,7 +261,7 @@ export class PedagogyController {
         name: p.name,
         level: p.level,
         modality: p.modality,
-        academicYear: p.academicYear,
+        cycleUuid: p.cycleUuid ?? null,
         active: p.active,
         institutionId: TenantContext.getInstitutionId() ?? undefined,
         courses: planCourses.map((c) => ({
@@ -282,7 +282,7 @@ export class PedagogyController {
   }
 
   @Patch('study-plans/:id') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'UPDATE' })
-  async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, academicYear: p.academicYear, active: p.active, level: p.level, modality: p.modality } }; }
+  async updatePlan(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateStudyPlanSchema)) b: DTO.UpdateStudyPlanDTO) { const r = await this.updatePlanUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const p = r.unwrap(); if (!p) return { data: null }; return { data: { id: p.id.get(), name: p.name, cycleUuid: p.cycleUuid ?? null, active: p.active, level: p.level, modality: p.modality } }; }
 
   @Delete('study-plans/:id') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'DELETE' }) @HttpCode(HttpStatus.NO_CONTENT)
   async deletePlan(@Param('id') id: string) {

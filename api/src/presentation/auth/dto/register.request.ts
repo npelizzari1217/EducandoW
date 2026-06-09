@@ -175,13 +175,13 @@ export const CreateStudyPlanSchema = z.object({
   name: z.string().min(1).max(200),
   level: z.number().int().min(1).max(9),
   modality: z.number().int().min(0).max(9).optional().default(0),
-  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
+  cycleUuid: z.string().min(1).optional(),
 });
 export type CreateStudyPlanDTO = z.infer<typeof CreateStudyPlanSchema>;
 
 export const UpdateStudyPlanSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido').optional(),
+  cycleUuid: z.string().min(1).optional().nullable(),
   active: z.boolean().optional(),
   level: z.number().int().min(1).max(9).optional(),
   modality: z.number().int().min(0).max(9).optional(),

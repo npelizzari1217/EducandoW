@@ -7,7 +7,7 @@ export interface StudyPlanProps {
   name: string;
   level: EducationalLevelCode;
   modality: EducationalModalityCode;
-  academicYear: string;
+  cycleUuid?: string;
   active: boolean;
   deletedAt?: Date;
   createdAt: Date;
@@ -29,7 +29,7 @@ export class StudyPlan {
   get name(): string { return this.props.name; }
   get level(): EducationalLevelCode { return this.props.level; }
   get modality(): EducationalModalityCode { return this.props.modality; }
-  get academicYear(): string { return this.props.academicYear; }
+  get cycleUuid(): string | undefined { return this.props.cycleUuid; }
   get active(): boolean { return this.props.active; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
   get createdAt(): Date { return this.props.createdAt; }
