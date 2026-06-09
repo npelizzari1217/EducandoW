@@ -30,11 +30,12 @@ interface StudyPlanDetail {
 
 interface Props {
   onSubjectSelect: (studyPlanSubjectId: string) => void;
+  institutionId?: string;
 }
 
 // ── Component ────────────────────────────────────────────────
 
-export function PlanCourseSubjectSelector({ onSubjectSelect }: Props) {
+export function PlanCourseSubjectSelector({ onSubjectSelect, institutionId }: Props) {
   const [plans, setPlans] = useState<StudyPlanSummary[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [planDetail, setPlanDetail] = useState<StudyPlanDetail | null>(null);
@@ -43,14 +44,17 @@ export function PlanCourseSubjectSelector({ onSubjectSelect }: Props) {
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
 
+  // Multi-tenant: study-plan reads need the institutionId query param.
+  const tenantParams = institutionId ? { institutionId } : undefined;
+
   useEffect(() => {
     setLoadingPlans(true);
     apiClient
-      .get('/study-plans')
+      .get('/study-plans', { params: tenantParams })
       .then(r => setPlans(r.data?.data ?? []))
       .catch(() => {})
       .finally(() => setLoadingPlans(false));
-  }, []);
+  }, [institutionId]);
 
   const handlePlanChange = async (planId: string) => {
     setSelectedPlanId(planId);
@@ -61,7 +65,7 @@ export function PlanCourseSubjectSelector({ onSubjectSelect }: Props) {
     if (!planId) return;
     setLoadingPlan(true);
     try {
-      const r = await apiClient.get(`/study-plans/${planId}`);
+      const r = await apiClient.get(`/study-plans/${planId}`, { params: tenantParams });
       setPlanDetail(r.data?.data ?? null);
     } catch { /* ignore */ }
     finally { setLoadingPlan(false); }

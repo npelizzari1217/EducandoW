@@ -13,15 +13,24 @@ import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import { LEVEL_CATALOG } from '../../constants/levels';
 import { LevelCheckboxGroup } from '../../components/ui/level-checkbox-group';
 import { AlertModal } from '../../components/ui/alert-modal';
+import { SubjectCompetenciesManager } from './components/SubjectCompetenciesManager';
 
 interface StudyPlan {
   id: string;
   name: string;
   level: number;
   modality: number;
-  academicYear: string;
+  cycleUuid?: string | null;
   active: boolean;
   institutionId?: string;
+}
+
+interface AcademicCycle {
+  uuid: string;
+  code: string;
+  name: string;
+  level: number;
+  active: boolean;
 }
 
 interface PlanCourse {
@@ -91,16 +100,20 @@ export default function StudyPlansPage() {
   const tenantQueryParams = institutionId ? { institutionId } : undefined;
 
   const { data: plans, loading, reload } = useApiList<StudyPlan>('/study-plans', tenantQueryParams);
-  const { creating, createError, create } = useApiCreate<{ name: string; level: number; modality?: number; academicYear: string }>('/study-plans', tenantQueryParams);
+  const { creating, createError, create } = useApiCreate<{ name: string; level: number; modality?: number; cycleUuid?: string }>('/study-plans', tenantQueryParams);
   const { update } = useApiUpdate<StudyPlan>('/study-plans', tenantQueryParams);
   useApiUpdate('/course-sections', tenantQueryParams); // kept for consistency, used by apiClient directly
   useApiUpdate('/subjects', tenantQueryParams);
 
+  const [allCycles, setAllCycles] = useState<AcademicCycle[]>([]);
+  const [formCycles, setFormCycles] = useState<AcademicCycle[]>([]);
+  const [editFormCycles, setEditFormCycles] = useState<AcademicCycle[]>([]);
+
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<{ name: string; selectedLevel: Set<number>; academicYear: string }>({
+  const [form, setForm] = useState<{ name: string; selectedLevel: Set<number>; cycleUuid: string }>({
     name: '',
     selectedLevel: new Set<number>(),
-    academicYear: String(new Date().getFullYear()),
+    cycleUuid: '',
   });
 
   // ── Planes expandidos (múltiples, estilo acordeón) ──
@@ -108,13 +121,15 @@ export default function StudyPlansPage() {
   const [planCourses, setPlanCourses] = useState<Record<string, PlanCourse[]>>({});
   const [expandedPlanCourses, setExpandedPlanCourses] = useState<Set<string>>(new Set());
   const [planCourseSubjects, setPlanCourseSubjects] = useState<Record<string, PlanCourseSubject[]>>({});
+  // 4th accordion level: which subjects have their competencies panel open
+  const [expandedSubjectComps, setExpandedSubjectComps] = useState<Set<string>>(new Set());
 
   const [availableCourses, setAvailableCourses] = useState<CourseSection[]>([]);
   const [selectedCourse, setSelectedCourse] = useState('');
 
   // ── Edición ──
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-  const [editPlanForm, setEditPlanForm] = useState<{ name: string; academicYear: string; selectedLevel: Set<number> }>({ name: '', academicYear: '', selectedLevel: new Set<number>() });
+  const [editPlanForm, setEditPlanForm] = useState<{ name: string; cycleUuid: string; selectedLevel: Set<number> }>({ name: '', cycleUuid: '', selectedLevel: new Set<number>() });
   const [editingCourse, setEditingCourse] = useState<{ courseSectionId: string | null; grade: string; division: string }>({ courseSectionId: null, grade: '', division: '' });
   const [editingSubject, setEditingSubject] = useState<{ subjectId: string | null; name: string }>({ subjectId: null, name: '' });
 
@@ -145,6 +160,7 @@ export default function StudyPlansPage() {
 
   useEffect(() => {
     loadAvailableCourses();
+    loadAllCycles();
   }, [institutionId]);
 
   const loadAvailableCourses = async () => {
@@ -154,9 +170,23 @@ export default function StudyPlansPage() {
     } catch { setAvailableCourses([]); }
   };
 
+  const loadAllCycles = async () => {
+    try {
+      const res = await apiClient.get('/academic-cycles', { params: { ...tenantQueryParams, active: true } });
+      setAllCycles(res.data?.data ?? []);
+    } catch { setAllCycles([]); }
+  };
+
+  const loadCyclesForLevel = async (levelCode: number, setter: (c: AcademicCycle[]) => void) => {
+    try {
+      const res = await apiClient.get('/academic-cycles', { params: { ...tenantQueryParams, level: levelCode, active: true } });
+      setter(res.data?.data ?? []);
+    } catch { setter([]); }
+  };
+
   const resetForm = () => {
     const lvlSet = defaultLevelIdx >= 0 ? new Set([defaultLevelIdx]) : new Set<number>();
-    setForm({ name: '', selectedLevel: lvlSet, academicYear: String(new Date().getFullYear()) });
+    setForm({ name: '', selectedLevel: lvlSet, cycleUuid: '' });
     setShowForm(false);
   };
 
@@ -169,25 +199,30 @@ export default function StudyPlansPage() {
       name: form.name,
       level: selOpt?.levelCode ?? fallbackOpt?.levelCode ?? 2,
       modality: selOpt?.modalityCode ?? fallbackOpt?.modalityCode ?? 0,
-      academicYear: form.academicYear,
+      cycleUuid: form.cycleUuid || undefined,
     });
     if (ok) { resetForm(); reload(); }
   };
 
   // ── Toggle nivel (single mode: reemplaza la selección) ──
   const togglePlanLevel = (idx: number) => {
-    setForm(f => ({ ...f, selectedLevel: new Set([idx]) }));
+    setForm(f => ({ ...f, selectedLevel: new Set([idx]), cycleUuid: '' }));
+    const lvlCode = LEVEL_CATALOG[idx]?.levelCode;
+    if (lvlCode != null) loadCyclesForLevel(lvlCode, setFormCycles);
   };
 
   // ── Editar plan ──
   const startEditPlan = (plan: StudyPlan) => {
     setEditingPlanId(plan.id);
     const idx = LEVEL_CATALOG.findIndex(e => e.levelCode === plan.level && e.modalityCode === (plan.modality ?? 0));
-    setEditPlanForm({ name: plan.name, academicYear: plan.academicYear, selectedLevel: idx >= 0 ? new Set([idx]) : new Set<number>() });
+    setEditPlanForm({ name: plan.name, cycleUuid: plan.cycleUuid ?? '', selectedLevel: idx >= 0 ? new Set([idx]) : new Set<number>() });
+    loadCyclesForLevel(plan.level, setEditFormCycles);
   };
 
   const toggleEditPlanLevel = (idx: number) => {
-    setEditPlanForm(f => ({ ...f, selectedLevel: new Set([idx]) }));
+    setEditPlanForm(f => ({ ...f, selectedLevel: new Set([idx]), cycleUuid: '' }));
+    const lvlCode = LEVEL_CATALOG[idx]?.levelCode;
+    if (lvlCode != null) loadCyclesForLevel(lvlCode, setEditFormCycles);
   };
 
   const handleUpdatePlan = async () => {
@@ -196,7 +231,7 @@ export default function StudyPlansPage() {
     const selOpt = selIdx !== undefined ? LEVEL_CATALOG[selIdx] : null;
     const ok = await update(editingPlanId, {
       name: editPlanForm.name,
-      academicYear: editPlanForm.academicYear,
+      cycleUuid: editPlanForm.cycleUuid || null,
       ...(selOpt ? { level: selOpt.levelCode, modality: selOpt.modalityCode } : {}),
     });
     if (ok) { setEditingPlanId(null); reload(); }
@@ -252,6 +287,16 @@ export default function StudyPlansPage() {
     }
   };
 
+  // ── Toggle subject competencies panel (4th level) ──
+  const toggleSubjectComps = (studyPlanSubjectId: string) => {
+    setExpandedSubjectComps(prev => {
+      const next = new Set(prev);
+      if (next.has(studyPlanSubjectId)) next.delete(studyPlanSubjectId);
+      else next.add(studyPlanSubjectId);
+      return next;
+    });
+  };
+
   // ── Create course inline ──
   const handleCreateCourseInline = async (plan: StudyPlan) => {
     setCourseFormLoading(true);
@@ -259,7 +304,7 @@ export default function StudyPlansPage() {
     try {
       // 1. Create the course section
       const courseRes = await apiClient.post('/course-sections', {
-        name: `${courseForm.grade || plan.academicYear} ${courseForm.division || ''}`.trim(),
+        name: `${courseForm.grade || ''} ${courseForm.division || ''}`.trim() || String(new Date().getFullYear()),
         grade: courseForm.grade,
         division: courseForm.division,
         level: (() => {
@@ -269,7 +314,10 @@ export default function StudyPlansPage() {
         modality: ({
           0: 'COMUN', 1: 'TALLERES', 2: 'BILINGÜISMO', 9: 'TODOS',
         } as Record<number, string>)[plan.modality ?? 0] ?? 'COMUN',
-        academicYear: plan.academicYear,
+        academicYear: (() => {
+          const cycle = allCycles.find(c => c.uuid === plan.cycleUuid);
+          return cycle ? cycle.code.slice(0, 4) : String(new Date().getFullYear());
+        })(),
         institutionId: institutionId || undefined,
       }, { params: tenantQueryParams });
       const courseId = courseRes.data?.data?.id;
@@ -411,7 +459,7 @@ export default function StudyPlansPage() {
           planName={plan.name}
           planLevel={String(plan.level)}
           planModality={String(plan.modality)}
-          planYear={plan.academicYear}
+          planYear={allCycles.find(c => c.uuid === plan.cycleUuid)?.code ?? plan.cycleUuid ?? ''}
           onClose={() => setDetailPrintPlanId(null)}
         />
       );
@@ -424,11 +472,12 @@ export default function StudyPlansPage() {
         branding={buildBranding(config)}
         studyPlans={plans.map(p => {
           const courses = planCourses[p.id] ?? [];
+          const cycle = allCycles.find(c => c.uuid === p.cycleUuid);
           return {
             name: p.name,
             level: String(p.level),
             modality: String(p.modality),
-            academicYear: p.academicYear,
+            academicYear: cycle?.code ?? p.cycleUuid ?? '',
             coursesCount: courses.length,
             subjectsCount: courses.reduce((sum, c) => sum + (c.subjectCount ?? 0), 0),
             active: p.active,
@@ -642,7 +691,22 @@ export default function StudyPlansPage() {
                 disabled
               />
             )}
-            <Input label="Año lectivo" value={form.academicYear} onChange={e => setForm({ ...form, academicYear: e.target.value })} placeholder="2026" />
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: 'var(--text-sm)', fontWeight: 500 }}>Ciclo lectivo</label>
+              <select
+                value={form.cycleUuid}
+                onChange={e => setForm({ ...form, cycleUuid: e.target.value })}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)' }}
+                disabled={formCycles.length === 0}
+              >
+                <option value="">
+                  {formCycles.length === 0 ? 'Elegí un nivel primero' : 'Seleccioná un ciclo...'}
+                </option>
+                {formCycles.map(c => (
+                  <option key={c.uuid} value={c.uuid}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+            </div>
             <Button variant="success-soft" onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
           </div>
         </Card>
@@ -669,7 +733,9 @@ export default function StudyPlansPage() {
                   <span className="badge" style={{ background: levelBadge.bg, color: levelBadge.text }}>
                     {LEVEL_LABELS[plan.level] || plan.level}
                   </span>
-                  <span className="badge badge-year">{plan.academicYear}</span>
+                  {plan.cycleUuid && (
+                    <span className="badge badge-year">{allCycles.find(c => c.uuid === plan.cycleUuid)?.code ?? plan.cycleUuid}</span>
+                  )}
                   {isRoot && plan.institutionId && (
                     <span className="badge badge-institution">
                       {institutions.find(i => i.id === plan.institutionId)?.name ?? plan.institutionId}
@@ -692,8 +758,17 @@ export default function StudyPlansPage() {
                       <input value={editPlanForm.name} onChange={e => setEditPlanForm({ ...editPlanForm, name: e.target.value })} />
                     </div>
                     <div>
-                      <label>Año</label>
-                      <input value={editPlanForm.academicYear} onChange={e => setEditPlanForm({ ...editPlanForm, academicYear: e.target.value })} style={{ width: '80px' }} />
+                      <label>Ciclo lectivo</label>
+                      <select
+                        value={editPlanForm.cycleUuid}
+                        onChange={e => setEditPlanForm({ ...editPlanForm, cycleUuid: e.target.value })}
+                        style={{ padding: '0.4rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}
+                      >
+                        <option value="">Sin ciclo</option>
+                        {editFormCycles.map(c => (
+                          <option key={c.uuid} value={c.uuid}>{c.code} — {c.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                   {isRoot ? (
@@ -752,7 +827,7 @@ export default function StudyPlansPage() {
                         </Button>
                       </div>
                       <div className="context-hint">
-                        Hereda: {LEVEL_LABELS[plan.level]} — {plan.academicYear}
+                        Hereda: {LEVEL_LABELS[plan.level]}{plan.cycleUuid ? ` — ${allCycles.find(c => c.uuid === plan.cycleUuid)?.code ?? ''}` : ''}
                       </div>
                       {courseFormError && (
                         <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.35rem' }}>{courseFormError}</div>
@@ -855,22 +930,33 @@ export default function StudyPlansPage() {
                               ) : (
                                 subjects.map((ps: PlanCourseSubject) => {
                                   const isEditingSubj = editingSubject.subjectId === ps.subjectId;
+                                  const compsOpen = expandedSubjectComps.has(ps.id);
                                   return (
-                                    <div key={ps.id} className="subject-item">
-                                      {isEditingSubj ? (
-                                        <div className="edit-inline-row no-print" style={{ flex: 1 }}>
-                                          <input value={editingSubject.name} onChange={e => setEditingSubject({ ...editingSubject, name: e.target.value })} style={{ flex: 1 }} />
-                                          <Button variant="success-soft" size="sm" onClick={() => handleSaveSubject(pc.id)}>Guardar</Button>
-                                          <Button variant="danger-soft" size="sm" onClick={() => setEditingSubject({ subjectId: null, name: '' })}>Cancelar</Button>
-                                        </div>
-                                      ) : (
-                                        <>
-                                          <span>{ps.subjectName || ps.subjectId}</span>
-                                          <div className="subject-actions no-print">
-                                            <Button variant="action" size="sm" onClick={() => handleEditSubject(ps)}>Editar</Button>
-                                            <Button variant="danger-soft" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
+                                    <div key={ps.id}>
+                                      <div className="subject-item">
+                                        {isEditingSubj ? (
+                                          <div className="edit-inline-row no-print" style={{ flex: 1 }}>
+                                            <input value={editingSubject.name} onChange={e => setEditingSubject({ ...editingSubject, name: e.target.value })} style={{ flex: 1 }} />
+                                            <Button variant="success-soft" size="sm" onClick={() => handleSaveSubject(pc.id)}>Guardar</Button>
+                                            <Button variant="danger-soft" size="sm" onClick={() => setEditingSubject({ subjectId: null, name: '' })}>Cancelar</Button>
                                           </div>
-                                        </>
+                                        ) : (
+                                          <>
+                                            <span>{ps.subjectName || ps.subjectId}</span>
+                                            <div className="subject-actions no-print">
+                                              <Button variant="action" size="sm" onClick={() => toggleSubjectComps(ps.id)}>
+                                                {compsOpen ? '▾ Competencias' : '▸ Competencias'}
+                                              </Button>
+                                              <Button variant="action" size="sm" onClick={() => handleEditSubject(ps)}>Editar</Button>
+                                              <Button variant="danger-soft" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                      {compsOpen && (
+                                        <div className="no-print" style={{ marginLeft: '1.5rem' }}>
+                                          <SubjectCompetenciesManager studyPlanSubjectId={ps.id} institutionId={institutionId} />
+                                        </div>
                                       )}
                                     </div>
                                   );

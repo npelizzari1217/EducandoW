@@ -54,7 +54,7 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       // Generic items — visible when any level exists
-      { label: 'Competencias', path: '/competencias', moduleCode: 'GRADES', requiresLevel: true },
+      // Competencias se gestionan dentro de Planes de Estudio (Plan → Curso → Materia → Competencia)
       { label: 'Calificación de Competencias', path: '/competency-grading', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },

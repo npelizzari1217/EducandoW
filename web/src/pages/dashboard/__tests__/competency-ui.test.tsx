@@ -83,7 +83,7 @@ const apiClient = (await import('../../../api/client')).default;
 
 import { PlanCourseSubjectSelector } from '../components/PlanCourseSubjectSelector';
 import { CopyCompetenciesDialog } from '../components/CopyCompetenciesDialog';
-import { CompetenciesPage } from '../competencies';
+import { SubjectCompetenciesManager } from '../components/SubjectCompetenciesManager';
 
 describe('PlanCourseSubjectSelector', () => {
   beforeEach(() => {
@@ -99,7 +99,7 @@ describe('PlanCourseSubjectSelector', () => {
     render(<PlanCourseSubjectSelector onSubjectSelect={vi.fn()} />);
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/study-plans');
+      expect(apiClient.get).toHaveBeenCalledWith('/study-plans', { params: undefined });
     });
 
     expect(screen.getByRole('combobox', { name: /plan de estudios/i })).toBeInTheDocument();
@@ -115,7 +115,7 @@ describe('PlanCourseSubjectSelector', () => {
     await userEvent.selectOptions(planSelect, 'plan-1');
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/study-plans/plan-1');
+      expect(apiClient.get).toHaveBeenCalledWith('/study-plans/plan-1', { params: undefined });
     });
 
     // Course dropdown becomes enabled with options
@@ -220,7 +220,7 @@ describe('CopyCompetenciesDialog', () => {
     );
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/study-plans');
+      expect(apiClient.get).toHaveBeenCalledWith('/study-plans', { params: undefined });
     });
 
     expect(screen.getByRole('combobox', { name: /plan de estudios/i })).toBeInTheDocument();
@@ -244,7 +244,7 @@ describe('CopyCompetenciesDialog', () => {
       expect(apiClient.post).toHaveBeenCalledWith('/subject-competencies/copy', {
         sourceStudyPlanSubjectId: 'sps-1',
         targetStudyPlanSubjectId: 'sps-target',
-      });
+      }, { params: undefined });
     });
   });
 
@@ -289,33 +289,19 @@ describe('CopyCompetenciesDialog', () => {
   });
 });
 
-// ── CompetenciesPage ────────────────────────────────────────────────────────
+// ── SubjectCompetenciesManager (inline, 4th accordion level) ─────────────────
 
-describe('CompetenciesPage', () => {
+describe('SubjectCompetenciesManager', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (apiClient.get as any).mockImplementation((url: string) => {
-      if (url === '/study-plans') return Promise.resolve({ data: { data: mockPlans } });
-      if (url.startsWith('/study-plans/')) return Promise.resolve({ data: { data: mockPlanDetail } });
       if (url === '/subject-competencies') return Promise.resolve({ data: { data: [] } });
-      if (url === '/competency-valuations') return Promise.resolve({ data: { data: [] } });
       return Promise.resolve({ data: { data: [] } });
     });
   });
 
-  const selectSubject = async () => {
-    await waitFor(() => screen.getByText('Plan Primaria 2026'));
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /plan de estudios/i }), 'plan-1');
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /curso/i })).not.toBeDisabled());
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /curso/i }), 'course-1');
-    await waitFor(() => expect(screen.getByRole('combobox', { name: /materia/i })).not.toBeDisabled());
-    await userEvent.selectOptions(screen.getByRole('combobox', { name: /materia/i }), 'sps-1');
-  };
-
-  it('Tab 1 calls /subject-competencies with studyPlanSubjectId — never calls dead route', async () => {
-    render(<CompetenciesPage />);
-
-    await selectSubject();
+  it('calls /subject-competencies with the studyPlanSubjectId prop — never calls dead route', async () => {
+    render(<SubjectCompetenciesManager studyPlanSubjectId="sps-1" />);
 
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith(
@@ -329,19 +315,16 @@ describe('CompetenciesPage', () => {
     expect(allUrls.some((u: string) => u.includes('/subjects/') && u.includes('/competencies'))).toBe(false);
   });
 
-  it('VTC-1/VTC-2: "Valoraciones por Alumno" tab is absent after cleanup', async () => {
-    render(<CompetenciesPage />);
-    // After VTC cleanup: the tab button must NOT be in the DOM
+  it('does not render a "Valoraciones por Alumno" tab', () => {
+    render(<SubjectCompetenciesManager studyPlanSubjectId="sps-1" />);
     expect(screen.queryByRole('button', { name: /valoraciones por alumno/i })).not.toBeInTheDocument();
   });
 
-  it('shows Copy button on Tab 1 when a subject is selected', async () => {
-    render(<CompetenciesPage />);
-
-    await selectSubject();
+  it('shows the Copy button (subject is fixed by prop, no selector needed)', async () => {
+    render(<SubjectCompetenciesManager studyPlanSubjectId="sps-1" />);
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /copiar desde otro curso/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^copiar$/i })).toBeInTheDocument();
     });
   });
 });

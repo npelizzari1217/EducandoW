@@ -10,6 +10,7 @@ interface Props {
   targetStudyPlanSubjectId: string;
   onSuccess: () => void;
   onClose: () => void;
+  institutionId?: string;
 }
 
 interface CopyResult {
@@ -19,7 +20,7 @@ interface CopyResult {
 
 // ── Component ────────────────────────────────────────────────
 
-export function CopyCompetenciesDialog({ targetStudyPlanSubjectId, onSuccess, onClose }: Props) {
+export function CopyCompetenciesDialog({ targetStudyPlanSubjectId, onSuccess, onClose, institutionId }: Props) {
   const [sourceStudyPlanSubjectId, setSourceStudyPlanSubjectId] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<CopyResult | null>(null);
@@ -34,7 +35,7 @@ export function CopyCompetenciesDialog({ targetStudyPlanSubjectId, onSuccess, on
       const r = await apiClient.post('/subject-competencies/copy', {
         sourceStudyPlanSubjectId,
         targetStudyPlanSubjectId,
-      });
+      }, { params: institutionId ? { institutionId } : undefined });
       const data: CopyResult = r.data?.data ?? { copied: 0, skipped: 0 };
       setResult(data);
       onSuccess();
@@ -65,7 +66,7 @@ export function CopyCompetenciesDialog({ targetStudyPlanSubjectId, onSuccess, on
           </p>
 
           {/* Source selector */}
-          <PlanCourseSubjectSelector onSubjectSelect={setSourceStudyPlanSubjectId} />
+          <PlanCourseSubjectSelector onSubjectSelect={setSourceStudyPlanSubjectId} institutionId={institutionId} />
 
           {/* Error */}
           {error && (
