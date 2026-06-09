@@ -112,8 +112,8 @@ export class PedagogyController {
       code: c.code.get ? c.code.get() : c.code,
       name: c.name,
 
-      level: c.level,
-      modality: c.modality,
+      level: c.level.code,
+      modality: c.modality.code,
       startDate: c.startDate instanceof Date ? c.startDate.toISOString() : c.startDate,
       endDate: c.endDate instanceof Date ? c.endDate.toISOString() : c.endDate,
       active: c.active,
