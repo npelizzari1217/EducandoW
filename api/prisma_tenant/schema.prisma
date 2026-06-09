@@ -88,22 +88,26 @@ model Teacher {
   email         String
   phone         String?
   title         String?
+  /// Link to master-DB User.id (no FK — cross-DB reference). Stored in column user_id via @map. AD-6.
+  userId        String?  @map("user_id")
 
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  subjectAssignments SubjectAssignment[]
-  salas              Sala[]
-  grados             Grado[]
-  cursos             Curso[]
-  mesasExamen        MesaExamen[]
-  actasExamen        ActaExamen[]
+  subjectAssignments   SubjectAssignment[]
+  salas                Sala[]
+  grados               Grado[]
+  cursos               Curso[]
+  mesasExamen          MesaExamen[]
+  actasExamen          ActaExamen[]
+  courseCyclesHomeroom CourseCycle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([lastName])
   @@index([dni])
+  @@index([userId])
   @@map("teachers")
 }
 
@@ -166,14 +170,17 @@ model CourseCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  /// FK → Teacher.id (nullable — homeroom teacher link for "por curso" view). AD-6.
+  homeroomTeacherId String? @map("homeroom_teacher_id")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
-  course    CourseSection  @relation(fields: [courseId], references: [id])
-  studyPlan StudyPlan      @relation(fields: [studyPlanId], references: [id])
-  cycle     AcademicCycle   @relation(fields: [cycleId], references: [uuid])
+  course          CourseSection  @relation(fields: [courseId], references: [id])
+  studyPlan       StudyPlan      @relation(fields: [studyPlanId], references: [id])
+  cycle           AcademicCycle  @relation(fields: [cycleId], references: [uuid])
+  homeroomTeacher Teacher?       @relation(fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
 
-  competencyValuations CompetencyValuation[]
+  competencyValuations  CompetencyValuation[]
   subjectGradingPeriods SubjectGradingPeriod[]
   subjectPeriodGrades   SubjectPeriodGrade[]
 
@@ -181,6 +188,7 @@ model CourseCycle {
   @@index([cycleId])
   @@index([studyPlanId])
   @@index([level])
+  @@index([homeroomTeacherId])
   @@map("course_cycles")
 }
 

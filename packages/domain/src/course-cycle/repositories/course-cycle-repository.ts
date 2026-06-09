@@ -50,4 +50,18 @@ export interface CourseCycleRepository {
    * Delegates to the shared infra helper findEnrolledStudentsByCourseCycle.
    */
   findEnrolledStudents(uuid: string): Promise<EnrolledStudent[]>;
+
+  /**
+   * Returns CourseCycles where homeroomTeacherId = teacherId (AD-6 "por curso" path).
+   * Empty array when no match — caller returns HTTP 200 with empty data, never 404.
+   * Tenant scoping is via TenantContext.
+   */
+  findByHomeroomTeacher(teacherId: string): Promise<CourseCycle[]>;
+
+  /**
+   * Returns CourseCycles whose courseId (CourseSection FK) is in the provided set.
+   * Used for "por materia": SubjectAssignment.courseSectionId → CourseCycle.courseId.
+   * Tenant scoping is via TenantContext.
+   */
+  findByCourseSectionIds(courseSectionIds: string[]): Promise<CourseCycle[]>;
 }

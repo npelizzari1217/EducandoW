@@ -54,6 +54,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
+        userId: teacher.userId ?? null,
         active: teacher.active,
       },
       update: {
@@ -63,6 +64,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
         email: teacher.email.get(),
         phone: teacher.phone,
         title: teacher.title,
+        userId: teacher.userId ?? null,
         active: teacher.active,
       },
     });
@@ -70,6 +72,15 @@ export class PrismaTeacherRepository implements TeacherRepository {
 
   async delete(id: string): Promise<void> {
     await this.client.teacher.delete({ where: { id } });
+  }
+
+  /**
+   * Resolves a Teacher by their master-DB userId link (AD-6, TIA-R1).
+   * Returns null when no Teacher has that userId — never throws.
+   */
+  async findByUserId(userId: string): Promise<Teacher | null> {
+    const record = await this.client.teacher.findFirst({ where: { userId, deletedAt: null } });
+    return record ? this.toDomain(record) : null;
   }
 
   private toDomain(record: Record<string, unknown>): Teacher {
@@ -81,6 +92,7 @@ export class PrismaTeacherRepository implements TeacherRepository {
       email: Email.reconstruct(record.email as string),
       phone: record.phone as string | undefined,
       title: record.title as string | undefined,
+      userId: (record.userId as string | null) ?? undefined,
       institutionId: Id.create(TenantContext.getInstitutionId() || undefined),
       active: (record.active as boolean) ?? true,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,

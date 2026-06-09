@@ -10,6 +10,8 @@ export interface TeacherProps {
   email: Email;
   phone?: string;
   title?: string;
+  /** Nullable link to master-DB User.id — same convention as Student.userId (AD-6). No FK. */
+  userId?: string;
   institutionId?: Id;
   active?: boolean;
   deletedAt?: Date;
@@ -52,6 +54,15 @@ export class Teacher {
 
   get title(): string | undefined {
     return this.props.title;
+  }
+
+  get userId(): string | undefined {
+    return this.props.userId;
+  }
+
+  /** Links this Teacher to a master-DB User record. Idempotent — can overwrite. */
+  linkUser(userId: string): void {
+    this.props.userId = userId;
   }
 
   get institutionId(): Id | undefined {

@@ -132,6 +132,32 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
   }
 
   /**
+   * Returns CourseCycles where homeroomTeacherId = teacherId (AD-6 "por curso" path).
+   * Empty array when no match — caller returns HTTP 200 with empty data, never 404.
+   */
+  async findByHomeroomTeacher(teacherId: string): Promise<CourseCycle[]> {
+    const records = await this.client.courseCycle.findMany({
+      where: { homeroomTeacherId: teacherId, deletedAt: null },
+      orderBy: { courseName: 'asc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
+  /**
+   * Returns CourseCycles whose courseId (CourseSection FK) is in the provided set.
+   * Used for "por materia": SubjectAssignment.courseSectionId → CourseCycle.courseId.
+   * Returns empty array immediately for an empty input (no DB query).
+   */
+  async findByCourseSectionIds(courseSectionIds: string[]): Promise<CourseCycle[]> {
+    if (courseSectionIds.length === 0) return [];
+    const records = await this.client.courseCycle.findMany({
+      where: { courseId: { in: courseSectionIds }, deletedAt: null },
+      orderBy: { courseName: 'asc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
+  /**
    * Returns the (level, modality) grading-config pair for a CourseCycle.
    * Path: CourseCycle.studyPlanId → StudyPlan.{level, modality}.
    * Design §2: StudyPlan is the authoritative modality source for CourseCycle grading.
@@ -185,6 +211,7 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       thirdBimonth,
       fourthBimonth,
       activeGradingPeriod: record.activeGradingPeriod ?? null,
+      homeroomTeacherId: record.homeroomTeacherId ?? undefined,
       createdAt: record.lastModifiedAt, // using lastModifiedAt as createdAt for now; Prisma manages both
       lastModifiedAt: record.lastModifiedAt,
       deletedAt: record.deletedAt ?? null,
@@ -210,6 +237,7 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       fourthBimStart: courseCycle.fourthBimonth?.start ?? null,
       fourthBimEnd: courseCycle.fourthBimonth?.end ?? null,
       activeGradingPeriod: courseCycle.activeGradingPeriod,
+      homeroomTeacherId: courseCycle.homeroomTeacherId ?? null,
     };
   }
 }
