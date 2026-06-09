@@ -17,8 +17,13 @@ Primario level.
 "Alumnos por materia" MUST display, for a selected subject+courseCycle, a grid of
 all enrolled students (rows) with:
 - All period grades (`SubjectPeriodGrade`) for each period in the snapshotted structure
+  (absent row = ungraded; grid renders an empty cell — no pre-creation on read)
 - The four final grade instances (`SubjectFinalGrade`, all types) for each student
-- Competency valuations filtered to `imprimible=true` (`CompetencyPeriodValuation`)
+  (absent = null values — no pre-creation on read)
+- ALL competency valuations with the `imprimible` field exposed — NOT pre-filtered.
+  The grid displays all competencies on the entry screen; the caller may render a visual
+  distinction using `imprimible`. The `imprimible=true` filter applies ONLY to the
+  boletín print path (PR7), not here.
 - PA/PPI/PP flags per student per period (`PedagogicalFlag`)
 
 #### ES-S1 — Grid loads full student data
@@ -26,25 +31,30 @@ all enrolled students (rows) with:
 - GIVEN teacher T selects CourseCycle A and subject "Matemática" in the "por materia" screen
 - WHEN the screen loads
 - THEN it shows all enrolled students with their period grades, final grade instances,
-  imprimible competencies, and PA/PPI/PP flags per period; no error state
+  ALL competency valuations (imprimible field included for display toggle), and PA/PPI/PP
+  flags per period; no error state
 
 ---
 
 ### ES-R2 — "Alumnos por curso" loads the full student data grid
 
-"Alumnos por curso" MUST display, for a selected student within the teacher's homeroom
-CourseCycle, all subjects in that CourseCycle (rows) with:
+"Alumnos por curso" MUST display, for a selected student within the teacher's CourseCycle
+(homeroom OR subject-assigned), all subjects in that CourseCycle (rows) with:
 - All period grades (`SubjectPeriodGrade`) for each period
+  (absent row = ungraded; grid renders an empty cell — no pre-creation on read)
 - The four final grade instances (`SubjectFinalGrade`) for each subject
-- Competency valuations filtered to `imprimible=true`
+  (absent = null values — no pre-creation on read)
+- ALL competency valuations with the `imprimible` field exposed — NOT pre-filtered.
+  The `imprimible=true` filter applies ONLY to the boletín print path (PR7), not here.
 - PA/PPI/PP flags per subject per period
 
 #### ES-S2 — Grid loads full subject data for one student
 
-- GIVEN teacher T (homeroom of CourseCycle A) selects student S in the "por curso" screen
+- GIVEN teacher T (homeroom of CourseCycle A, or assigned to at least one subject in it)
+  selects student S in the "por curso" screen
 - WHEN the screen loads
 - THEN it shows all subjects in CourseCycle A with their period grades, final grades,
-  competencies, and PA/PPI/PP flags per period
+  ALL competency valuations (imprimible field exposed for display), and PA/PPI/PP flags per period
 
 ---
 
@@ -135,13 +145,16 @@ Fase 3 `useGradingGrid` hook pattern.
 
 The competency section in both screens MUST reuse the Fase 3 `CompetencyGradingGrid`
 behavior: period tabs, dense-cells Map, bounded-parallel save, and scale-value dropdowns.
-The only change is the filter to `imprimible=true`.
+The API returns ALL competencies (imprimible field exposed); the frontend MAY use
+`imprimible` to visually differentiate competencies but MUST NOT hide non-imprimible ones
+on entry screens. The `imprimible=true` filter applies ONLY to the boletín print path (PR7).
 
-#### ES-S9 — Competency grid renders with imprimible filter
+#### ES-S9 — Competency grid renders all competencies on entry screen
 
 - GIVEN subject "Matemática" has 5 competencies, 3 with imprimible=true and 2 with imprimible=false
 - WHEN the "por materia" screen loads the competency sub-grid
-- THEN only the 3 imprimible competencies are shown in the grid
+- THEN all 5 competencies are present; the 3 imprimible ones may be visually marked.
+  NOTE: imprimible=true filtering applies only to the boletín (PR7 print path).
 
 ---
 

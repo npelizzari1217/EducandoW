@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { GradingScalesController } from './grading-scales.controller';
 import { GradingPeriodsController } from './grading-periods.controller';
+import { SubjectGradesController } from './subject-grades.controller';
 import {
   CreateGradeScaleUseCase,
   UpdateGradeScaleUseCase,
@@ -29,15 +30,25 @@ import { PrismaGradeScaleRepository } from '../../infrastructure/persistence/pri
 import { PrismaGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grading-period.repository';
 import { PrismaAcademicCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-academic-cycle.repository';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-grading-period.repository';
+import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
+import { PrismaSubjectFinalGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-final-grade.repository';
+import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
+import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
+import { PrismaTeacherRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-teacher.repository';
+import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
+import { GetSubjectGradesBySubjectUseCase } from '../../application/grading/get-subject-grades-by-subject.use-case';
+import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-subject-grades-by-student.use-case';
 
 /**
- * GradingModule — escalas (1a) + períodos (1b).
+ * GradingModule — escalas (1a) + períodos (1b) + planillas (4a read).
  */
 @Module({
   imports: [AuthModule],
   controllers: [
     GradingScalesController,
     GradingPeriodsController,
+    SubjectGradesController,
   ],
   providers: [
     PrismaService,
@@ -142,6 +153,62 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
       provide: ListPeriodDatesUseCase,
       useFactory: (repo: PrismaGradingPeriodRepository) => new ListPeriodDatesUseCase(repo),
       inject: ['GradingPeriodRepository'],
+    },
+
+    // ── PR4a: Subject grades read use cases + repos ─────────────────────────
+    PrismaSubjectGradingPeriodRepository,
+    { provide: 'SubjectGradingPeriodRepository', useExisting: PrismaSubjectGradingPeriodRepository },
+    PrismaSubjectPeriodGradeRepository,
+    { provide: 'SubjectPeriodGradeRepository', useExisting: PrismaSubjectPeriodGradeRepository },
+    PrismaSubjectFinalGradeRepository,
+    { provide: 'SubjectFinalGradeRepository', useExisting: PrismaSubjectFinalGradeRepository },
+    PrismaCompetencyValuationRepo,
+    { provide: 'CompetencyValuationRepository', useExisting: PrismaCompetencyValuationRepo },
+    PrismaCourseCycleRepository,
+    // PR4a-SEC C1: authz repos for ownership checks in grade read use cases
+    PrismaTeacherRepository,
+    { provide: 'TeacherRepository', useExisting: PrismaTeacherRepository },
+    PrismaSubjectAssignmentRepo,
+    { provide: 'SubjectAssignmentRepository', useExisting: PrismaSubjectAssignmentRepo },
+    {
+      provide: GetSubjectGradesBySubjectUseCase,
+      useFactory: (
+        sgpRepo: PrismaSubjectGradingPeriodRepository,
+        pgRepo: PrismaSubjectPeriodGradeRepository,
+        fgRepo: PrismaSubjectFinalGradeRepository,
+        cvRepo: PrismaCompetencyValuationRepo,
+        ccRepo: PrismaCourseCycleRepository,
+        teacherRepo: PrismaTeacherRepository,
+        assignmentRepo: PrismaSubjectAssignmentRepo,
+      ) => new GetSubjectGradesBySubjectUseCase(sgpRepo, pgRepo, fgRepo, cvRepo, ccRepo, teacherRepo, assignmentRepo),
+      inject: [
+        PrismaSubjectGradingPeriodRepository,
+        PrismaSubjectPeriodGradeRepository,
+        PrismaSubjectFinalGradeRepository,
+        PrismaCompetencyValuationRepo,
+        PrismaCourseCycleRepository,
+        PrismaTeacherRepository,
+        PrismaSubjectAssignmentRepo,
+      ],
+    },
+    {
+      provide: GetSubjectGradesByStudentUseCase,
+      useFactory: (
+        sgpRepo: PrismaSubjectGradingPeriodRepository,
+        pgRepo: PrismaSubjectPeriodGradeRepository,
+        fgRepo: PrismaSubjectFinalGradeRepository,
+        cvRepo: PrismaCompetencyValuationRepo,
+        teacherRepo: PrismaTeacherRepository,
+        assignmentRepo: PrismaSubjectAssignmentRepo,
+      ) => new GetSubjectGradesByStudentUseCase(sgpRepo, pgRepo, fgRepo, cvRepo, teacherRepo, assignmentRepo),
+      inject: [
+        PrismaSubjectGradingPeriodRepository,
+        PrismaSubjectPeriodGradeRepository,
+        PrismaSubjectFinalGradeRepository,
+        PrismaCompetencyValuationRepo,
+        PrismaTeacherRepository,
+        PrismaSubjectAssignmentRepo,
+      ],
     },
   ],
 })

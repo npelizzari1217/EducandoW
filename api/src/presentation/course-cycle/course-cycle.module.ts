@@ -19,6 +19,10 @@ import {
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
 import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
+import { PrismaTeacherRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-teacher.repository';
+import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
+import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
+import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
 import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, EnrollmentRepository } from '@educandow/domain';
 
 // Tokens exported by PedagogyModule
@@ -94,6 +98,29 @@ const EnrollmentRepo = 'EnrollmentRepository';
       provide: ListStudentsByCourseCycleUC,
       useFactory: (r: PrismaCourseCycleRepository) => new ListStudentsByCourseCycleUC(r),
       inject: [PrismaCourseCycleRepository],
+    },
+
+    // PR4-T19: teacher-filter use cases + repos
+    PrismaTeacherRepository,
+    { provide: 'TeacherRepository', useExisting: PrismaTeacherRepository },
+    PrismaSubjectAssignmentRepo,
+    { provide: 'SubjectAssignmentRepository', useExisting: PrismaSubjectAssignmentRepo },
+    {
+      provide: ListTeacherCourseCyclesUseCase,
+      useFactory: (
+        teacherRepo: PrismaTeacherRepository,
+        assignmentRepo: PrismaSubjectAssignmentRepo,
+        ccRepo: PrismaCourseCycleRepository,
+      ) => new ListTeacherCourseCyclesUseCase(teacherRepo, assignmentRepo, ccRepo),
+      inject: [PrismaTeacherRepository, PrismaSubjectAssignmentRepo, PrismaCourseCycleRepository],
+    },
+    {
+      provide: ListTeacherSubjectsInCourseCycleUseCase,
+      useFactory: (
+        teacherRepo: PrismaTeacherRepository,
+        assignmentRepo: PrismaSubjectAssignmentRepo,
+      ) => new ListTeacherSubjectsInCourseCycleUseCase(teacherRepo, assignmentRepo),
+      inject: [PrismaTeacherRepository, PrismaSubjectAssignmentRepo],
     },
   ],
   exports: [PrismaCourseCycleRepository],

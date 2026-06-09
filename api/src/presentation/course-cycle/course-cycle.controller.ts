@@ -4,6 +4,8 @@ import {
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   CreateCourseCycleSchema,
@@ -20,6 +22,12 @@ import {
   SetGradingPeriodDto,
 } from './dto/grading-period.dto';
 import {
+  TeacherCCListQuerySchema,
+  TeacherCCListQueryDto,
+  TeacherSubjectsQuerySchema,
+  TeacherSubjectsQueryDto,
+} from '../grading/dto/subject-grades.dto';
+import {
   CreateCourseCycleUseCase,
   UpdateCourseCycleUseCase,
   DeleteCourseCycleUseCase,
@@ -33,6 +41,8 @@ import {
   GetActivePeriodUseCase,
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
+import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
+import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
 
 @Controller('course-cycles')
 @UseGuards(AuthGuard, RolesGuard)
@@ -48,6 +58,9 @@ export class CourseCycleController {
     private readonly getGradingPeriodUC: GetActivePeriodUseCase,
     private readonly setGradingPeriodUC: SetActivePeriodUseCase,
     private readonly listStudentsUC: ListStudentsByCourseCycleUC,
+    // PR4-T19 + PR4a-SEC W1: teacher-filter use cases (required — module always wires them)
+    private readonly listTeacherCCsUC: ListTeacherCourseCyclesUseCase,
+    private readonly listTeacherSubjectsUC: ListTeacherSubjectsInCourseCycleUseCase,
   ) {}
 
   @Post()
@@ -75,9 +88,39 @@ export class CourseCycleController {
     return { data: this.toResponse(cc) };
   }
 
+  /**
+   * GET /course-cycles
+   * C2: non-ROOT callers use their JWT userId (cannot enumerate others).
+   *     ROOT can optionally pass teacherUserId for admin lookups.
+   * C3: added 'TEACHER' role so teachers can access this endpoint.
+   */
   @Get()
-  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
-  async list(@Query(new ZodValidationPipe(CourseCycleListQuerySchema)) query: CourseCycleListQueryDto) {
+  @Roles('ROOT', 'TEACHER', { module: 'COURSE_CYCLES', action: 'READ' })
+  async list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(CourseCycleListQuerySchema.merge(TeacherCCListQuerySchema.partial()))) query: CourseCycleListQueryDto & TeacherCCListQueryDto,
+  ) {
+    const isRoot = user.roles.includes('ROOT');
+
+    if (!isRoot) {
+      // C2: Non-ROOT always uses their own JWT userId — no cross-teacher enumeration
+      const ccs = await this.listTeacherCCsUC.execute({
+        userId: user.userId,
+        mode: query.role ?? 'subject',
+      });
+      return { data: ccs.map((cc) => this.toResponse(cc)) };
+    }
+
+    // ROOT: optional teacherUserId filter for admin lookups
+    if (query.teacherUserId) {
+      const ccs = await this.listTeacherCCsUC.execute({
+        userId: query.teacherUserId,
+        mode: query.role ?? 'subject',
+      });
+      return { data: ccs.map((cc) => this.toResponse(cc)) };
+    }
+
+    // ROOT without filter: full list
     const result = await this.listUC.execute({
       level: query.level,
       cycleId: query.cycleId,
@@ -91,6 +134,31 @@ export class CourseCycleController {
       pageSize: result.pageSize,
       total: result.total,
     };
+  }
+
+  /**
+   * GET /course-cycles/:uuid/subjects
+   * PR4-T19 + PR4a-SEC: returns teacher's subjects in a CourseCycle.
+   * C2: effective userId derived from JWT; ROOT can override via optional teacherUserId.
+   * C3: added 'TEACHER' role.
+   * W1: no optional guard — module always wires listTeacherSubjectsUC.
+   * Must be declared BEFORE :uuid to avoid route collision.
+   */
+  @Get(':uuid/subjects')
+  @Roles('ROOT', 'TEACHER', { module: 'COURSE_CYCLES', action: 'READ' })
+  async listSubjects(
+    @Param('uuid') uuid: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(TeacherSubjectsQuerySchema)) query: TeacherSubjectsQueryDto,
+  ) {
+    // C2: non-ROOT always use JWT userId; ROOT may supply teacherUserId for admin lookup
+    const effectiveUserId =
+      user.roles.includes('ROOT') && query.teacherUserId ? query.teacherUserId : user.userId;
+    const subjects = await this.listTeacherSubjectsUC.execute({
+      userId: effectiveUserId,
+      courseCycleId: uuid,
+    });
+    return { data: subjects };
   }
 
   @Get(':uuid')
