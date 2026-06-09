@@ -47,6 +47,7 @@ model Student {
   titulos                 Titulo[]
   observations            StudentObservation[]
   subjectPeriodGrades     SubjectPeriodGrade[]
+  subjectFinalGrades      SubjectFinalGrade[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -183,6 +184,7 @@ model CourseCycle {
   competencyValuations  CompetencyValuation[]
   subjectGradingPeriods SubjectGradingPeriod[]
   subjectPeriodGrades   SubjectPeriodGrade[]
+  subjectFinalGrades    SubjectFinalGrade[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -246,6 +248,7 @@ model Subject {
   materiasCarrera          MateriaCarrera[]
   subjectGradingPeriods    SubjectGradingPeriod[]
   subjectPeriodGrades      SubjectPeriodGrade[]
+  subjectFinalGrades       SubjectFinalGrade[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -416,6 +419,7 @@ model GradeScaleValue {
   notas Nota[]
   competencyPeriodValuations CompetencyPeriodValuation[]
   subjectPeriodGrades        SubjectPeriodGrade[]
+  subjectFinalGrades         SubjectFinalGrade[]
 
   @@index([scaleId])
   @@unique([scaleId, code])
@@ -1127,6 +1131,39 @@ model SubjectPeriodGrade {
   @@index([courseCycleId, subjectId])
   @@index([studentId])
   @@map("subject_period_grades")
+}
+
+// Four final grade instances, one row per (student, courseCycle, subject, type). (AD-2)
+enum SubjectFinalGradeType {
+  FINAL
+  DICIEMBRE
+  MARZO
+  DEFINITIVA
+}
+
+model SubjectFinalGrade {
+  id                String                @id @default(uuid())
+  studentId         String                @map("student_id")
+  courseCycleId     String                @map("course_cycle_id")   // → CourseCycle.uuid
+  subjectId         String                @map("subject_id")
+  type              SubjectFinalGradeType
+  gradeScaleValueId String?               @map("grade_scale_value_id")
+  gradeCode         String?               @map("grade_code")
+  internalStatus    GradeInternalStatus?  @map("internal_status")
+  passed            Boolean?
+
+  student     Student          @relation(fields: [studentId],         references: [id],   onDelete: Cascade)
+  courseCycle CourseCycle      @relation(fields: [courseCycleId],     references: [uuid], onDelete: Restrict)
+  subject     Subject          @relation(fields: [subjectId],         references: [id],   onDelete: Cascade)
+  gradeValue  GradeScaleValue? @relation(fields: [gradeScaleValueId], references: [id],   onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, courseCycleId, subjectId, type])
+  @@index([courseCycleId, subjectId])
+  @@index([studentId])
+  @@map("subject_final_grades")
 }
 
 // ── Grading Periods ────────────────────────────────────────

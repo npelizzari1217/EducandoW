@@ -30,6 +30,18 @@ export type {
   AssignGradeInput,
 } from './entities/competency-period-valuation';
 
+// ── Grading Primario (Fase 4, PR2) ─────────────────────────────────────────────
+export { SubjectFinalGrade } from './entities/subject-final-grade';
+export type {
+  CreateSubjectFinalGradeInput,
+  ReconstructSubjectFinalGradeProps,
+  AssignSubjectFinalGradeInput,
+} from './entities/subject-final-grade';
+
+export { SubjectFinalGradeType, fromSubjectFinalGradeTypeString } from './value-objects/subject-final-grade-type';
+
+export type { SubjectFinalGradeRepository } from './repositories/subject-final-grade-repository';
+
 // ── Grading Primario (Fase 4, PR1) ─────────────────────────────────────────────
 export { SubjectGradingPeriod } from './entities/subject-grading-period';
 export type {

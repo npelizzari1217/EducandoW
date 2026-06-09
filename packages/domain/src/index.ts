@@ -59,6 +59,11 @@ export type { SnapshotSubjectGradingPeriodInput, ReconstructSubjectGradingPeriod
 export type { CreateSubjectPeriodGradeInput, ReconstructSubjectPeriodGradeProps, AssignSubjectPeriodGradeInput, SetFlagsInput } from './pedagogy';
 export type { PedagogicalFlagsInput } from './pedagogy';
 export type { SubjectGradingPeriodRepository, SubjectPeriodGradeRepository } from './pedagogy';
+
+// Pedagogy — Grading Primario (Fase 4, PR2)
+export { SubjectFinalGrade, SubjectFinalGradeType, fromSubjectFinalGradeTypeString } from './pedagogy';
+export type { CreateSubjectFinalGradeInput, ReconstructSubjectFinalGradeProps, AssignSubjectFinalGradeInput } from './pedagogy';
+export type { SubjectFinalGradeRepository } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';
