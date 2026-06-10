@@ -88,9 +88,9 @@ function App() {
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
               <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
               <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
-              {/* PR5-T7: /competency-grading now serves SubjectGradingBySubject (Primario-only) */}
+              {/* PR5-T7 / PR6: /competency-grading serves SubjectGradingBySubject (Primario + Secundario) */}
               <Route path="/competency-grading" element={<SubjectGradingBySubjectPage />} />
-              {/* PR6-T3: /grading/by-course — SubjectGradingByCourse (homeroom/student view, Primario-only) */}
+              {/* PR6-T3: /grading/by-course — SubjectGradingByCourse (homeroom/student view, Primario + Secundario) */}
               <Route path="/grading/by-course" element={<SubjectGradingByCoursePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

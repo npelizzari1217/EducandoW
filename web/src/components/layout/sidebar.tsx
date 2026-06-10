@@ -2,6 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { SidebarGroup } from './SidebarGroup';
+import { useTeacherGradingAccess } from './use-teacher-grading-access';
 import './sidebar.css';
 
 interface NavItem {
@@ -55,7 +56,8 @@ const navGroups: NavGroupDef[] = [
     items: [
       // Generic items — visible when any level exists
       // Competencias se gestionan dentro de Planes de Estudio (Plan → Curso → Materia → Competencia)
-      { label: 'Calificación de Competencias', path: '/competency-grading', moduleCode: 'GRADES', requiresLevel: true },
+      { label: 'Alumnos por Materia', path: '/competency-grading', moduleCode: 'GRADES', requiresLevel: true },
+      { label: 'Alumnos por Curso', path: '/grading/by-course', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Notas y Calificaciones', path: '/evaluaciones', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
     ],
@@ -161,6 +163,12 @@ function makeFilterItem(
   };
 }
 
+// Paths that require an additional assignment gate beyond the standard GRADES permission check
+const GRADING_ASSIGNMENT_PATHS: Record<string, 'hasSubject' | 'hasCourse'> = {
+  '/competency-grading': 'hasSubject',
+  '/grading/by-course': 'hasCourse',
+};
+
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
   const { config } = useInstitution();
@@ -174,11 +182,23 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
 
   const filterItem = makeFilterItem(user, user?.modules, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
 
+  // Assignment-based visibility gate for the two grading items.
+  // ROOT bypasses (loading=false, both=true). Non-GRADES users never fetch.
+  // While loading=true, both items are suppressed to avoid show-then-hide flicker.
+  const gradingAccess = useTeacherGradingAccess(user);
+
   // Build visible groups (filter items, skip empty groups).
   const visibleGroups = navGroups
     .map((group) => ({
       ...group,
-      visibleItems: group.items.filter(filterItem),
+      visibleItems: group.items
+        .filter(filterItem)
+        .filter((item) => {
+          const gate = GRADING_ASSIGNMENT_PATHS[item.path];
+          if (!gate) return true; // not a gated item
+          if (gradingAccess.loading) return false; // hide while resolving (no flicker)
+          return gradingAccess[gate];
+        }),
     }))
     .filter((group) => group.visibleItems.length > 0);
 

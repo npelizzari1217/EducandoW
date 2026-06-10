@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from '../sidebar';
+import apiClient from '../../../api/client';
+
+// ── Mock apiClient (used by useTeacherGradingAccess hook) ──
+vi.mock('../../../api/client', () => ({
+  default: { get: vi.fn() },
+}));
 
 // ── Mock useAuth ──
 const adminModules = [
@@ -102,6 +108,8 @@ function renderSidebar() {
 describe('Sidebar filtering', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: no assignments — prevents grading items from showing for non-ROOT non-GRADES tests
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [] } });
     mockLevels = [10, 20, 30, 40];
     mockSendEmail = true;
     mockSendMessages = true;
@@ -457,5 +465,112 @@ describe('Sidebar filtering', () => {
     // Inactive sub-headings NOT rendered
     expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
     expect(screen.queryByText('Terciario')).not.toBeInTheDocument();
+  });
+});
+
+// ── Teacher grading access — layered gate ────────────────────────────────────
+const teacherGradesModules = [
+  { moduleCode: 'GRADES', actions: ['READ'] },
+  { moduleCode: 'ATTENDANCE', actions: ['READ'] },
+];
+
+const singleCourseCycleData = [{ uuid: 'cc-1', courseName: 'Primario A', level: 2, modality: 1 }];
+const singleSubjectData = [{ uuid: 'cc-2', courseName: 'Secundario B', level: 3, modality: 1 }];
+
+describe('Teacher grading access — layered gate', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { data: [] } });
+    mockLevels = [20, 30];
+    mockSendEmail = false;
+    mockSendMessages = false;
+    (mockUser as any).levels = [20, 30];
+    // Default: teacher with GRADES READ
+    (mockUser as any).role = 'TEACHER';
+    (mockUser as any).roles = ['TEACHER'];
+    (mockUser as any).modules = teacherGradesModules;
+  });
+
+  it('teacher with GRADES + homeroom + subject assignments → BOTH "Alumnos por Curso" and "Alumnos por Materia" render', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: { data: singleCourseCycleData } }) // homeroom
+      .mockResolvedValueOnce({ data: { data: singleSubjectData } });    // subject
+
+    renderSidebar();
+
+    await waitFor(() => {
+      expect(screen.getByText('Alumnos por Curso')).toBeInTheDocument();
+      expect(screen.getByText('Alumnos por Materia')).toBeInTheDocument();
+    });
+  });
+
+  it('teacher with GRADES + only subject assignment → only "Alumnos por Materia"; "Alumnos por Curso" absent', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: { data: [] } })                    // homeroom empty
+      .mockResolvedValueOnce({ data: { data: singleSubjectData } });    // subject
+
+    renderSidebar();
+
+    await waitFor(() => {
+      expect(screen.getByText('Alumnos por Materia')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Alumnos por Curso')).not.toBeInTheDocument();
+  });
+
+  it('teacher with GRADES + only homeroom assignment → only "Alumnos por Curso"', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: { data: singleCourseCycleData } }) // homeroom
+      .mockResolvedValueOnce({ data: { data: [] } });                   // subject empty
+
+    renderSidebar();
+
+    await waitFor(() => {
+      expect(screen.getByText('Alumnos por Curso')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Alumnos por Materia')).not.toBeInTheDocument();
+  });
+
+  it('teacher with GRADES but NO assignments → neither item renders', async () => {
+    vi.mocked(apiClient.get)
+      .mockResolvedValueOnce({ data: { data: [] } }) // homeroom empty
+      .mockResolvedValueOnce({ data: { data: [] } }); // subject empty
+
+    renderSidebar();
+
+    // Wait for loading to complete (both API calls must have been made)
+    await waitFor(() => {
+      expect(vi.mocked(apiClient.get)).toHaveBeenCalledTimes(2);
+    });
+
+    expect(screen.queryByText('Alumnos por Curso')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alumnos por Materia')).not.toBeInTheDocument();
+  });
+
+  it('user WITHOUT GRADES permission → neither item, and assignment endpoints NOT called', () => {
+    (mockUser as any).modules = [{ moduleCode: 'STUDENTS', actions: ['READ'] }]; // no GRADES
+
+    renderSidebar();
+
+    expect(screen.queryByText('Alumnos por Curso')).not.toBeInTheDocument();
+    expect(screen.queryByText('Alumnos por Materia')).not.toBeInTheDocument();
+    expect(vi.mocked(apiClient.get)).not.toHaveBeenCalled();
+  });
+
+  it('ROOT → both items render without any assignment fetch', () => {
+    setRole('ROOT');
+
+    renderSidebar();
+
+    expect(screen.getByText('Alumnos por Curso')).toBeInTheDocument();
+    expect(screen.getByText('Alumnos por Materia')).toBeInTheDocument();
+    expect(vi.mocked(apiClient.get)).not.toHaveBeenCalled();
+  });
+
+  it('old label "Calificación de Competencias" no longer appears anywhere', () => {
+    setRole('ROOT');
+
+    renderSidebar();
+
+    expect(screen.queryByText('Calificación de Competencias')).not.toBeInTheDocument();
   });
 });
