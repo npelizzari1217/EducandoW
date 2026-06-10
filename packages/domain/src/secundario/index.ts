@@ -8,6 +8,10 @@ export type { RegimenAcademicoProps, CreateRegimenAcademicoInput } from './entit
 export { CalificacionSecundario } from './entities/calificacion-secundario';
 export type { CalificacionSecundarioProps, CreateCalificacionSecundarioInput } from './entities/calificacion-secundario';
 
+// Entities — grading-secundario (Fase 4, Etapa 2 — PR2)
+export { MateriaPrevia, MateriaPreviaStatus } from './entities/materia-previa';
+export type { CreateMateriaPreviaInput, ReconstructMateriaPreviaProps } from './entities/materia-previa';
+
 // Value Objects
 export { Orientacion } from './value-objects/orientacion';
 export type { OrientacionCode } from './value-objects/orientacion';
@@ -21,3 +25,7 @@ export type { CursoRepository } from './repositories/curso-repository';
 export type { MesaExamenRepository } from './repositories/mesa-examen-repository';
 export type { RegimenAcademicoRepository } from './repositories/regimen-academico-repository';
 export type { CalificacionSecundarioRepository, PendingExamDetail } from './repositories/calificacion-secundario-repository';
+
+// Repositories — grading-secundario (Fase 4, Etapa 2 — PR2)
+export type { MateriaPreviaRepository } from './repositories/materia-previa-repository';
+export { MATERIA_PREVIA_REPOSITORY } from './repositories/materia-previa-repository';

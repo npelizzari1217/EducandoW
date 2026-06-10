@@ -48,6 +48,7 @@ model Student {
   observations            StudentObservation[]
   subjectPeriodGrades     SubjectPeriodGrade[]
   subjectFinalGrades      SubjectFinalGrade[]
+  materiasPrevias         MateriaPrevia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,6 +186,7 @@ model CourseCycle {
   subjectGradingPeriods SubjectGradingPeriod[]
   subjectPeriodGrades   SubjectPeriodGrade[]
   subjectFinalGrades    SubjectFinalGrade[]
+  materiasPrevias       MateriaPrevia[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -249,6 +251,8 @@ model Subject {
   subjectGradingPeriods    SubjectGradingPeriod[]
   subjectPeriodGrades      SubjectPeriodGrade[]
   subjectFinalGrades       SubjectFinalGrade[]
+  materiasPrevias          MateriaPrevia[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1227,4 +1231,47 @@ model GradingPeriodDate {
   @@unique([itemId, cycleId])
   @@index([cycleId])
   @@map("grading_period_dates")
+}
+
+// ── Materias Previas (Secundario — grading-secundario D2) ───────────────────
+
+/// Resolution state for a materia previa.
+/// PENDIENTE — debt outstanding.
+/// APROBADA  — student cleared the debt (has resolvedGradeCode snapshot).
+/// LIBRE     — student took the libre exam path.
+enum MateriaPreviaStatus {
+  PENDIENTE
+  APROBADA
+  LIBRE
+}
+
+/// Academic-debt record: one row per (student, subject, origin academic year).
+/// A Secundario student owes this subject from the year indicated by originAcademicYear.
+/// condicion mirrors SubjectFinalGradeCondicion (PREVIA | LIBRE only — REGULAR is never stored here).
+model MateriaPrevia {
+  id                  String               @id @default(uuid())
+  studentId           String               @map("student_id")
+  subjectId           String               @map("subject_id")
+  /// The academic year the debt originates from (e.g. "2024").
+  originAcademicYear  String               @map("origin_academic_year")
+  /// Optional provenance link → course_cycles.uuid (the CC where the debt arose). SetNull on CC delete.
+  originCourseCycleId String?              @map("origin_course_cycle_id")
+  /// How the debt arose: PREVIA or LIBRE. REGULAR is never stored here (domain invariant, D2).
+  condicion           SubjectFinalGradeCondicion
+  status              MateriaPreviaStatus  @default(PENDIENTE)
+  /// Snapshot of the grade code when the debt was resolved/approved.
+  resolvedGradeCode   String?              @map("resolved_grade_code")
+  resolvedAt          DateTime?            @map("resolved_at")
+
+  student           Student    @relation(fields: [studentId],           references: [id],   onDelete: Cascade)
+  subject           Subject    @relation(fields: [subjectId],           references: [id],   onDelete: Cascade)
+  originCourseCycle CourseCycle? @relation(fields: [originCourseCycleId], references: [uuid], onDelete: SetNull)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([studentId, subjectId, originAcademicYear])
+  @@index([studentId])
+  @@index([studentId, originAcademicYear])
+  @@map("materias_previas")
 }

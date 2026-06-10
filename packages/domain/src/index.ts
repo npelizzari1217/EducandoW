@@ -100,6 +100,12 @@ export { Orientacion, TurnoExamen, CondicionAlumno } from './secundario';
 export type { OrientacionCode, TurnoExamenCode, CondicionAlumnoCode } from './secundario';
 export type { CursoRepository, MesaExamenRepository, RegimenAcademicoRepository, CalificacionSecundarioRepository, PendingExamDetail } from './secundario';
 
+// Secundario — grading-secundario (Fase 4, Etapa 2 — PR2)
+export { MateriaPrevia, MateriaPreviaStatus } from './secundario';
+export type { CreateMateriaPreviaInput, ReconstructMateriaPreviaProps } from './secundario';
+export { MATERIA_PREVIA_REPOSITORY } from './secundario';
+export type { MateriaPreviaRepository } from './secundario';
+
 // Terciario
 export { Carrera, InscripcionMateria, ActaExamen, Titulo } from './terciario';
 export type { CarreraProps, InscripcionMateriaProps, CorrelativaRequerida, ActaExamenProps, ActaExamenNota, TituloProps } from './terciario';
