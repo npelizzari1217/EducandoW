@@ -15,6 +15,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
       valuationId: 'v-1',
       studentId:   's-1',
       competencyId: 'c-1',
+      competencyName: 'Resolución de problemas',
       periodValuations: [
         {
           periodItemId:      'item-3',
@@ -62,6 +63,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
       valuationId:      'v-2',
       studentId:        's-2',
       competencyId:     'c-1',
+      competencyName:   'Comunicación oral',
       periodValuations: [],
     };
 
