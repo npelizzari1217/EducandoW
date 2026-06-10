@@ -13,7 +13,7 @@
  * Specs: SFG-R3..R9, AD-2
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, SubjectFinalGrade, SubjectFinalGradeType } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
 import type {
   SubjectFinalGradeRepository,
   CourseCycleRepository,
@@ -32,6 +32,8 @@ export interface UpsertFinalGradeItem {
   gradeScaleValueId?: string;
   /** Teacher-supplied promotion verdict (SFG-R4). */
   passed?: boolean;
+  /** Year-end condicion for Secundario (REGULAR | PREVIA | LIBRE). Optional — undefined leaves existing condicion unchanged. */
+  condicion?: SubjectFinalGradeCondicion;
 }
 
 export interface UpsertSubjectFinalGradesInput {
@@ -177,6 +179,30 @@ export class UpsertSubjectFinalGradesUseCase {
       // Apply passed flag if provided
       if (item.passed !== undefined) {
         grade.setPassed(item.passed);
+      }
+
+      // Apply condicion if provided (undefined = no-op, preserves existing — COND-R2/COND-S5)
+      if (item.condicion !== undefined) {
+        grade.setCondicion(item.condicion);
+      }
+
+      // Cross-field condicion validation (D1): check combined state after both fields are applied.
+      // These rules live HERE (use case), never in the entity — mirrors the AD-2/AD-7 precedent.
+      // C-1: LIBRE excludes promotion — a student absent beyond threshold cannot be marked passed.
+      if (grade.condicion === SubjectFinalGradeCondicion.LIBRE && grade.passed === true) {
+        return err(
+          new ValidationError(
+            `Cannot set condicion=LIBRE with passed=true for student "${item.studentId}": LIBRE excludes promotion.`,
+          ),
+        );
+      }
+      // C-2: PREVIA excludes promotion — a subject carried as previa is not closed as passed.
+      if (grade.condicion === SubjectFinalGradeCondicion.PREVIA && grade.passed === true) {
+        return err(
+          new ValidationError(
+            `Cannot set condicion=PREVIA with passed=true for student "${item.studentId}": PREVIA excludes promotion.`,
+          ),
+        );
       }
 
       allToSave.push(grade);

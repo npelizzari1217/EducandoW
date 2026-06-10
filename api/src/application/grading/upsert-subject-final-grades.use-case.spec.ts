@@ -7,6 +7,7 @@ import { UpsertSubjectFinalGradesUseCase } from './upsert-subject-final-grades.u
 import {
   SubjectFinalGrade,
   SubjectFinalGradeType,
+  SubjectFinalGradeCondicion,
   NotFoundError,
   ValidationError,
 } from '@educandow/domain';
@@ -403,6 +404,214 @@ describe('UpsertSubjectFinalGradesUseCase', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
+  });
+
+  // ── condicion validation (PR4-T1 [RED]) ─────────────────────────────────────
+
+  describe('condicion validation', () => {
+    it('C-1: LIBRE + passed=true → err(ValidationError) [400] — written against USE CASE (would false-green against entity alone)', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: true,
+          condicion: SubjectFinalGradeCondicion.LIBRE,
+        }],
+      });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+      expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
+    });
+
+    it('C-2: PREVIA + passed=true → err(ValidationError) [400] — written against USE CASE (would false-green against entity alone)', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: true,
+          condicion: SubjectFinalGradeCondicion.PREVIA,
+        }],
+      });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+      expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
+    });
+
+    it('C-1 cross-field: existing passed=true + new condicion=LIBRE → err(ValidationError) [400]', async () => {
+      // Validates combined state: existing row already has passed=true; item sets condicion only
+      const existingGrade = SubjectFinalGrade.reconstruct({
+        id: 'sfg-1',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: true,
+        condicion: null,
+      });
+      repos = makeRepos({ existingFinals: [existingGrade] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          condicion: SubjectFinalGradeCondicion.LIBRE,
+          // passed NOT provided — existing passed=true still applies
+        }],
+      });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+    });
+
+    it('condicion=REGULAR applied and saved correctly (verifies setCondicion is called)', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: false,
+          condicion: SubjectFinalGradeCondicion.REGULAR,
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const saved = (repos.finalGradeRepo.saveMany as any).mock.calls[0][0];
+      expect(saved[0].condicion).toBe(SubjectFinalGradeCondicion.REGULAR);
+    });
+
+    it('C-3: REGULAR + passed=true → ok', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: true,
+          condicion: SubjectFinalGradeCondicion.REGULAR,
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('C-3: REGULAR + passed=false → ok', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: false,
+          condicion: SubjectFinalGradeCondicion.REGULAR,
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('PREVIA + passed=false → ok', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: false,
+          condicion: SubjectFinalGradeCondicion.PREVIA,
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('LIBRE + passed=false → ok', async () => {
+      repos = makeRepos({ existingFinals: [] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          passed: false,
+          condicion: SubjectFinalGradeCondicion.LIBRE,
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('condicion=undefined leaves existing condicion unchanged (COND-R2/COND-S5)', async () => {
+      const existingGrade = SubjectFinalGrade.reconstruct({
+        id: 'sfg-1',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: false,
+        condicion: SubjectFinalGradeCondicion.PREVIA,
+      });
+      repos = makeRepos({ existingFinals: [existingGrade] });
+      vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+      const uc = makeUseCase(repos);
+
+      const result = await uc.execute({
+        items: [{
+          studentId: 'student-1',
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-1',
+          type: SubjectFinalGradeType.FINAL,
+          // condicion NOT provided — existing PREVIA should be preserved
+        }],
+      });
+
+      expect(result.isOk()).toBe(true);
+      const saved = (repos.finalGradeRepo.saveMany as any).mock.calls[0][0];
+      expect(saved[0].condicion).toBe(SubjectFinalGradeCondicion.PREVIA);
+    });
   });
 
   // ── Batch: multiple items saved together ────────────────────────────────────

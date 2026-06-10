@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetSubjectGradesByStudentUseCase } from './get-subject-grades-by-student.use-case';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
-import { SubjectGradingPeriod, SubjectPeriodGrade } from '@educandow/domain';
+import { SubjectGradingPeriod, SubjectPeriodGrade, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -239,5 +239,91 @@ describe('GetSubjectGradesByStudentUseCase', () => {
 
     expect(result).not.toEqual({ forbidden: true });
     expect(repos.teacherRepo.findByUserId).not.toHaveBeenCalled();
+  });
+
+  // ── condicion in response (PR4-T5 [RED]) ─────────────────────────────────────
+
+  describe('condicion in response', () => {
+    it('COND-S9: finalGrades[] entries include condicion=PREVIA for student-scoped read', async () => {
+      repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
+      const finalWithPrevia = SubjectFinalGrade.reconstruct({
+        id: 'sfg-1',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: false,
+        condicion: SubjectFinalGradeCondicion.PREVIA,
+      });
+      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([finalWithPrevia]);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      const subject = res.subjects[0];
+      const finalEntry = subject.finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry).toBeDefined();
+      expect(finalEntry.condicion).toBe('PREVIA');
+    });
+
+    it('COND-S8: null condicion (Primario row) returns condicion: null (not undefined)', async () => {
+      repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
+      const finalNullCondicion = SubjectFinalGrade.reconstruct({
+        id: 'sfg-2',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: null,
+        condicion: null,
+      });
+      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([finalNullCondicion]);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      const finalEntry = res.subjects[0].finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry.condicion).toBeNull();
+    });
+
+    it('absent final grade row returns condicion: null (not undefined)', async () => {
+      repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
+      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);  // no FINAL row
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      const finalEntry = res.subjects[0].finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry.condicion).toBeNull();
+    });
+
+    it('COND-S10/S11: condicion=LIBRE round-trips to "LIBRE" string in response', async () => {
+      repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
+      const finalLibre = SubjectFinalGrade.reconstruct({
+        id: 'sfg-3',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: false,
+        condicion: SubjectFinalGradeCondicion.LIBRE,
+      });
+      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([finalLibre]);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      const finalEntry = res.subjects[0].finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry.condicion).toBe('LIBRE');
+    });
   });
 });

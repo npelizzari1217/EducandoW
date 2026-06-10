@@ -54,6 +54,8 @@ export interface SubjectEntry {
     gradeCode: string | null;
     internalStatus: string | null;
     passed: boolean | null;
+    /** Year-end condicion (REGULAR | PREVIA | LIBRE). null for Primario rows or when not set. */
+    condicion: string | null;
   }>;
   competencyValuations: CompetencyValuationWithPeriods[];
 }
@@ -190,6 +192,7 @@ export class GetSubjectGradesByStudentUseCase {
             gradeCode: f?.gradeCode ?? null,
             internalStatus: f?.internalStatus ?? null,
             passed: f?.passed ?? null,
+            condicion: f?.condicion?.toString() ?? null,
           };
         }),
         competencyValuations: cvs,

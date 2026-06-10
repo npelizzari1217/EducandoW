@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetSubjectGradesBySubjectUseCase } from './get-subject-grades-by-subject.use-case';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
-import { SubjectGradingPeriod, SubjectPeriodGrade } from '@educandow/domain';
+import { SubjectGradingPeriod, SubjectPeriodGrade, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -332,5 +332,128 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     expect(result).not.toEqual({ forbidden: true });
     // teacherRepo never called for ROOT
     expect(repos.teacherRepo.findByUserId).not.toHaveBeenCalled();
+  });
+
+  // ── condicion in response (PR4-T3 [RED]) ─────────────────────────────────────
+
+  describe('condicion in response', () => {
+    it('COND-S9: finalGrades[] entries include condicion for a row with condicion=PREVIA', async () => {
+      const periods = [makePeriod(1)];
+      const finalWithPrevia = SubjectFinalGrade.reconstruct({
+        id: 'sfg-final-1',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-uuid-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: false,
+        condicion: SubjectFinalGradeCondicion.PREVIA,
+      });
+      repos = makeRepos({
+        sgpRepoResult: periods,
+        finalGradeResult: [finalWithPrevia],
+        enrolledStudents: [{ studentId: 'student-1', firstName: 'Ana', lastName: 'López' }],
+      });
+      useCase = makeUseCase(repos);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      const student = res.students[0];
+      const finalEntry = student.finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry).toBeDefined();
+      expect(finalEntry.condicion).toBe('PREVIA');
+    });
+
+    it('COND-S8: Primario row (condicion=null) returns condicion: null (not undefined)', async () => {
+      const periods = [makePeriod(1)];
+      const finalNullCondicion = SubjectFinalGrade.reconstruct({
+        id: 'sfg-final-2',
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-uuid-1',
+        type: SubjectFinalGradeType.FINAL,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: null,
+        condicion: null,
+      });
+      repos = makeRepos({
+        sgpRepoResult: periods,
+        finalGradeResult: [finalNullCondicion],
+        enrolledStudents: [{ studentId: 'student-1', firstName: 'Ana', lastName: 'López' }],
+      });
+      useCase = makeUseCase(repos);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      const finalEntry = res.students[0].finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry.condicion).toBeNull();
+    });
+
+    it('absent final grade row returns condicion: null (not undefined)', async () => {
+      const periods = [makePeriod(1)];
+      repos = makeRepos({
+        sgpRepoResult: periods,
+        finalGradeResult: [],  // no FINAL row
+        enrolledStudents: [{ studentId: 'student-1', firstName: 'Ana', lastName: 'López' }],
+      });
+      useCase = makeUseCase(repos);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      const finalEntry = res.students[0].finalGrades.find((f: any) => f.type === 'FINAL');
+      expect(finalEntry.condicion).toBeNull();
+    });
+
+    it('COND-S10/S11: all 3 condicion values round-trip correctly (REGULAR, PREVIA, LIBRE)', async () => {
+      const periods = [makePeriod(1)];
+      const makeGrade = (sid: string, condicion: SubjectFinalGradeCondicion | null) =>
+        SubjectFinalGrade.reconstruct({
+          id: `sfg-${sid}`,
+          studentId: sid,
+          courseCycleId: 'cc-uuid-1',
+          subjectId: 'subj-uuid-1',
+          type: SubjectFinalGradeType.FINAL,
+          gradeScaleValueId: null,
+          gradeCode: null,
+          internalStatus: null,
+          passed: false,
+          condicion,
+        });
+      repos = makeRepos({
+        sgpRepoResult: periods,
+        finalGradeResult: [
+          makeGrade('student-1', SubjectFinalGradeCondicion.REGULAR),
+          makeGrade('student-2', SubjectFinalGradeCondicion.PREVIA),
+          makeGrade('student-3', SubjectFinalGradeCondicion.LIBRE),
+          makeGrade('student-4', null),
+        ],
+        enrolledStudents: [
+          { studentId: 'student-1', firstName: 'A', lastName: 'B' },
+          { studentId: 'student-2', firstName: 'C', lastName: 'D' },
+          { studentId: 'student-3', firstName: 'E', lastName: 'F' },
+          { studentId: 'student-4', firstName: 'G', lastName: 'H' },
+        ],
+      });
+      useCase = makeUseCase(repos);
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      const getCondicion = (studentId: string) => {
+        const student = res.students.find((s: any) => s.studentId === studentId);
+        return student.finalGrades.find((f: any) => f.type === 'FINAL').condicion;
+      };
+      expect(getCondicion('student-1')).toBe('REGULAR');
+      expect(getCondicion('student-2')).toBe('PREVIA');
+      expect(getCondicion('student-3')).toBe('LIBRE');
+      expect(getCondicion('student-4')).toBeNull();
+    });
   });
 });
