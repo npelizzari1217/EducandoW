@@ -1,14 +1,15 @@
 /**
  * PR4-T12 [GREEN] — ListTeacherCourseCyclesUseCase.
  *
- * Resolves the authenticated user's Teacher record and returns the Primario CourseCycles
+ * Resolves the authenticated user's Teacher record and returns the CourseCycles
  * the teacher is authorized to view:
  *   - mode='subject'  → CCs via SubjectAssignment.courseSectionId (AD-6 "por materia" path)
+ *     Includes Primario (decade=2) AND Secundario (decade=3). Terciario (4) and Inicial (1) excluded.
  *   - mode='homeroom' → CCs via CourseCycle.homeroomTeacherId    (AD-6 "por curso" path)
+ *     Primario only (decade=2). Homeroom mode is Primario-specific; not extended to Secundario.
  *
  * Unlinked userId (no Teacher with that userId) → empty array, never an error. (TIA-R2)
- * Primario filter: Math.floor(level / 10) === 2. (TIA-R9)
- * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R9, AD-6
+ * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R9, ESS-R1, ESS-R2, AD-6, D3
  */
 import { Injectable } from '@nestjs/common';
 import type {
@@ -18,7 +19,10 @@ import type {
   TeacherRepository,
 } from '@educandow/domain';
 
-const PRIMARIO_DECADE = 2; // Math.floor(level / 10) === 2
+/** Decades allowed for subject-mode entry screens: Primario (2x) + Secundario (3x). */
+const SUBJECT_ALLOWED_DECADES = [2, 3];
+/** Homeroom mode remains Primario-only — not extended to Secundario in this PR. */
+const HOMEROOM_DECADE = 2;
 
 @Injectable()
 export class ListTeacherCourseCyclesUseCase {
@@ -51,21 +55,26 @@ export class ListTeacherCourseCyclesUseCase {
       courseCycles = await this.courseCycleRepo.findByCourseSectionIds(courseSectionIds);
     }
 
-    // TIA-R9: Primario screens only show Primario-level CCs (Math.floor(level/10) === 2)
-    const primario = courseCycles.filter(
-      (cc) => Math.floor(cc.level.toCode() / 10) === PRIMARIO_DECADE,
+    // Filter by allowed decades per mode:
+    //   subject  → Primario (2x) + Secundario (3x)  [ESS-R1, D3 predicate expansion]
+    //   homeroom → Primario (2x) only               [homeroom unchanged, TIA-R9]
+    const allowedDecades =
+      input.mode === 'subject' ? SUBJECT_ALLOWED_DECADES : [HOMEROOM_DECADE];
+
+    const filtered = courseCycles.filter((cc) =>
+      allowedDecades.includes(Math.floor(cc.level.toCode() / 10)),
     );
 
-    if (primario.length === 0) return [];
+    if (filtered.length === 0) return [];
 
     // W3: resolve modality from StudyPlan (authoritative source) via a single bulk query.
     // This matches the write-side: upsert use cases call findGradingContextByUuid →
     // CourseCycle.studyPlanId → StudyPlan.modality. Using cc.level.modalityCode would
     // diverge if a StudyPlan's modality changes without cascading to CourseCycle.level.
-    const uuids = primario.map((cc) => cc.uuid);
+    const uuids = filtered.map((cc) => cc.uuid);
     const gradingContexts = await this.courseCycleRepo.findGradingContextsByUuids(uuids);
 
-    return primario.map((cc) => ({
+    return filtered.map((cc) => ({
       cycle: cc,
       modality: gradingContexts.get(cc.uuid)?.modality ?? null,
     }));

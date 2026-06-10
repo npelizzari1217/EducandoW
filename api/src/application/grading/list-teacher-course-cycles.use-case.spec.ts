@@ -163,7 +163,8 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
     expect(result[0].modality).toBe(1);
   });
 
-  it('TIA-R9: non-Primario CCs are excluded (Secundario level=30)', async () => {
+  it('ESS-R1/D3: Secundario (level=30) is INCLUDED in subject mode alongside Primario (level=20)', async () => {
+    // Updated in PR4-T12: subject mode now includes Primario (decade=2) + Secundario (decade=3).
     const teacher = makeTeacher();
     repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
     repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
@@ -173,11 +174,19 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
     const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
     const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
     repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, secundarioCC]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([
+        ['cc-primario',   { level: 20, modality: 0 }],
+        ['cc-secundario', { level: 30, modality: 0 }],
+      ]),
+    );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
-    expect(result).toHaveLength(1);
-    expect(result[0].cycle.uuid).toBe('cc-primario');
+    expect(result).toHaveLength(2);
+    const uuids = result.map((r) => r.cycle.uuid);
+    expect(uuids).toContain('cc-primario');
+    expect(uuids).toContain('cc-secundario');
   });
 
   it('deduplicates courseSectionIds before calling repo (same section, multiple subjects)', async () => {
@@ -207,6 +216,152 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
 
     expect(result).toEqual([]);
     expect(repos.subjectAssignmentRepo.findByTeacher).toHaveBeenCalledWith(teacherA.id.get());
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ListTeacherCourseCyclesUseCase — Secundario inclusion (PR4-T11)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('ListTeacherCourseCyclesUseCase — Secundario inclusion', () => {
+  let useCase: ListTeacherCourseCyclesUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    useCase = new ListTeacherCourseCyclesUseCase(
+      repos.teacherRepo as any,
+      repos.subjectAssignmentRepo as any,
+      repos.courseCycleRepo as any,
+    );
+  });
+
+  it('ESS-R1: mode=subject returns BOTH Primario (level 20) and Secundario (level 30) CCs', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-primario'),
+      makeAssignment(teacher.id.get(), 'cs-secundario'),
+    ]);
+    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
+    const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, secundarioCC]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([
+        ['cc-primario', { level: 20, modality: 0 }],
+        ['cc-secundario', { level: 30, modality: 0 }],
+      ]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    // BOTH Primario AND Secundario must be returned
+    expect(result).toHaveLength(2);
+    const uuids = result.map((r) => r.cycle.uuid);
+    expect(uuids).toContain('cc-primario');
+    expect(uuids).toContain('cc-secundario');
+  });
+
+  it('ESS-R2: Terciario (level=40) is EXCLUDED from mode=subject results', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-primario'),
+      makeAssignment(teacher.id.get(), 'cs-secundario'),
+      makeAssignment(teacher.id.get(), 'cs-terciario'),
+    ]);
+    const primarioCC   = makeCC('cc-primario',   20, 'cs-primario');
+    const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
+    const terciarioCC  = makeCC('cc-terciario',  40, 'cs-terciario');
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([
+      primarioCC, secundarioCC, terciarioCC,
+    ]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([
+        ['cc-primario',   { level: 20, modality: 0 }],
+        ['cc-secundario', { level: 30, modality: 0 }],
+      ]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    const uuids = result.map((r) => r.cycle.uuid);
+    expect(uuids).not.toContain('cc-terciario');
+    expect(uuids).toContain('cc-primario');
+    expect(uuids).toContain('cc-secundario');
+  });
+
+  it('ESS-R2: Inicial (level=10) is EXCLUDED from mode=subject results', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-primario'),
+      makeAssignment(teacher.id.get(), 'cs-inicial'),
+    ]);
+    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
+    const inicialCC  = makeCC('cc-inicial',  10, 'cs-inicial');
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, inicialCC]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([['cc-primario', { level: 20, modality: 0 }]]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    const uuids = result.map((r) => r.cycle.uuid);
+    expect(uuids).not.toContain('cc-inicial');
+    expect(uuids).toContain('cc-primario');
+  });
+
+  it('Primario behavior unchanged: a Primario-only teacher still sees only their Primario CCs', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-primario'),
+    ]);
+    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([['cc-primario', { level: 20, modality: 0 }]]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].cycle.uuid).toBe('cc-primario');
+  });
+
+  it('pins ONLY decade=2 (Primario) and decade=3 (Secundario): a "level > 0" predicate would include Terciario (40) and Inicial (10) — both MUST be excluded', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-10'),   // Inicial
+      makeAssignment(teacher.id.get(), 'cs-20'),   // Primario
+      makeAssignment(teacher.id.get(), 'cs-30'),   // Secundario
+      makeAssignment(teacher.id.get(), 'cs-40'),   // Terciario
+    ]);
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([
+      makeCC('cc-10', 10, 'cs-10'),
+      makeCC('cc-20', 20, 'cs-20'),
+      makeCC('cc-30', 30, 'cs-30'),
+      makeCC('cc-40', 40, 'cs-40'),
+    ]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([
+        ['cc-20', { level: 20, modality: 0 }],
+        ['cc-30', { level: 30, modality: 0 }],
+      ]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    const uuids = result.map((r) => r.cycle.uuid);
+    // IN:
+    expect(uuids).toContain('cc-20');  // Primario
+    expect(uuids).toContain('cc-30');  // Secundario
+    // OUT (CRITICAL — pins that the predicate is not too broad):
+    expect(uuids).not.toContain('cc-10');  // Inicial (decade=1)
+    expect(uuids).not.toContain('cc-40');  // Terciario (decade=4)
+    expect(result).toHaveLength(2);
   });
 });
 
