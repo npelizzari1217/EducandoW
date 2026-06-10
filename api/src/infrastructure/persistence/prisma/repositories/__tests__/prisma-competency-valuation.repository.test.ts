@@ -88,7 +88,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
 
     expect(mockClient.subjectCompetency.findMany).toHaveBeenCalledWith({
       where: { studyPlanSubjectId: 'sps-1', deletedAt: null },
-      select: { id: true },
+      select: { id: true, name: true },
     });
   });
 
@@ -151,6 +151,20 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 
     expect(result[0].periodValuations).toEqual([]);
+  });
+
+  // CVR-7: competencyName is populated from the SubjectCompetency name lookup
+  it('CVR-7: maps competencyName from SubjectCompetency name lookup', async () => {
+    mockClient.subjectCompetency.findMany.mockResolvedValue([
+      { id: 'comp-uuid-1', name: 'Resolución de problemas' },
+    ]);
+    const valRow = { ...makeValuationRow(), periodValuations: [] };
+    mockClient.competencyValuation.findMany.mockResolvedValue([valRow]);
+
+    const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
+
+    expect(result).toHaveLength(1);
+    expect((result[0] as any).competencyName).toBe('Resolución de problemas');
   });
 
   it('children are attached only to their parent — BVR-6 correct join isolation', async () => {

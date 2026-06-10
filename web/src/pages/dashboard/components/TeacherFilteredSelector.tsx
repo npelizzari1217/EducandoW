@@ -27,10 +27,32 @@ export interface TeacherFilteredSelectionContext {
   modality: number | null;
 }
 
+/**
+ * Emitted by homeroom mode: just the selected CC (no subject).
+ * The page handles student-picker and grade fetching separately.
+ */
+export interface CourseCycleContext {
+  courseCycleId: string;
+  level: number;
+  modality: number | null;
+  courseName: string;
+}
+
 interface Props {
-  onSelect: (context: TeacherFilteredSelectionContext) => void;
+  /** Called in subject mode (default) when both CC + subject are selected. */
+  onSelect?: (context: TeacherFilteredSelectionContext) => void;
+  /**
+   * Called in homeroom mode when a CC is selected.
+   * Homeroom mode shows only the CC dropdown (no subject picker).
+   */
+  onSelectCC?: (cc: CourseCycleContext) => void;
   /** Optional filter applied to course cycles after fetch. Use for level-specific pages. */
   filterCourseCycle?: (cc: CourseCycleOption) => boolean;
+  /**
+   * 'subject' (default): fetch role=subject, show CC + subject dropdowns, emit TeacherFilteredSelectionContext.
+   * 'homeroom': fetch role=homeroom, show CC dropdown only, emit CourseCycleContext on CC select.
+   */
+  role?: 'subject' | 'homeroom';
 }
 
 // ── Shared Styles ──────────────────────────────────────────────────────────────
@@ -72,7 +94,7 @@ const emptyStateStyle: React.CSSProperties = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) {
+export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycle, role = 'subject' }: Props) {
   const { user } = useAuth();
   const teacherUserId = user?.id ?? '';
 
@@ -83,7 +105,7 @@ export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) 
   const [selectedCCId, setSelectedCCId] = useState('');
   const [selectedCC, setSelectedCC] = useState<CourseCycleOption | null>(null);
 
-  // ── Level 2: Subjects ─────────────────────────────────────────────────────
+  // ── Level 2: Subjects (subject mode only) ────────────────────────────────
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [loadingSubs, setLoadingSubs] = useState(false);
   const [errorSubs, setErrorSubs] = useState('');
@@ -97,24 +119,39 @@ export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) 
     setErrorCC('');
 
     apiClient
-      .get('/course-cycles', { params: { teacherUserId, role: 'subject' } })
+      .get('/course-cycles', { params: { teacherUserId, role } })
       .then(r => {
         const all: CourseCycleOption[] = r.data?.data ?? [];
         setCourseCycles(filterCourseCycle ? all.filter(filterCourseCycle) : all);
       })
       .catch(() => setErrorCC('Error al cargar ciclos de curso'))
       .finally(() => setLoadingCC(false));
-  }, [teacherUserId]);
+  }, [teacherUserId, role]);
 
   // ── Handle CC selection ───────────────────────────────────────────────────
   const handleCCChange = (uuid: string) => {
     setSelectedCCId(uuid);
-    setSelectedSubjectId('');
-    setSubjects([]);
-    setErrorSubs('');
 
     const cc = courseCycles.find(c => c.uuid === uuid) ?? null;
     setSelectedCC(cc);
+
+    if (role === 'homeroom') {
+      // Homeroom mode: emit CC immediately, no subject picker
+      if (uuid && cc && onSelectCC) {
+        onSelectCC({
+          courseCycleId: uuid,
+          level: cc.level,
+          modality: cc.modality ?? null,
+          courseName: cc.courseName,
+        });
+      }
+      return;
+    }
+
+    // Subject mode: reset and fetch subjects
+    setSelectedSubjectId('');
+    setSubjects([]);
+    setErrorSubs('');
 
     if (!uuid) return;
 
@@ -126,10 +163,10 @@ export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) 
       .finally(() => setLoadingSubs(false));
   };
 
-  // ── Handle subject selection → emit full context ──────────────────────────
+  // ── Handle subject selection → emit full context (subject mode only) ──────
   const handleSubjectChange = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
-    if (subjectId && selectedCC) {
+    if (subjectId && selectedCC && onSelect) {
       const subject = subjects.find(s => s.subjectId === subjectId) ?? null;
       onSelect({
         courseCycleId: selectedCC.uuid,
@@ -150,7 +187,33 @@ export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) 
   if (!loadingCC && !errorCC && courseCycles.length === 0) {
     return (
       <div style={emptyStateStyle} data-testid="tfs-empty-state">
-        No tenés materias asignadas
+        {role === 'homeroom'
+          ? 'No tenés ciclos de curso a cargo'
+          : 'No tenés materias asignadas'}
+      </div>
+    );
+  }
+
+  // Homeroom mode: show only CC dropdown (no subject picker)
+  if (role === 'homeroom') {
+    return (
+      <div>
+        <label htmlFor="tfs-cc-select" style={labelStyle}>Ciclo de Curso</label>
+        <select
+          id="tfs-cc-select"
+          aria-label="Ciclo de Curso"
+          aria-busy={loadingCC}
+          value={selectedCCId}
+          onChange={e => handleCCChange(e.target.value)}
+          disabled={ccDropdownDisabled}
+          style={selectStyle}
+        >
+          <option value="">{loadingCC ? 'Cargando...' : 'Seleccionar ciclo de curso...'}</option>
+          {courseCycles.map(cc => (
+            <option key={cc.uuid} value={cc.uuid}>{cc.courseName}</option>
+          ))}
+        </select>
+        {errorCC && <span style={errorStyle}>{errorCC}</span>}
       </div>
     );
   }

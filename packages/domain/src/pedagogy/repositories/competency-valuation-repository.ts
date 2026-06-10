@@ -24,6 +24,8 @@ export interface CompetencyValuationWithPeriods {
   valuationId:      string;
   studentId:        string;
   competencyId:     string;
+  /** Human-readable competency name (from SubjectCompetency.name). */
+  competencyName:   string;
   /** Lazily-created period children. Empty array if none graded yet (BVR-5). */
   periodValuations: CompetencyPeriodValuationData[];
 }

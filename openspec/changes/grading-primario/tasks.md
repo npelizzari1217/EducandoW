@@ -136,9 +136,9 @@
 
 | ID | Action | Files | Spec refs |
 |---|---|---|---|
-| PR6-T1 | [RED] Write failing integration tests for `SubjectGradingByCourse` page: student picker populated from homeroom CC students; subjects × {period grades + 4 finals + ALL competencies with "Imprimir" toggle + PA/PPI/PP per subject row}; empty state when teacher has no homeroom CC; Primario-only | `web/src/pages/dashboard/subject-grading-by-course.spec.tsx` | ES-R2 (CORRECTED: all competencies), ES-R5, ES-R6, ES-R10, TIA-R9 |
-| PR6-T2 | [GREEN] Implement `SubjectGradingByCourse` page (student picker from homeroom CC; reuses `TeacherFilteredSelector`, extended hook, `CompetencyGradingGrid`; ALL competencies + "Imprimir" toggle; inline save) | `web/src/pages/dashboard/subject-grading-by-course.tsx` | ES-R2 (CORRECTED), ES-R5, ES-R7, ES-R8, ES-R10 |
-| PR6-T3 | Update router: add `/grading/by-course` route pointing to `SubjectGradingByCourse` | `web/src/router` (or equivalent path) | ES-R3 |
+| PR6-T1 | [x] [RED] Write failing integration tests for `SubjectGradingByCourse` page: student picker populated from homeroom CC students; subjects × {period grades + 4 finals + ALL competencies with "Imprimir" toggle + PA/PPI/PP per subject row}; empty state when teacher has no homeroom CC; Primario-only | `web/src/pages/dashboard/__tests__/subject-grading-by-course.test.tsx` | ES-R2 (CORRECTED: all competencies), ES-R5, ES-R6, ES-R10, TIA-R9 |
+| PR6-T2 | [x] [GREEN] Implement `SubjectGradingByCourse` page (student picker from homeroom CC; TeacherFilteredSelector homeroom mode; new useStudentGrades hook; ALL competencies + "Imprimir" toggle; inline save; W1-avoided: single hook call, no CGG reuse) | `web/src/pages/dashboard/subject-grading-by-course.tsx`, `web/src/pages/dashboard/components/use-student-grades.ts`, `web/src/pages/dashboard/components/TeacherFilteredSelector.tsx` | ES-R2 (CORRECTED), ES-R5, ES-R7, ES-R8, ES-R10 |
+| PR6-T3 | [x] Update router: add `/grading/by-course` route pointing to `SubjectGradingByCourse` | `web/src/App.tsx` | ES-R3 |
 
 ---
 

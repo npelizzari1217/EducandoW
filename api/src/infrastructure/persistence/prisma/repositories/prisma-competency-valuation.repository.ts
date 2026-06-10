@@ -32,13 +32,16 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     courseCycleId: string,
     studyPlanSubjectId: string,
   ): Promise<CompetencyValuationWithPeriods[]> {
-    // 1. Resolve all active competencies for the given studyPlanSubject
+    // 1. Resolve all active competencies with their human-readable names
     const competencies = await this.client.subjectCompetency.findMany({
       where: { studyPlanSubjectId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, name: true },
     });
 
     if (competencies.length === 0) return [];
+
+    // Build name lookup: competencyId → name (single query, no N+1)
+    const nameById = new Map(competencies.map((c) => [c.id, c.name]));
 
     // 2. Fetch parent valuations with period children included
     const rows = await this.client.competencyValuation.findMany({
@@ -50,8 +53,8 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
       include: { periodValuations: true },
     });
 
-    // 3. Map to read model
-    return rows.map((row) => this.toReadModel(row));
+    // 3. Map to read model (name resolved from the lookup built in step 1)
+    return rows.map((row) => this.toReadModel(row, nameById));
   }
 
   async findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
@@ -131,11 +134,13 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
         imprimible:        boolean;
       }>;
     },
+    nameById: Map<string, string>,
   ): CompetencyValuationWithPeriods {
     return {
-      valuationId:  row.id,
-      studentId:    row.studentId,
-      competencyId: row.competencyId,
+      valuationId:    row.id,
+      studentId:      row.studentId,
+      competencyId:   row.competencyId,
+      competencyName: nameById.get(row.competencyId) ?? '',
       periodValuations: row.periodValuations.map((pv): CompetencyPeriodValuationData => ({
         periodItemId:      pv.periodItemId,
         gradeScaleValueId: pv.gradeScaleValueId,

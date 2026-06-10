@@ -41,6 +41,7 @@ import ObservationsPage from './pages/dashboard/observations';
 import GradingScalesPage from './pages/dashboard/grading-scales';
 import GradingPeriodsPage from './pages/dashboard/grading-periods';
 import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-subject';
+import SubjectGradingByCoursePage from './pages/dashboard/subject-grading-by-course';
 
 function App() {
   return (
@@ -89,6 +90,8 @@ function App() {
               <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
               {/* PR5-T7: /competency-grading now serves SubjectGradingBySubject (Primario-only) */}
               <Route path="/competency-grading" element={<SubjectGradingBySubjectPage />} />
+              {/* PR6-T3: /grading/by-course — SubjectGradingByCourse (homeroom/student view, Primario-only) */}
+              <Route path="/grading/by-course" element={<SubjectGradingByCoursePage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
