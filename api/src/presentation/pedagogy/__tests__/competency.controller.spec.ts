@@ -204,8 +204,22 @@ describe('UpdatePeriodGradeSchema — ZodValidationPipe', () => {
     expect(() => pipe.transform({ gradeScaleValueId: 'not-a-uuid' })).toThrow();
   });
 
-  it('rejects missing gradeScaleValueId key', () => {
+  it('rejects empty body (neither gradeScaleValueId nor imprimible provided)', () => {
     expect(() => pipe.transform({})).toThrow();
+  });
+
+  it('accepts { imprimible: true } alone (imprimible-only toggle)', () => {
+    expect(() => pipe.transform({ imprimible: true })).not.toThrow();
+  });
+
+  it('accepts { imprimible: false } alone', () => {
+    expect(() => pipe.transform({ imprimible: false })).not.toThrow();
+  });
+
+  it('accepts both gradeScaleValueId and imprimible together', () => {
+    expect(() =>
+      pipe.transform({ gradeScaleValueId: '123e4567-e89b-12d3-a456-426614174000', imprimible: true }),
+    ).not.toThrow();
   });
 });
 
@@ -259,6 +273,55 @@ describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:per
       valuationUuid: 'v-1',
       periodItemId: 'item-7',
       gradeScaleValueId: 'gsv-a',
+      imprimible: undefined,
+    });
+  });
+
+  it('CTL-IMP-1: forwards imprimible=true to the use case when present in body', async () => {
+    const childWithImprimible = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      gradeCode: 'MB',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: true,
+    });
+    mockGradePeriodUC.execute.mockResolvedValue(ok(childWithImprimible));
+
+    const result = await ctrl.gradePeriod('v-1', 'item-7', { gradeScaleValueId: 'gsv-a', imprimible: true });
+
+    expect(result.data.imprimible).toBe(true);
+    expect(mockGradePeriodUC.execute).toHaveBeenCalledWith({
+      valuationUuid: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      imprimible: true,
+    });
+  });
+
+  it('CTL-IMP-2: imprimible-only body (no gradeScaleValueId) forwards to use case', async () => {
+    const childImprimibleOnly = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: null,
+      gradeCode: null,
+      internalStatus: null,
+      modificable: true,
+      imprimible: true,
+    });
+    mockGradePeriodUC.execute.mockResolvedValue(ok(childImprimibleOnly));
+
+    const result = await ctrl.gradePeriod('v-1', 'item-7', { imprimible: true });
+
+    expect(result.data.imprimible).toBe(true);
+    expect(mockGradePeriodUC.execute).toHaveBeenCalledWith({
+      valuationUuid: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: undefined,
+      imprimible: true,
     });
   });
 

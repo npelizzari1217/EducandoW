@@ -32,13 +32,22 @@ function makeAssignment(subjectId: string, courseSectionId: string) {
   return { id: { get: () => `assign-${subjectId}` }, subjectId, teacherId: 'teacher-uuid-1', courseSectionId };
 }
 
-function makeMockClient(subjects: { id: string; name: string }[] = []) {
+function makeMockClient(
+  subjects: { id: string; name: string }[] = [],
+  studyPlanSubjects: { id: string; subjectId: string }[] = [],
+) {
   return {
     courseCycle: {
       findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-uuid-1', courseId: 'cs-A', studyPlanId: 'sp-1' }),
     },
     subject: {
       findMany: vi.fn().mockResolvedValue(subjects),
+    },
+    studyPlanCourse: {
+      findFirst: vi.fn().mockResolvedValue({ id: 'spc-1' }),
+    },
+    studyPlanSubject: {
+      findMany: vi.fn().mockResolvedValue(studyPlanSubjects),
     },
   };
 }
@@ -89,9 +98,12 @@ describe('ListTeacherSubjectsInCourseCycleUseCase', () => {
       makeAssignment('subj-math', 'cs-A'),
       makeAssignment('subj-science', 'cs-B'),  // different section — filtered out
     ]);
-    mockClient.courseCycle.findUnique.mockResolvedValue({ uuid: 'cc-uuid-1', courseId: 'cs-A' });
+    mockClient.courseCycle.findUnique.mockResolvedValue({ uuid: 'cc-uuid-1', courseId: 'cs-A', studyPlanId: 'sp-1' });
     mockClient.subject.findMany.mockResolvedValue([
       { id: 'subj-math', name: 'Matemática' },
+    ]);
+    mockClient.studyPlanSubject.findMany.mockResolvedValue([
+      { id: 'sps-math', subjectId: 'subj-math' },
     ]);
 
     const result = await useCase.execute({ userId: 'user-abc', courseCycleId: 'cc-uuid-1' });
@@ -132,5 +144,36 @@ describe('ListTeacherSubjectsInCourseCycleUseCase', () => {
     await useCase.execute({ userId: 'user-abc', courseCycleId: 'cc-uuid-1' });
 
     expect(repos.assignmentRepo.findByTeacher).toHaveBeenCalledWith('teacher-uuid-99');
+  });
+
+  it('TIA-R4b: includes studyPlanSubjectId in each subject entry', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.assignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment('subj-math', 'cs-A'),
+    ]);
+    mockClient.courseCycle.findUnique.mockResolvedValue({ uuid: 'cc-uuid-1', courseId: 'cs-A', studyPlanId: 'sp-1' });
+    mockClient.subject.findMany.mockResolvedValue([{ id: 'subj-math', name: 'Matemática' }]);
+    mockClient.studyPlanCourse.findFirst.mockResolvedValue({ id: 'spc-1' });
+    mockClient.studyPlanSubject.findMany.mockResolvedValue([{ id: 'sps-42', subjectId: 'subj-math' }]);
+
+    const result = await useCase.execute({ userId: 'user-abc', courseCycleId: 'cc-uuid-1' });
+
+    expect(result[0].studyPlanSubjectId).toBe('sps-42');
+  });
+
+  it('studyPlanSubjectId is null when StudyPlanCourse lookup fails', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.assignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment('subj-art', 'cs-A'),
+    ]);
+    mockClient.courseCycle.findUnique.mockResolvedValue({ uuid: 'cc-uuid-1', courseId: 'cs-A', studyPlanId: 'sp-1' });
+    mockClient.subject.findMany.mockResolvedValue([{ id: 'subj-art', name: 'Arte' }]);
+    mockClient.studyPlanCourse.findFirst.mockResolvedValue(null);  // no StudyPlanCourse found
+
+    const result = await useCase.execute({ userId: 'user-abc', courseCycleId: 'cc-uuid-1' });
+
+    expect(result[0].studyPlanSubjectId).toBeNull();
   });
 });

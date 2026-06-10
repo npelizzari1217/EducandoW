@@ -84,19 +84,26 @@ interface GradeCellProps {
   cellKey: string | null;
   scaleValues: ScaleValue[];
   onUpdate: (cellKey: string, gradeScaleValueId: string) => void;
+  onUpdateImprimible: (cellKey: string, imprimible: boolean) => void;
   studentId: string;
   competencyId: string;
 }
 
-function GradeCell({ cell, cellKey, scaleValues, onUpdate, studentId, competencyId }: GradeCellProps) {
+function GradeCell({ cell, cellKey, scaleValues, onUpdate, onUpdateImprimible, studentId, competencyId }: GradeCellProps) {
   const isLocked = cell?.modificable === false;
   const statusColor = internalStatusColor(cell?.internalStatus ?? null);
   const statusText = internalStatusLabel(cell?.internalStatus ?? null);
   const currentValue = cell?.gradeScaleValueId ?? '';
+  const imprimible = cell?.imprimible ?? false;
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (!cellKey || isLocked || !e.target.value) return;
     onUpdate(cellKey, e.target.value);
+  };
+
+  const handleImprimibleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!cellKey) return;
+    onUpdateImprimible(cellKey, e.target.checked);
   };
 
   return (
@@ -129,6 +136,19 @@ function GradeCell({ cell, cellKey, scaleValues, onUpdate, studentId, competency
           </span>
         )}
       </div>
+
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem', fontSize: 'var(--text-xs)', cursor: cellKey ? 'pointer' : 'default' }}
+      >
+        <input
+          type="checkbox"
+          checked={imprimible}
+          onChange={handleImprimibleChange}
+          disabled={!cellKey}
+          aria-label={`Imprimir para ${studentId} en ${competencyId}`}
+        />
+        Imprimir
+      </label>
 
       {statusColor && statusText && (
         <span
@@ -175,6 +195,7 @@ export function CompetencyGradingGrid({
     cells,
     switchPeriod,
     updateCell,
+    updateImprimible,
     saveAll,
     isSavingAll,
   } = useGradingGrid({ courseCycleId, studyPlanSubjectId, level, modality });
@@ -323,6 +344,7 @@ export function CompetencyGradingGrid({
                         cellKey={cellKey}
                         scaleValues={scaleValues}
                         onUpdate={updateCell}
+                        onUpdateImprimible={updateImprimible}
                         studentId={student.studentId}
                         competencyId={comp.uuid}
                       />

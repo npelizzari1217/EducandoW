@@ -552,6 +552,77 @@ describe('CGG-11: empty state — no grade scale', () => {
   });
 });
 
+// ── CGG-13: Imprimible toggle per cell ────────────────────────────────────────
+// [RED] This test will fail until the imprimible checkbox is added to GradeCell.
+
+describe('CGG-13: imprimible toggle per cell', () => {
+  beforeEach(() => setupDefaultMocks());
+
+  it('renders imprimible checkbox for cell with imprimible=true (checked)', async () => {
+    render(<CompetencyGradingGrid {...defaultProps} />);
+    await waitForGridLoaded();
+
+    // val-1: s-1, c-1, pi-1 has imprimible=true
+    const cell = screen.getByTestId('cell-s-1-c-1');
+    const checkbox = within(cell).getByRole('checkbox', { name: /imprimir/i });
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).toBeChecked();
+  });
+
+  it('renders imprimible checkbox for cell with imprimible=false (unchecked)', async () => {
+    render(<CompetencyGradingGrid {...defaultProps} />);
+    await waitForGridLoaded();
+
+    // val-4: s-2, c-2, pi-1 has imprimible=false
+    const cell = screen.getByTestId('cell-s-2-c-2');
+    const checkbox = within(cell).getByRole('checkbox', { name: /imprimir/i });
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox).not.toBeChecked();
+  });
+
+  it('clicking the checkbox issues PATCH with imprimible: true', async () => {
+    render(<CompetencyGradingGrid {...defaultProps} />);
+    await waitForGridLoaded();
+
+    // val-4: s-2, c-2, pi-1 has imprimible=false → click to enable
+    const cell = screen.getByTestId('cell-s-2-c-2');
+    const checkbox = within(cell).getByRole('checkbox', { name: /imprimir/i });
+
+    await userEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/competency-valuations/val-4/periods/pi-1',
+        { imprimible: true },
+      );
+    });
+  });
+
+  it('clicking an already-checked checkbox issues PATCH with imprimible: false', async () => {
+    // Reset mock to return new imprimible=false response
+    (apiClient.patch as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: { data: { gradeScaleValueId: 'gsv-mb', gradeCode: 'MB', internalStatus: 'APROBADO', modificable: true, imprimible: false } },
+    });
+
+    render(<CompetencyGradingGrid {...defaultProps} />);
+    await waitForGridLoaded();
+
+    // val-1: s-1, c-1, pi-1 has imprimible=true → uncheck
+    const cell = screen.getByTestId('cell-s-1-c-1');
+    const checkbox = within(cell).getByRole('checkbox', { name: /imprimir/i });
+    expect(checkbox).toBeChecked();
+
+    await userEvent.click(checkbox);
+
+    await waitFor(() => {
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/competency-valuations/val-1/periods/pi-1',
+        { imprimible: false },
+      );
+    });
+  });
+});
+
 // ── CGG-12: Loading state ──────────────────────────────────────────────────────
 
 describe('CGG-12: loading state during initial fetch', () => {

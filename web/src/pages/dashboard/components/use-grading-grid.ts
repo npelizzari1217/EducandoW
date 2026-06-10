@@ -12,6 +12,7 @@ export interface CellState {
   gradeCode: string | null;
   internalStatus: string | null;
   modificable: boolean;
+  imprimible: boolean;
   saveState: 'idle' | 'dirty' | 'saving' | 'error';
 }
 
@@ -76,6 +77,7 @@ interface RawPeriodValuation {
   gradeCode: string | null;
   internalStatus: string | null;
   modificable: boolean;
+  imprimible: boolean;
 }
 
 interface RawValuation {
@@ -156,6 +158,7 @@ export interface UseGradingGridReturn {
   cells: Map<string, CellState>;
   switchPeriod: (periodItemId: string) => void;
   updateCell: (cellKey: string, gradeScaleValueId: string) => void;
+  updateImprimible: (cellKey: string, imprimible: boolean) => void;
   saveAll: () => Promise<void>;
   isSavingAll: boolean;
   // ── Subject-grade channels (activated when subjectId is provided) ─────────────
@@ -274,6 +277,7 @@ export function useGradingGrid({
             gradeCode: pv?.gradeCode ?? null,
             internalStatus: pv?.internalStatus ?? null,
             modificable: pv?.modificable ?? true,
+            imprimible: pv?.imprimible ?? false,
             saveState: 'idle',
           });
         }
@@ -393,6 +397,50 @@ export function useGradingGrid({
             gradeCode: data?.gradeCode ?? null,
             internalStatus: data?.internalStatus ?? null,
             modificable: data?.modificable ?? cell.modificable,
+            saveState: 'idle',
+          });
+          return next;
+        });
+      })
+      .catch(() => {
+        setCells((prev) => {
+          const cell = prev.get(cellKey);
+          if (!cell) return prev;
+          const next = new Map(prev);
+          next.set(cellKey, { ...cell, saveState: 'error' });
+          return next;
+        });
+      });
+  }, []);
+
+  // ── updateImprimible: toggle imprimible per cell via PATCH ────────────────────
+
+  const updateImprimible = useCallback((cellKey: string, imprimible: boolean) => {
+    const colonIdx = cellKey.indexOf(':');
+    if (colonIdx === -1) return;
+    const valuationId = cellKey.slice(0, colonIdx);
+    const periodItemId = cellKey.slice(colonIdx + 1);
+
+    // Optimistic update
+    setCells((prev) => {
+      const cell = prev.get(cellKey);
+      if (!cell) return prev;
+      const next = new Map(prev);
+      next.set(cellKey, { ...cell, imprimible, saveState: 'saving' });
+      return next;
+    });
+
+    apiClient
+      .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { imprimible })
+      .then((res) => {
+        const data = res.data?.data;
+        setCells((prev) => {
+          const cell = prev.get(cellKey);
+          if (!cell) return prev;
+          const next = new Map(prev);
+          next.set(cellKey, {
+            ...cell,
+            imprimible: data?.imprimible !== undefined ? (data.imprimible as boolean) : imprimible,
             saveState: 'idle',
           });
           return next;
@@ -721,6 +769,7 @@ export function useGradingGrid({
     cells,
     switchPeriod,
     updateCell,
+    updateImprimible,
     saveAll,
     isSavingAll,
     // Subject-grade channels

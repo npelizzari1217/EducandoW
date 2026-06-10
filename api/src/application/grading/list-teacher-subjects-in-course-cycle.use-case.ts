@@ -15,6 +15,12 @@ import { TenantContext } from '../../infrastructure/auth/tenant.context';
 export interface TeacherSubjectEntry {
   subjectId: string;
   subjectName: string;
+  /**
+   * StudyPlanSubject.id for this (courseCycle, subject) pair.
+   * Needed by the front-end to feed the competency channel (PR5b).
+   * Null when the subject has no study-plan mapping (data inconsistency).
+   */
+  studyPlanSubjectId: string | null;
 }
 
 @Injectable()
@@ -35,7 +41,7 @@ export class ListTeacherSubjectsInCourseCycleUseCase {
 
     const cc = await client.courseCycle.findUnique({
       where: { uuid: input.courseCycleId },
-      select: { courseId: true },
+      select: { courseId: true, studyPlanId: true },
     });
     if (!cc) return [];  // cross-tenant or not-found
 
@@ -54,9 +60,29 @@ export class ListTeacherSubjectsInCourseCycleUseCase {
 
     const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
 
+    // 5. Bulk-resolve studyPlanSubjectId for each subject (needed by front-end competency channel).
+    //    Path: studyPlanId + courseId → StudyPlanCourse → StudyPlanSubject.
+    const studyPlanSubjectMap = new Map<string, string>();
+    if (cc.studyPlanId) {
+      const spc = await client.studyPlanCourse.findFirst({
+        where: { studyPlanId: cc.studyPlanId, courseSectionId: cc.courseId },
+        select: { id: true },
+      });
+      if (spc) {
+        const spSubjects = await client.studyPlanSubject.findMany({
+          where: { studyPlanCourseId: spc.id, subjectId: { in: subjectIds } },
+          select: { id: true, subjectId: true },
+        });
+        for (const sps of spSubjects) {
+          studyPlanSubjectMap.set(sps.subjectId, sps.id);
+        }
+      }
+    }
+
     return subjectIds.map((sid) => ({
       subjectId: sid,
       subjectName: subjectMap.get(sid) ?? sid,
+      studyPlanSubjectId: studyPlanSubjectMap.get(sid) ?? null,
     }));
   }
 }

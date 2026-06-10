@@ -461,6 +461,7 @@ export class PedagogyController {
       valuationUuid: uuid,
       periodItemId,
       gradeScaleValueId: body.gradeScaleValueId,
+      imprimible: body.imprimible,
     });
 
     if (result.isErr()) {

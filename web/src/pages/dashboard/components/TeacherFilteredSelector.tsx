@@ -15,17 +15,22 @@ interface CourseCycleOption {
 interface SubjectOption {
   subjectId: string;
   subjectName: string;
+  studyPlanSubjectId: string | null;
 }
 
 export interface TeacherFilteredSelectionContext {
   courseCycleId: string;
   subjectId: string;
+  /** Resolved from the subjects endpoint — null only on data inconsistency. */
+  studyPlanSubjectId: string | null;
   level: number;
   modality: number | null;
 }
 
 interface Props {
   onSelect: (context: TeacherFilteredSelectionContext) => void;
+  /** Optional filter applied to course cycles after fetch. Use for level-specific pages. */
+  filterCourseCycle?: (cc: CourseCycleOption) => boolean;
 }
 
 // ── Shared Styles ──────────────────────────────────────────────────────────────
@@ -67,7 +72,7 @@ const emptyStateStyle: React.CSSProperties = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export function TeacherFilteredSelector({ onSelect }: Props) {
+export function TeacherFilteredSelector({ onSelect, filterCourseCycle }: Props) {
   const { user } = useAuth();
   const teacherUserId = user?.id ?? '';
 
@@ -93,7 +98,10 @@ export function TeacherFilteredSelector({ onSelect }: Props) {
 
     apiClient
       .get('/course-cycles', { params: { teacherUserId, role: 'subject' } })
-      .then(r => setCourseCycles(r.data?.data ?? []))
+      .then(r => {
+        const all: CourseCycleOption[] = r.data?.data ?? [];
+        setCourseCycles(filterCourseCycle ? all.filter(filterCourseCycle) : all);
+      })
       .catch(() => setErrorCC('Error al cargar ciclos de curso'))
       .finally(() => setLoadingCC(false));
   }, [teacherUserId]);
@@ -122,9 +130,11 @@ export function TeacherFilteredSelector({ onSelect }: Props) {
   const handleSubjectChange = (subjectId: string) => {
     setSelectedSubjectId(subjectId);
     if (subjectId && selectedCC) {
+      const subject = subjects.find(s => s.subjectId === subjectId) ?? null;
       onSelect({
         courseCycleId: selectedCC.uuid,
         subjectId,
+        studyPlanSubjectId: subject?.studyPlanSubjectId ?? null,
         level: selectedCC.level,
         modality: selectedCC.modality ?? null,
       });

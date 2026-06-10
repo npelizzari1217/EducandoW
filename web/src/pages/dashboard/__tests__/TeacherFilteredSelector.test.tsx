@@ -39,14 +39,14 @@ const mockCourseCycles = [
 ];
 
 // REAL API shape: TeacherSubjectEntry from list-teacher-subjects-in-course-cycle.use-case.ts
-// Returns { subjectId, subjectName }[] — NOT { id, name }[]
+// Returns { subjectId, subjectName, studyPlanSubjectId }[]
 const mockSubjectsForCC1 = [
-  { subjectId: 'sub-1', subjectName: 'Matemática' },
-  { subjectId: 'sub-2', subjectName: 'Lengua' },
+  { subjectId: 'sub-1', subjectName: 'Matemática', studyPlanSubjectId: 'sps-1' },
+  { subjectId: 'sub-2', subjectName: 'Lengua', studyPlanSubjectId: 'sps-2' },
 ];
 
 const mockSubjectsForCC2 = [
-  { subjectId: 'sub-3', subjectName: 'Ciencias Naturales' },
+  { subjectId: 'sub-3', subjectName: 'Ciencias Naturales', studyPlanSubjectId: 'sps-3' },
 ];
 
 import apiClient from '../../../api/client';
@@ -175,6 +175,7 @@ describe('TeacherFilteredSelector', () => {
     expect(onSelect).toHaveBeenCalledWith({
       courseCycleId: 'cc-1',
       subjectId: 'sub-1',
+      studyPlanSubjectId: 'sps-1',
       level: 20,
       modality: 0,
     });

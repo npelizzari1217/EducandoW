@@ -40,7 +40,7 @@ import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
 import GradingScalesPage from './pages/dashboard/grading-scales';
 import GradingPeriodsPage from './pages/dashboard/grading-periods';
-import CompetencyGradingPage from './pages/dashboard/competency-grading';
+import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-subject';
 
 function App() {
   return (
@@ -87,7 +87,8 @@ function App() {
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
               <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
               <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
-              <Route path="/competency-grading" element={<CompetencyGradingPage />} />
+              {/* PR5-T7: /competency-grading now serves SubjectGradingBySubject (Primario-only) */}
+              <Route path="/competency-grading" element={<SubjectGradingBySubjectPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

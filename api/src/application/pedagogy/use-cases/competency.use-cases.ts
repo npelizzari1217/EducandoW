@@ -288,7 +288,8 @@ export class GradePeriodValuationUC {
   async execute(input: {
     valuationUuid: string;
     periodItemId: string;
-    gradeScaleValueId: string | null;
+    gradeScaleValueId?: string | null;
+    imprimible?: boolean;
   }): Promise<Result<CompetencyPeriodValuation, DomainError>> {
     // 1. Resolve parent valuation
     const parent = await this.valuationRepo.findById(input.valuationUuid);
@@ -312,37 +313,45 @@ export class GradePeriodValuationUC {
       (await this.periodRepo.findByValuationAndPeriod(parent.id.get(), input.periodItemId)) ??
       CompetencyPeriodValuation.create({ valuationId: parent.id.get(), periodItemId: input.periodItemId });
 
-    // 6. Apply grade or clear (lock check lives inside entity invariant)
-    if (input.gradeScaleValueId === null) {
-      const r = child.clearGrade();
-      if (r.isErr()) return err(r.unwrapErr());
-    } else {
-      // Resolve scale value (404 if missing)
-      const scaleValue = await this.gradeScaleRepo.findValueById(input.gradeScaleValueId);
-      if (!scaleValue) return err(new ValueNotFoundError(input.gradeScaleValueId));
+    // 6. Apply grade or clear when gradeScaleValueId is present in input
+    //    When absent (undefined), leave grade fields unchanged (imprimible-only call).
+    if (input.gradeScaleValueId !== undefined) {
+      if (input.gradeScaleValueId === null) {
+        const r = child.clearGrade();
+        if (r.isErr()) return err(r.unwrapErr());
+      } else {
+        // Resolve scale value (404 if missing)
+        const scaleValue = await this.gradeScaleRepo.findValueById(input.gradeScaleValueId);
+        if (!scaleValue) return err(new ValueNotFoundError(input.gradeScaleValueId));
 
-      // Resolve active scale for (level, modality) (400 if not configured)
-      const scale = await this.gradeScaleRepo.findActiveByLevelModality(ctx.level, ctx.modality);
-      if (!scale) return err(new GradeScaleNotConfiguredError(ctx.level, ctx.modality));
+        // Resolve active scale for (level, modality) (400 if not configured)
+        const scale = await this.gradeScaleRepo.findActiveByLevelModality(ctx.level, ctx.modality);
+        if (!scale) return err(new GradeScaleNotConfiguredError(ctx.level, ctx.modality));
 
-      // Validate scale membership
-      if (scaleValue.scaleId !== scale.id) {
-        return err(new GradeScaleValueMismatchError(input.gradeScaleValueId, scale.id));
+        // Validate scale membership
+        if (scaleValue.scaleId !== scale.id) {
+          return err(new GradeScaleValueMismatchError(input.gradeScaleValueId, scale.id));
+        }
+
+        // Snapshot gradeCode + internalStatus at write time
+        const r = child.assignGrade({
+          gradeScaleValueId: input.gradeScaleValueId,
+          gradeCode: scaleValue.code,
+          internalStatus: scaleValue.internalStatus,
+        });
+        if (r.isErr()) return err(r.unwrapErr());
       }
-
-      // Snapshot gradeCode + internalStatus at write time
-      const r = child.assignGrade({
-        gradeScaleValueId: input.gradeScaleValueId,
-        gradeCode: scaleValue.code,
-        internalStatus: scaleValue.internalStatus,
-      });
-      if (r.isErr()) return err(r.unwrapErr());
     }
 
-    // 7. Persist (upsert on valuationId + periodItemId)
+    // 7. Apply imprimible when present in input (no lock check — independent of modificable)
+    if (input.imprimible !== undefined) {
+      child.setImprimible(input.imprimible);
+    }
+
+    // 8. Persist (upsert on valuationId + periodItemId)
     await this.periodRepo.save(child);
 
-    // 8. Return child row
+    // 9. Return child row
     return ok(child);
   }
 }

@@ -893,6 +893,99 @@ describe('GradePeriodValuationUC', () => {
     expect(result.unwrapErr()).toBeInstanceOf(GradeScaleValueMismatchError);
   });
 
+  // ── GPE-10: imprimible is persisted when provided ─────
+  it('GPE-10: sets imprimible=true when provided in input', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const scaleValue = makeScaleValue();
+    const periodRepo = makePeriodRepo(); // null → lazy create
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, scaleValue),
+      periodRepo,
+    );
+
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a', imprimible: true });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.imprimible).toBe(true);
+    expect(periodRepo.save).toHaveBeenCalledTimes(1);
+  });
+
+  // ── GPE-11: Grade-only PATCH does NOT change imprimible ─
+  it('GPE-11: grade-only PATCH (imprimible absent) does NOT change stored imprimible', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const scale = makeScale();
+    const newValue = makeScaleValue('gsv-mb', 'scale-1');
+    const existingChild = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-old',
+      gradeCode: 'B',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: true, // pre-set to true
+    });
+    const periodRepo = makePeriodRepo(existingChild);
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(scale, newValue),
+      periodRepo,
+    );
+
+    // imprimible is NOT in the input (grade-only PATCH)
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', gradeScaleValueId: 'gsv-mb' });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.imprimible).toBe(true); // unchanged
+    expect(child.gradeCode).toBe('MB');  // grade was updated
+  });
+
+  // ── GPE-12: imprimible-only update (no gradeScaleValueId) ─
+  it('GPE-12: sets imprimible only when gradeScaleValueId is absent', async () => {
+    const parent = makeParent();
+    const template = makeTemplate(['item-7']);
+    const existingChild = CompetencyPeriodValuation.reconstruct({
+      id: 'child-1',
+      valuationId: 'v-1',
+      periodItemId: 'item-7',
+      gradeScaleValueId: 'gsv-a',
+      gradeCode: 'MB',
+      internalStatus: 'APROBADO',
+      modificable: true,
+      imprimible: false,
+    });
+    const periodRepo = makePeriodRepo(existingChild);
+
+    const uc = new GradePeriodValuationUC(
+      makeValRepo(parent),
+      makeCCRepo({ level: 1, modality: 0 }),
+      makeGradingPeriodRepo(template),
+      makeGradeScaleRepo(), // no scale needed
+      periodRepo,
+    );
+
+    // Only imprimible, no gradeScaleValueId
+    const result = await uc.execute({ valuationUuid: 'v-1', periodItemId: 'item-7', imprimible: true });
+
+    expect(result.isOk()).toBe(true);
+    const child = result.unwrap();
+    expect(child.imprimible).toBe(true);
+    expect(child.gradeCode).toBe('MB'); // grade untouched
+    expect(periodRepo.save).toHaveBeenCalledTimes(1);
+  });
+
   // ── GPE-9: Grade scale value UUID not found ───────────
 
   it('GPE-9: returns ValueNotFoundError when gradeScaleValueId is not found', async () => {

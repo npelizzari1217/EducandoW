@@ -3,9 +3,14 @@ import { z } from 'zod';
 // ── Period grading ──────────────────────────────────────
 // PATCH /competency-valuations/:uuid/periods/:periodItemId
 
-export const UpdatePeriodGradeSchema = z.object({
-  gradeScaleValueId: z.string().uuid().nullable(),
-});
+export const UpdatePeriodGradeSchema = z
+  .object({
+    gradeScaleValueId: z.string().uuid().nullable().optional(),
+    imprimible: z.boolean().optional(),
+  })
+  .refine((d) => d.gradeScaleValueId !== undefined || d.imprimible !== undefined, {
+    message: 'At least one of gradeScaleValueId or imprimible must be provided',
+  });
 
 export type UpdatePeriodGradeDto = z.infer<typeof UpdatePeriodGradeSchema>;
 
