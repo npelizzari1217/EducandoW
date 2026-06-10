@@ -1141,16 +1141,27 @@ enum SubjectFinalGradeType {
   DEFINITIVA
 }
 
+// Year-end condicion for Secundario (grading-secundario / D1).
+// Nullable — Primario rows carry NULL without error (COND-R4).
+// LIBRE cannot be auto-derived; must be set explicitly by the teacher (COND-R2).
+enum SubjectFinalGradeCondicion {
+  REGULAR
+  PREVIA
+  LIBRE
+}
+
 model SubjectFinalGrade {
-  id                String                @id @default(uuid())
-  studentId         String                @map("student_id")
-  courseCycleId     String                @map("course_cycle_id")   // → CourseCycle.uuid
-  subjectId         String                @map("subject_id")
+  id                String                        @id @default(uuid())
+  studentId         String                        @map("student_id")
+  courseCycleId     String                        @map("course_cycle_id")   // → CourseCycle.uuid
+  subjectId         String                        @map("subject_id")
   type              SubjectFinalGradeType
-  gradeScaleValueId String?               @map("grade_scale_value_id")
-  gradeCode         String?               @map("grade_code")
-  internalStatus    GradeInternalStatus?  @map("internal_status")
+  gradeScaleValueId String?                       @map("grade_scale_value_id")
+  gradeCode         String?                       @map("grade_code")
+  internalStatus    GradeInternalStatus?          @map("internal_status")
   passed            Boolean?
+  /// Secundario year-end verdict. Nullable — Primario rows get NULL naturally (COND-R4, D5).
+  condicion         SubjectFinalGradeCondicion?
 
   student     Student          @relation(fields: [studentId],         references: [id],   onDelete: Cascade)
   courseCycle CourseCycle      @relation(fields: [courseCycleId],     references: [uuid], onDelete: Restrict)

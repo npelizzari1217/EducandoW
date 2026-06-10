@@ -39,6 +39,7 @@ export type {
 } from './entities/subject-final-grade';
 
 export { SubjectFinalGradeType, fromSubjectFinalGradeTypeString } from './value-objects/subject-final-grade-type';
+export { SubjectFinalGradeCondicion, fromSubjectFinalGradeCondicionString } from './value-objects/subject-final-grade-condicion';
 
 export type { SubjectFinalGradeRepository } from './repositories/subject-final-grade-repository';
 

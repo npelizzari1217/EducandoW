@@ -1,10 +1,14 @@
 /**
  * PR2-T3 [RED] — SubjectFinalGrade entity tests.
  * Specs: SFG-R1, SFG-R4, SFG-R5, AD-2
+ *
+ * PR1-T3 [RED] — condicion extension tests added below.
+ * Specs: C-R3, D1
  */
 import { describe, it, expect } from 'vitest';
 import { SubjectFinalGrade } from './subject-final-grade';
 import { SubjectFinalGradeType } from '../value-objects/subject-final-grade-type';
+import { SubjectFinalGradeCondicion } from '../value-objects/subject-final-grade-condicion';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -165,6 +169,7 @@ describe('SubjectFinalGrade.reconstruct()', () => {
       gradeCode:         'A',
       internalStatus:    'APROBADO',
       passed:            true,
+      condicion:         null,
     });
 
     expect(grade.id).toBe('sfg-uuid-1');
@@ -186,10 +191,104 @@ describe('SubjectFinalGrade.reconstruct()', () => {
       gradeCode:         null,
       internalStatus:    null,
       passed:            null,
+      condicion:         null,
     });
 
     expect(grade.gradeScaleValueId).toBeNull();
     expect(grade.gradeCode).toBeNull();
     expect(grade.passed).toBeNull();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// condicion — PR1-T3 [RED] — C-R3, D1
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('SubjectFinalGrade — condicion', () => {
+  it('create() yields condicion null by default', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+
+    expect(grade.condicion).toBeNull();
+  });
+
+  it('setCondicion(PREVIA) sets the condicion value', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+
+    const result = grade.setCondicion(SubjectFinalGradeCondicion.PREVIA);
+
+    expect(result.isOk()).toBe(true);
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.PREVIA);
+  });
+
+  it('setCondicion(REGULAR) sets the condicion value', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+
+    grade.setCondicion(SubjectFinalGradeCondicion.REGULAR);
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.REGULAR);
+  });
+
+  it('setCondicion(LIBRE) sets the condicion value', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+
+    grade.setCondicion(SubjectFinalGradeCondicion.LIBRE);
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.LIBRE);
+  });
+
+  it('setCondicion(undefined) leaves condicion as null (no-op)', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+
+    grade.setCondicion(undefined);
+
+    expect(grade.condicion).toBeNull();
+  });
+
+  it('setCondicion(undefined) after a value was set leaves condicion unchanged', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+    grade.setCondicion(SubjectFinalGradeCondicion.REGULAR);
+
+    grade.setCondicion(undefined);
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.REGULAR);
+  });
+
+  it('reconstruct() with condicion=LIBRE round-trips correctly', () => {
+    const grade = SubjectFinalGrade.reconstruct({
+      id:                'sfg-cond-1',
+      studentId:         'student-1',
+      courseCycleId:     'cc-1',
+      subjectId:         'subj-1',
+      type:              SubjectFinalGradeType.FINAL,
+      gradeScaleValueId: null,
+      gradeCode:         null,
+      internalStatus:    null,
+      passed:            null,
+      condicion:         SubjectFinalGradeCondicion.LIBRE,
+    });
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.LIBRE);
+  });
+
+  it('condicion is independent of grade fields — assignGrade does not affect condicion', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+    grade.setCondicion(SubjectFinalGradeCondicion.PREVIA);
+
+    grade.assignGrade({
+      gradeScaleValueId: 'sv-1',
+      gradeCode: 'B',
+      internalStatus: 'NO_APROBADO',
+    });
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.PREVIA);
+  });
+
+  it('condicion is independent of passed — setPassed does not affect condicion', () => {
+    const grade = SubjectFinalGrade.create(makeCreateInput());
+    grade.setCondicion(SubjectFinalGradeCondicion.REGULAR);
+
+    grade.setPassed(false);
+
+    expect(grade.condicion).toBe(SubjectFinalGradeCondicion.REGULAR);
   });
 });

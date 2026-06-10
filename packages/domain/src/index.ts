@@ -64,6 +64,9 @@ export type { SubjectGradingPeriodRepository, SubjectPeriodGradeRepository } fro
 export { SubjectFinalGrade, SubjectFinalGradeType, fromSubjectFinalGradeTypeString } from './pedagogy';
 export type { CreateSubjectFinalGradeInput, ReconstructSubjectFinalGradeProps, AssignSubjectFinalGradeInput } from './pedagogy';
 export type { SubjectFinalGradeRepository } from './pedagogy';
+
+// Pedagogy — Grading Secundario (Fase 4, Etapa 2 — PR1)
+export { SubjectFinalGradeCondicion, fromSubjectFinalGradeCondicionString } from './pedagogy';
 export { AcademicCycle } from './pedagogy';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './pedagogy';
 export { CycleCode } from './pedagogy';
