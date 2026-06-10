@@ -85,27 +85,29 @@
   </table>
 
   {{#each materias}}
-  {{#each competencies}}
-  {{#unless @index}}
-  <div class="section-title">Competencias — {{../nombre}}</div>
+  {{#if competencies}}
+  <div class="section-title">Competencias — {{nombre}}</div>
   <table class="grades">
     <thead>
       <tr>
         <th class="left">Competencia</th>
-        <th>Valoración</th>
+        {{#each periodGrades}}
+        <th>{{periodName}}</th>
+        {{/each}}
       </tr>
     </thead>
     <tbody>
-  {{/unless}}
+      {{#each competencies}}
       <tr>
         <td class="left">{{competencyName}}</td>
+        {{#each periodGrades}}
         <td>{{#if gradeCode}}{{gradeCode}}{{else}}<span class="blank">—</span>{{/if}}</td>
+        {{/each}}
       </tr>
-  {{#if @last}}
+      {{/each}}
     </tbody>
   </table>
   {{/if}}
-  {{/each}}
   {{/each}}
   {{/if}}
 

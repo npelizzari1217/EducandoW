@@ -7,7 +7,7 @@ import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
-import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin } from './templates/boletin.template';
+import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin } from './templates/boletin.template';
 import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
@@ -359,23 +359,48 @@ export class GenerateBoletinUseCase {
         // 6b. Final grades — 4 instances, absent → blank
         const subjectFinalMap = fgBySubject.get(subjectId) ?? new Map();
 
-        // 6c. Competencies filtered to imprimible=true (boletín only — use case layer)
-        const competencies: Array<{ competencyName: string; gradeCode: string }> = [];
+        // 6c. Competencies — per-period columns (W2: one grade per imprimible period, blank otherwise)
+        // imprimible filter stays here in the use case, NOT in the template (clean-arch rule).
+        const competencies: CompetencyBoletin[] = [];
         if (studyPlanSubjectId) {
           const allCvs = await this.cvRepo!.findByCourseCycleAndStudyPlanSubject(
             cc.uuid,
             studyPlanSubjectId,
           );
+
+          // Resolve periodItemId → GradingPeriodTemplateItem.sortOrder (= SubjectGradingPeriod.periodOrdinal).
+          // One bulk query per subject; all subjects in a CC share the same template so results
+          // are stable. periodItemId is the PK of GradingPeriodTemplateItem; sortOrder equals
+          // the periodOrdinal captured in the SubjectGradingPeriod snapshot.
+          const periodItemIds = new Set<string>();
+          for (const cv of allCvs) {
+            for (const pv of cv.periodValuations) periodItemIds.add(pv.periodItemId);
+          }
+          const sortOrderByPeriodItemId = new Map<string, number>();
+          if (periodItemIds.size > 0) {
+            const items = await client.gradingPeriodTemplateItem.findMany({
+              where: { id: { in: [...periodItemIds] } },
+              select: { id: true, sortOrder: true },
+            });
+            for (const item of items) sortOrderByPeriodItemId.set(item.id, item.sortOrder);
+          }
+
           for (const cv of allCvs) {
             if (cv.studentId !== enrollment.studentId) continue;
-            // Include competency only if at least one period is imprimible=true
-            const firstImprimible = cv.periodValuations.find((pv) => pv.imprimible);
-            if (firstImprimible) {
-              competencies.push({
-                competencyName: cv.competencyName,
-                gradeCode: firstImprimible.gradeCode ?? '',
-              });
-            }
+            // Include competency only if at least one period valuation is imprimible=true (BP-R5)
+            const hasImprimible = cv.periodValuations.some((pv) => pv.imprimible);
+            if (!hasImprimible) continue;
+
+            // Build one grade slot per boletín period column.
+            // A slot is blank ('') when the period is NOT imprimible for this competency.
+            const periodGrades = periods.map((p) => {
+              const matchingPv = cv.periodValuations.find(
+                (pv) => sortOrderByPeriodItemId.get(pv.periodItemId) === p.periodOrdinal && pv.imprimible,
+              );
+              return { gradeCode: matchingPv?.gradeCode ?? '' };
+            });
+
+            competencies.push({ competencyName: cv.competencyName, periodGrades });
           }
         }
 

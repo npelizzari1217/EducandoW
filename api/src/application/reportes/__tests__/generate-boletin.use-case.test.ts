@@ -438,6 +438,10 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — PR7-T2', () => {
           { subjectId: SUBJECT_ID, teacher: { firstName: 'Juan', lastName: 'López' } },
         ]),
       },
+      // W2: gradingPeriodTemplateItem lookup for periodItemId → sortOrder alignment
+      gradingPeriodTemplateItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
       ...overrides,
     };
   }
@@ -576,5 +580,112 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — PR7-T2', () => {
     const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
     const result = await (uc as any).buildMateriasPrimario(clientNoCCs, enrollment);
     expect(result).toEqual([]);
+  });
+});
+
+// ── W2: buildMateriasPrimario — per-period competency columns ─────────────────
+// BP-R5 follow-up: competencies render one grade per imprimible period column,
+// not collapsed to the first imprimible period.
+
+describe('GenerateBoletinUseCase.buildMateriasPrimario — W2: per-period competency grades', () => {
+  const STUDENT_ID = 'stu-primario';
+  const CC_UUID    = 'cc-primario';
+  const SUBJECT_ID = 'subj-mat';
+
+  /** Mock client with gradingPeriodTemplateItem for periodItemId → sortOrder resolution. */
+  function makeW2Client(periodItems: Array<{ id: string; sortOrder: number }> = []) {
+    return {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([
+          { uuid: CC_UUID, courseId: 'section-p', level: 21, studyPlanId: 'sp-1' },
+        ]),
+      },
+      studyPlanCourse: { findFirst: vi.fn().mockResolvedValue({ id: 'spc-1' }) },
+      studyPlanSubject: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'sps-1', subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Matemática' } },
+        ]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          { subjectId: SUBJECT_ID, teacher: { firstName: 'Juan', lastName: 'López' } },
+        ]),
+      },
+      gradingPeriodTemplateItem: {
+        findMany: vi.fn().mockResolvedValue(periodItems),
+      },
+    };
+  }
+
+  let uc: GenerateBoletinUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+    );
+  });
+
+  it('W2-T1 [RED→GREEN]: competency imprimible in periods 1+3 → periodGrades array, period-2 blank', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1°Bim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 2, periodName: '2°Bim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 3, periodName: '3°Bim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+    repos.cvRepo.findByCourseCycleAndStudyPlanSubject.mockResolvedValue([
+      {
+        valuationId: 'val-1', studentId: STUDENT_ID, competencyId: 'comp-1',
+        competencyName: 'Resolución de problemas',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: true,  gradeCode: 'B',  modificable: true, gradeScaleValueId: null, internalStatus: null },
+          { periodItemId: 'pi-2', imprimible: false, gradeCode: 'MB', modificable: true, gradeScaleValueId: null, internalStatus: null },
+          { periodItemId: 'pi-3', imprimible: true,  gradeCode: 'MB', modificable: true, gradeScaleValueId: null, internalStatus: null },
+        ],
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(
+      makeW2Client([{ id: 'pi-1', sortOrder: 1 }, { id: 'pi-2', sortOrder: 2 }, { id: 'pi-3', sortOrder: 3 }]),
+      enrollment,
+    );
+
+    const comps = result[0].competencies as Array<{ competencyName: string; periodGrades: Array<{ gradeCode: string }> }>;
+    expect(comps).toHaveLength(1);
+    expect(comps[0].competencyName).toBe('Resolución de problemas');
+    expect(comps[0].periodGrades).toHaveLength(3);
+    expect(comps[0].periodGrades[0].gradeCode).toBe('B');   // period 1: imprimible=true
+    expect(comps[0].periodGrades[1].gradeCode).toBe('');    // period 2: imprimible=false → blank
+    expect(comps[0].periodGrades[2].gradeCode).toBe('MB'); // period 3: imprimible=true
+  });
+
+  it('W2-T2: competency not imprimible in any period → excluded (BP-R5 unchanged)', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1°Bim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+    repos.cvRepo.findByCourseCycleAndStudyPlanSubject.mockResolvedValue([
+      {
+        valuationId: 'val-2', studentId: STUDENT_ID, competencyId: 'comp-2',
+        competencyName: 'Comunicación oral',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: false, gradeCode: 'B', modificable: true, gradeScaleValueId: null, internalStatus: null },
+        ],
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(
+      makeW2Client([{ id: 'pi-1', sortOrder: 1 }]),
+      enrollment,
+    );
+
+    expect(result[0].competencies).toHaveLength(0);
   });
 });

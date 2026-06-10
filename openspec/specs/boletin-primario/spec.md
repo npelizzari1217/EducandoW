@@ -82,16 +82,37 @@ An instance with no row in `SubjectFinalGrade` renders as blank/empty — not an
 
 ---
 
-### BP-R5 — Only imprimible competencies rendered
+### BP-R5 — Imprimible competencies rendered as per-period columns
 
-`boletin-primario.hbs` MUST render only `CompetencyPeriodValuation` rows where
-`imprimible = true`. Competencies with `imprimible = false` MUST NOT appear.
+`boletin-primario.hbs` MUST render only competencies where at least one
+`CompetencyPeriodValuation` has `imprimible = true`. Competencies where all
+period valuations have `imprimible = false` MUST NOT appear.
+
+For each included competency, grades MUST be displayed **per period column**
+(one column per boletín period, aligned with the subject period-grade columns).
+A period where the competency's valuation has `imprimible = false` renders as
+blank (`—`), not the grade. The column structure mirrors the subject period-grade
+grid — dynamic, not hardcoded.
+
+The per-period logic lives exclusively in `buildMateriasPrimario` (use case).
+The template only renders the `periodGrades` array it receives.
+
+> **W2 decision (2026-06-10):** original implementation collapsed each competency
+> to the grade of the *first* imprimible period. Replaced with full per-period
+> columns so the layout matches the subject grade grid.
 
 #### BP-S6 — Non-imprimible competencies excluded
 
-- GIVEN subject "Lengua" has 4 competencies, 2 with imprimible=true and 2 with imprimible=false
+- GIVEN subject "Lengua" has 4 competencies, 2 with imprimible=true in at least one period and 2 with imprimible=false in all periods
 - WHEN the boletín is rendered
-- THEN only the 2 imprimible competencies appear per period; the other 2 are absent
+- THEN only the 2 imprimible competencies appear; the other 2 are absent
+
+#### BP-S6b — Competency grades shown per imprimible period (W2)
+
+- GIVEN subject "Matemática" has competency "Resolución de problemas" with 3 period columns
+  where period 1 and period 3 have `imprimible=true` and period 2 has `imprimible=false`
+- WHEN the boletín is rendered
+- THEN the competency row shows grades for period 1 and period 3, and a blank (`—`) for period 2
 
 ---
 

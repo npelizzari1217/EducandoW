@@ -64,11 +64,15 @@ export interface FinalGradeBoletin {
   gradeCode: string;
 }
 
-/** A single competency already filtered to imprimible=true by the use case. */
+/** A competency filtered to imprimible=true by the use case, with one grade slot per boletín period column. */
 export interface CompetencyBoletin {
   competencyName: string;
-  /** Grade code for the first imprimible period, or empty string. */
-  gradeCode: string;
+  /**
+   * One entry per boletín period column (index-aligned with the materia's periodGrades array).
+   * gradeCode is '' when the period is not imprimible for this competency.
+   * Populated by buildMateriasPrimario only (Primario branch).
+   */
+  periodGrades: Array<{ gradeCode: string }>;
 }
 
 /** OR-aggregated pedagogical flags across all reported periods for a subject. */
