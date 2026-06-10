@@ -74,7 +74,7 @@ export class MateriasPreviasController {
       if (error instanceof NotFoundError) {
         throw new NotFoundException(error.message);
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException((error as Error).message);
     }
 
     const entity = result.unwrap();
@@ -118,7 +118,7 @@ export class MateriasPreviasController {
       if (error instanceof NotFoundError) {
         throw new NotFoundException(error.message);
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException((error as Error).message);
     }
 
     const projections = result.unwrap();
