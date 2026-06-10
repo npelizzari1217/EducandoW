@@ -11,7 +11,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaSubjectFinalGradeRepository } from './prisma-subject-final-grade.repository';
 import { TenantContext } from '../../../auth/tenant.context';
-import { SubjectFinalGrade, SubjectFinalGradeType } from '@educandow/domain';
+import {
+  SubjectFinalGrade,
+  SubjectFinalGradeType,
+  SubjectFinalGradeCondicion,
+} from '@educandow/domain';
 
 vi.mock('../../../auth/tenant.context', () => ({
   TenantContext: {
@@ -32,6 +36,7 @@ function makeSfgRow(overrides: Record<string, unknown> = {}) {
     gradeCode:         null,
     internalStatus:    null,
     passed:            null,
+    condicion:         null,
     createdAt:         new Date('2026-01-01'),
     updatedAt:         new Date('2026-01-01'),
     ...overrides,
@@ -309,5 +314,122 @@ describe('PrismaSubjectFinalGradeRepository — saveMany', () => {
         type:          SubjectFinalGradeType.FINAL,
       }),
     ])).rejects.toThrow('TenantContext');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// condicion round-trip (PR3-T1 RED — D1, C-R3)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('PrismaSubjectFinalGradeRepository — condicion round-trip', () => {
+  let repo: PrismaSubjectFinalGradeRepository;
+  let mockClient: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaSubjectFinalGradeRepository();
+  });
+
+  it('saveMany persists condicion=PREVIA in both CREATE and UPDATE branches', async () => {
+    mockClient.subjectFinalGrade.upsert.mockResolvedValue({});
+
+    const grade = SubjectFinalGrade.reconstruct({
+      id:                'sfg-uuid-1',
+      studentId:         'student-1',
+      courseCycleId:     'cc-1',
+      subjectId:         'subj-1',
+      type:              SubjectFinalGradeType.FINAL,
+      gradeScaleValueId: null,
+      gradeCode:         null,
+      internalStatus:    null,
+      passed:            null,
+      condicion:         SubjectFinalGradeCondicion.PREVIA,
+    });
+
+    await repo.saveMany([grade]);
+
+    expect(mockClient.subjectFinalGrade.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ condicion: 'PREVIA' }),
+        update: expect.objectContaining({ condicion: 'PREVIA' }),
+      }),
+    );
+  });
+
+  it('saveMany persists condicion=null in both CREATE and UPDATE branches', async () => {
+    mockClient.subjectFinalGrade.upsert.mockResolvedValue({});
+
+    const grade = SubjectFinalGrade.create({
+      studentId:     'student-1',
+      courseCycleId: 'cc-1',
+      subjectId:     'subj-1',
+      type:          SubjectFinalGradeType.FINAL,
+    });
+    // condicion defaults to null on create()
+
+    await repo.saveMany([grade]);
+
+    expect(mockClient.subjectFinalGrade.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ condicion: null }),
+        update: expect.objectContaining({ condicion: null }),
+      }),
+    );
+  });
+
+  it('upsert with PREVIA→LIBRE updates condicion correctly', async () => {
+    mockClient.subjectFinalGrade.upsert.mockResolvedValue({});
+
+    const grade = SubjectFinalGrade.reconstruct({
+      id:                'sfg-uuid-1',
+      studentId:         'student-1',
+      courseCycleId:     'cc-1',
+      subjectId:         'subj-1',
+      type:              SubjectFinalGradeType.FINAL,
+      gradeScaleValueId: null,
+      gradeCode:         null,
+      internalStatus:    null,
+      passed:            null,
+      condicion:         SubjectFinalGradeCondicion.LIBRE,
+    });
+
+    await repo.saveMany([grade]);
+
+    expect(mockClient.subjectFinalGrade.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ condicion: 'LIBRE' }),
+      }),
+    );
+  });
+
+  it('toDomain maps condicion=PREVIA from DB row correctly', async () => {
+    mockClient.subjectFinalGrade.findMany.mockResolvedValue([
+      makeSfgRow({ condicion: 'PREVIA' }),
+    ]);
+
+    const results = await repo.findByCourseCycleAndSubject('cc-1', 'subj-1');
+
+    expect(results[0].condicion).toBe(SubjectFinalGradeCondicion.PREVIA);
+  });
+
+  it('toDomain maps condicion=null from DB row as null (Primario rows unaffected)', async () => {
+    mockClient.subjectFinalGrade.findMany.mockResolvedValue([
+      makeSfgRow({ condicion: null }),
+    ]);
+
+    const results = await repo.findByCourseCycleAndSubject('cc-1', 'subj-1');
+
+    expect(results[0].condicion).toBeNull();
+  });
+
+  it('toDomain maps condicion=REGULAR correctly', async () => {
+    mockClient.subjectFinalGrade.findMany.mockResolvedValue([
+      makeSfgRow({ condicion: 'REGULAR' }),
+    ]);
+
+    const results = await repo.findByCourseCycleAndSubject('cc-1', 'subj-1');
+
+    expect(results[0].condicion).toBe(SubjectFinalGradeCondicion.REGULAR);
   });
 });

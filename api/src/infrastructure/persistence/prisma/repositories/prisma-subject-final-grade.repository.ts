@@ -3,6 +3,7 @@ import {
   SubjectFinalGrade,
   SubjectFinalGradeType,
   SubjectFinalGradeRepository,
+  fromSubjectFinalGradeCondicionString,
 } from '@educandow/domain';
 import type { GradeInternalStatusValue } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, $Enums } from '@prisma/tenant-client';
@@ -65,6 +66,7 @@ export class PrismaSubjectFinalGradeRepository
         gradeCode:         grade.gradeCode,
         internalStatus:    grade.internalStatus as $Enums.GradeInternalStatus | null,
         passed:            grade.passed,
+        condicion:         grade.condicion as $Enums.SubjectFinalGradeCondicion | null,
       };
 
       await this.client.subjectFinalGrade.upsert({
@@ -94,7 +96,14 @@ export class PrismaSubjectFinalGradeRepository
     gradeCode:         string | null;
     internalStatus:    string | null;
     passed:            boolean | null;
+    condicion:         string | null;
   }): SubjectFinalGrade {
+    // Map nullable condicion: parse valid enum string, null stays null.
+    const condicionResult = r.condicion
+      ? fromSubjectFinalGradeCondicionString(r.condicion)
+      : null;
+    const condicion = condicionResult?.isOk() ? condicionResult.unwrap() : null;
+
     return SubjectFinalGrade.reconstruct({
       id:                r.id,
       studentId:         r.studentId,
@@ -105,6 +114,7 @@ export class PrismaSubjectFinalGradeRepository
       gradeCode:         r.gradeCode,
       internalStatus:    (r.internalStatus as GradeInternalStatusValue) ?? null,
       passed:            r.passed,
+      condicion,
     });
   }
 }

@@ -4,6 +4,8 @@ import { CursoController } from './curso.controller';
 import { MesaExamenController } from './mesa-examen.controller';
 import { RegimenAcademicoController } from './regimen-academico.controller';
 import { CalificacionSecundarioController } from './calificacion-secundario.controller';
+import { MATERIA_PREVIA_REPOSITORY } from '@educandow/domain';
+import { PrismaMateriaPreviaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-previa.repository';
 import {
   CreateCursoUseCase,
   ListCursosUseCase,
@@ -48,6 +50,9 @@ const REPO_TOKEN = 'CalificacionSecundarioRepository';
     { provide: 'RegimenAcademicoRepository', useExisting: PrismaRegimenAcademicoRepository },
     PrismaCalificacionSecundarioRepository,
     { provide: REPO_TOKEN, useExisting: PrismaCalificacionSecundarioRepository },
+    // PR3: MateriaPrevia repository (Symbol DI token — PR4 use cases inject via @Inject(MATERIA_PREVIA_REPOSITORY))
+    PrismaMateriaPreviaRepository,
+    { provide: MATERIA_PREVIA_REPOSITORY, useExisting: PrismaMateriaPreviaRepository },
 
     // Curso use cases
     { provide: CreateCursoUseCase, useFactory: (r) => new CreateCursoUseCase(r), inject: ['CursoRepository'] },
