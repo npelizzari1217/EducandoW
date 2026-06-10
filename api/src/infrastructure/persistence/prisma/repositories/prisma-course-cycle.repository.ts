@@ -158,6 +158,34 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
   }
 
   /**
+   * Bulk variant of findGradingContextByUuid — one query for N course cycles.
+   * Joins CourseCycle → StudyPlan in a single Prisma query (no N+1).
+   * Returns a Map keyed by CourseCycle UUID; UUIDs not found are absent.
+   * Design §2: StudyPlan is the authoritative modality source for CourseCycle grading.
+   */
+  async findGradingContextsByUuids(
+    uuids: string[],
+  ): Promise<Map<string, { level: number; modality: number }>> {
+    if (uuids.length === 0) return new Map();
+
+    const rows = await this.client.courseCycle.findMany({
+      where: { uuid: { in: uuids } },
+      select: {
+        uuid: true,
+        studyPlan: { select: { level: true, modality: true } },
+      },
+    });
+
+    const result = new Map<string, { level: number; modality: number }>();
+    for (const row of rows) {
+      if (row.studyPlan) {
+        result.set(row.uuid, { level: row.studyPlan.level, modality: row.studyPlan.modality });
+      }
+    }
+    return result;
+  }
+
+  /**
    * Returns the (level, modality) grading-config pair for a CourseCycle.
    * Path: CourseCycle.studyPlanId → StudyPlan.{level, modality}.
    * Design §2: StudyPlan is the authoritative modality source for CourseCycle grading.

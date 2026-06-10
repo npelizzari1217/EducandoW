@@ -28,7 +28,10 @@ export class ListTeacherCourseCyclesUseCase {
     private readonly courseCycleRepo: CourseCycleRepository,
   ) {}
 
-  async execute(input: { userId: string; mode: 'subject' | 'homeroom' }): Promise<CourseCycle[]> {
+  async execute(input: {
+    userId: string;
+    mode: 'subject' | 'homeroom';
+  }): Promise<Array<{ cycle: CourseCycle; modality: number | null }>> {
     // 1. Resolve Teacher from JWT userId (TIA-R2: null → empty, never error)
     const teacher = await this.teacherRepo.findByUserId(input.userId);
     if (!teacher) return [];
@@ -49,6 +52,22 @@ export class ListTeacherCourseCyclesUseCase {
     }
 
     // TIA-R9: Primario screens only show Primario-level CCs (Math.floor(level/10) === 2)
-    return courseCycles.filter((cc) => Math.floor(cc.level.toCode() / 10) === PRIMARIO_DECADE);
+    const primario = courseCycles.filter(
+      (cc) => Math.floor(cc.level.toCode() / 10) === PRIMARIO_DECADE,
+    );
+
+    if (primario.length === 0) return [];
+
+    // W3: resolve modality from StudyPlan (authoritative source) via a single bulk query.
+    // This matches the write-side: upsert use cases call findGradingContextByUuid →
+    // CourseCycle.studyPlanId → StudyPlan.modality. Using cc.level.modalityCode would
+    // diverge if a StudyPlan's modality changes without cascading to CourseCycle.level.
+    const uuids = primario.map((cc) => cc.uuid);
+    const gradingContexts = await this.courseCycleRepo.findGradingContextsByUuids(uuids);
+
+    return primario.map((cc) => ({
+      cycle: cc,
+      modality: gradingContexts.get(cc.uuid)?.modality ?? null,
+    }));
   }
 }

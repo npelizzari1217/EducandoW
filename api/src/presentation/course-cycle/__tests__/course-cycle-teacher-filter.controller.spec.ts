@@ -39,9 +39,9 @@ function makeListResult(items: ReturnType<typeof makeCC>[]) {
   return { data: items, page: 1, pageSize: 10, total: items.length };
 }
 
-function makeTeacherCC(uuid: string) {
-  // ListTeacherCourseCyclesUseCase returns CourseCycle domain objects — same shape
-  return makeCC(uuid);
+function makeTeacherCC(uuid: string, modality: number | null = 0) {
+  // W3: ListTeacherCourseCyclesUseCase now returns { cycle: CourseCycle, modality }[]
+  return { cycle: makeCC(uuid), modality };
 }
 
 function makeController(overrides: Record<string, unknown> = {}) {
@@ -133,6 +133,18 @@ describe('CourseCycleController — GET list with teacher filter', () => {
     expect(result).toHaveProperty('data');
     expect(Array.isArray(result.data)).toBe(true);
     expect(result.data[0].uuid).toBe('cc-1');
+  });
+
+  it('W3-RED: teacher-filtered response includes real modality (not null) when use case resolves it', async () => {
+    const cc = makeCC('cc-1');
+    // After W3 fix: listTeacherCCsUC returns { cycle, modality }[] and controller passes modality to toResponse
+    const teacherMock = vi.fn().mockResolvedValue([{ cycle: cc, modality: 5 }]);
+    const ctrl = makeController({ listTeacherCCsUC: { execute: teacherMock } });
+    const teacherUser = { userId: 'user-1', roles: ['TEACHER'] };
+
+    const result = await ctrl.list(teacherUser, { role: 'subject' });
+
+    expect(result.data[0].modality).toBe(5);
   });
 
   // ── AUTHZ-C2: non-ROOT uses JWT userId ──────────────────────────────────────

@@ -108,7 +108,9 @@ export class CourseCycleController {
         userId: user.userId,
         mode: query.role ?? 'subject',
       });
-      return { data: ccs.map((cc) => this.toResponse(cc)) };
+      // W3: use case now returns { cycle, modality }[] — pass modality to toResponse so the
+      // TeacherFilteredSelectionContext receives the real modality for scale/template lookup.
+      return { data: ccs.map(({ cycle, modality }) => this.toResponse(cycle, null, modality)) };
     }
 
     // ROOT: optional teacherUserId filter for admin lookups
@@ -117,7 +119,7 @@ export class CourseCycleController {
         userId: query.teacherUserId,
         mode: query.role ?? 'subject',
       });
-      return { data: ccs.map((cc) => this.toResponse(cc)) };
+      return { data: ccs.map(({ cycle, modality }) => this.toResponse(cycle, null, modality)) };
     }
 
     // ROOT without filter: full list

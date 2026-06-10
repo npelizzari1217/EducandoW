@@ -126,6 +126,91 @@ describe('PrismaCourseCycleRepository — findByHomeroomTeacher', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// findGradingContextsByUuids
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('PrismaCourseCycleRepository — findGradingContextsByUuids', () => {
+  let repo: PrismaCourseCycleRepository;
+  let mockClient: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaCourseCycleRepository();
+  });
+
+  it('returns empty Map for empty uuids input (no DB query)', async () => {
+    const result = await repo.findGradingContextsByUuids([]);
+
+    expect(result.size).toBe(0);
+    expect(mockClient.courseCycle.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns Map keyed by uuid with StudyPlan.{level, modality}', async () => {
+    mockClient.courseCycle.findMany.mockResolvedValue([
+      { uuid: 'cc-uuid-1', studyPlan: { level: 20, modality: 1 } },
+      { uuid: 'cc-uuid-2', studyPlan: { level: 22, modality: 2 } },
+    ]);
+
+    const result = await repo.findGradingContextsByUuids(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(result.size).toBe(2);
+    expect(result.get('cc-uuid-1')).toEqual({ level: 20, modality: 1 });
+    expect(result.get('cc-uuid-2')).toEqual({ level: 22, modality: 2 });
+  });
+
+  it('StudyPlan.modality is returned — diverges from CourseCycle.level composite when they differ', async () => {
+    // cc.level = 20 → levelCode=2, modalityCode=0. But StudyPlan.modality = 1 (authoritative).
+    mockClient.courseCycle.findMany.mockResolvedValue([
+      { uuid: 'cc-diverge', studyPlan: { level: 20, modality: 1 } },
+    ]);
+
+    const result = await repo.findGradingContextsByUuids(['cc-diverge']);
+
+    expect(result.get('cc-diverge')).toEqual({ level: 20, modality: 1 });
+  });
+
+  it('issues a single findMany query with uuid IN (...) and selects studyPlan', async () => {
+    mockClient.courseCycle.findMany.mockResolvedValue([]);
+
+    await repo.findGradingContextsByUuids(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(mockClient.courseCycle.findMany).toHaveBeenCalledTimes(1);
+    expect(mockClient.courseCycle.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ uuid: { in: ['cc-uuid-1', 'cc-uuid-2'] } }),
+        select: expect.objectContaining({ uuid: true, studyPlan: expect.anything() }),
+      }),
+    );
+  });
+
+  it('omits UUIDs whose record is missing (no entry in Map)', async () => {
+    mockClient.courseCycle.findMany.mockResolvedValue([
+      // only cc-uuid-1 returned — cc-uuid-2 not found
+      { uuid: 'cc-uuid-1', studyPlan: { level: 20, modality: 0 } },
+    ]);
+
+    const result = await repo.findGradingContextsByUuids(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(result.size).toBe(1);
+    expect(result.has('cc-uuid-2')).toBe(false);
+  });
+
+  it('is tenant-scoped: uses the client from TenantContext', async () => {
+    const otherClient = makeMockClient();
+    otherClient.courseCycle.findMany.mockResolvedValue([
+      { uuid: 'cc-other', studyPlan: { level: 30, modality: 0 } },
+    ]);
+    vi.mocked(TenantContext.getClient).mockReturnValue(otherClient as any);
+
+    const result = await repo.findGradingContextsByUuids(['cc-other']);
+
+    expect(result.get('cc-other')).toEqual({ level: 30, modality: 0 });
+    expect(mockClient.courseCycle.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // findByCourseSectionIds
 // ═══════════════════════════════════════════════════════════════════════════════
 

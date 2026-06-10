@@ -44,6 +44,14 @@ export interface CourseCycleRepository {
   findGradingContextByUuid(courseCycleUuid: string): Promise<{ level: number; modality: number } | null>;
 
   /**
+   * Bulk variant of findGradingContextByUuid — one query for N course cycles.
+   * Returns a Map keyed by CourseCycle UUID with the authoritative StudyPlan.{level, modality}.
+   * UUIDs with no matching record or missing StudyPlan are absent from the Map.
+   * Design §2: StudyPlan is the authoritative modality source for CourseCycle grading.
+   */
+  findGradingContextsByUuids(uuids: string[]): Promise<Map<string, { level: number; modality: number }>>;
+
+  /**
    * Returns enrolled students for a CourseCycle, derived from the heuristic join
    * (CourseCycle → CourseSection → Enrollment → Student). Empty array if cycle not
    * found or has no active enrollments.

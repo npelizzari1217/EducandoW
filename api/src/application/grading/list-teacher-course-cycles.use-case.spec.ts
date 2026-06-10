@@ -61,6 +61,8 @@ function makeRepos(overrides: Record<string, unknown> = {}) {
     courseCycleRepo: {
       findByHomeroomTeacher: vi.fn().mockResolvedValue([]),
       findByCourseSectionIds: vi.fn().mockResolvedValue([]),
+      // Default: empty map — tests that need grading-context override this
+      findGradingContextsByUuids: vi.fn().mockResolvedValue(new Map()),
       ...((overrides.courseCycleRepo as Record<string, unknown>) ?? {}),
     },
   };
@@ -113,7 +115,52 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].uuid).toBe('cc-A');
+    expect(result[0].cycle.uuid).toBe('cc-A');
+  });
+
+  it('W3: returns { cycle, modality } shape — modality from StudyPlan grading context (level 22 cc → StudyPlan modality 2)', async () => {
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-uuid-B'),
+    ]);
+    // level 22 = Bilingüismo Primario; StudyPlan also returns modality 2
+    const cc = makeCC('cc-B', 22, 'cs-uuid-B');
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([cc]);
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([['cc-B', { level: 22, modality: 2 }]]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    expect(result).toHaveLength(1);
+    // Each item is { cycle: CourseCycle, modality: number }
+    expect(result[0]).toMatchObject({ modality: 2 });
+    expect((result[0] as any).cycle?.uuid).toBe('cc-B');
+  });
+
+  it('W3-DIVERGE: modality from StudyPlan (authoritative) when it differs from cc.level.modalityCode', async () => {
+    // This is THE divergence test. cc.level = 20 → level.modalityCode = 0.
+    // But the StudyPlan for this CC says modality = 1.
+    // With the old cc.level.modalityCode implementation this returns 0 → RED.
+    // After re-pointing to findGradingContextsByUuids (StudyPlan) it returns 1 → GREEN.
+    const teacher = makeTeacher();
+    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
+    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
+      makeAssignment(teacher.id.get(), 'cs-uuid-C'),
+    ]);
+    const cc = makeCC('cc-diverge', 20, 'cs-uuid-C'); // level 20 → modalityCode = 0
+    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([cc]);
+    // StudyPlan says modality = 1 (diverged from CourseCycle.level composite)
+    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+      new Map([['cc-diverge', { level: 20, modality: 1 }]]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    expect(result).toHaveLength(1);
+    // MUST be 1 (StudyPlan.modality), NOT 0 (cc.level.modalityCode)
+    expect(result[0].modality).toBe(1);
   });
 
   it('TIA-R9: non-Primario CCs are excluded (Secundario level=30)', async () => {
@@ -130,7 +177,7 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].uuid).toBe('cc-primario');
+    expect(result[0].cycle.uuid).toBe('cc-primario');
   });
 
   it('deduplicates courseSectionIds before calling repo (same section, multiple subjects)', async () => {
@@ -198,6 +245,7 @@ describe('ListTeacherCourseCyclesUseCase — mode=homeroom', () => {
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
     expect(result).toHaveLength(1);
+    expect(result[0].cycle.uuid).toBe('cc-homeroom');
     expect(repos.courseCycleRepo.findByHomeroomTeacher).toHaveBeenCalledWith(teacher.id.get());
   });
 
@@ -212,7 +260,7 @@ describe('ListTeacherCourseCyclesUseCase — mode=homeroom', () => {
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].uuid).toBe('cc-primario');
+    expect(result[0].cycle.uuid).toBe('cc-primario');
   });
 
   it('does NOT call SubjectAssignmentRepo in homeroom mode', async () => {
