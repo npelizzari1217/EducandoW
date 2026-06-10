@@ -7,12 +7,13 @@ import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
-import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin } from './templates/boletin.template';
+import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin } from './templates/boletin.template';
 import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
   SubjectFinalGradeRepository,
   CompetencyValuationRepository,
+  MateriaPreviaRepository,
 } from '@educandow/domain';
 
 // ── Primario constants ─────────────────────────────────────────────────────────
@@ -49,6 +50,7 @@ export class GenerateBoletinUseCase {
     private readonly periodGradeRepo?: SubjectPeriodGradeRepository,
     private readonly finalGradeRepo?: SubjectFinalGradeRepository,
     private readonly cvRepo?: CompetencyValuationRepository,
+    private readonly materiaPreviaRepo?: MateriaPreviaRepository,
   ) {
     // Pre-compile all Handlebars templates at construction time
     this.templates = new Map();
@@ -113,7 +115,7 @@ export class GenerateBoletinUseCase {
     const levelName = this.resolveLevelName(enrollment.level);
 
     // 6. Fetch grades and build materias
-    const materias = await this.buildMaterias(client, enrollment);
+    const { materias, previas } = await this.buildMaterias(client, enrollment);
 
     // 7. Build attendance summary
     const asistencia = await this.buildAsistencia(client, enrollment.studentId, enrollment.cycleId ?? null);
@@ -136,6 +138,7 @@ export class GenerateBoletinUseCase {
       materias,
       asistencia,
       mesasExamen,
+      previas,
     };
 
     // 9. Choose and render template
@@ -165,15 +168,18 @@ export class GenerateBoletinUseCase {
   /**
    * Aggregates subject grades for the enrollment's level.
    *
-   * Level dispatch (PR7):
+   * Level dispatch:
    *   Math.floor(level/10) === 2 → Primario branch (buildMateriasPrimario)
-   *   Otherwise → legacy NotaTrimestral path (unchanged)
+   *   Math.floor(level/10) === 3 → Secundario branch (buildMateriasSecundario) [PR6]
+   *   Otherwise → legacy NotaTrimestral path (Terciario, Inicial — unchanged)
+   *
+   * Returns { materias, previas? } — previas is populated only by the Secundario branch.
    */
   private async buildMaterias(
     client: TenantPrismaClient,
     enrollment: { id: string; studentId: string; level: number; cycleId: string | null; academicYear: string },
-  ): Promise<MateriaBoletin[]> {
-    // ── PR7: Level dispatch — Primario path ────────────────────────────────────
+  ): Promise<{ materias: MateriaBoletin[]; previas?: PreviaBoletin[] }> {
+    // ── Primario path ────────────────────────────────────────────────────────
     if (
       Math.floor(enrollment.level / 10) === 2
       && this.sgpRepo
@@ -181,14 +187,25 @@ export class GenerateBoletinUseCase {
       && this.finalGradeRepo
       && this.cvRepo
     ) {
-      return this.buildMateriasPrimario(client, enrollment);
+      return { materias: await this.buildMateriasPrimario(client, enrollment) };
     }
 
-    // ── Legacy NotaTrimestral path (Secundario, Terciario, Inicial) ───────────
+    // ── Secundario path (PR6) ─────────────────────────────────────────────────
+    if (
+      Math.floor(enrollment.level / 10) === 3
+      && this.sgpRepo
+      && this.periodGradeRepo
+      && this.finalGradeRepo
+      && this.cvRepo
+    ) {
+      return this.buildMateriasSecundario(client, enrollment);
+    }
+
+    // ── Legacy NotaTrimestral path (Terciario, Inicial) ───────────────────────
     // Get the course section(s) for this enrollment via the cycle
     if (!enrollment.cycleId) {
       // No cycle => no grades yet
-      return [];
+      return { materias: [] };
     }
 
     // Find course cycles for this academic cycle
@@ -198,7 +215,7 @@ export class GenerateBoletinUseCase {
     });
 
     if (courseCycles.length === 0) {
-      return [];
+      return { materias: [] };
     }
 
     // Get subject assignments for the course sections
@@ -209,7 +226,7 @@ export class GenerateBoletinUseCase {
     });
 
     if (assignments.length === 0) {
-      return [];
+      return { materias: [] };
     }
 
     // Get the period IDs (trimesters/cuatrimesters) for this academic year
@@ -263,7 +280,7 @@ export class GenerateBoletinUseCase {
       });
     }
 
-    return materias;
+    return { materias };
   }
 
   // ── PR7: Primario branch ───────────────────────────────────────────────────
@@ -438,6 +455,204 @@ export class GenerateBoletinUseCase {
     }
 
     return materias;
+  }
+
+  // ── PR6: Secundario branch ─────────────────────────────────────────────────
+
+  /**
+   * Builds MateriaBoletin[] + PreviaBoletin[] for a Secundario enrollment using:
+   *   - SubjectGradingPeriod   → dynamic period column names
+   *   - SubjectPeriodGrade     → period grades per student × CC
+   *   - SubjectFinalGrade      → 4 final instances + condicion (FINAL primary, DEFINITIVA fallback)
+   *   - CompetencyValuation    → competencies filtered to imprimible=true
+   *   - MateriaPreviaRepository → previas loaded ONCE per enrollment (N+1 guard)
+   *
+   * Structural clone of buildMateriasPrimario with three Secundario-specific additions:
+   *   1. CC filter: Math.floor(level/10) === 3
+   *   2. condicion field on MateriaBoletin (year-end verdict: REGULAR|PREVIA|LIBRE)
+   *   3. previas section assembled once per enrollment
+   */
+  async buildMateriasSecundario(
+    client: TenantPrismaClient,
+    enrollment: { studentId: string; level: number; cycleId: string | null; academicYear: string },
+  ): Promise<{ materias: MateriaBoletin[]; previas: PreviaBoletin[] }> {
+    if (!enrollment.cycleId) return { materias: [], previas: [] };
+
+    // 1. Load previas ONCE per enrollment (N+1 guard — NOT once per materia or CC)
+    const previaEntities = this.materiaPreviaRepo
+      ? await this.materiaPreviaRepo.findByStudentAndAcademicYear(
+          enrollment.studentId,
+          enrollment.academicYear,
+        )
+      : [];
+
+    // Bulk-resolve subject names for previas (single Prisma query)
+    const previaSubjectIds = [...new Set(previaEntities.map((p) => p.subjectId))];
+    const previaSubjects = previaSubjectIds.length > 0
+      ? await client.subject.findMany({ where: { id: { in: previaSubjectIds } } })
+      : [];
+    const previaSubjectNameById = new Map(
+      previaSubjects.map((s) => [s.id, (s as { name: string }).name]),
+    );
+
+    const previas: PreviaBoletin[] = previaEntities.map((p) => ({
+      subjectName:        previaSubjectNameById.get(p.subjectId) ?? p.subjectId,
+      originAcademicYear: p.originAcademicYear,
+      condicion:          p.condicion.toString(),
+      status:             p.status.toString(),
+    }));
+
+    // 2. Fetch all courseCycles for this academic cycle
+    const courseCycles = await client.courseCycle.findMany({
+      where: { cycleId: enrollment.cycleId, active: true },
+      select: { uuid: true, level: true, courseId: true, studyPlanId: true },
+    });
+
+    // Filter to Secundario CCs (Math.floor(level/10) === 3)
+    const secundarioCCs = courseCycles.filter(
+      (cc) => Math.floor((cc.level as number) / 10) === 3,
+    );
+    if (secundarioCCs.length === 0) return { materias: [], previas };
+
+    const materias: MateriaBoletin[] = [];
+
+    for (const cc of secundarioCCs) {
+      // 3. Resolve subjects via StudyPlan → gets studyPlanSubjectId for competencies
+      const subjectEntries = await this.resolveSubjectsForCC(client, cc);
+      if (subjectEntries.length === 0) continue;
+
+      // 4. Teacher lookup (bulk, no N+1)
+      const assignments = await client.subjectAssignment.findMany({
+        where: { courseSectionId: cc.courseId, active: true },
+        select: {
+          subjectId: true,
+          teacher: { select: { firstName: true, lastName: true } },
+        },
+      });
+      const teacherBySubjectId = new Map(
+        assignments.map((a) => [
+          a.subjectId,
+          a.teacher as { firstName: string; lastName: string },
+        ]),
+      );
+
+      // 5. Bulk fetch period grades for student × CC (avoids N+1)
+      const allPeriodGrades = await this.periodGradeRepo!.findByStudentAndCourseCycle(
+        enrollment.studentId,
+        cc.uuid,
+      );
+
+      // 6. Bulk fetch final grades for student × CC
+      const allFinalGrades = await this.finalGradeRepo!.findByStudentAndCourseCycle(
+        enrollment.studentId,
+        cc.uuid,
+      );
+
+      // Index period grades by subjectId for O(1) lookup
+      const pgBySubject = new Map<string, typeof allPeriodGrades>();
+      for (const g of allPeriodGrades) {
+        const bucket = pgBySubject.get(g.subjectId) ?? [];
+        bucket.push(g);
+        pgBySubject.set(g.subjectId, bucket);
+      }
+
+      // Index final grades by (subjectId → (type → grade))
+      const fgBySubject = new Map<string, Map<string, (typeof allFinalGrades)[0]>>();
+      for (const f of allFinalGrades) {
+        if (!fgBySubject.has(f.subjectId)) {
+          fgBySubject.set(f.subjectId, new Map());
+        }
+        fgBySubject.get(f.subjectId)!.set(f.type, f);
+      }
+
+      // 7. Per-subject: assemble MateriaBoletin with Secundario-specific fields
+      for (const { subjectId, subjectName, studyPlanSubjectId } of subjectEntries) {
+        // 7a. Period structure from snapshot (column names)
+        const periods = await this.sgpRepo!.findByCourseCycleAndSubject(cc.uuid, subjectId);
+        const subjectPeriodGrades = pgBySubject.get(subjectId) ?? [];
+        const pgByOrdinal = new Map(
+          subjectPeriodGrades.map((g) => [g.periodOrdinal, g]),
+        );
+
+        // 7b. Final grades — 4 instances, absent → blank
+        const subjectFinalMap = fgBySubject.get(subjectId) ?? new Map();
+
+        // 7c. Condicion — FINAL row primary, DEFINITIVA fallback, absent both → null
+        const finalRow      = subjectFinalMap.get('FINAL');
+        const definitvaRow  = subjectFinalMap.get('DEFINITIVA');
+        const condicion: string | null =
+          (finalRow?.condicion ?? definitvaRow?.condicion)?.toString() ?? null;
+
+        // 7d. Competencies — imprimible=true filtered here (clean-arch: NOT in template)
+        const competencies: CompetencyBoletin[] = [];
+        if (studyPlanSubjectId) {
+          const allCvs = await this.cvRepo!.findByCourseCycleAndStudyPlanSubject(
+            cc.uuid,
+            studyPlanSubjectId,
+          );
+
+          // Resolve periodItemId → GradingPeriodTemplateItem.sortOrder (= periodOrdinal)
+          const periodItemIds = new Set<string>();
+          for (const cv of allCvs) {
+            for (const pv of cv.periodValuations) periodItemIds.add(pv.periodItemId);
+          }
+          const sortOrderByPeriodItemId = new Map<string, number>();
+          if (periodItemIds.size > 0) {
+            const items = await client.gradingPeriodTemplateItem.findMany({
+              where: { id: { in: [...periodItemIds] } },
+              select: { id: true, sortOrder: true },
+            });
+            for (const item of items) sortOrderByPeriodItemId.set(item.id, item.sortOrder);
+          }
+
+          for (const cv of allCvs) {
+            if (cv.studentId !== enrollment.studentId) continue;
+            // Include competency only if at least one period valuation is imprimible=true
+            const hasImprimible = cv.periodValuations.some((pv) => pv.imprimible);
+            if (!hasImprimible) continue;
+
+            const periodGrades = periods.map((p) => {
+              const matchingPv = cv.periodValuations.find(
+                (pv) =>
+                  sortOrderByPeriodItemId.get(pv.periodItemId) === p.periodOrdinal &&
+                  pv.imprimible,
+              );
+              return { gradeCode: matchingPv?.gradeCode ?? '' };
+            });
+
+            competencies.push({ competencyName: cv.competencyName, periodGrades });
+          }
+        }
+
+        // 7e. Teacher name
+        const teacher = teacherBySubjectId.get(subjectId);
+        const docente = teacher ? `${teacher.lastName}, ${teacher.firstName}` : '';
+
+        materias.push({
+          nombre:    subjectName,
+          docente,
+          // Legacy fields — not used by the rebuilt Secundario template, but required by type
+          notas:     [],
+          promedio:  '',
+          valoracion: '',
+          aprobado:  false,
+          // Secundario-specific optional fields (mirrors Primario + condicion)
+          periodGrades: periods.map((p) => ({
+            periodOrdinal: p.periodOrdinal,
+            periodName:    p.periodName,
+            gradeCode:     pgByOrdinal.get(p.periodOrdinal)?.gradeCode ?? '',
+          })),
+          finalGrades: ALL_FINAL_TYPES.map((type) => {
+            const f = subjectFinalMap.get(type);
+            return { type, gradeCode: f?.gradeCode ?? '' };
+          }),
+          competencies,
+          condicion,
+        });
+      }
+    }
+
+    return { materias, previas };
   }
 
   /**

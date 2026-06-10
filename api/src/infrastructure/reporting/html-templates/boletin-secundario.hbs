@@ -5,29 +5,34 @@
   <title>Boletín de Calificaciones — {{grado}}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; padding: 40px; color: #1a1a1a; }
-    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #1a1a1a; padding-bottom: 15px; }
-    .header h1 { font-size: 18px; margin-bottom: 4px; text-transform: uppercase; }
-    .header h2 { font-size: 14px; font-weight: normal; color: #444; }
-    .student-info { margin-bottom: 25px; padding: 12px; background: #f5f5f5; border-radius: 4px; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; padding: 36px; color: #1a1a1a; }
+    .header { text-align: center; margin-bottom: 26px; border-bottom: 2px solid #1a1a1a; padding-bottom: 14px; }
+    .header h1 { font-size: 17px; margin-bottom: 4px; text-transform: uppercase; }
+    .header h2 { font-size: 13px; font-weight: normal; color: #444; }
+    .student-info { margin-bottom: 22px; padding: 10px; background: #f5f5f5; border-radius: 4px; }
     .student-info table { width: 100%; border-collapse: collapse; }
-    .student-info td { padding: 4px 8px; }
+    .student-info td { padding: 3px 8px; }
     .student-info td:first-child { font-weight: bold; width: 120px; }
-    .section-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
-    table.grades { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    table.grades th { background: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-size: 12px; }
-    table.grades td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; }
+    .section-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; margin-top: 18px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+    table.grades { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    table.grades th { background: #1a1a1a; color: white; padding: 6px 8px; text-align: center; font-size: 11px; }
+    table.grades th.left { text-align: left; }
+    table.grades td { padding: 6px 8px; border-bottom: 1px solid #e0e0e0; text-align: center; }
+    table.grades td.left { text-align: left; }
     table.grades tr:nth-child(even) { background: #fafafa; }
-    .footer { margin-top: 40px; font-size: 11px; color: #666; }
-    .signature-line { display: inline-block; margin-top: 50px; width: 230px; border-top: 1px solid #1a1a1a; padding-top: 4px; text-align: center; font-size: 12px; margin-right: 40px; }
+    td.blank { color: #aaa; }
+    .footer { margin-top: 36px; font-size: 10px; color: #666; }
+    .signature-line { display: inline-block; margin-top: 46px; width: 220px; border-top: 1px solid #1a1a1a;
+                      padding-top: 4px; text-align: center; font-size: 11px; margin-right: 36px; }
     .approved { color: #2e7d32; font-weight: bold; }
-    .failed { color: #c62828; font-weight: bold; }
+    .failed   { color: #c62828; font-weight: bold; }
+    .previas-table td.left { text-align: left; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>{{institucionNombre}}</h1>
-    <h2>Boletín de Calificaciones — {{grado}}</h2>
+    <h2>Boletín de Calificaciones — Nivel Secundario — {{grado}}</h2>
   </div>
 
   <div class="student-info">
@@ -39,29 +44,90 @@
     </table>
   </div>
 
-  <div class="section-title">Calificaciones</div>
+  {{#if materias}}
+  <div class="section-title">Calificaciones por período</div>
   <table class="grades">
     <thead>
       <tr>
-        <th>Materia</th>
-        <th>Promedio</th>
+        <th class="left">Materia</th>
+        {{#with (lookup materias 0)}}
+          {{#each periodGrades}}
+          <th>{{periodName}}</th>
+          {{/each}}
+        {{/with}}
+        <th>Final</th>
+        <th>Diciembre</th>
+        <th>Marzo</th>
+        <th>Definitiva</th>
         <th>Condición</th>
-        <th>Valoración</th>
       </tr>
     </thead>
     <tbody>
       {{#each materias}}
       <tr>
-        <td>{{nombre}}</td>
-        <td>{{promedio}}</td>
-        <td class="{{#if aprobado}}approved{{else}}failed{{/if}}">
-          {{#if aprobado}}APROBADO{{else}}PREVIAS{{/if}}
-        </td>
-        <td>{{valoracion}}</td>
+        <td class="left">{{nombre}}</td>
+        {{#each periodGrades}}
+        <td>{{#if gradeCode}}{{gradeCode}}{{else}}<span class="blank">—</span>{{/if}}</td>
+        {{/each}}
+        {{#each finalGrades}}
+        <td>{{#if gradeCode}}{{gradeCode}}{{else}}<span class="blank">—</span>{{/if}}</td>
+        {{/each}}
+        <td>{{#if condicion}}{{condicion}}{{else}}<span class="blank">—</span>{{/if}}</td>
       </tr>
       {{/each}}
     </tbody>
   </table>
+
+  {{#each materias}}
+  {{#if competencies}}
+  <div class="section-title">Competencias — {{nombre}}</div>
+  <table class="grades">
+    <thead>
+      <tr>
+        <th class="left">Competencia</th>
+        {{#each periodGrades}}
+        <th>{{periodName}}</th>
+        {{/each}}
+      </tr>
+    </thead>
+    <tbody>
+      {{#each competencies}}
+      <tr>
+        <td class="left">{{competencyName}}</td>
+        {{#each periodGrades}}
+        <td>{{#if gradeCode}}{{gradeCode}}{{else}}<span class="blank">—</span>{{/if}}</td>
+        {{/each}}
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+  {{/each}}
+  {{/if}}
+
+  {{#if previas}}
+  <div class="section-title">Materias Previas</div>
+  <table class="grades previas-table">
+    <thead>
+      <tr>
+        <th class="left">Materia</th>
+        <th>Año de origen</th>
+        <th>Condición de origen</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each previas}}
+      <tr>
+        <td class="left">{{subjectName}}</td>
+        <td>{{originAcademicYear}}</td>
+        <td>{{condicion}}</td>
+        <td>{{status}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
 
   {{#if asistencia}}
   <div class="section-title">Asistencia</div>
@@ -86,7 +152,7 @@
   <table class="grades">
     <thead>
       <tr>
-        <th>Materia</th>
+        <th class="left">Materia</th>
         <th>Turno</th>
         <th>Fecha</th>
         <th>Nota</th>
@@ -96,7 +162,7 @@
     <tbody>
       {{#each mesasExamen}}
       <tr>
-        <td>{{materia}}</td>
+        <td class="left">{{materia}}</td>
         <td>{{turno}}</td>
         <td>{{fecha}}</td>
         <td>{{nota}}</td>

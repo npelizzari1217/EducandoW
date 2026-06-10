@@ -30,6 +30,21 @@ export interface MesaExamenBoletin {
   aprobada: boolean;
 }
 
+/**
+ * A single materia previa (academic debt) record for the Secundario boletín.
+ * Only populated by buildMateriasSecundario. Undefined for all other levels.
+ */
+export interface PreviaBoletin {
+  /** Name of the owed subject (resolved from Subject.name at boletín generation time). */
+  subjectName: string;
+  /** The academic year the debt originated from (e.g. "2024"). */
+  originAcademicYear: string;
+  /** How the debt arose: "PREVIA" or "LIBRE" (SubjectFinalGradeCondicion string value). */
+  condicion: string;
+  /** Current resolution state: "PENDIENTE" | "APROBADA" | "LIBRE" (MateriaPreviaStatus string value). */
+  status: string;
+}
+
 export interface DatosBoletin {
   alumnoNombre: string;
   alumnoApellido: string;
@@ -43,6 +58,12 @@ export interface DatosBoletin {
   asistencia?: AsistenciaBoletin;
   /** Mesas de examen del alumno. Solo para nivel SECUNDARIO. Undefined o vacío cuando no aplica. */
   mesasExamen?: MesaExamenBoletin[];
+  /**
+   * Materias previas (academic debts) for the student.
+   * Only populated by the Secundario branch (buildMateriasSecundario).
+   * Undefined for Primario / Terciario / Inicial — {{#if previas}} guards no-op.
+   */
+  previas?: PreviaBoletin[];
 }
 
 // ── Primario-specific sub-types (optional fields on MateriaBoletin) ────────────
@@ -112,6 +133,12 @@ export interface MateriaBoletin {
    * Only populated for Primario.
    */
   flags?: FlagsBoletin;
+  /**
+   * Year-end verdict for this subject (REGULAR | PREVIA | LIBRE).
+   * Populated by the Secundario branch. Null when no FINAL/DEFINITIVA condicion exists.
+   * Undefined for Primario / Terciario / Inicial — {{#if condicion}} guards no-op.
+   */
+  condicion?: string | null;
 }
 
 export interface BoletinResultado {

@@ -340,56 +340,36 @@ describe('GenerateBoletinUseCase.buildMaterias — PR7-T1 regression: non-Primar
     );
   });
 
-  it('Secundario (level=30): calls notaTrimestral.findMany, does NOT call SubjectPeriodGrade repo', async () => {
+  // PR6-T2 update: After PR6, Secundario (level=30) routes to buildMateriasSecundario.
+  // This test is RED until PR6-T4 implements the new dispatch.
+  it('Secundario (level=30): routes to buildMateriasSecundario (NOT legacy notaTrimestral)', async () => {
     const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
+    const studyPlanCourseFind = vi.fn().mockResolvedValue(null); // no subjects → fast exit
     const mockClient = {
       courseCycle: {
         findMany: vi.fn().mockResolvedValue([{
           uuid: 'cc-sec',
           courseId: 'section-sec',
           level: 30,
+          studyPlanId: 'sp-sec',
         }]),
       },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'sa-1',
-            subjectId: 'subj-1',
-            subject: { name: 'Historia' },
-            teacher: { firstName: 'Ana', lastName: 'García' },
-          },
-        ]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'p-1', name: '1° Trimestre' },
-        ]),
-      },
+      studyPlanCourse: { findFirst: studyPlanCourseFind },
       notaTrimestral: { findMany: notaTrimestralFindMany },
     };
 
     const enrollment = { id: 'e-sec', studentId: 'stu-sec', level: 30, cycleId: 'cyc-1', academicYear: '2026' };
-    // buildMaterias is private — access via cast for regression testing
     const result = await (uc as any).buildMaterias(mockClient, enrollment);
 
-    // The NEW Primario repos MUST NOT have been called
-    expect(repos.pgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
-    expect(repos.fgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
-    expect(repos.sgpRepo.findByCourseCycleAndSubject).not.toHaveBeenCalled();
-    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+    // After PR6: legacy NotaTrimestral path NOT called for level=30
+    expect(notaTrimestralFindMany).not.toHaveBeenCalled();
 
-    // The LEGACY path WAS called
-    expect(notaTrimestralFindMany).toHaveBeenCalled();
+    // buildMateriasSecundario path IS used (resolveSubjectsForCC calls studyPlanCourse.findFirst)
+    expect(studyPlanCourseFind).toHaveBeenCalled();
 
-    // Output has legacy shape — no Primario-specific optional fields set
-    expect(Array.isArray(result)).toBe(true);
-    expect(result[0]).toHaveProperty('notas');
-    expect(result[0]).toHaveProperty('promedio');
-    expect(result[0]).toHaveProperty('aprobado');
-    expect(result[0].periodGrades).toBeUndefined();
-    expect(result[0].finalGrades).toBeUndefined();
-    expect(result[0].competencies).toBeUndefined();
-    expect(result[0].flags).toBeUndefined();
+    // After PR6-T4: buildMaterias returns { materias, previas? } — new shape
+    expect(Array.isArray(result.materias)).toBe(true);
+    expect(result.previas).toEqual([]);
   });
 
   it('INICIAL (level=10): does NOT call Primario repos', async () => {
@@ -687,5 +667,328 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — W2: per-period compet
     );
 
     expect(result[0].competencies).toHaveLength(0);
+  });
+});
+
+// ── PR6-T1: Regression — Terciario unaffected after PR6 ──────────────────────
+// Safety net: proves that adding the Secundario branch does NOT alter Terciario.
+// These tests are RED until PR6-T4 changes buildMaterias to return { materias, previas? }.
+// After PR6-T4 they become GREEN and remain GREEN as regression guards.
+
+describe('GenerateBoletinUseCase.buildMaterias — PR6-T1 regression: Terciario', () => {
+  let uc: GenerateBoletinUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+    );
+  });
+
+  it('Terciario (level=40): legacy NotaTrimestral path used; buildMateriasSecundario repos NOT called', async () => {
+    const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
+    const mockClient = {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([{
+          uuid: 'cc-ter',
+          courseId: 'section-ter',
+          level: 40,
+        }]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'sa-ter-1',
+            subjectId: 'subj-ter',
+            subject: { name: 'Análisis Matemático' },
+            teacher: { firstName: 'María', lastName: 'Rodríguez' },
+          },
+        ]),
+      },
+      periodoEvaluacion: {
+        findMany: vi.fn().mockResolvedValue([{ id: 'p-1', name: '1° Cuatrimestre' }]),
+      },
+      notaTrimestral: { findMany: notaTrimestralFindMany },
+    };
+
+    const enrollment = { id: 'e-ter', studentId: 'stu-ter', level: 40, cycleId: 'cyc-ter', academicYear: '2026' };
+    const result = await (uc as any).buildMaterias(mockClient, enrollment);
+
+    // Terciario MUST use the legacy path — new repos MUST NOT be called
+    expect(repos.pgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+    expect(repos.fgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+    expect(repos.sgpRepo.findByCourseCycleAndSubject).not.toHaveBeenCalled();
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+
+    // Legacy NotaTrimestral path WAS called
+    expect(notaTrimestralFindMany).toHaveBeenCalled();
+
+    // After PR6-T4: buildMaterias returns { materias, previas? } — check new structure
+    expect(Array.isArray(result.materias)).toBe(true);
+    // Terciario has no previas
+    expect(result.previas).toBeUndefined();
+  });
+});
+
+// ── PR6-T2: buildMateriasSecundario ──────────────────────────────────────────
+// These tests are RED until PR6-T4 implements buildMateriasSecundario.
+
+function makeMpRepo(previas: unknown[] = []) {
+  return {
+    findByStudent: vi.fn().mockResolvedValue([]),
+    findByStudentAndAcademicYear: vi.fn().mockResolvedValue(previas),
+    saveMany: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
+  const STUDENT_ID  = 'stu-sec-t2';
+  const CC_UUID     = 'cc-sec-t2';
+  const SUBJECT_ID  = 'subj-lengua';
+  const SUBJECT_ID2 = 'subj-historia';
+  const SPS_ID      = 'sps-lengua';
+
+  function makeSecClient(overrides: Partial<Record<string, unknown>> = {}) {
+    return {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([
+          { uuid: CC_UUID, courseId: 'sec-sec', level: 30, studyPlanId: 'sp-sec' },
+        ]),
+      },
+      studyPlanCourse: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'spc-sec' }),
+      },
+      studyPlanSubject: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: SPS_ID, subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Lengua' } },
+        ]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          { subjectId: SUBJECT_ID, teacher: { firstName: 'Ana', lastName: 'García' } },
+        ]),
+      },
+      gradingPeriodTemplateItem: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      subject: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      ...overrides,
+    };
+  }
+
+  let uc: GenerateBoletinUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+  let mpRepo: ReturnType<typeof makeMpRepo>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    mpRepo = makeMpRepo();
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+      mpRepo as never,
+    );
+  });
+
+  it('reads SubjectGradingPeriod for dynamic period column names', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1° Trimestre', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 2, periodName: '2° Trimestre', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 3, periodName: '3° Trimestre', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(repos.sgpRepo.findByCourseCycleAndSubject).toHaveBeenCalledWith(CC_UUID, SUBJECT_ID);
+    expect(result.materias[0].periodGrades).toHaveLength(3);
+    expect(result.materias[0].periodGrades[0].periodName).toBe('1° Trimestre');
+    expect(result.materias[0].periodGrades[2].periodName).toBe('3° Trimestre');
+  });
+
+  it('reads SubjectPeriodGrade — absent period grade renders blank gradeCode', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1° Trim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 2, periodName: '2° Trim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+    repos.pgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      {
+        subjectId: SUBJECT_ID, periodOrdinal: 1, gradeCode: '8',
+        gradeScaleValueId: null, internalStatus: null, pa: false, ppi: false, pp: false,
+      },
+      // period 2 absent → gradeCode should be ''
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(repos.pgRepo.findByStudentAndCourseCycle).toHaveBeenCalledWith(STUDENT_ID, CC_UUID);
+    expect(result.materias[0].periodGrades[0].gradeCode).toBe('8');
+    expect(result.materias[0].periodGrades[1].gradeCode).toBe(''); // absent → blank
+  });
+
+  it('condicion from FINAL row (primary)', async () => {
+    repos.fgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      {
+        subjectId: SUBJECT_ID, type: 'FINAL', gradeCode: '7', passed: true,
+        condicion: 'REGULAR', // toString() → 'REGULAR'
+      },
+      {
+        subjectId: SUBJECT_ID, type: 'DEFINITIVA', gradeCode: '7', passed: true,
+        condicion: 'LIBRE', // fallback — should NOT be used when FINAL has condicion
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    // FINAL condicion takes precedence over DEFINITIVA
+    expect(result.materias[0].condicion).toBe('REGULAR');
+  });
+
+  it('condicion from DEFINITIVA row when FINAL condicion is null (fallback)', async () => {
+    repos.fgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      {
+        subjectId: SUBJECT_ID, type: 'FINAL', gradeCode: '5', passed: false,
+        condicion: null, // no condicion on FINAL row
+      },
+      {
+        subjectId: SUBJECT_ID, type: 'DEFINITIVA', gradeCode: '5', passed: false,
+        condicion: 'PREVIA', // DEFINITIVA fallback
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(result.materias[0].condicion).toBe('PREVIA');
+  });
+
+  it('absent FINAL+DEFINITIVA rows → condicion is null (no error)', async () => {
+    repos.fgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      {
+        subjectId: SUBJECT_ID, type: 'DICIEMBRE', gradeCode: '4', passed: false, condicion: null,
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(result.materias[0].condicion).toBeNull();
+  });
+
+  it('reads CompetencyPeriodValuation filtered to imprimible=true', async () => {
+    repos.cvRepo.findByCourseCycleAndStudyPlanSubject.mockResolvedValue([
+      {
+        valuationId: 'val-1', studentId: STUDENT_ID, competencyId: 'comp-1',
+        competencyName: 'Comprensión lectora',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: true,  gradeCode: 'EP', modificable: true, gradeScaleValueId: null, internalStatus: null },
+          { periodItemId: 'pi-2', imprimible: false, gradeCode: 'NA', modificable: true, gradeScaleValueId: null, internalStatus: null },
+        ],
+      },
+      {
+        valuationId: 'val-2', studentId: STUDENT_ID, competencyId: 'comp-2',
+        competencyName: 'No imprimible en ningún período',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: false, gradeCode: 'B', modificable: true, gradeScaleValueId: null, internalStatus: null },
+        ],
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).toHaveBeenCalledWith(CC_UUID, SPS_ID);
+    const comps = result.materias[0].competencies as Array<{ competencyName: string }>;
+    // comp-1 has imprimible=true; comp-2 has none → only comp-1 included
+    expect(comps).toHaveLength(1);
+    expect(comps[0].competencyName).toBe('Comprensión lectora');
+  });
+
+  it('findByStudentAndAcademicYear called ONCE per enrollment (N+1 guard: not once per materia)', async () => {
+    // Two subjects in the CC — findByStudentAndAcademicYear MUST still be called only once
+    const twoSubjectClient = makeSecClient({
+      studyPlanSubject: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'sps-1', subjectId: SUBJECT_ID,  subject: { id: SUBJECT_ID,  name: 'Lengua' } },
+          { id: 'sps-2', subjectId: SUBJECT_ID2, subject: { id: SUBJECT_ID2, name: 'Historia' } },
+        ]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          { subjectId: SUBJECT_ID,  teacher: { firstName: 'Ana', lastName: 'García' } },
+          { subjectId: SUBJECT_ID2, teacher: { firstName: 'Juan', lastName: 'López' } },
+        ]),
+      },
+    });
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    await (uc as any).buildMateriasSecundario(twoSubjectClient, enrollment);
+
+    // N+1 guard: exactly ONE call regardless of how many materias/subjects
+    expect(mpRepo.findByStudentAndAcademicYear).toHaveBeenCalledTimes(1);
+    expect(mpRepo.findByStudentAndAcademicYear).toHaveBeenCalledWith(STUDENT_ID, '2026');
+  });
+
+  it('builds DatosBoletin.previas from MateriaPrevia entities', async () => {
+    // Mock a previa entity with the relevant getters
+    const previaEntity = {
+      subjectId: SUBJECT_ID,
+      originAcademicYear: '2025',
+      condicion: 'PREVIA',   // toString() = 'PREVIA'
+      status: 'PENDIENTE',   // toString() = 'PENDIENTE'
+    };
+    mpRepo = makeMpRepo([previaEntity]);
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+      mpRepo as never,
+    );
+
+    const clientWithSubjectLookup = makeSecClient({
+      subject: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: SUBJECT_ID, name: 'Lengua' },
+        ]),
+      },
+    });
+
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(clientWithSubjectLookup, enrollment);
+
+    expect(result.previas).toHaveLength(1);
+    expect(result.previas[0]).toMatchObject({
+      subjectName: 'Lengua',
+      originAcademicYear: '2025',
+      condicion: 'PREVIA',
+      status: 'PENDIENTE',
+    });
+  });
+
+  it('returns empty previas array when no MateriaPrevia records exist', async () => {
+    const enrollment = { studentId: STUDENT_ID, level: 30, cycleId: 'cyc-sec', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasSecundario(makeSecClient(), enrollment);
+
+    expect(result.previas).toEqual([]);
   });
 });
