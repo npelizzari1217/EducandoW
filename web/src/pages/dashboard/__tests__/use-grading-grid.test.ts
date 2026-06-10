@@ -499,6 +499,33 @@ describe('useGradingGrid - subject-grade channels', () => {
     });
   });
 
+  // SGC-9b [PR5-T7 RED]: updateSubjectFinalGrade with condicion includes condicion in PUT body
+  it('SGC-9b: updateSubjectFinalGrade with condicion field sends condicion in PUT /grading/subject-final-grades body', async () => {
+    const { result } = renderHook(() => useGradingGrid(optionsWithSubjectId));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.updateSubjectFinalGrade('s-1:FINAL', { condicion: 'PREVIA' } as any);
+    });
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/grading/subject-final-grades',
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              courseCycleId: 'cc-1',
+              subjectId: 'subj-1',
+              studentId: 's-1',
+              type: 'FINAL',
+              condicion: 'PREVIA',
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+
   // SGC-10: saveSubjectGrades saves all dirty period grade cells
   it('SGC-10: saveSubjectGrades calls PUT for all dirty period grade cells', async () => {
     const { result } = renderHook(() => useGradingGrid(optionsWithSubjectId));

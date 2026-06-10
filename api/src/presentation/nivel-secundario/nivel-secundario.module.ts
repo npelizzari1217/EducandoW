@@ -4,8 +4,11 @@ import { CursoController } from './curso.controller';
 import { MesaExamenController } from './mesa-examen.controller';
 import { RegimenAcademicoController } from './regimen-academico.controller';
 import { CalificacionSecundarioController } from './calificacion-secundario.controller';
+import { MateriasPreviasController } from '../secundario/materias-previas.controller';
 import { MATERIA_PREVIA_REPOSITORY } from '@educandow/domain';
 import { PrismaMateriaPreviaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-previa.repository';
+import { UpsertMateriaPreviaUseCase } from '../../application/secundario/upsert-materia-previa.use-case';
+import { ListMateriasPreviasByStudentUseCase } from '../../application/secundario/list-materias-previas-by-student.use-case';
 import {
   CreateCursoUseCase,
   ListCursosUseCase,
@@ -39,7 +42,14 @@ const REPO_TOKEN = 'CalificacionSecundarioRepository';
 
 @Module({
   imports: [AuthModule],
-  controllers: [CursoController, MesaExamenController, RegimenAcademicoController, CalificacionSecundarioController],
+  controllers: [
+    CursoController,
+    MesaExamenController,
+    RegimenAcademicoController,
+    CalificacionSecundarioController,
+    // PR5: MateriasPrevias endpoints (POST+GET /students/:studentId/materias-previas)
+    MateriasPreviasController,
+  ],
   providers: [
     // Repositories
     PrismaCursoRepository,
@@ -77,6 +87,18 @@ const REPO_TOKEN = 'CalificacionSecundarioRepository';
     { provide: RegistrarNotaSuplementariaUseCase, useFactory: (r) => new RegistrarNotaSuplementariaUseCase(r), inject: [REPO_TOKEN] },
     { provide: ConsultarAlumnosExamenUseCase, useFactory: (r) => new ConsultarAlumnosExamenUseCase(r), inject: [REPO_TOKEN] },
     { provide: CalcularDefinitivaUseCase, useFactory: (r) => new CalcularDefinitivaUseCase(r), inject: [REPO_TOKEN] },
+
+    // PR5: MateriaPrevia use cases (wired with MATERIA_PREVIA_REPOSITORY Symbol token)
+    {
+      provide: UpsertMateriaPreviaUseCase,
+      useFactory: (repo: PrismaMateriaPreviaRepository) => new UpsertMateriaPreviaUseCase(repo),
+      inject: [MATERIA_PREVIA_REPOSITORY],
+    },
+    {
+      provide: ListMateriasPreviasByStudentUseCase,
+      useFactory: (repo: PrismaMateriaPreviaRepository) => new ListMateriasPreviasByStudentUseCase(repo),
+      inject: [MATERIA_PREVIA_REPOSITORY],
+    },
   ],
 })
 export class NivelSecundarioModule {}

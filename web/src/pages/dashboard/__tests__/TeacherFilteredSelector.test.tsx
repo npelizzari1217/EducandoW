@@ -246,3 +246,78 @@ describe('TeacherFilteredSelector', () => {
     await waitFor(() => expect(screen.getByRole('combobox', { name: /ciclo de curso/i })).not.toBeDisabled());
   });
 });
+
+// ── PR5-T7 [RED]: Secundario inclusion tests ───────────────────────────────────
+
+const mockCourseCyclesWithSecundario = [
+  { uuid: 'cc-prim-1', courseName: 'Primario 1er Año', level: 20, modality: 0 },
+  { uuid: 'cc-sec-1',  courseName: 'Secundario 1er Año', level: 30, modality: 0 },
+  { uuid: 'cc-ter-1',  courseName: 'Terciario 1er Año', level: 40, modality: 0 },
+];
+
+const isPrimarioOrSecundario = (cc: { level: number }) =>
+  [2, 3].includes(Math.floor(cc.level / 10));
+
+describe('TeacherFilteredSelector — Secundario inclusion', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, config?: { params?: Record<string, string> }) => {
+        if (url === '/course-cycles') {
+          const params = config?.params ?? {};
+          if (params.teacherUserId === 'user-teacher-1') {
+            return Promise.resolve({ data: { data: mockCourseCyclesWithSecundario } });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url.startsWith('/course-cycles/') && url.endsWith('/subjects')) {
+          return Promise.resolve({
+            data: { data: [{ subjectId: 'sub-1', subjectName: 'Matemática', studyPlanSubjectId: 'sps-1' }] },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      },
+    );
+  });
+
+  // TFS-SEC-1: with isPrimarioOrSecundario filter, Primario and Secundario CCs both appear
+  it('TFS-SEC-1: Primario (level=20) and Secundario (level=30) CCs appear with isPrimarioOrSecundario filter', async () => {
+    render(<TeacherFilteredSelector onSelect={vi.fn()} filterCourseCycle={isPrimarioOrSecundario} />);
+
+    await waitFor(() => expect(screen.getByText('Primario 1er Año')).toBeInTheDocument());
+    expect(screen.getByText('Secundario 1er Año')).toBeInTheDocument();
+  });
+
+  // TFS-SEC-2: Terciario CCs are excluded from the dropdown with isPrimarioOrSecundario filter
+  it('TFS-SEC-2: Terciario (level=40) CC is excluded with isPrimarioOrSecundario filter', async () => {
+    render(<TeacherFilteredSelector onSelect={vi.fn()} filterCourseCycle={isPrimarioOrSecundario} />);
+
+    await waitFor(() => expect(screen.getByText('Primario 1er Año')).toBeInTheDocument());
+    expect(screen.queryByText('Terciario 1er Año')).not.toBeInTheDocument();
+  });
+
+  // TFS-SEC-3: selecting a Secundario CC emits context with level=30
+  it('TFS-SEC-3: selecting a Secundario CC emits context with level=30', async () => {
+    const onSelect = vi.fn();
+    render(<TeacherFilteredSelector onSelect={onSelect} filterCourseCycle={isPrimarioOrSecundario} />);
+
+    await waitFor(() => screen.getByText('Secundario 1er Año'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-sec-1',
+    );
+
+    await waitFor(() => screen.getByText('Matemática'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /materia/i }),
+      'sub-1',
+    );
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courseCycleId: 'cc-sec-1',
+        level: 30,
+      }),
+    );
+  });
+});

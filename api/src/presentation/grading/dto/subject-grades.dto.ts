@@ -5,7 +5,7 @@
  * Response types are TypeScript interfaces (not Zod) since they are assembled by use cases.
  */
 import { z } from 'zod';
-import { SubjectFinalGradeType } from '@educandow/domain';
+import { SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
 
 // ── Query params ──────────────────────────────────────────────────────────────
 
@@ -77,6 +77,8 @@ export type UpsertSubjectPeriodGradesDto = z.infer<typeof UpsertSubjectPeriodGra
  * passed is accepted on all types (SFG-R4).
  * gradeScaleValueId must be a non-empty string when provided; null is rejected (AD-2:
  * SubjectFinalGrade has no clearGrade() — clearing final grades is not supported).
+ * condicion: optional year-end verdict (REGULAR | PREVIA | LIBRE) for the FINAL row.
+ * W-1 MANDATORY: validated with z.nativeEnum so invalid strings → 400 (not 500).
  */
 const UpsertFinalGradeItemSchema = z.object({
   studentId: z.string().min(1, 'studentId is required'),
@@ -89,6 +91,11 @@ const UpsertFinalGradeItemSchema = z.object({
   }),
   gradeScaleValueId: z.string().min(1).optional(),
   passed: z.boolean().optional(),
+  condicion: z.nativeEnum(SubjectFinalGradeCondicion, {
+    errorMap: () => ({
+      message: `condicion must be one of: ${Object.values(SubjectFinalGradeCondicion).join(', ')}`,
+    }),
+  }).optional(),
 });
 
 /** PUT /grading/subject-final-grades — batch upsert final grades. */

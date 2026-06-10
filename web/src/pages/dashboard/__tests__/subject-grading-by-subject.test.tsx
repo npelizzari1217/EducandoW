@@ -205,6 +205,9 @@ function setupDefaultMocks() {
       if (url === '/course-cycles/cc-prim-1/subjects') {
         return Promise.resolve({ data: { data: mockSubjects } });
       }
+      if (url === '/course-cycles/cc-sec-1/subjects') {
+        return Promise.resolve({ data: { data: mockSubjects } });
+      }
       if (url === '/course-cycles/cc-prim-1/students') {
         return Promise.resolve({ data: { data: mockStudents } });
       }
@@ -285,14 +288,14 @@ describe('SubjectGradingBySubjectPage', () => {
     expect(screen.getByTestId('grading-placeholder')).toBeInTheDocument();
   });
 
-  // SBS-4: Primario-only — non-Primario CC (level=30) must NOT appear in dropdown
-  it('SBS-4: non-Primario CC (level=30) is filtered out, only Primario CCs shown', async () => {
+  // SBS-4: Primario+Secundario — both level=20 and level=30 CCs appear; Terciario+ excluded
+  it('SBS-4: Primario (level=20) and Secundario (level=30) CCs both appear; filter is isPrimarioOrSecundario', async () => {
     renderPage();
     await waitFor(() => screen.getByText('1er Año A'));
     // Primario CC appears
     expect(screen.getByText('1er Año A')).toBeInTheDocument();
-    // Non-Primario CC (Sec 1er Año, level=30) must NOT appear
-    expect(screen.queryByText('Sec 1er Año')).not.toBeInTheDocument();
+    // Secundario CC (level=30) ALSO appears now that filter is generalized
+    expect(screen.getByText('Sec 1er Año')).toBeInTheDocument();
   });
 
   // SBS-5: empty state when teacher has no assigned course cycles
@@ -419,6 +422,135 @@ describe('SubjectGradingBySubjectPage', () => {
             expect.objectContaining({
               courseCycleId: 'cc-prim-1',
               subjectId: 'sub-1',
+            }),
+          ]),
+        }),
+      );
+    });
+  });
+});
+
+// ── PR5-T7 [RED]: Secundario + condicion tests ─────────────────────────────────
+
+describe('SubjectGradingBySubjectPage — Secundario + condicion', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, config?: { params?: Record<string, string> }) => {
+        const params = config?.params ?? {};
+
+        if (url === '/course-cycles') {
+          if (params.teacherUserId === 'teacher-1' && params.role === 'subject') {
+            return Promise.resolve({ data: { data: mockCourseCycles } });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url === '/course-cycles/cc-prim-1/subjects') {
+          return Promise.resolve({ data: { data: mockSubjects } });
+        }
+        if (url === '/course-cycles/cc-sec-1/subjects') {
+          return Promise.resolve({ data: { data: mockSubjects } });
+        }
+        if (url === '/course-cycles/cc-prim-1/students') {
+          return Promise.resolve({ data: { data: mockStudents } });
+        }
+        if (url === '/course-cycles/cc-sec-1/students') {
+          return Promise.resolve({ data: { data: mockStudents } });
+        }
+        if (url === '/subject-competencies') {
+          return Promise.resolve({ data: { data: mockCompetencies } });
+        }
+        if (url === '/grading/period-templates') {
+          return Promise.resolve({ data: { data: mockTemplates } });
+        }
+        if (url === '/grading/scales') {
+          return Promise.resolve({ data: { data: mockScales } });
+        }
+        if (url === '/competency-valuations') {
+          return Promise.resolve({ data: { data: mockValuations } });
+        }
+        if (url === '/grading/subject-grades') {
+          return Promise.resolve({ data: { data: mockSubjectGradesResponse } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      },
+    );
+    (apiClient.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: null } });
+  });
+
+  // SEC-1: Secundario CC (level=30) now appears in the CC dropdown (filter generalized)
+  it('SEC-1: Secundario CC (level=30) appears alongside Primario in CC dropdown', async () => {
+    render(
+      <MemoryRouter>
+        <SubjectGradingBySubjectPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('1er Año A')).toBeInTheDocument());
+    // After T8, Secundario CC must also appear
+    expect(screen.getByText('Sec 1er Año')).toBeInTheDocument();
+  });
+
+  // SEC-2: Condición select renders on the FINAL row of the finals table
+  it('SEC-2: condición select renders on the FINAL-row cell of the finals table', async () => {
+    render(
+      <MemoryRouter>
+        <SubjectGradingBySubjectPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => screen.getByText('1er Año A'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-prim-1',
+    );
+    await waitFor(() => screen.getByText('Matemática'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /materia/i }),
+      'sub-1',
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('subject-final-grades-section')).toBeInTheDocument(),
+    );
+
+    // Condición select must exist on the FINAL row
+    expect(screen.getByRole('combobox', { name: /condición/i })).toBeInTheDocument();
+  });
+
+  // SEC-3: selecting PREVIA from condición select fires updateSubjectFinalGrade with condicion
+  it('SEC-3: selecting PREVIA from condición select calls PUT with condicion field', async () => {
+    render(
+      <MemoryRouter>
+        <SubjectGradingBySubjectPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => screen.getByText('1er Año A'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-prim-1',
+    );
+    await waitFor(() => screen.getByText('Matemática'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /materia/i }),
+      'sub-1',
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('subject-final-grades-section')).toBeInTheDocument(),
+    );
+
+    const condicionSelect = screen.getByRole('combobox', { name: /condición/i });
+    await userEvent.selectOptions(condicionSelect, 'PREVIA');
+
+    await waitFor(() => {
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/grading/subject-final-grades',
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              condicion: 'PREVIA',
             }),
           ]),
         }),

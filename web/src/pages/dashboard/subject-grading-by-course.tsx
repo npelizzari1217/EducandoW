@@ -1,10 +1,10 @@
 /**
- * PR6-T2 [GREEN] — SubjectGradingByCourse page ("Alumnos por Curso").
+ * PR5-T8 [GREEN] — SubjectGradingByCourse page ("Alumnos por Curso").
  *
- * Shows all subjects + grades for a selected (homeroom CC, student) pair.
+ * Generalized for Primario + Secundario (was Primario-only in original implementation).
  *
  * Features:
- * - TeacherFilteredSelector in homeroom mode (Primario-only) → emits CC
+ * - TeacherFilteredSelector in homeroom mode (Primario + Secundario) → emits CC
  * - Student picker fetched from /course-cycles/:id/students
  * - Per-subject sections: period grades + PA/PPI/PP + 4 finals + competency valuations
  *   with per-cell "Imprimir" toggle (PATCH /competency-valuations/:uuid/periods/:pid)
@@ -16,8 +16,8 @@
  *   - Rendering N CGG instances for N subjects = N×5 redundant fetches (W1 multiplied)
  *   - competencyValuations come directly from the by-student endpoint response
  *
- * Primario filter: Math.floor(level/10) === 2 (levels 20-29)
- * Specs: ES-R2 (CORRECTED), ES-R5, ES-R6, ES-R7, ES-R8, ES-R10, TIA-R9
+ * Filter: Math.floor(level/10) ∈ {2, 3} (levels 20-39 — Primario + Secundario)
+ * Specs: ESS-R2, ESS-R6, ESS-R7, ESS-R8, ESS-R10, TIA-R9, D3
  */
 import { useState, useEffect } from 'react';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -33,8 +33,9 @@ import type { ScaleValue } from './components/use-grading-grid';
 
 const FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
 
-/** Primario: levels 20–29 */
-const isPrimario = (cc: { level: number }) => Math.floor(cc.level / 10) === 2;
+/** Primario + Secundario: levels 20–29 (Primario) and 30–39 (Secundario) */
+const isPrimarioOrSecundario = (cc: { level: number }) =>
+  [2, 3].includes(Math.floor(cc.level / 10));
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -418,12 +419,12 @@ export default function SubjectGradingByCoursePage() {
         icon="📋"
       />
 
-      {/* Homeroom CC selector — Primario only */}
+      {/* Homeroom CC selector — Primario + Secundario */}
       <Card className="mt-md">
         <TeacherFilteredSelector
           role="homeroom"
           onSelectCC={handleCCSelect}
-          filterCourseCycle={isPrimario}
+          filterCourseCycle={isPrimarioOrSecundario}
         />
       </Card>
 

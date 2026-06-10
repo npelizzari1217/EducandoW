@@ -68,6 +68,8 @@ export interface SubjectFinalGradeCell {
   gradeCode: string | null;
   internalStatus: string | null;
   passed: boolean | null;
+  /** Year-end verdict (REGULAR | PREVIA | LIBRE). Only sent for the FINAL row. */
+  condicion?: string;
   saveState: 'idle' | 'dirty' | 'saving' | 'error';
 }
 
@@ -108,6 +110,8 @@ interface RawSubjectFinalGrade {
   gradeCode: string | null;
   internalStatus: string | null;
   passed: boolean | null;
+  /** condicion from PR5 — null for Primario rows (column is nullable in DB) */
+  condicion?: string | null;
 }
 
 interface RawSubjectGradeStudent {
@@ -338,6 +342,7 @@ export function useGradingGrid({
               gradeCode: fg.gradeCode,
               internalStatus: fg.internalStatus,
               passed: fg.passed,
+              condicion: fg.condicion ?? undefined,
               saveState: 'idle',
             });
           }
@@ -611,6 +616,8 @@ export function useGradingGrid({
           // null is rejected by the DTO (z.string().min(1).optional()) — use undefined to omit
           gradeScaleValueId: merged.gradeScaleValueId ?? undefined,
           passed: merged.passed ?? undefined,
+          // condicion: only included when set (undefined omits the field from the PUT body)
+          ...(merged.condicion !== undefined ? { condicion: merged.condicion } : {}),
         }],
       })
       .then((res) => {
@@ -625,6 +632,7 @@ export function useGradingGrid({
             gradeCode: data?.gradeCode ?? merged.gradeCode ?? null,
             internalStatus: data?.internalStatus ?? merged.internalStatus ?? null,
             passed: data?.passed !== undefined ? data.passed : (merged.passed ?? null),
+            condicion: merged.condicion,
             saveState: 'idle',
           });
           return next;
@@ -733,6 +741,8 @@ export function useGradingGrid({
                 // null is rejected by the DTO — use undefined to omit
                 gradeScaleValueId: cell.gradeScaleValueId ?? undefined,
                 passed: cell.passed ?? undefined,
+                // condicion: only included when set
+                ...(cell.condicion !== undefined ? { condicion: cell.condicion } : {}),
               }],
             })
             .then((res) => ({ key, success: true, data: res.data?.data }))

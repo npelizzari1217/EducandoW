@@ -269,14 +269,14 @@ describe('SubjectGradingByCoursePage', () => {
     });
   });
 
-  // SBC-3: Primario-only — non-Primario CC (level=30) must NOT appear in dropdown
-  it('SBC-3: non-Primario homeroom CC (level=30) is filtered out', async () => {
+  // SBC-3: Primario+Secundario — both level=20 and level=30 homeroom CCs appear; filter generalized
+  it('SBC-3: Primario (level=20) and Secundario (level=30) homeroom CCs both appear', async () => {
     renderPage();
     await waitFor(() => screen.getByText('3° A'));
     // Primario CC appears
     expect(screen.getByText('3° A')).toBeInTheDocument();
-    // Non-Primario CC must NOT appear
-    expect(screen.queryByText('Sec 1° A')).not.toBeInTheDocument();
+    // Secundario CC (level=30) ALSO appears now that filter is generalized
+    expect(screen.getByText('Sec 1° A')).toBeInTheDocument();
   });
 
   // SBC-4: empty state when teacher has no homeroom CCs (after homeroom filter returns empty)

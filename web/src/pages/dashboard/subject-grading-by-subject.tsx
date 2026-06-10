@@ -1,16 +1,16 @@
 /**
- * PR5-T6 [GREEN] — SubjectGradingBySubject page ("Alumnos por Materia").
+ * PR5-T8 [GREEN] — SubjectGradingBySubject page ("Alumnos por Materia").
  *
- * Replaces /competency-grading for Primario level.
+ * Generalized for Primario + Secundario (was Primario-only in PR5-T6).
  *
  * Features:
- * - TeacherFilteredSelector (Primario-only)
+ * - TeacherFilteredSelector (Primario + Secundario CCs)
  * - Period grades table: grade dropdown + PA/PPI/PP per student×period (inline save)
- * - Final grades table: 4 types (FINAL, DICIEMBRE, MARZO, DEFINITIVA) per student
+ * - Final grades table: 4 types + Condición select on FINAL row (Secundario)
  * - Competency section: reuses CompetencyGradingGrid
  *
- * Primario filter: Math.floor(level/10) === 2  (levels 20-29)
- * Specs: ES-R1 (CORRECTED), ES-R4, ES-R6, ES-R7, ES-R8, ES-R10, ES-R11
+ * Filter: Math.floor(level/10) ∈ {2, 3}  (levels 20-39 — Primario + Secundario)
+ * Specs: ESS-R1, ESS-R2, ESS-R5, ESS-R6, C-R3, D3
  */
 import { useState } from 'react';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -24,8 +24,9 @@ import { useGradingGrid } from './components/use-grading-grid';
 
 const FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
 
-/** Primario: levels 20–29 */
-const isPrimario = (cc: { level: number }) => Math.floor(cc.level / 10) === 2;
+/** Primario + Secundario: levels 20–29 (Primario) and 30–39 (Secundario) */
+const isPrimarioOrSecundario = (cc: { level: number }) =>
+  [2, 3].includes(Math.floor(cc.level / 10));
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
@@ -258,6 +259,24 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
                               </option>
                             ))}
                           </select>
+                          {/* Condición select — only on FINAL row (ESS-R5, C-R3) */}
+                          {type === 'FINAL' && (
+                            <select
+                              style={{ ...selectStyle, marginTop: '0.25rem' }}
+                              aria-label="Condición"
+                              value={cell?.condicion ?? ''}
+                              onChange={e =>
+                                grid.updateSubjectFinalGrade(key, {
+                                  condicion: e.target.value || undefined,
+                                })
+                              }
+                            >
+                              <option value="">Sin condición</option>
+                              <option value="REGULAR">REGULAR</option>
+                              <option value="PREVIA">PREVIA</option>
+                              <option value="LIBRE">LIBRE</option>
+                            </select>
+                          )}
                         </td>
                       );
                     })}
@@ -297,9 +316,9 @@ export default function SubjectGradingBySubjectPage() {
         icon="📝"
       />
 
-      {/* Teacher-filtered selector — Primario CCs only */}
+      {/* Teacher-filtered selector — Primario + Secundario CCs */}
       <Card className="mt-md">
-        <TeacherFilteredSelector onSelect={setContext} filterCourseCycle={isPrimario} />
+        <TeacherFilteredSelector onSelect={setContext} filterCourseCycle={isPrimarioOrSecundario} />
       </Card>
 
       {/* Grid or placeholder */}

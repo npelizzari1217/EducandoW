@@ -1,10 +1,11 @@
 /**
  * PR4-T16 — SubjectGradesController tests (read-side + write-side PR4b).
  * Write-side tests added in PR4b: PUT /grading/subject-grades, PUT /grading/subject-final-grades.
- * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7, SPG-R3, SFG-R5
+ * PR5-T2 [RED] — condicion flow tests added.
+ * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7, SPG-R3, SFG-R5, C-R3, C-R7, C-R8
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { ok, err, NotFoundError, ValidationError } from '@educandow/domain';
+import { ok, err, NotFoundError, ValidationError, SubjectFinalGradeCondicion } from '@educandow/domain';
 
 let SubjectGradesController: any;
 
@@ -371,5 +372,135 @@ describe('SubjectGradesController — PUT final grades', () => {
         {} as any,
       ),
     ).toThrow();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PR5-T2 [RED] — condicion flow (C-R3, C-R7, C-R8)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('SubjectGradesController — condicion flow', () => {
+  // Helper: make a subject result with condicion in finalGrades
+  function makeSubjectResultWithCondicion() {
+    return {
+      courseCycleId: 'cc-uuid-1',
+      subjectId: 'subj-uuid-1',
+      periods: [{ periodOrdinal: 1, periodName: '1° Trimestre' }],
+      students: [{
+        studentId: 'student-1',
+        firstName: 'Juan',
+        lastName: 'García',
+        periodGrades: [{ periodOrdinal: 1, gradeScaleValueId: null, gradeCode: null, internalStatus: null, pa: false, ppi: false, pp: false }],
+        finalGrades: [
+          { type: 'FINAL', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: SubjectFinalGradeCondicion.PREVIA },
+          { type: 'DICIEMBRE', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+          { type: 'MARZO', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+          { type: 'DEFINITIVA', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+        ],
+        competencyValuations: [],
+      }],
+    };
+  }
+
+  function makeStudentResultWithCondicion() {
+    return {
+      courseCycleId: 'cc-uuid-1',
+      studentId: 'student-1',
+      subjects: [{
+        subjectId: 'subj-1',
+        subjectName: 'Matemática',
+        periods: [{ periodOrdinal: 1, periodName: '1° Trimestre' }],
+        periodGrades: [{ periodOrdinal: 1, gradeScaleValueId: null, gradeCode: null, internalStatus: null, pa: false, ppi: false, pp: false }],
+        finalGrades: [
+          { type: 'FINAL', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: 'PREVIA' },
+          { type: 'DICIEMBRE', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+          { type: 'MARZO', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+          { type: 'DEFINITIVA', gradeScaleValueId: null, gradeCode: null, internalStatus: null, passed: null, condicion: null },
+        ],
+        competencyValuations: [],
+      }],
+    };
+  }
+
+  // C-R7: W-1 MANDATORY — invalid condicion string must be rejected at the DTO boundary
+  it('C-R7 W-1: validation pipe rejects invalid condicion value with 400', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectFinalGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectFinalGradesSchema);
+
+    expect(() =>
+      pipe.transform(
+        { items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', condicion: 'INVALID_CONDICION' }] },
+        {} as any,
+      ),
+    ).toThrow();
+  });
+
+  // C-R3: PUT condicion=PREVIA passes through to use case → 200
+  it('C-R3: PUT finalGrades with condicion=PREVIA passes to use case and returns 200 { data: null }', async () => {
+    const executeMock = vi.fn().mockResolvedValue(ok(undefined));
+    const ctrl = Object.create(SubjectGradesController.prototype);
+    ctrl.upsertFinalGradesUC = { execute: executeMock };
+
+    const body = {
+      items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', condicion: SubjectFinalGradeCondicion.PREVIA }],
+    };
+
+    const response = await ctrl.upsertFinalGrades(body);
+
+    expect(response).toEqual({ data: null });
+    expect(executeMock).toHaveBeenCalledWith(body);
+  });
+
+  // C-2: PUT condicion=PREVIA+passed=true → ValidationError → 400
+  it('C-2: PUT condicion=PREVIA+passed=true use case returns ValidationError → 400', async () => {
+    const ctrl = Object.create(SubjectGradesController.prototype);
+    ctrl.upsertFinalGradesUC = {
+      execute: vi.fn().mockResolvedValue(err(new ValidationError('PREVIA+passed=true is invalid'))),
+    };
+
+    await expect(
+      ctrl.upsertFinalGrades({
+        items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', condicion: 'PREVIA', passed: true }],
+      }),
+    ).rejects.toThrow();
+  });
+
+  // C-R3: PUT without condicion → 200 (condicion is optional)
+  it('C-R3: omitting condicion in PUT body is valid → 200 { data: null }', async () => {
+    const ctrl = Object.create(SubjectGradesController.prototype);
+    ctrl.upsertFinalGradesUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
+
+    const response = await ctrl.upsertFinalGrades({
+      items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL' }],
+    });
+
+    expect(response).toEqual({ data: null });
+  });
+
+  // C-R8: GET by-subject response includes condicion in each finalGrades entry
+  it('C-R8: GET by-subject response includes condicion in finalGrades entries', async () => {
+    const ctrl = Object.create(SubjectGradesController.prototype);
+    ctrl.getBySubjectUC = { execute: vi.fn().mockResolvedValue(makeSubjectResultWithCondicion()) };
+    const user = { userId: 'u-teacher', roles: ['TEACHER'] };
+
+    const response = await ctrl.getBySubject(user, { courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1' });
+
+    const finalGrades = response.data.students[0].finalGrades;
+    expect(finalGrades[0].condicion).toBe(SubjectFinalGradeCondicion.PREVIA);
+    expect(finalGrades[1].condicion).toBeNull();
+  });
+
+  // C-R8: GET by-student response includes condicion in each finalGrades entry
+  it('C-R8: GET by-student response includes condicion in finalGrades entries', async () => {
+    const ctrl = Object.create(SubjectGradesController.prototype);
+    ctrl.getByStudentUC = { execute: vi.fn().mockResolvedValue(makeStudentResultWithCondicion()) };
+    const user = { userId: 'u-teacher', roles: ['TEACHER'] };
+
+    const response = await ctrl.getByStudent(user, { courseCycleId: 'cc-uuid-1', studentId: 'student-1' });
+
+    const finalGrades = response.data.subjects[0].finalGrades;
+    expect(finalGrades[0].condicion).toBe('PREVIA');
+    expect(finalGrades[1].condicion).toBeNull();
   });
 });
