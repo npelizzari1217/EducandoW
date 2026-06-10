@@ -270,12 +270,15 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
       </Card>
 
       {/* ── Competency section — reuses CompetencyGradingGrid ───────────────── */}
+      {/* Pass the hook instance already fetched by this component so CGG does  */}
+      {/* not trigger a second round of identical fetches (W1 fix).             */}
       <CompetencyGradingGrid
         courseCycleId={context.courseCycleId}
         studyPlanId=""
         studyPlanSubjectId={context.studyPlanSubjectId}
         level={context.level}
         modality={context.modality}
+        injectedGrid={grid}
       />
     </>
   );

@@ -3,9 +3,31 @@ import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
 import { useGradingGrid } from './use-grading-grid';
 import { internalStatusColor, internalStatusLabel } from './grading-status';
-import type { CellState, ScaleValue } from './use-grading-grid';
+import type { CellState, ScaleValue, UseGradingGridReturn } from './use-grading-grid';
 
 // ── Props ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Subset of UseGradingGridReturn that CompetencyGradingGrid needs.
+ * A parent that already owns a useGradingGrid instance can pass it here
+ * so CGG skips its own redundant hook call (W1 fix).
+ */
+export type CompetencyGradingGridData = Pick<
+  UseGradingGridReturn,
+  | 'loading'
+  | 'error'
+  | 'students'
+  | 'competencies'
+  | 'periodItems'
+  | 'scaleValues'
+  | 'activePeriodItemId'
+  | 'cells'
+  | 'switchPeriod'
+  | 'updateCell'
+  | 'updateImprimible'
+  | 'saveAll'
+  | 'isSavingAll'
+>;
 
 export interface CompetencyGradingGridProps {
   courseCycleId: string;
@@ -13,6 +35,14 @@ export interface CompetencyGradingGridProps {
   studyPlanSubjectId: string;
   level: number;
   modality: number | null;
+  /**
+   * Optional pre-fetched grid data from a parent hook instance.
+   * When provided, CGG skips its own useGradingGrid call to avoid
+   * duplicate fetches (W1 fix). The parent is responsible for passing
+   * correct data (same courseCycleId + studyPlanSubjectId).
+   * Existing consumers that omit this prop are unaffected.
+   */
+  injectedGrid?: CompetencyGradingGridData;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
@@ -183,7 +213,18 @@ export function CompetencyGradingGrid({
   studyPlanSubjectId,
   level,
   modality,
+  injectedGrid,
 }: CompetencyGradingGridProps) {
+  // When a parent passes injectedGrid, suppress this component's own fetch by
+  // using empty keys (the hook early-exits when courseCycleId is falsy).
+  // This prevents the duplicate fetches identified in W1.
+  const ownGrid = useGradingGrid({
+    courseCycleId: injectedGrid ? '' : courseCycleId,
+    studyPlanSubjectId: injectedGrid ? '' : studyPlanSubjectId,
+    level,
+    modality,
+  });
+
   const {
     loading,
     error,
@@ -198,7 +239,7 @@ export function CompetencyGradingGrid({
     updateImprimible,
     saveAll,
     isSavingAll,
-  } = useGradingGrid({ courseCycleId, studyPlanSubjectId, level, modality });
+  } = injectedGrid ?? ownGrid;
 
   // Build index: `${studentId}:${competencyId}` → valuationId
   const valuationIndex = useMemo(() => {
