@@ -1038,6 +1038,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
       valuationId:      'v-1',
       studentId:        's-1',
       competencyId:     'c-1',
+      competencyName:   'Competencia 1',
       periodValuations: [
         {
           periodItemId:      'item-3',
@@ -1073,6 +1074,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
       valuationId:      'v-2',
       studentId:        's-2',
       competencyId:     'c-1',
+      competencyName:   'Competencia 1',
       periodValuations: [],
     };
     const repo = makeBulkValuationRepo([childless]);

@@ -450,6 +450,7 @@ describe('PedagogyController — GET /competency-valuations (bulk-read branch)',
       valuationId:      id,
       studentId:        's-1',
       competencyId:     'c-1',
+      competencyName:   'Competencia 1',
       periodValuations: [],
     };
   }

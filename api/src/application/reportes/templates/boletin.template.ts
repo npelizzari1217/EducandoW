@@ -45,6 +45,41 @@ export interface DatosBoletin {
   mesasExamen?: MesaExamenBoletin[];
 }
 
+// ── Primario-specific sub-types (optional fields on MateriaBoletin) ────────────
+
+/** One period column in the Primario grading grid (dynamic — from SubjectGradingPeriod snapshot). */
+export interface PeriodGradeBoletin {
+  periodOrdinal: number;
+  /** Human-readable name captured at snapshot time (e.g. "1° Trimestre"). */
+  periodName: string;
+  /** Alphanumeric grade code, or empty string when not yet graded. */
+  gradeCode: string;
+}
+
+/** One of the four final grade instances (FINAL / DICIEMBRE / MARZO / DEFINITIVA). */
+export interface FinalGradeBoletin {
+  /** SubjectFinalGradeType string value. */
+  type: string;
+  /** Alphanumeric grade code, or empty string when the row is absent. */
+  gradeCode: string;
+}
+
+/** A single competency already filtered to imprimible=true by the use case. */
+export interface CompetencyBoletin {
+  competencyName: string;
+  /** Grade code for the first imprimible period, or empty string. */
+  gradeCode: string;
+}
+
+/** OR-aggregated pedagogical flags across all reported periods for a subject. */
+export interface FlagsBoletin {
+  pa: boolean;
+  ppi: boolean;
+  pp: boolean;
+}
+
+// ── Core MateriaBoletin type ───────────────────────────────────────────────────
+
 export interface MateriaBoletin {
   nombre: string;
   docente: string;
@@ -52,6 +87,27 @@ export interface MateriaBoletin {
   promedio: string;
   valoracion: string;
   aprobado: boolean;
+  /**
+   * Dynamic period columns from SubjectGradingPeriod snapshot.
+   * Only populated by the Primario branch. Undefined for all other levels —
+   * non-Primario templates MUST NOT crash when this is absent.
+   */
+  periodGrades?: PeriodGradeBoletin[];
+  /**
+   * Four final grade instances (FINAL / DICIEMBRE / MARZO / DEFINITIVA).
+   * Absent instance → gradeCode is '' (blank). Only populated for Primario.
+   */
+  finalGrades?: FinalGradeBoletin[];
+  /**
+   * Competencies already filtered by imprimible=true at the use-case level.
+   * Only populated for Primario.
+   */
+  competencies?: CompetencyBoletin[];
+  /**
+   * OR-aggregated pedagogical flags across all reported periods per subject.
+   * Only populated for Primario.
+   */
+  flags?: FlagsBoletin;
 }
 
 export interface BoletinResultado {

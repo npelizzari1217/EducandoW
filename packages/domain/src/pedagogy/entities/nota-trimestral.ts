@@ -11,6 +11,11 @@ export interface NotaTrimestralProps {
   deletedAt?: Date;
 }
 
+/**
+ * @deprecated Use SubjectPeriodGrade (PR7 Primario branch) for Primario-level grading.
+ * NotaTrimestral is still used by the Secundario/Terciario boletín path.
+ * Do NOT delete until those paths are migrated.
+ */
 export class NotaTrimestral {
   private constructor(private props: NotaTrimestralProps) {}
 

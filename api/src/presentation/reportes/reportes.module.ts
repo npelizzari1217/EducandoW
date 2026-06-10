@@ -7,6 +7,10 @@ import { BoletinInvalidationService } from '../../application/reportes/boletin-i
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-grading-period.repository';
+import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
+import { PrismaSubjectFinalGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-final-grade.repository';
+import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
 
 @Module({
   imports: [AuthModule],
@@ -14,10 +18,38 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
   providers: [
     PdfGeneratorService,
     PdfStorageService,
-    GenerateBoletinUseCase,
+    PrismaService,
+
+    // ── PR7: Primario branch repositories ─────────────────────────────────────
+    PrismaSubjectGradingPeriodRepository,
+    PrismaSubjectPeriodGradeRepository,
+    PrismaSubjectFinalGradeRepository,
+    PrismaCompetencyValuationRepo,
+
+    // ── Use cases ──────────────────────────────────────────────────────────────
+    {
+      provide: GenerateBoletinUseCase,
+      useFactory: (
+        pdfGen: PdfGeneratorService,
+        pdfStorage: PdfStorageService,
+        prisma: PrismaService,
+        sgpRepo: PrismaSubjectGradingPeriodRepository,
+        pgRepo: PrismaSubjectPeriodGradeRepository,
+        fgRepo: PrismaSubjectFinalGradeRepository,
+        cvRepo: PrismaCompetencyValuationRepo,
+      ) => new GenerateBoletinUseCase(pdfGen, pdfStorage, prisma, sgpRepo, pgRepo, fgRepo, cvRepo),
+      inject: [
+        PdfGeneratorService,
+        PdfStorageService,
+        PrismaService,
+        PrismaSubjectGradingPeriodRepository,
+        PrismaSubjectPeriodGradeRepository,
+        PrismaSubjectFinalGradeRepository,
+        PrismaCompetencyValuationRepo,
+      ],
+    },
     GenerateBoletinBatchUseCase,
     BoletinInvalidationService,
-    PrismaService,
   ],
   exports: [BoletinInvalidationService, PdfStorageService],
 })

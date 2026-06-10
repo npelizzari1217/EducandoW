@@ -8,6 +8,15 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin } from './templates/boletin.template';
+import type {
+  SubjectGradingPeriodRepository,
+  SubjectPeriodGradeRepository,
+  SubjectFinalGradeRepository,
+  CompetencyValuationRepository,
+} from '@educandow/domain';
+
+// ── Primario constants ─────────────────────────────────────────────────────────
+const ALL_FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
 
 /** Error codes for boletin generation */
 export class BoletinError extends Error {
@@ -36,6 +45,10 @@ export class GenerateBoletinUseCase {
     private readonly pdfGenerator: PdfGeneratorService,
     private readonly pdfStorage: PdfStorageService,
     private readonly prisma: PrismaService,
+    private readonly sgpRepo?: SubjectGradingPeriodRepository,
+    private readonly periodGradeRepo?: SubjectPeriodGradeRepository,
+    private readonly finalGradeRepo?: SubjectFinalGradeRepository,
+    private readonly cvRepo?: CompetencyValuationRepository,
   ) {
     // Pre-compile all Handlebars templates at construction time
     this.templates = new Map();
@@ -151,13 +164,27 @@ export class GenerateBoletinUseCase {
 
   /**
    * Aggregates subject grades for the enrollment's level.
-   * Queries NotaTrimestral records tied to the student and mapped to subjects
-   * through the enrollment's cycle/course assignments.
+   *
+   * Level dispatch (PR7):
+   *   Math.floor(level/10) === 2 → Primario branch (buildMateriasPrimario)
+   *   Otherwise → legacy NotaTrimestral path (unchanged)
    */
   private async buildMaterias(
     client: TenantPrismaClient,
     enrollment: { id: string; studentId: string; level: number; cycleId: string | null; academicYear: string },
   ): Promise<MateriaBoletin[]> {
+    // ── PR7: Level dispatch — Primario path ────────────────────────────────────
+    if (
+      Math.floor(enrollment.level / 10) === 2
+      && this.sgpRepo
+      && this.periodGradeRepo
+      && this.finalGradeRepo
+      && this.cvRepo
+    ) {
+      return this.buildMateriasPrimario(client, enrollment);
+    }
+
+    // ── Legacy NotaTrimestral path (Secundario, Terciario, Inicial) ───────────
     // Get the course section(s) for this enrollment via the cycle
     if (!enrollment.cycleId) {
       // No cycle => no grades yet
@@ -237,6 +264,186 @@ export class GenerateBoletinUseCase {
     }
 
     return materias;
+  }
+
+  // ── PR7: Primario branch ───────────────────────────────────────────────────
+
+  /**
+   * Builds MateriaBoletin[] for a Primario enrollment using:
+   *   - SubjectGradingPeriod   → dynamic period column names
+   *   - SubjectPeriodGrade     → period grades + pa/ppi/pp flags
+   *   - SubjectFinalGrade      → 4 final instances (absent → blank, not error)
+   *   - CompetencyValuation    → competencies filtered to imprimible=true
+   *
+   * All four sources are bulk-fetched per CourseCycle to avoid N+1.
+   * imprimible filter is applied HERE (use case), NOT in the template.
+   */
+  async buildMateriasPrimario(
+    client: TenantPrismaClient,
+    enrollment: { studentId: string; level: number; cycleId: string | null; academicYear: string },
+  ): Promise<MateriaBoletin[]> {
+    if (!enrollment.cycleId) return [];
+
+    // 1. Fetch all courseCycles for this academic cycle
+    const courseCycles = await client.courseCycle.findMany({
+      where: { cycleId: enrollment.cycleId, active: true },
+      select: { uuid: true, level: true, courseId: true, studyPlanId: true },
+    });
+
+    // Filter to Primario CCs (Math.floor(level/10) === 2)
+    const primarioCCs = courseCycles.filter(
+      (cc) => Math.floor((cc.level as number) / 10) === 2,
+    );
+    if (primarioCCs.length === 0) return [];
+
+    const materias: MateriaBoletin[] = [];
+
+    for (const cc of primarioCCs) {
+      // 2. Resolve subjects via StudyPlan → gets studyPlanSubjectId for competencies
+      const subjectEntries = await this.resolveSubjectsForCC(client, cc);
+      if (subjectEntries.length === 0) continue;
+
+      // 3. Teacher lookup (bulk, no N+1)
+      const assignments = await client.subjectAssignment.findMany({
+        where: { courseSectionId: cc.courseId, active: true },
+        select: {
+          subjectId: true,
+          teacher: { select: { firstName: true, lastName: true } },
+        },
+      });
+      const teacherBySubjectId = new Map(
+        assignments.map((a) => [
+          a.subjectId,
+          a.teacher as { firstName: string; lastName: string },
+        ]),
+      );
+
+      // 4. Bulk fetch period grades for student × CC (avoids N+1)
+      const allPeriodGrades = await this.periodGradeRepo!.findByStudentAndCourseCycle(
+        enrollment.studentId,
+        cc.uuid,
+      );
+
+      // 5. Bulk fetch final grades for student × CC
+      const allFinalGrades = await this.finalGradeRepo!.findByStudentAndCourseCycle(
+        enrollment.studentId,
+        cc.uuid,
+      );
+
+      // Index period grades by subjectId for O(1) lookup
+      const pgBySubject = new Map<string, typeof allPeriodGrades>();
+      for (const g of allPeriodGrades) {
+        const bucket = pgBySubject.get(g.subjectId) ?? [];
+        bucket.push(g);
+        pgBySubject.set(g.subjectId, bucket);
+      }
+
+      // Index final grades by (subjectId → (type → grade))
+      const fgBySubject = new Map<string, Map<string, (typeof allFinalGrades)[0]>>();
+      for (const f of allFinalGrades) {
+        if (!fgBySubject.has(f.subjectId)) {
+          fgBySubject.set(f.subjectId, new Map());
+        }
+        fgBySubject.get(f.subjectId)!.set(f.type, f);
+      }
+
+      // 6. Per-subject: assemble MateriaBoletin with Primario fields
+      for (const { subjectId, subjectName, studyPlanSubjectId } of subjectEntries) {
+        // 6a. Period structure from snapshot (column names)
+        const periods = await this.sgpRepo!.findByCourseCycleAndSubject(cc.uuid, subjectId);
+        const subjectPeriodGrades = pgBySubject.get(subjectId) ?? [];
+        const pgByOrdinal = new Map(
+          subjectPeriodGrades.map((g) => [g.periodOrdinal, g]),
+        );
+
+        // 6b. Final grades — 4 instances, absent → blank
+        const subjectFinalMap = fgBySubject.get(subjectId) ?? new Map();
+
+        // 6c. Competencies filtered to imprimible=true (boletín only — use case layer)
+        const competencies: Array<{ competencyName: string; gradeCode: string }> = [];
+        if (studyPlanSubjectId) {
+          const allCvs = await this.cvRepo!.findByCourseCycleAndStudyPlanSubject(
+            cc.uuid,
+            studyPlanSubjectId,
+          );
+          for (const cv of allCvs) {
+            if (cv.studentId !== enrollment.studentId) continue;
+            // Include competency only if at least one period is imprimible=true
+            const firstImprimible = cv.periodValuations.find((pv) => pv.imprimible);
+            if (firstImprimible) {
+              competencies.push({
+                competencyName: cv.competencyName,
+                gradeCode: firstImprimible.gradeCode ?? '',
+              });
+            }
+          }
+        }
+
+        // 6d. OR-aggregate pa/ppi/pp across all reported periods for this subject
+        const pa  = subjectPeriodGrades.some((g) => g.pa);
+        const ppi = subjectPeriodGrades.some((g) => g.ppi);
+        const pp  = subjectPeriodGrades.some((g) => g.pp);
+
+        // 6e. Teacher name (legacy required field)
+        const teacher = teacherBySubjectId.get(subjectId);
+        const docente = teacher ? `${teacher.lastName}, ${teacher.firstName}` : '';
+
+        materias.push({
+          nombre:    subjectName,
+          docente,
+          // Legacy fields — not used by the rebuilt Primario template, but required by type
+          notas:     [],
+          promedio:  '',
+          valoracion: '',
+          aprobado:  false,
+          // Primario-specific optional fields
+          periodGrades: periods.map((p) => ({
+            periodOrdinal: p.periodOrdinal,
+            periodName:    p.periodName,
+            gradeCode:     pgByOrdinal.get(p.periodOrdinal)?.gradeCode ?? '',
+          })),
+          finalGrades: ALL_FINAL_TYPES.map((type) => {
+            const f = subjectFinalMap.get(type);
+            return { type, gradeCode: f?.gradeCode ?? '' };
+          }),
+          competencies,
+          flags: { pa, ppi, pp },
+        });
+      }
+    }
+
+    return materias;
+  }
+
+  /**
+   * Resolves subjects for a CourseCycle via StudyPlan → StudyPlanCourse → StudyPlanSubject.
+   * Returns the subjectId, subjectName, and studyPlanSubjectId for each subject.
+   * studyPlanSubjectId is used to query competency valuations (imprimible filter).
+   */
+  private async resolveSubjectsForCC(
+    client: TenantPrismaClient,
+    cc: { uuid: string; courseId: string; studyPlanId: string },
+  ): Promise<Array<{ subjectId: string; subjectName: string; studyPlanSubjectId: string | null }>> {
+    const spc = await client.studyPlanCourse.findFirst({
+      where: { studyPlanId: cc.studyPlanId, courseSectionId: cc.courseId },
+      select: { id: true },
+    });
+    if (!spc) return [];
+
+    const spSubjects = await client.studyPlanSubject.findMany({
+      where: { studyPlanCourseId: spc.id },
+      select: {
+        id: true,
+        subjectId: true,
+        subject: { select: { id: true, name: true } },
+      },
+    });
+
+    return spSubjects.map((sps) => ({
+      subjectId:          sps.subjectId,
+      subjectName:        (sps.subject as { name: string }).name,
+      studyPlanSubjectId: sps.id,
+    }));
   }
 
   // ── Helpers ────────────────────────────────────────────────

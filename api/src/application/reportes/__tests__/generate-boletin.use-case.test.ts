@@ -291,3 +291,290 @@ describe('GenerateBoletinUseCase.buildMesasExamen', () => {
     expect(result[0].nota).toBe('—');
   });
 });
+
+// ── PR7-T1: Regression — non-Primario level uses NotaTrimestral path ──────────
+// Safety net: proves the existing path is byte-for-byte unchanged after PR7.
+// Stays GREEN throughout; must never regress.
+
+function makeRepos() {
+  const sgpRepo = {
+    findByCourseCycleAndSubject: vi.fn().mockResolvedValue([]),
+    ensureSnapshot: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+  };
+  const pgRepo = {
+    findByCourseCycleAndSubject: vi.fn().mockResolvedValue([]),
+    findByStudentAndCourseCycle: vi.fn().mockResolvedValue([]),
+    saveMany: vi.fn().mockResolvedValue(undefined),
+  };
+  const fgRepo = {
+    findByCourseCycleAndSubject: vi.fn().mockResolvedValue([]),
+    findByStudentAndCourseCycle: vi.fn().mockResolvedValue([]),
+    saveMany: vi.fn().mockResolvedValue(undefined),
+  };
+  const cvRepo = {
+    findById: vi.fn().mockResolvedValue(null),
+    findByStudentAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
+    findByCourseCycleAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+    bulkCreate: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+  };
+  return { sgpRepo, pgRepo, fgRepo, cvRepo };
+}
+
+describe('GenerateBoletinUseCase.buildMaterias — PR7-T1 regression: non-Primario path', () => {
+  let uc: GenerateBoletinUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+    );
+  });
+
+  it('Secundario (level=30): calls notaTrimestral.findMany, does NOT call SubjectPeriodGrade repo', async () => {
+    const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
+    const mockClient = {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([{
+          uuid: 'cc-sec',
+          courseId: 'section-sec',
+          level: 30,
+        }]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 'sa-1',
+            subjectId: 'subj-1',
+            subject: { name: 'Historia' },
+            teacher: { firstName: 'Ana', lastName: 'García' },
+          },
+        ]),
+      },
+      periodoEvaluacion: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'p-1', name: '1° Trimestre' },
+        ]),
+      },
+      notaTrimestral: { findMany: notaTrimestralFindMany },
+    };
+
+    const enrollment = { id: 'e-sec', studentId: 'stu-sec', level: 30, cycleId: 'cyc-1', academicYear: '2026' };
+    // buildMaterias is private — access via cast for regression testing
+    const result = await (uc as any).buildMaterias(mockClient, enrollment);
+
+    // The NEW Primario repos MUST NOT have been called
+    expect(repos.pgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+    expect(repos.fgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+    expect(repos.sgpRepo.findByCourseCycleAndSubject).not.toHaveBeenCalled();
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+
+    // The LEGACY path WAS called
+    expect(notaTrimestralFindMany).toHaveBeenCalled();
+
+    // Output has legacy shape — no Primario-specific optional fields set
+    expect(Array.isArray(result)).toBe(true);
+    expect(result[0]).toHaveProperty('notas');
+    expect(result[0]).toHaveProperty('promedio');
+    expect(result[0]).toHaveProperty('aprobado');
+    expect(result[0].periodGrades).toBeUndefined();
+    expect(result[0].finalGrades).toBeUndefined();
+    expect(result[0].competencies).toBeUndefined();
+    expect(result[0].flags).toBeUndefined();
+  });
+
+  it('INICIAL (level=10): does NOT call Primario repos', async () => {
+    const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
+    const mockClient = {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([{ uuid: 'cc-ini', courseId: 'sec-ini', level: 10 }]),
+      },
+      subjectAssignment: { findMany: vi.fn().mockResolvedValue([]) },
+      periodoEvaluacion: { findMany: vi.fn().mockResolvedValue([]) },
+      notaTrimestral: { findMany: notaTrimestralFindMany },
+    };
+
+    const enrollment = { id: 'e-ini', studentId: 'stu-ini', level: 10, cycleId: 'cyc-ini', academicYear: '2026' };
+    await (uc as any).buildMaterias(mockClient, enrollment);
+
+    expect(repos.pgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+    expect(repos.fgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
+  });
+});
+
+// ── PR7-T2: buildMateriasPrimario — Primario-specific data reads ──────────────
+
+describe('GenerateBoletinUseCase.buildMateriasPrimario — PR7-T2', () => {
+  const STUDENT_ID = 'stu-primario';
+  const CC_UUID = 'cc-primario';
+  const SUBJECT_ID = 'subj-mat';
+
+  function makeFullMockClient(overrides?: Partial<Record<string, unknown>>) {
+    return {
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([
+          { uuid: CC_UUID, courseId: 'section-p', level: 21, studyPlanId: 'sp-1' },
+        ]),
+      },
+      studyPlanCourse: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'spc-1' }),
+      },
+      studyPlanSubject: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'sps-1', subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Matemática' } },
+        ]),
+      },
+      subjectAssignment: {
+        findMany: vi.fn().mockResolvedValue([
+          { subjectId: SUBJECT_ID, teacher: { firstName: 'Juan', lastName: 'López' } },
+        ]),
+      },
+      ...overrides,
+    };
+  }
+
+  let uc: GenerateBoletinUseCase;
+  let repos: ReturnType<typeof makeRepos>;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    uc = new GenerateBoletinUseCase(
+      makePdfGenerator() as never,
+      makePdfStorage() as never,
+      makePrisma() as never,
+      repos.sgpRepo as never,
+      repos.pgRepo as never,
+      repos.fgRepo as never,
+      repos.cvRepo as never,
+    );
+  });
+
+  it('reads SubjectGradingPeriod for dynamic period columns', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1° Trimestre', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 2, periodName: '2° Trimestre', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(makeFullMockClient(), enrollment);
+
+    expect(repos.sgpRepo.findByCourseCycleAndSubject).toHaveBeenCalledWith(CC_UUID, SUBJECT_ID);
+    expect(result[0].periodGrades).toHaveLength(2);
+    expect(result[0].periodGrades[0].periodName).toBe('1° Trimestre');
+    expect(result[0].periodGrades[1].periodName).toBe('2° Trimestre');
+  });
+
+  it('reads SubjectPeriodGrade for period grades + pa/ppi/pp (absent → blank string)', async () => {
+    repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
+      { periodOrdinal: 1, periodName: '1° Trim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+      { periodOrdinal: 2, periodName: '2° Trim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },
+    ]);
+    repos.pgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      {
+        subjectId: SUBJECT_ID, periodOrdinal: 1, gradeCode: 'A',
+        gradeScaleValueId: 'gsv-1', internalStatus: null, pa: true, ppi: false, pp: false,
+      },
+      // period 2 is absent → gradeCode should be blank
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(makeFullMockClient(), enrollment);
+
+    expect(repos.pgRepo.findByStudentAndCourseCycle).toHaveBeenCalledWith(STUDENT_ID, CC_UUID);
+    expect(result[0].periodGrades[0].gradeCode).toBe('A');
+    expect(result[0].periodGrades[1].gradeCode).toBe('');   // absent → blank, not error
+  });
+
+  it('reads SubjectFinalGrade — 4 instances, absent row → blank not error', async () => {
+    repos.fgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      { subjectId: SUBJECT_ID, type: 'FINAL',      gradeCode: 'A+',  passed: true },
+      // DICIEMBRE and MARZO absent
+      { subjectId: SUBJECT_ID, type: 'DEFINITIVA',  gradeCode: 'A+',  passed: true },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(makeFullMockClient(), enrollment);
+
+    expect(repos.fgRepo.findByStudentAndCourseCycle).toHaveBeenCalledWith(STUDENT_ID, CC_UUID);
+    const finals = result[0].finalGrades as Array<{ type: string; gradeCode: string }>;
+    expect(finals).toHaveLength(4);
+    expect(finals.find((f) => f.type === 'FINAL')?.gradeCode).toBe('A+');
+    expect(finals.find((f) => f.type === 'DICIEMBRE')?.gradeCode).toBe('');   // absent → blank
+    expect(finals.find((f) => f.type === 'MARZO')?.gradeCode).toBe('');      // absent → blank
+    expect(finals.find((f) => f.type === 'DEFINITIVA')?.gradeCode).toBe('A+');
+  });
+
+  it('filters CompetencyPeriodValuation to imprimible=true; excludes other students', async () => {
+    repos.cvRepo.findByCourseCycleAndStudyPlanSubject.mockResolvedValue([
+      {
+        valuationId: 'val-1', studentId: STUDENT_ID, competencyId: 'comp-1',
+        competencyName: 'Lee y comprende',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: true,  gradeCode: 'MB', modificable: true, gradeScaleValueId: 'gsv-1', internalStatus: null },
+          { periodItemId: 'pi-2', imprimible: false, gradeCode: 'B',  modificable: true, gradeScaleValueId: 'gsv-2', internalStatus: null },
+        ],
+      },
+      {
+        valuationId: 'val-2', studentId: STUDENT_ID, competencyId: 'comp-2',
+        competencyName: 'No imprimible',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: false, gradeCode: 'B', modificable: true, gradeScaleValueId: null, internalStatus: null },
+        ],
+      },
+      {
+        // Different student — must be excluded
+        valuationId: 'val-3', studentId: 'other-student', competencyId: 'comp-1',
+        competencyName: 'Lee y comprende',
+        periodValuations: [
+          { periodItemId: 'pi-1', imprimible: true, gradeCode: 'MB', modificable: true, gradeScaleValueId: 'gsv-1', internalStatus: null },
+        ],
+      },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(makeFullMockClient(), enrollment);
+
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).toHaveBeenCalledWith(CC_UUID, 'sps-1');
+    const comps = result[0].competencies as Array<{ competencyName: string }>;
+    // Only comp-1 for STUDENT_ID has imprimible=true; comp-2 has none; other-student is excluded
+    expect(comps).toHaveLength(1);
+    expect(comps[0].competencyName).toBe('Lee y comprende');
+  });
+
+  it('OR-aggregates pa/ppi/pp flags across reported periods per subject', async () => {
+    repos.pgRepo.findByStudentAndCourseCycle.mockResolvedValue([
+      { subjectId: SUBJECT_ID, periodOrdinal: 1, gradeCode: 'A', pa: true,  ppi: false, pp: false },
+      { subjectId: SUBJECT_ID, periodOrdinal: 2, gradeCode: 'B', pa: false, ppi: true,  pp: false },
+      { subjectId: SUBJECT_ID, periodOrdinal: 3, gradeCode: 'C', pa: false, ppi: false, pp: true  },
+    ]);
+
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(makeFullMockClient(), enrollment);
+
+    // OR of: (true,false,false) | (false,true,false) | (false,false,true) → all true
+    expect(result[0].flags).toEqual({ pa: true, ppi: true, pp: true });
+  });
+
+  it('returns empty array when no Primario courseCycles found', async () => {
+    const clientNoCCs = {
+      ...makeFullMockClient(),
+      courseCycle: {
+        findMany: vi.fn().mockResolvedValue([
+          { uuid: 'cc-sec', courseId: 'section-sec', level: 30, studyPlanId: 'sp-sec' },
+        ]),
+      },
+    };
+    const enrollment = { studentId: STUDENT_ID, level: 21, cycleId: 'cyc-p', academicYear: '2026' };
+    const result = await (uc as any).buildMateriasPrimario(clientNoCCs, enrollment);
+    expect(result).toEqual([]);
+  });
+});

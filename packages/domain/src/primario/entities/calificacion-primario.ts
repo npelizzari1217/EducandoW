@@ -27,6 +27,11 @@ export interface CreateCalificacionPrimarioInput {
 const NOTA_MIN = 1.0;
 const NOTA_MAX = 10.0;
 
+/**
+ * @deprecated Use SubjectPeriodGrade (PR7 Primario branch) for new Primario grading.
+ * This entity is retained for Secundario/Terciario boletines that still depend on it.
+ * Do NOT delete until those paths are migrated.
+ */
 export class CalificacionPrimario {
   private constructor(private props: CalificacionPrimarioProps) {}
 
