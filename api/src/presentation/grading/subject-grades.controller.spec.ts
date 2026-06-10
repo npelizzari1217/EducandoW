@@ -1,10 +1,10 @@
 /**
- * PR4-T16 [RED] — SubjectGradesController tests (READ-SIDE ONLY).
- * Write-side tests (PUT period grades, PUT finals) are DEFERRED to PR4b.
- * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7
+ * PR4-T16 — SubjectGradesController tests (read-side + write-side PR4b).
+ * Write-side tests added in PR4b: PUT /grading/subject-grades, PUT /grading/subject-final-grades.
+ * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7, SPG-R3, SFG-R5
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { HttpException } from '@nestjs/common';
+import { ok, err, NotFoundError, ValidationError } from '@educandow/domain';
 
 let SubjectGradesController: any;
 
@@ -65,6 +65,12 @@ function makeController(overrides: Record<string, unknown> = {}) {
   };
   ctrl.getByStudentUC = overrides.getByStudentUC ?? {
     execute: vi.fn().mockResolvedValue(makeStudentResult()),
+  };
+  ctrl.upsertPeriodGradesUC = overrides.upsertPeriodGradesUC ?? {
+    execute: vi.fn().mockResolvedValue(ok(undefined)),
+  };
+  ctrl.upsertFinalGradesUC = overrides.upsertFinalGradesUC ?? {
+    execute: vi.fn().mockResolvedValue(ok(undefined)),
   };
   return ctrl;
 }
@@ -192,5 +198,178 @@ describe('SubjectGradesController — GET by-student', () => {
     const user = { userId: 'u-teacher', roles: ['TEACHER'] };
 
     await expect(ctrl.getByStudent(user, { courseCycleId: 'cc-1', studentId: 'stud-1' })).rejects.toThrow();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUT /grading/subject-grades (upsert period grades + flags)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('SubjectGradesController — PUT period grades', () => {
+  it('SPG-R3: successful upsert returns { data: null } (200)', async () => {
+    const ctrl = makeController({
+      upsertPeriodGradesUC: { execute: vi.fn().mockResolvedValue(ok(undefined)) },
+    });
+
+    const response = await ctrl.upsertPeriodGrades({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-1',
+        subjectId: 'subj-1',
+        periodOrdinal: 1,
+      }],
+    });
+
+    expect(response).toEqual({ data: null });
+  });
+
+  it('validation pipe: empty items array throws 400', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectPeriodGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectPeriodGradesSchema);
+
+    expect(() => pipe.transform({ items: [] }, {} as any)).toThrow();
+  });
+
+  it('validation pipe: missing studentId in item throws 400', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectPeriodGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectPeriodGradesSchema);
+
+    expect(() =>
+      pipe.transform(
+        { items: [{ courseCycleId: 'cc-1', subjectId: 'subj-1', periodOrdinal: 1 }] },
+        {} as any,
+      ),
+    ).toThrow();
+  });
+
+  it('SPG-R5: NotFoundError from use case maps to NotFoundException (404)', async () => {
+    const ctrl = makeController({
+      upsertPeriodGradesUC: {
+        execute: vi.fn().mockResolvedValue(err(new NotFoundError('CourseCycle', 'cc-1'))),
+      },
+    });
+
+    await expect(
+      ctrl.upsertPeriodGrades({ items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', periodOrdinal: 1 }] }),
+    ).rejects.toThrow();
+  });
+
+  it('SPG-R5: ValidationError from use case maps to BadRequestException (400)', async () => {
+    const ctrl = makeController({
+      upsertPeriodGradesUC: {
+        execute: vi.fn().mockResolvedValue(err(new ValidationError('invalid gradeScaleValueId'))),
+      },
+    });
+
+    await expect(
+      ctrl.upsertPeriodGrades({ items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', periodOrdinal: 1 }] }),
+    ).rejects.toThrow();
+  });
+
+  it('calls upsertPeriodGradesUC.execute with the body items', async () => {
+    const executeMock = vi.fn().mockResolvedValue(ok(undefined));
+    const ctrl = makeController({ upsertPeriodGradesUC: { execute: executeMock } });
+    const body = {
+      items: [{ studentId: 'student-1', courseCycleId: 'cc-1', subjectId: 'subj-1', periodOrdinal: 2, pa: true }],
+    };
+
+    await ctrl.upsertPeriodGrades(body);
+
+    expect(executeMock).toHaveBeenCalledWith(body);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PUT /grading/subject-final-grades (upsert final grades)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('SubjectGradesController — PUT final grades', () => {
+  it('SFG-R5: successful upsert returns { data: null } (200)', async () => {
+    const ctrl = makeController({
+      upsertFinalGradesUC: { execute: vi.fn().mockResolvedValue(ok(undefined)) },
+    });
+
+    const response = await ctrl.upsertFinalGrades({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-1',
+        subjectId: 'subj-1',
+        type: 'FINAL',
+      }],
+    });
+
+    expect(response).toEqual({ data: null });
+  });
+
+  it('validation pipe: empty items array throws 400', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectFinalGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectFinalGradesSchema);
+
+    expect(() => pipe.transform({ items: [] }, {} as any)).toThrow();
+  });
+
+  it('validation pipe: invalid type value throws 400', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectFinalGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectFinalGradesSchema);
+
+    expect(() =>
+      pipe.transform(
+        { items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'INVALID_TYPE' }] },
+        {} as any,
+      ),
+    ).toThrow();
+  });
+
+  it('AD-2: ValidationError (lifecycle block) from use case maps to 400', async () => {
+    const ctrl = makeController({
+      upsertFinalGradesUC: {
+        execute: vi.fn().mockResolvedValue(err(new ValidationError('DICIEMBRE blocked: FINAL already passed'))),
+      },
+    });
+
+    await expect(
+      ctrl.upsertFinalGrades({ items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'DICIEMBRE' }] }),
+    ).rejects.toThrow();
+  });
+
+  it('NotFoundError from use case maps to NotFoundException (404)', async () => {
+    const ctrl = makeController({
+      upsertFinalGradesUC: {
+        execute: vi.fn().mockResolvedValue(err(new NotFoundError('CourseCycle', 'cc-1'))),
+      },
+    });
+
+    await expect(
+      ctrl.upsertFinalGrades({ items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL' }] }),
+    ).rejects.toThrow();
+  });
+
+  it('calls upsertFinalGradesUC.execute with the body items', async () => {
+    const executeMock = vi.fn().mockResolvedValue(ok(undefined));
+    const ctrl = makeController({ upsertFinalGradesUC: { execute: executeMock } });
+    const body = {
+      items: [{ studentId: 'student-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', passed: true }],
+    };
+
+    await ctrl.upsertFinalGrades(body);
+
+    expect(executeMock).toHaveBeenCalledWith(body);
+  });
+
+  it('W1: validation pipe: gradeScaleValueId null rejected with 400 (clearing final grades not supported)', async () => {
+    const { ZodValidationPipe } = await import('../shared/pipes/zod-validation.pipe');
+    const { UpsertSubjectFinalGradesSchema } = await import('./dto/subject-grades.dto');
+    const pipe = new ZodValidationPipe(UpsertSubjectFinalGradesSchema);
+
+    expect(() =>
+      pipe.transform(
+        { items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', gradeScaleValueId: null }] },
+        {} as any,
+      ),
+    ).toThrow();
   });
 });

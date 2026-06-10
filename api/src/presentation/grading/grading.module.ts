@@ -39,6 +39,8 @@ import { PrismaTeacherRepository } from '../../infrastructure/persistence/prisma
 import { PrismaSubjectAssignmentRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-assignment.repository';
 import { GetSubjectGradesBySubjectUseCase } from '../../application/grading/get-subject-grades-by-subject.use-case';
 import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-subject-grades-by-student.use-case';
+import { UpsertSubjectPeriodGradesUseCase } from '../../application/grading/upsert-subject-period-grades.use-case';
+import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upsert-subject-final-grades.use-case';
 
 /**
  * GradingModule — escalas (1a) + períodos (1b) + planillas (4a read).
@@ -208,6 +210,36 @@ import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-
         PrismaCompetencyValuationRepo,
         PrismaTeacherRepository,
         PrismaSubjectAssignmentRepo,
+      ],
+    },
+
+    // ── PR4b: Subject grades write use cases ────────────────────────────────
+    {
+      provide: UpsertSubjectPeriodGradesUseCase,
+      useFactory: (
+        pgRepo: PrismaSubjectPeriodGradeRepository,
+        sgpRepo: PrismaSubjectGradingPeriodRepository,
+        ccRepo: PrismaCourseCycleRepository,
+        scaleRepo: PrismaGradeScaleRepository,
+      ) => new UpsertSubjectPeriodGradesUseCase(pgRepo, sgpRepo, ccRepo, scaleRepo),
+      inject: [
+        PrismaSubjectPeriodGradeRepository,
+        PrismaSubjectGradingPeriodRepository,
+        PrismaCourseCycleRepository,
+        PrismaGradeScaleRepository,
+      ],
+    },
+    {
+      provide: UpsertSubjectFinalGradesUseCase,
+      useFactory: (
+        fgRepo: PrismaSubjectFinalGradeRepository,
+        ccRepo: PrismaCourseCycleRepository,
+        scaleRepo: PrismaGradeScaleRepository,
+      ) => new UpsertSubjectFinalGradesUseCase(fgRepo, ccRepo, scaleRepo),
+      inject: [
+        PrismaSubjectFinalGradeRepository,
+        PrismaCourseCycleRepository,
+        PrismaGradeScaleRepository,
       ],
     },
   ],

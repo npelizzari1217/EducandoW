@@ -1,16 +1,21 @@
 /**
- * PR4-T17 [GREEN] — SubjectGradesController (READ-SIDE ONLY).
+ * PR4-T17 [GREEN] — SubjectGradesController (read-side + write-side PR4b).
  * Security fixes (PR4a-SEC): C1 (authz via JWT userId) + C3 (module GRADES not GRADING).
- * Write-side endpoints (PUT period grades, PUT finals) are DEFERRED to PR4b.
- * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7, AD-5, AD-7
+ * Write-side endpoints added in PR4b: PUT period grades, PUT finals.
+ * Specs: SPG-R8, SFG-R10, TIA-R8, ES-R7, AD-5, AD-7, SPG-R3, SFG-R5
  */
 import {
   Controller,
   Get,
+  Put,
+  Body,
   Query,
   ForbiddenException,
+  NotFoundException,
+  BadRequestException,
   UseGuards,
 } from '@nestjs/common';
+import { NotFoundError } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -22,16 +27,24 @@ import {
   SubjectGradesBySubjectQueryDto,
   SubjectGradesByStudentQuerySchema,
   SubjectGradesByStudentQueryDto,
+  UpsertSubjectPeriodGradesSchema,
+  UpsertSubjectPeriodGradesDto,
+  UpsertSubjectFinalGradesSchema,
+  UpsertSubjectFinalGradesDto,
 } from './dto/subject-grades.dto';
 import { GetSubjectGradesBySubjectUseCase } from '../../application/grading/get-subject-grades-by-subject.use-case';
 import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-subject-grades-by-student.use-case';
+import { UpsertSubjectPeriodGradesUseCase } from '../../application/grading/upsert-subject-period-grades.use-case';
+import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upsert-subject-final-grades.use-case';
 
-@Controller('grading/subject-grades')
+@Controller('grading')
 @UseGuards(AuthGuard, RolesGuard)
 export class SubjectGradesController {
   constructor(
     private readonly getBySubjectUC: GetSubjectGradesBySubjectUseCase,
     private readonly getByStudentUC: GetSubjectGradesByStudentUseCase,
+    private readonly upsertPeriodGradesUC: UpsertSubjectPeriodGradesUseCase,
+    private readonly upsertFinalGradesUC: UpsertSubjectFinalGradesUseCase,
   ) {}
 
   /**
@@ -40,7 +53,7 @@ export class SubjectGradesController {
    * C1: teacher must have SubjectAssignment for (courseCycleId, subjectId) — enforced in use case.
    * C3: module 'GRADES' (was 'GRADING' — mismatch with seeded module code).
    */
-  @Get()
+  @Get('subject-grades')
   @Roles({ module: 'GRADES', action: 'READ' })
   async getBySubject(
     @CurrentUser() user: AuthenticatedUser,
@@ -65,7 +78,7 @@ export class SubjectGradesController {
    * C1: teacher must be homeroom or have subject assignment in courseCycleId — enforced in use case.
    * C3: module 'GRADES' (was 'GRADING').
    */
-  @Get('by-student')
+  @Get('subject-grades/by-student')
   @Roles({ module: 'GRADES', action: 'READ' })
   async getByStudent(
     @CurrentUser() user: AuthenticatedUser,
@@ -82,5 +95,54 @@ export class SubjectGradesController {
       throw new ForbiddenException('Not authorized to access grades for this course/student');
     }
     return { data: result };
+  }
+
+  /**
+   * PUT /grading/subject-grades
+   * Batch upsert period grades AND pa/ppi/pp flags (one write path — AD-3).
+   * Returns 200 { data: null } on success.
+   * 400 on invalid gradeScaleValueId or periodOrdinal out of range.
+   * 404 on missing courseCycleId / subjectId / studentId.
+   */
+  @Put('subject-grades')
+  @Roles({ module: 'GRADES', action: 'WRITE' })
+  async upsertPeriodGrades(
+    @Body(new ZodValidationPipe(UpsertSubjectPeriodGradesSchema))
+    body: UpsertSubjectPeriodGradesDto,
+  ) {
+    const result = await this.upsertPeriodGradesUC.execute(body);
+    if (result.isErr()) {
+      const error = result.unwrapErr();
+      if (error instanceof NotFoundError) {
+        throw new NotFoundException(error.message);
+      }
+      throw new BadRequestException(error.message);
+    }
+    return { data: null };
+  }
+
+  /**
+   * PUT /grading/subject-final-grades
+   * Batch upsert final grades. Lifecycle enforced in use case (AD-2):
+   *   DICIEMBRE blocked when FINAL.passed=true → 400.
+   *   MARZO blocked when DICIEMBRE.passed=true → 400.
+   *   DEFINITIVA always allowed.
+   * Returns 200 { data: null } on success.
+   */
+  @Put('subject-final-grades')
+  @Roles({ module: 'GRADES', action: 'WRITE' })
+  async upsertFinalGrades(
+    @Body(new ZodValidationPipe(UpsertSubjectFinalGradesSchema))
+    body: UpsertSubjectFinalGradesDto,
+  ) {
+    const result = await this.upsertFinalGradesUC.execute(body);
+    if (result.isErr()) {
+      const error = result.unwrapErr();
+      if (error instanceof NotFoundError) {
+        throw new NotFoundException(error.message);
+      }
+      throw new BadRequestException(error.message);
+    }
+    return { data: null };
   }
 }

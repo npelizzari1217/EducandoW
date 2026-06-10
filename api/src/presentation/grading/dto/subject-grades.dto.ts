@@ -1,10 +1,11 @@
 /**
- * PR4-T15 — Subject grades DTOs (read-side).
- * Zod schemas for query params. Response types are TypeScript interfaces (not Zod)
- * since they are assembled by use cases and returned as-is.
- * Write-side DTOs (UpsertSubjectPeriodGradeDto, UpsertSubjectFinalGradeDto) are DEFERRED to PR4b.
+ * PR4-T15 — Subject grades DTOs (read-side + write-side).
+ * Read-side: Zod schemas for query params.
+ * Write-side (PR4b): UpsertSubjectPeriodGradesSchema, UpsertSubjectFinalGradesSchema.
+ * Response types are TypeScript interfaces (not Zod) since they are assembled by use cases.
  */
 import { z } from 'zod';
+import { SubjectFinalGradeType } from '@educandow/domain';
 
 // ── Query params ──────────────────────────────────────────────────────────────
 
@@ -44,3 +45,55 @@ export const TeacherSubjectsQuerySchema = z.object({
 });
 
 export type TeacherSubjectsQueryDto = z.infer<typeof TeacherSubjectsQuerySchema>;
+
+// ── Write-side DTOs (PR4b) ────────────────────────────────────────────────────
+
+/**
+ * One period-grade + flags row in the batch upsert body.
+ * gradeScaleValueId=null clears the grade; omitted leaves grade fields unchanged.
+ * pa/ppi/pp omitted fields retain their prior value (AD-3, PPF-R4).
+ */
+const UpsertPeriodGradeItemSchema = z.object({
+  studentId: z.string().min(1, 'studentId is required'),
+  courseCycleId: z.string().min(1, 'courseCycleId is required'),
+  subjectId: z.string().min(1, 'subjectId is required'),
+  periodOrdinal: z.number().int().min(1, 'periodOrdinal must be >= 1'),
+  gradeScaleValueId: z.string().min(1).nullable().optional(),
+  pa: z.boolean().optional(),
+  ppi: z.boolean().optional(),
+  pp: z.boolean().optional(),
+});
+
+/** PUT /grading/subject-grades — batch upsert period grades + flags. */
+export const UpsertSubjectPeriodGradesSchema = z.object({
+  items: z.array(UpsertPeriodGradeItemSchema).min(1, 'items must not be empty'),
+});
+
+export type UpsertSubjectPeriodGradesDto = z.infer<typeof UpsertSubjectPeriodGradesSchema>;
+
+/**
+ * One final-grade row in the batch upsert body.
+ * type must be one of the four SubjectFinalGradeType values.
+ * passed is accepted on all types (SFG-R4).
+ * gradeScaleValueId must be a non-empty string when provided; null is rejected (AD-2:
+ * SubjectFinalGrade has no clearGrade() — clearing final grades is not supported).
+ */
+const UpsertFinalGradeItemSchema = z.object({
+  studentId: z.string().min(1, 'studentId is required'),
+  courseCycleId: z.string().min(1, 'courseCycleId is required'),
+  subjectId: z.string().min(1, 'subjectId is required'),
+  type: z.nativeEnum(SubjectFinalGradeType, {
+    errorMap: () => ({
+      message: `type must be one of: ${Object.values(SubjectFinalGradeType).join(', ')}`,
+    }),
+  }),
+  gradeScaleValueId: z.string().min(1).optional(),
+  passed: z.boolean().optional(),
+});
+
+/** PUT /grading/subject-final-grades — batch upsert final grades. */
+export const UpsertSubjectFinalGradesSchema = z.object({
+  items: z.array(UpsertFinalGradeItemSchema).min(1, 'items must not be empty'),
+});
+
+export type UpsertSubjectFinalGradesDto = z.infer<typeof UpsertSubjectFinalGradesSchema>;
