@@ -18,6 +18,11 @@ Write-Host "=== EducandoW Deploy ===" -ForegroundColor Cyan
 # ── 1. Stop previous API ─────────────────────────────────────────────────
 Write-Host "[1/10] Stopping previous API..." -ForegroundColor Yellow
 pm2 delete $API_NAME -s 2>$null
+# Stop the NSSM Windows service too. If the node process keeps running it holds
+# a lock on node_modules\.prisma\client\query_engine-windows.dll.node, and step 6
+# (prisma generate) then fails with EPERM. pm2 delete is a no-op now (we use NSSM).
+Stop-Service -Name $API_NAME -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
 Write-Host "  Stopped." -ForegroundColor Green
 
 # ── 2. Ensure pnpm ───────────────────────────────────────────────────────
@@ -70,7 +75,10 @@ Write-Host "  Dependencies installed." -ForegroundColor Green
 # Con node-linker=hoisted (.npmrc) pnpm crea los node_modules/.bin locales en
 # Windows, asi que typescript ya NO se necesita global (se usa el local 5.9.3).
 Write-Host "[4b/10] Ensuring global nest CLI + tsx (fallback)..." -ForegroundColor Yellow
-npm install -g @nestjs/cli tsx 2>&1 | Out-Null
+# Run via cmd so npm's stderr (e.g. an update "npm notice") cannot trip
+# $ErrorActionPreference='Stop' as a NativeCommandError and abort the deploy.
+# >nul 2>&1 swallows both streams; this step is a non-critical fallback.
+cmd /c "npm install -g @nestjs/cli tsx >nul 2>&1"
 Write-Host "  Global tools ready (nest, tsx)." -ForegroundColor Green
 
 # ── 5. Build domain ─────────────────────────────────────────────────────
