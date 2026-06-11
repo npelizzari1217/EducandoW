@@ -318,7 +318,8 @@ describe('SubjectGradingByCoursePage', () => {
     );
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/course-cycles/cc-hm-1/students');
+      // non-ROOT: no institutionId param (tenant resolved from JWT). ROOT passes { params: { institutionId } }.
+      expect(apiClient.get).toHaveBeenCalledWith('/course-cycles/cc-hm-1/students', undefined);
     });
 
     await waitFor(() => screen.getByTestId('student-list'));

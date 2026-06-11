@@ -444,7 +444,10 @@ export default function SubjectGradingByCoursePage() {
     setStudents([]);
 
     apiClient
-      .get(`/course-cycles/${ccContext.courseCycleId}/students`)
+      .get(
+        `/course-cycles/${ccContext.courseCycleId}/students`,
+        ccContext.institutionId ? { params: { institutionId: ccContext.institutionId } } : undefined,
+      )
       .then((r) => setStudents((r.data as { data?: EnrolledStudent[] })?.data ?? []))
       .catch(() => setStudents([]))
       .finally(() => setStudentsLoading(false));
@@ -459,7 +462,7 @@ export default function SubjectGradingByCoursePage() {
     <div>
       <PremiumHeader
         title="Alumnos por Curso"
-        subtitle="Seleccioná tu curso a cargo para ver los alumnos y sus acciones"
+        subtitle="Seleccioná un curso para ver los alumnos y sus acciones"
         icon="📋"
       />
 
