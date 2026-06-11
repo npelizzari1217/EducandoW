@@ -73,6 +73,32 @@ describe('findEnrolledStudentsByCourseCycle', () => {
     );
   });
 
+  it('decomposes the section composite level into enrollment (level, modality)', async () => {
+    // CourseSection.level=20 is the composite (levelCode 2 * 10 + modality 0);
+    // enrollments store level=2 + modality=0 separately, so the query must decompose.
+    const mockFindMany = vi.fn().mockResolvedValue([]);
+    const mockClient = {
+      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },
+      courseSection: {
+        findUnique: vi.fn().mockResolvedValue({
+          level: 20,
+          grade: '3',
+          division: 'A',
+          academicYear: '2026',
+        }),
+      },
+      enrollment: { findMany: mockFindMany },
+    };
+
+    await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ level: 2, modality: 0, grade: '3', division: 'A', academicYear: '2026' }),
+      }),
+    );
+  });
+
   it('returns [] when no active enrollments exist (SBC-3 precondition)', async () => {
     const mockClient = {
       courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },

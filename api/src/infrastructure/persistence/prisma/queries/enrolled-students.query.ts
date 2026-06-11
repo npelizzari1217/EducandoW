@@ -37,9 +37,16 @@ export async function findEnrolledStudentsByCourseCycle(
   });
   if (!section) return [];
 
+  // CourseSection.level is the composite code (levelCode*10 + modality), while
+  // Enrollment stores the pair (level=levelCode, modality) separately. Decompose
+  // the section's composite to match the enrollment's stored representation.
+  const sectionLevelCode = Math.floor(section.level / 10);
+  const sectionModality = section.level % 10;
+
   const enrollments = await client.enrollment.findMany({
     where: {
-      level: section.level,
+      level: sectionLevelCode,
+      modality: sectionModality,
       grade: section.grade,
       division: section.division,
       academicYear: section.academicYear,
