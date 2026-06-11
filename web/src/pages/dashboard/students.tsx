@@ -53,7 +53,6 @@ export default function StudentsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
 
   useEffect(() => {
-    if (!isStudent || (!isTutor && !isStudent && !isStaff)) return;
     if (!isStudent) return;
     setProfileLoading(true);
     apiClient.get('/students/me')

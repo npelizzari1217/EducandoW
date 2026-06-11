@@ -95,6 +95,7 @@ export default function StudyPlansPage() {
         setInstitutionId(list[0].id);
       }
     }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init de montaje: lee institutionId para fijar default, no para reaccionar a sus cambios
   }, [isRoot]);
 
   const tenantQueryParams = institutionId ? { institutionId } : undefined;
