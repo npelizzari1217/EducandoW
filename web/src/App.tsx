@@ -38,6 +38,7 @@ import CourseCyclesPage from './pages/dashboard/course-cycles';
 import AttendanceTypesPage from './pages/dashboard/attendance-types';
 import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
+import ObservationsByCyclePage from './pages/dashboard/observations-by-cycle';
 import GradingScalesPage from './pages/dashboard/grading-scales';
 import GradingPeriodsPage from './pages/dashboard/grading-periods';
 import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-subject';
@@ -85,6 +86,7 @@ function App() {
               <Route path="/course-cycles" element={<CourseCyclesPage />} />
               <Route path="/academic-cycles" element={<ProtectedRoute moduleCode="COURSES" action="READ"><AcademicCyclesPage /></ProtectedRoute>} />
               <Route path="/observations" element={<ObservationsPage />} />
+              <Route path="/observations-by-cycle" element={<ObservationsByCyclePage />} />
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
               <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
               <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
