@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useAuth } from '../../context/auth-context';
+import { useCan } from '../../hooks/use-can';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import apiClient from '../../api/client';
@@ -89,7 +89,7 @@ export function moduleAccessToBooleans(items: ModuleAccessItem[], modules: Modul
 // ── Componente ────────────────────────────────────────────
 
 export default function ProfilesPage() {
-  const { user } = useAuth();
+  const { can: hasModuleAction } = useCan();
 
   const { data: profiles, loading, reload } = useApiList<Profile>('/profiles');
   const { del } = useApiDelete('/profiles');
@@ -103,11 +103,6 @@ export default function ProfilesPage() {
   const [formName, setFormName] = useState('');
   const [formPermissions, setFormPermissions] = useState<ModuleAccessItem[]>([]);
   const [allModules, setAllModules] = useState<ModuleInfo[]>([]);
-
-  const isRoot = user?.roles?.includes('ROOT') ?? false;
-  const userModules = user?.modules ?? [];
-  const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
-    isRoot || userModules.some((m) => m.moduleCode === moduleCode && actions.some((a) => m.actions.includes(a)));
 
   // Fetch modules on mount
   useEffect(() => {

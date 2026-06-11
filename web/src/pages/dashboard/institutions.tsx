@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { useAuth } from '../../context/auth-context';
+import { useCan } from '../../hooks/use-can';
 import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import apiClient from '../../api/client';
@@ -146,7 +146,7 @@ function SectionHeader({ title, expanded, onToggle }: { title: string; expanded:
 }
 
 export default function InstitutionsPage() {
-  const { user } = useAuth();
+  const { can: hasModuleAction, isRoot } = useCan();
   const { data, loading, reload } = useApiList<InstitutionRow>('/institutions');
   const { deleting, del } = useApiDelete('/institutions');
   const [showForm, setShowForm] = useState(false);
@@ -166,11 +166,6 @@ export default function InstitutionsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [adminCredentials, setAdminCredentials] = useState<{ email: string; password: string } | null>(null);
-
-  const isRoot = user?.roles?.includes('ROOT') ?? false;
-  const userModules = user?.modules ?? [];
-  const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
-    isRoot || userModules.some(m => m.moduleCode === moduleCode && actions.some(a => m.actions.includes(a)));
 
   // Collapsible section state
   const [sections, setSections] = useState({

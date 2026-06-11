@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useAuth } from '../../context/auth-context';
+import { useCan } from '../../hooks/use-can';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -96,9 +96,8 @@ const EMPTY_VALUE_FORM: ValueForm = { code: '', label: '', internalStatus: 'APRO
 // ── Page component ─────────────────────────────────────────
 
 export default function GradingScalesPage() {
-  const { user } = useAuth();
+  const { can: hasModuleAction, isRoot } = useCan();
   const { config } = useInstitution();
-  const isRoot = user?.roles?.includes('ROOT') ?? false;
 
   // ROOT institution selector
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -296,11 +295,6 @@ export default function GradingScalesPage() {
     : [];
 
   // ── Permissions ────────────────────────────────────────
-
-  const userModules = user?.modules ?? [];
-  const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
-    isRoot || userModules.some((m: { moduleCode: string; actions: string[] }) =>
-      m.moduleCode === moduleCode && actions.some(a => m.actions.includes(a)));
 
   const canCreate = hasModuleAction('GRADING_CONFIG', 'CREATE') && (!isRoot || !!institutionId);
 

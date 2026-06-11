@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useAuth } from '../../context/auth-context';
+import { useCan } from '../../hooks/use-can';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -63,9 +63,8 @@ const LEVEL_LABELS: Record<number, string> = {
 // ── Page component ──
 
 export default function AttendanceTypesPage() {
-  const { user } = useAuth();
+  const { can: hasModuleAction, isRoot } = useCan();
   const { config } = useInstitution();
-  const isRoot = user?.roles?.includes('ROOT') ?? false;
 
   // ROOT institution selector
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -99,10 +98,6 @@ export default function AttendanceTypesPage() {
   // Filter state
   const [filterLevel, setFilterLevel] = useState<string>('');
   const [filterActive, setFilterActive] = useState<string>('');
-
-  const userModules = user?.modules ?? [];
-  const hasModuleAction = (moduleCode: string, ...actions: string[]) =>
-    isRoot || userModules.some((m: { moduleCode: string; actions: string[] }) => m.moduleCode === moduleCode && actions.some((a) => m.actions.includes(a)));
 
   const update = (field: keyof AttendanceTypeForm, value: string | boolean | number) => {
     setForm((f) => ({ ...f, [field]: value }));

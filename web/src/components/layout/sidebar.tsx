@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
+import { useCan } from '../../hooks/use-can';
 import { useInstitution } from '../../context/institution-context';
 import { SidebarGroup } from './SidebarGroup';
 import { useTeacherGradingAccess } from './use-teacher-grading-access';
@@ -25,11 +26,6 @@ interface NavGroupDef {
     label: string;    // LEVEL_LABELS[levelId]
     items: NavItem[]; // pre-filtered items for this level
   }[];
-}
-
-function isRoot(user: { role?: string; roles?: string[] } | null): boolean {
-  if (!user) return false;
-  return user.roles?.includes('ROOT') || user.role === 'ROOT' || false;
 }
 
 const navGroups: NavGroupDef[] = [
@@ -122,34 +118,21 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-function hasModulePermission(
-  userModules: { moduleCode: string; actions: string[] }[] | undefined,
-  moduleCode: string,
-  action: string = 'READ',
-): boolean {
-  if (!userModules) return false;
-  return userModules.some(
-    (m) => m.moduleCode === moduleCode && m.actions.includes(action),
-  );
-}
-
 function makeFilterItem(
-  user: { role: string; roles?: string[] } | null,
-  userModules: { moduleCode: string; actions: string[] }[] | undefined,
+  can: (moduleCode: string, ...actions: string[]) => boolean,
+  isRootUser: boolean,
   hasLevels: boolean,
   baseLevels: Set<number>,
   sendEmail: boolean,
   sendMessages: boolean,
 ) {
-  const root = isRoot(user);
-
   return (item: NavItem): boolean => {
     // ROOT sees everything — no further checks
-    if (root) return true;
+    if (isRootUser) return true;
 
     // Module-based filter: non-ROOT must have moduleCode with READ
     if (item.moduleCode) {
-      if (!hasModulePermission(userModules, item.moduleCode)) return false;
+      if (!can(item.moduleCode, 'READ')) return false;
     }
     // Módulos item: visible only to ROOT (no moduleCode set)
     if (item.path === '/modules') return false;
@@ -171,6 +154,7 @@ const GRADING_ASSIGNMENT_PATHS: Record<string, 'hasSubject' | 'hasCourse'> = {
 
 export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const { user, logout } = useAuth();
+  const { can, isRoot: userIsRoot } = useCan();
   const { config } = useInstitution();
   const navigate = useNavigate();
 
@@ -180,7 +164,7 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const effectiveBaseLevels = userBaseLevels;
   const hasLevels = userBaseLevels.size > 0;
 
-  const filterItem = makeFilterItem(user, user?.modules, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
+  const filterItem = makeFilterItem(can, userIsRoot, hasLevels, effectiveBaseLevels, config.send_email, config.send_messages);
 
   // Assignment-based visibility gate for the two grading items.
   // ROOT bypasses (loading=false, both=true). Non-GRADES users never fetch.
