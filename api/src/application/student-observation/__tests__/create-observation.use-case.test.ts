@@ -30,6 +30,7 @@ describe('CreateObservationUseCase — PSYCHOPEDAGOGICAL authorization', () => {
       type: 'PEDAGOGICAL',
       content: 'Class performance is good.',
       authorRoles: ['TEACHER'],
+      enrollmentId: 'enrollment-uuid-1',
     });
 
     expect(result.isOk()).toBe(true);
@@ -123,5 +124,51 @@ describe('CreateObservationUseCase — PSYCHOPEDAGOGICAL authorization', () => {
     });
 
     expect(result.isErr()).toBe(true);
+  });
+
+  // ── enrollmentId invariant ─────────────────────────────────────────────────
+
+  it('returns err when PEDAGOGICAL observation has no enrollmentId', async () => {
+    const result = await useCase.execute({
+      studentId: validStudentId,
+      authorId: validAuthorId,
+      type: 'PEDAGOGICAL',
+      content: 'Missing enrollment.',
+      authorRoles: ['TEACHER'],
+      // no enrollmentId
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('Pedagogical observations require an enrollment');
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('allows PEDAGOGICAL observation with enrollmentId', async () => {
+    const result = await useCase.execute({
+      studentId: validStudentId,
+      authorId: validAuthorId,
+      type: 'PEDAGOGICAL',
+      content: 'Valid pedagogical note.',
+      authorRoles: ['TEACHER'],
+      enrollmentId: 'enrollment-uuid-1',
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.save).toHaveBeenCalledOnce();
+  });
+
+  it('returns err when PSYCHOPEDAGOGICAL observation has enrollmentId', async () => {
+    const result = await useCase.execute({
+      studentId: validStudentId,
+      authorId: validAuthorId,
+      type: 'PSYCHOPEDAGOGICAL',
+      content: 'EOE note with wrong context.',
+      authorRoles: ['DIRECTOR'],
+      enrollmentId: 'enrollment-uuid-1',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('Psychopedagogical observations cannot be linked to an enrollment');
+    expect(repo.save).not.toHaveBeenCalled();
   });
 });

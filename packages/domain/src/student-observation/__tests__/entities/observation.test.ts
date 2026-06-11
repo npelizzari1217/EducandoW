@@ -13,6 +13,7 @@ function validProps() {
     authorId: Id.create(),
     type: makeType(),
     content: 'Valid observation content',
+    enrollmentId: Id.create(),
   };
 }
 
@@ -94,5 +95,69 @@ describe('StudentObservation.create()', () => {
       content: 'test',
     });
     expect(obs.isAuthoredBy(differentId)).toBe(false);
+  });
+});
+
+// ── enrollmentId invariant ─────────────────────────────────────────────────────
+
+describe('StudentObservation — enrollmentId invariant', () => {
+  it('returns err when PEDAGOGICAL and no enrollmentId', () => {
+    const result = StudentObservation.create({
+      studentId: Id.create(),
+      authorId: Id.create(),
+      type: makeType(ObservationTypeValue.PEDAGOGICAL),
+      content: 'Some pedagogical note',
+      // no enrollmentId
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('Pedagogical observations require an enrollment');
+  });
+
+  it('succeeds when PEDAGOGICAL and enrollmentId is present', () => {
+    const result = StudentObservation.create({
+      studentId: Id.create(),
+      authorId: Id.create(),
+      type: makeType(ObservationTypeValue.PEDAGOGICAL),
+      content: 'Some pedagogical note',
+      enrollmentId: Id.create(),
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().enrollmentId).toBeDefined();
+  });
+
+  it('returns err when PSYCHOPEDAGOGICAL and enrollmentId is present', () => {
+    const result = StudentObservation.create({
+      studentId: Id.create(),
+      authorId: Id.create(),
+      type: makeType(ObservationTypeValue.PSYCHOPEDAGOGICAL),
+      content: 'EOE note',
+      enrollmentId: Id.create(),
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('Psychopedagogical observations cannot be linked to an enrollment');
+  });
+
+  it('succeeds when PSYCHOPEDAGOGICAL and no enrollmentId', () => {
+    const result = StudentObservation.create({
+      studentId: Id.create(),
+      authorId: Id.create(),
+      type: makeType(ObservationTypeValue.PSYCHOPEDAGOGICAL),
+      content: 'EOE note',
+      // no enrollmentId
+    });
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('reconstruct passes enrollmentId through without validation', () => {
+    const enrollmentId = Id.create();
+    const obs = StudentObservation.reconstruct({
+      id: Id.create(),
+      studentId: Id.create(),
+      authorId: Id.create(),
+      type: makeType(ObservationTypeValue.PEDAGOGICAL),
+      content: 'legacy',
+      enrollmentId,
+    });
+    expect(obs.enrollmentId?.get()).toBe(enrollmentId.get());
   });
 });

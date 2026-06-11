@@ -15,6 +15,7 @@ interface ObservationRow {
   authorId: string;
   type: string;
   content: string;
+  enrollmentId: string | null;
   active: boolean;
   deletedAt: Date | null;
   createdAt: Date;
@@ -38,10 +39,12 @@ export class PrismaStudentObservationRepository implements StudentObservationRep
         authorId: observation.authorId.get(),
         type: observation.type.value,
         content: observation.content,
+        enrollmentId: observation.enrollmentId?.get() ?? null,
       },
       update: {
         type: observation.type.value,
         content: observation.content,
+        enrollmentId: observation.enrollmentId?.get() ?? null,
       },
     });
   }
@@ -94,6 +97,7 @@ export class PrismaStudentObservationRepository implements StudentObservationRep
       authorId: Id.reconstruct(record.authorId),
       type: typeResult.isOk() ? typeResult.unwrap() : ObservationType.reconstruct(ObservationTypeValue.PEDAGOGICAL),
       content: record.content,
+      enrollmentId: record.enrollmentId ? Id.reconstruct(record.enrollmentId) : undefined,
       createdAt: record.createdAt,
       deletedAt: record.deletedAt ?? undefined,
     });

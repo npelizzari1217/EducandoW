@@ -13,6 +13,7 @@ export interface CreateObservationInput {
   type: string;
   content: string;
   authorRoles: string[];
+  enrollmentId?: string;
 }
 
 @Injectable()
@@ -32,12 +33,13 @@ export class CreateObservationUseCase {
       return err(new ForbiddenError('Only DIRECTOR+ roles can create PSYCHOPEDAGOGICAL observations'));
     }
 
-    // Entity validates content length (1-2000 chars) and returns Result
+    // Entity validates content length (1-2000 chars) and enrollmentId invariant, returns Result
     const observationResult = StudentObservation.create({
       studentId: Id.reconstruct(input.studentId),
       authorId: Id.reconstruct(input.authorId),
       type,
       content: input.content,
+      enrollmentId: input.enrollmentId ? Id.reconstruct(input.enrollmentId) : undefined,
     });
     if (observationResult.isErr()) return err(observationResult.unwrapErr());
     const observation = observationResult.unwrap();
