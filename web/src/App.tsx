@@ -43,6 +43,7 @@ import GradingScalesPage from './pages/dashboard/grading-scales';
 import GradingPeriodsPage from './pages/dashboard/grading-periods';
 import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-subject';
 import SubjectGradingByCoursePage from './pages/dashboard/subject-grading-by-course';
+import IngresantesPage from './pages/dashboard/ingresantes';
 
 function App() {
   return (
@@ -94,6 +95,7 @@ function App() {
               <Route path="/competency-grading" element={<SubjectGradingBySubjectPage />} />
               {/* PR6-T3: /grading/by-course — SubjectGradingByCourse (homeroom/student view, Primario + Secundario) */}
               <Route path="/grading/by-course" element={<SubjectGradingByCoursePage />} />
+              <Route path="/ingresantes" element={<IngresantesPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

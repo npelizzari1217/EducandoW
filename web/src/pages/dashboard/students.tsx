@@ -11,6 +11,7 @@ import apiClient from '../../api/client';
 import StudentPrintView from '../../components/reports/StudentPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import { downloadBoletin } from '../../hooks/useBoletin';
+import { AceptadosPanel } from './components/AceptadosPanel';
 
 interface Institution { id: string; name: string; }
 
@@ -534,6 +535,9 @@ export default function StudentsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Dar de alta ingresantes aceptados ──────────── */}
+      <AceptadosPanel onStudentAdded={adminReload} />
     </div>
   );
 }
