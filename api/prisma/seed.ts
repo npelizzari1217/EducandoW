@@ -530,14 +530,15 @@ export async function seedGradeScales(prisma: TenantPrismaClient) {
 export async function seedGradingPeriods(prisma: TenantPrismaClient) {
   const templates = [
     {
-      id: 'gpt-primaria-trimestral',
-      name: 'Trimestral',
+      id: 'gpt-primaria-bimestral',
+      name: 'Bimestral',
       level: 2,
       modality: 0,
       items: [
-        { id: 'gpti-primaria-t1', name: '1° Trimestre', sortOrder: 1 },
-        { id: 'gpti-primaria-t2', name: '2° Trimestre', sortOrder: 2 },
-        { id: 'gpti-primaria-t3', name: '3° Trimestre', sortOrder: 3 },
+        { id: 'gpti-primaria-b1', name: '1er Bimestre', sortOrder: 1 },
+        { id: 'gpti-primaria-b2', name: '2do Bimestre', sortOrder: 2 },
+        { id: 'gpti-primaria-b3', name: '3er Bimestre', sortOrder: 3 },
+        { id: 'gpti-primaria-b4', name: '4to Bimestre', sortOrder: 4 },
       ],
     },
     {

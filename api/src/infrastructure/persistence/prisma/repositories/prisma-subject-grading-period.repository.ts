@@ -60,7 +60,9 @@ export class PrismaSubjectGradingPeriodRepository
       return [];
     }
 
-    const level = cc.level;
+    // CourseCycle.level is the composite code (levelCode*10 + modality); GradingPeriodTemplate
+    // stores the base levelCode. Decompose to match the template's stored representation.
+    const level = Math.floor(cc.level / 10);
     const modality = cc.studyPlan.modality;
 
     // 3. Find the template for this level/modality
