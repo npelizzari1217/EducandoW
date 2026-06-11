@@ -173,7 +173,7 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                 onClick={() => setSelectedSubjectId(subject.subjectId)}
                 style={{
                   cursor: 'pointer',
-                  background: subject.subjectId === activeSubjectId ? 'var(--color-surface-secondary, rgba(0,0,0,0.04))' : undefined,
+                  background: subject.subjectId === activeSubjectId ? 'var(--color-row-selected)' : undefined,
                 }}
               >
                 <td style={{ ...tdStyle, fontWeight: 500 }}>{subject.subjectName}</td>
