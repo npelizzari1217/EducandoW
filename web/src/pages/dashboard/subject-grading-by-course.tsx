@@ -115,6 +115,8 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
 
   // Which subject's competencies are shown below (defaults to the first subject)
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  // Which competency row is highlighted (visual only — to track what you're grading)
+  const [selectedValuationId, setSelectedValuationId] = useState<string | null>(null);
 
   if (loading) {
     return (
@@ -245,7 +247,14 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
               </thead>
               <tbody>
                 {activeSubject.competencyValuations.map((cv) => (
-                  <tr key={cv.valuationId}>
+                  <tr
+                    key={cv.valuationId}
+                    onClick={() => setSelectedValuationId(cv.valuationId)}
+                    style={{
+                      cursor: 'pointer',
+                      background: cv.valuationId === selectedValuationId ? 'var(--color-row-selected)' : undefined,
+                    }}
+                  >
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{cv.competencyName}</td>
                     {/* Map positionally: periodValuations[i] aligns with periodColumns[i] */}
                     {periodColumns.map((p, idx) => {
