@@ -19,7 +19,7 @@
  * - PUT /grading/subject-final-grades → { items: [{ courseCycleId, subjectId, studentId, type, ... }] }
  * - PATCH /competency-valuations/:uuid/periods/:periodItemId → { imprimible?: boolean }
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -35,15 +35,18 @@ vi.mock('../../../api/client', () => ({
   },
 }));
 
+// Mutable user ref — lets ROOT and non-ROOT describe blocks swap the user
+let currentSBCUser = {
+  id: 'teacher-hm-1',
+  email: 'homeroom@edu.com',
+  name: 'Docente a Cargo',
+  role: 'TEACHER',
+  roles: ['TEACHER'],
+} as { id: string; email: string; name: string; role: string; roles: string[] };
+
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
-    user: {
-      id: 'teacher-hm-1',
-      email: 'homeroom@edu.com',
-      name: 'Docente a Cargo',
-      role: 'TEACHER',
-      roles: ['TEACHER'],
-    },
+    user: currentSBCUser,
     logout: vi.fn(),
     isLoading: false,
     login: vi.fn(),
@@ -51,6 +54,14 @@ vi.mock('../../../context/auth-context', () => ({
     accessToken: 'token-test',
   }),
 }));
+
+const teacherHMUser = {
+  id: 'teacher-hm-1',
+  email: 'homeroom@edu.com',
+  name: 'Docente a Cargo',
+  role: 'TEACHER',
+  roles: ['TEACHER'],
+};
 
 vi.mock('../../../context/institution-context', () => ({
   InstitutionProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -242,6 +253,7 @@ async function selectCCAndStudent() {
 
 describe('SubjectGradingByCoursePage', () => {
   beforeEach(() => {
+    currentSBCUser = teacherHMUser;
     setupDefaultMocks();
   });
 
@@ -466,5 +478,144 @@ describe('SubjectGradingByCoursePage', () => {
     expect(screen.getByText('Resolución de problemas')).toBeInTheDocument();
     // Raw competencyId UUIDs must NOT be visible as standalone text
     expect(screen.queryByText('comp-uuid-1')).not.toBeInTheDocument();
+  });
+});
+
+// ── ROOT user tests ────────────────────────────────────────────────────────────
+
+const rootSBCUser = {
+  id: 'root-user-1',
+  email: 'root@edu.com',
+  name: 'Super Admin',
+  role: 'ROOT',
+  roles: ['ROOT'],
+};
+
+const mockRootInstitutions = [
+  { id: 'inst-r1', name: 'Escuela Root' },
+];
+
+const mockRootHomeroomCCs = [
+  { uuid: 'cc-root-hm', courseName: 'ROOT 3° A', level: 23, modality: 1 },
+];
+
+const mockRootStudents = [
+  { studentId: 'stu-root-1', firstName: 'Lucía', lastName: 'Pérez' },
+];
+
+describe('SubjectGradingByCoursePage — ROOT user', () => {
+  beforeEach(() => {
+    currentSBCUser = rootSBCUser;
+    vi.clearAllMocks();
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, config?: { params?: Record<string, string> }) => {
+        const params = config?.params ?? {};
+
+        if (url === '/institutions') {
+          return Promise.resolve({ data: { data: mockRootInstitutions } });
+        }
+        if (url === '/course-cycles') {
+          if (params.institutionId === 'inst-r1' && params.role === 'homeroom') {
+            return Promise.resolve({ data: { data: mockRootHomeroomCCs } });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url === '/course-cycles/cc-root-hm/students') {
+          return Promise.resolve({ data: { data: mockRootStudents } });
+        }
+        if (url === '/grading/subject-grades/by-student') {
+          return Promise.resolve({ data: { data: mockByStudentResponse } });
+        }
+        if (url === '/grading/scales') {
+          return Promise.resolve({ data: { data: mockScales } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      },
+    );
+    (apiClient.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: null } });
+    (apiClient.patch as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: null } });
+  });
+
+  afterEach(() => {
+    currentSBCUser = teacherHMUser;
+  });
+
+  // SBC-ROOT-1: ROOT sees institution combobox and no CC dropdown before institution selected
+  it('SBC-ROOT-1: ROOT user sees institution combobox; no CC dropdown before institution selected', async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /institución/i })).toBeInTheDocument());
+    expect(screen.queryByRole('combobox', { name: /ciclo de curso/i })).not.toBeInTheDocument();
+  });
+
+  // SBC-ROOT-2: selecting institution then CC fetches /course-cycles with institutionId, no teacherUserId
+  it('SBC-ROOT-2: ROOT selecting institution fetches /course-cycles with institutionId, no teacherUserId', async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-r1',
+    );
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/course-cycles',
+        expect.objectContaining({
+          params: expect.objectContaining({ institutionId: 'inst-r1', role: 'homeroom' }),
+        }),
+      );
+    });
+
+    const ccCall = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args) => args[0] === '/course-cycles',
+    );
+    expect(ccCall?.[1]?.params).not.toHaveProperty('teacherUserId');
+  });
+
+  // SBC-ROOT-3: students fetch includes institutionId for ROOT
+  it('SBC-ROOT-3: students fetch includes institutionId for ROOT after CC selection', async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-r1',
+    );
+
+    await waitFor(() => screen.getByText('ROOT 3° A'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-root-hm',
+    );
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/course-cycles/cc-root-hm/students',
+        expect.objectContaining({
+          params: expect.objectContaining({ institutionId: 'inst-r1' }),
+        }),
+      );
+    });
+  });
+
+  // SBC-ROOT-4: student picker populated after ROOT CC selection, grading grid renders
+  it('SBC-ROOT-4: student picker populated after ROOT CC selection', async () => {
+    renderPage();
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-r1',
+    );
+
+    await waitFor(() => screen.getByText('ROOT 3° A'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-root-hm',
+    );
+
+    await waitFor(() => screen.getByRole('combobox', { name: /alumno/i }));
+    expect(screen.getByText('Lucía Pérez')).toBeInTheDocument();
   });
 });

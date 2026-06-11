@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -14,15 +14,19 @@ vi.mock('../../../api/client', () => ({
   },
 }));
 
+// Mutable user ref — lets ROOT and non-ROOT describe blocks swap the user
+// without re-importing the module.
+let currentUser = {
+  id: 'user-teacher-1',
+  email: 'teacher@edu.com',
+  name: 'María Docente',
+  role: 'TEACHER',
+  roles: ['TEACHER'],
+} as { id: string; email: string; name: string; role: string; roles: string[] };
+
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
-    user: {
-      id: 'user-teacher-1',
-      email: 'teacher@edu.com',
-      name: 'María Docente',
-      role: 'TEACHER',
-      roles: ['TEACHER'],
-    },
+    user: currentUser,
     logout: vi.fn(),
     isLoading: false,
     login: vi.fn(),
@@ -32,6 +36,14 @@ vi.mock('../../../context/auth-context', () => ({
 }));
 
 // ── Fixtures ───────────────────────────────────────────────────────────────────
+
+const teacherUser = {
+  id: 'user-teacher-1',
+  email: 'teacher@edu.com',
+  name: 'María Docente',
+  role: 'TEACHER',
+  roles: ['TEACHER'],
+};
 
 const mockCourseCycles = [
   { uuid: 'cc-1', courseName: 'Primer Año A', level: 20, modality: 0 },
@@ -80,6 +92,7 @@ function setupDefaultMocks() {
 
 describe('TeacherFilteredSelector', () => {
   beforeEach(() => {
+    currentUser = teacherUser;
     setupDefaultMocks();
   });
 
@@ -178,6 +191,7 @@ describe('TeacherFilteredSelector', () => {
       studyPlanSubjectId: 'sps-1',
       level: 20,
       modality: 0,
+      institutionId: undefined,
     });
   });
 
@@ -260,6 +274,13 @@ const isPrimarioOrSecundario = (cc: { level: number }) =>
 
 describe('TeacherFilteredSelector — Secundario inclusion', () => {
   beforeEach(() => {
+    currentUser = {
+      id: 'user-teacher-1',
+      email: 'teacher@edu.com',
+      name: 'María Docente',
+      role: 'TEACHER',
+      roles: ['TEACHER'],
+    };
     vi.clearAllMocks();
     (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
       (url: string, config?: { params?: Record<string, string> }) => {
@@ -319,5 +340,184 @@ describe('TeacherFilteredSelector — Secundario inclusion', () => {
         level: 30,
       }),
     );
+  });
+});
+
+// ── ROOT user tests ────────────────────────────────────────────────────────────
+
+const rootUser = {
+  id: 'root-user-1',
+  email: 'root@edu.com',
+  name: 'Super Admin',
+  role: 'ROOT',
+  roles: ['ROOT'],
+};
+
+const mockInstitutions = [
+  { id: 'inst-1', name: 'Escuela Alpha' },
+  { id: 'inst-2', name: 'Escuela Beta' },
+];
+
+const mockRootCCs = [
+  { uuid: 'cc-r1', courseName: '1° A', level: 20, modality: 0 },
+  { uuid: 'cc-r2', courseName: '2° B', level: 21, modality: 0 },
+];
+
+describe('TeacherFilteredSelector — ROOT user', () => {
+  beforeEach(() => {
+    currentUser = rootUser;
+    vi.clearAllMocks();
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, config?: { params?: Record<string, string> }) => {
+        if (url === '/institutions') {
+          return Promise.resolve({ data: { data: mockInstitutions } });
+        }
+        if (url === '/course-cycles') {
+          const params = config?.params ?? {};
+          if (params.institutionId === 'inst-1' && params.role === 'subject') {
+            return Promise.resolve({ data: { data: mockRootCCs } });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url.startsWith('/course-cycles/') && url.endsWith('/subjects')) {
+          return Promise.resolve({
+            data: {
+              data: [{ subjectId: 'sub-r1', subjectName: 'Matemática ROOT', studyPlanSubjectId: 'sps-r1' }],
+            },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      },
+    );
+  });
+
+  afterEach(() => {
+    currentUser = teacherUser;
+  });
+
+  // TFS-ROOT-1: ROOT shows institution combobox; CC dropdown not shown until institution selected
+  it('TFS-ROOT-1: ROOT user sees institution combobox and no CC dropdown before selecting institution', async () => {
+    render(<TeacherFilteredSelector onSelect={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /institución/i })).toBeInTheDocument());
+    expect(screen.queryByRole('combobox', { name: /ciclo de curso/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('tfs-institution-prompt')).toBeInTheDocument();
+  });
+
+  // TFS-ROOT-2: selecting institution fetches /course-cycles with institutionId, NOT teacherUserId
+  it('TFS-ROOT-2: selecting institution fetches /course-cycles with institutionId and no teacherUserId', async () => {
+    render(<TeacherFilteredSelector onSelect={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-1',
+    );
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/course-cycles',
+        expect.objectContaining({
+          params: expect.objectContaining({ institutionId: 'inst-1', role: 'subject' }),
+        }),
+      );
+    });
+
+    // The /course-cycles call must NOT contain teacherUserId
+    const ccCall = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args) => args[0] === '/course-cycles',
+    );
+    expect(ccCall?.[1]?.params).not.toHaveProperty('teacherUserId');
+  });
+
+  // TFS-ROOT-3: CC dropdown appears after institution is selected
+  it('TFS-ROOT-3: CC dropdown appears after institution is selected and CCs are loaded', async () => {
+    render(<TeacherFilteredSelector onSelect={vi.fn()} />);
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-1',
+    );
+
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /ciclo de curso/i })).toBeInTheDocument());
+    expect(screen.getByText('1° A')).toBeInTheDocument();
+    expect(screen.getByText('2° B')).toBeInTheDocument();
+  });
+
+  // TFS-ROOT-4: full ROOT selection emits context with institutionId, no teacherUserId for subjects
+  it('TFS-ROOT-4: full ROOT selection emits context with institutionId; subjects fetched with institutionId', async () => {
+    const onSelect = vi.fn();
+    render(<TeacherFilteredSelector onSelect={onSelect} />);
+
+    await waitFor(() => screen.getByRole('combobox', { name: /institución/i }));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /institución/i }),
+      'inst-1',
+    );
+
+    await waitFor(() => screen.getByText('1° A'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /ciclo de curso/i }),
+      'cc-r1',
+    );
+
+    // Subjects fetch must use institutionId, not teacherUserId
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/course-cycles/cc-r1/subjects',
+        expect.objectContaining({
+          params: expect.objectContaining({ institutionId: 'inst-1' }),
+        }),
+      );
+    });
+    const subCall = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls.find(
+      (args) => args[0] === '/course-cycles/cc-r1/subjects',
+    );
+    expect(subCall?.[1]?.params).not.toHaveProperty('teacherUserId');
+
+    await waitFor(() => screen.getByText('Matemática ROOT'));
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: /materia/i }),
+      'sub-r1',
+    );
+
+    expect(onSelect).toHaveBeenCalledWith(
+      expect.objectContaining({
+        courseCycleId: 'cc-r1',
+        subjectId: 'sub-r1',
+        institutionId: 'inst-1',
+      }),
+    );
+  });
+
+  // TFS-ROOT-5: non-ROOT shows no institution combobox and fetches with teacherUserId (regression guard)
+  it('TFS-ROOT-5: non-ROOT user shows no institution combobox and fetches with teacherUserId', async () => {
+    currentUser = teacherUser;
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: string, config?: { params?: Record<string, string> }) => {
+        if (url === '/course-cycles') {
+          const params = config?.params ?? {};
+          if (params.teacherUserId === 'user-teacher-1') {
+            return Promise.resolve({ data: { data: mockCourseCycles } });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      },
+    );
+
+    render(<TeacherFilteredSelector onSelect={vi.fn()} />);
+
+    expect(screen.queryByRole('combobox', { name: /institución/i })).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(apiClient.get).toHaveBeenCalledWith(
+        '/course-cycles',
+        expect.objectContaining({
+          params: expect.objectContaining({ teacherUserId: 'user-teacher-1' }),
+        }),
+      );
+    });
   });
 });

@@ -11,6 +11,11 @@ interface CourseCycleOption {
   modality: number | null;
 }
 
+interface InstitutionOption {
+  id: string;
+  name: string;
+}
+
 // REAL API shape: TeacherSubjectEntry from list-teacher-subjects-in-course-cycle.use-case.ts
 interface SubjectOption {
   subjectId: string;
@@ -25,6 +30,8 @@ export interface TeacherFilteredSelectionContext {
   studyPlanSubjectId: string | null;
   level: number;
   modality: number | null;
+  /** Populated for ROOT; undefined for non-ROOT. */
+  institutionId?: string;
 }
 
 /**
@@ -36,6 +43,8 @@ export interface CourseCycleContext {
   level: number;
   modality: number | null;
   courseName: string;
+  /** Populated for ROOT; undefined for non-ROOT. */
+  institutionId?: string;
 }
 
 interface Props {
@@ -96,11 +105,18 @@ const emptyStateStyle: React.CSSProperties = {
 
 export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycle, role = 'subject' }: Props) {
   const { user } = useAuth();
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
   const teacherUserId = user?.id ?? '';
 
+  // ── ROOT: Institution state ────────────────────────────────────────────────
+  const [institutions, setInstitutions] = useState<InstitutionOption[]>([]);
+  const [institutionId, setInstitutionId] = useState('');
+  const [loadingInstitutions, setLoadingInstitutions] = useState(false);
+
   // ── Level 1: Course Cycles ────────────────────────────────────────────────
+  // ROOT starts not-loading (waits for institution); non-ROOT starts loading (immediate fetch)
   const [courseCycles, setCourseCycles] = useState<CourseCycleOption[]>([]);
-  const [loadingCC, setLoadingCC] = useState(true);
+  const [loadingCC, setLoadingCC] = useState(!isRoot && !!teacherUserId);
   const [errorCC, setErrorCC] = useState('');
   const [selectedCCId, setSelectedCCId] = useState('');
   const [selectedCC, setSelectedCC] = useState<CourseCycleOption | null>(null);
@@ -111,22 +127,55 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
   const [errorSubs, setErrorSubs] = useState('');
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
 
-  // ── Fetch course cycles on mount ──────────────────────────────────────────
+  // ── Fetch institutions for ROOT on mount ──────────────────────────────────
   useEffect(() => {
-    if (!teacherUserId) return;
-
-    setLoadingCC(true);
-    setErrorCC('');
-
+    if (!isRoot) return;
+    setLoadingInstitutions(true);
     apiClient
-      .get('/course-cycles', { params: { teacherUserId, role } })
-      .then(r => {
-        const all: CourseCycleOption[] = r.data?.data ?? [];
-        setCourseCycles(filterCourseCycle ? all.filter(filterCourseCycle) : all);
-      })
-      .catch(() => setErrorCC('Error al cargar ciclos de curso'))
-      .finally(() => setLoadingCC(false));
-  }, [teacherUserId, role]);
+      .get('/institutions')
+      .then(r => setInstitutions(r.data?.data ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingInstitutions(false));
+  }, [isRoot]);
+
+  // ── Fetch course cycles when institution / identity / role changes ─────────
+  useEffect(() => {
+    // Reset CC cascade on any trigger change
+    setCourseCycles([]);
+    setSelectedCCId('');
+    setSelectedCC(null);
+    setErrorCC('');
+    setSubjects([]);
+    setSelectedSubjectId('');
+
+    if (isRoot) {
+      if (!institutionId) {
+        setLoadingCC(false);
+        return;
+      }
+      setLoadingCC(true);
+      apiClient
+        .get('/course-cycles', { params: { institutionId, role } })
+        .then(r => {
+          const all: CourseCycleOption[] = r.data?.data ?? [];
+          setCourseCycles(filterCourseCycle ? all.filter(filterCourseCycle) : all);
+        })
+        .catch(() => setErrorCC('Error al cargar ciclos de curso'))
+        .finally(() => setLoadingCC(false));
+    } else {
+      if (!teacherUserId) return;
+      setLoadingCC(true);
+      apiClient
+        .get('/course-cycles', { params: { teacherUserId, role } })
+        .then(r => {
+          const all: CourseCycleOption[] = r.data?.data ?? [];
+          setCourseCycles(filterCourseCycle ? all.filter(filterCourseCycle) : all);
+        })
+        .catch(() => setErrorCC('Error al cargar ciclos de curso'))
+        .finally(() => setLoadingCC(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filterCourseCycle is a stable module-level fn; including it causes spurious re-fetches
+  }, [isRoot, institutionId, teacherUserId, role]);
 
   // ── Handle CC selection ───────────────────────────────────────────────────
   const handleCCChange = (uuid: string) => {
@@ -143,6 +192,7 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
           level: cc.level,
           modality: cc.modality ?? null,
           courseName: cc.courseName,
+          institutionId: isRoot ? institutionId || undefined : undefined,
         });
       }
       return;
@@ -156,8 +206,9 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
     if (!uuid) return;
 
     setLoadingSubs(true);
+    const subjectParams = isRoot ? { institutionId } : { teacherUserId };
     apiClient
-      .get(`/course-cycles/${uuid}/subjects`, { params: { teacherUserId } })
+      .get(`/course-cycles/${uuid}/subjects`, { params: subjectParams })
       .then(r => setSubjects(r.data?.data ?? []))
       .catch(() => setErrorSubs('Error al cargar materias'))
       .finally(() => setLoadingSubs(false));
@@ -174,6 +225,7 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
         studyPlanSubjectId: subject?.studyPlanSubjectId ?? null,
         level: selectedCC.level,
         modality: selectedCC.modality ?? null,
+        institutionId: isRoot ? institutionId || undefined : undefined,
       });
     }
   };
@@ -183,87 +235,129 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
   const ccDropdownDisabled = loadingCC || !!errorCC;
   const subDropdownDisabled = !selectedCCId || loadingSubs || !!errorSubs;
 
+  // Institution combobox — rendered for ROOT only (null for non-ROOT)
+  const institutionCombobox = isRoot ? (
+    <div>
+      <label htmlFor="tfs-institution-select" style={labelStyle}>Institución</label>
+      <select
+        id="tfs-institution-select"
+        aria-label="Institución"
+        value={institutionId}
+        onChange={e => setInstitutionId(e.target.value)}
+        disabled={loadingInstitutions}
+        style={selectStyle}
+      >
+        <option value="">{loadingInstitutions ? 'Cargando...' : 'Seleccionar institución...'}</option>
+        {institutions.map(inst => (
+          <option key={inst.id} value={inst.id}>{inst.name}</option>
+        ))}
+      </select>
+    </div>
+  ) : null;
+
+  // ROOT with no institution selected: show institution picker + prompt; no CC dropdown yet
+  if (isRoot && !institutionId) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        {institutionCombobox}
+        <div style={emptyStateStyle} data-testid="tfs-institution-prompt">
+          Seleccioná una institución para ver los ciclos de curso
+        </div>
+      </div>
+    );
+  }
+
   // Empty state: finished loading, no CCs
   if (!loadingCC && !errorCC && courseCycles.length === 0) {
     return (
-      <div style={emptyStateStyle} data-testid="tfs-empty-state">
-        {role === 'homeroom'
-          ? 'No tenés ciclos de curso a cargo'
-          : 'No tenés materias asignadas'}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        {institutionCombobox}
+        <div style={emptyStateStyle} data-testid="tfs-empty-state">
+          {role === 'homeroom'
+            ? 'No tenés ciclos de curso a cargo'
+            : 'No tenés materias asignadas'}
+        </div>
       </div>
     );
   }
 
-  // Homeroom mode: show only CC dropdown (no subject picker)
+  // Homeroom mode: show institution combobox (ROOT) + CC dropdown only
   if (role === 'homeroom') {
     return (
-      <div>
-        <label htmlFor="tfs-cc-select" style={labelStyle}>Ciclo de Curso</label>
-        <select
-          id="tfs-cc-select"
-          aria-label="Ciclo de Curso"
-          aria-busy={loadingCC}
-          value={selectedCCId}
-          onChange={e => handleCCChange(e.target.value)}
-          disabled={ccDropdownDisabled}
-          style={selectStyle}
-        >
-          <option value="">{loadingCC ? 'Cargando...' : 'Seleccionar ciclo de curso...'}</option>
-          {courseCycles.map(cc => (
-            <option key={cc.uuid} value={cc.uuid}>{cc.courseName}</option>
-          ))}
-        </select>
-        {errorCC && <span style={errorStyle}>{errorCC}</span>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+        {institutionCombobox}
+        <div>
+          <label htmlFor="tfs-cc-select" style={labelStyle}>Ciclo de Curso</label>
+          <select
+            id="tfs-cc-select"
+            aria-label="Ciclo de Curso"
+            aria-busy={loadingCC}
+            value={selectedCCId}
+            onChange={e => handleCCChange(e.target.value)}
+            disabled={ccDropdownDisabled}
+            style={selectStyle}
+          >
+            <option value="">{loadingCC ? 'Cargando...' : 'Seleccionar ciclo de curso...'}</option>
+            {courseCycles.map(cc => (
+              <option key={cc.uuid} value={cc.uuid}>{cc.courseName}</option>
+            ))}
+          </select>
+          {errorCC && <span style={errorStyle}>{errorCC}</span>}
+        </div>
       </div>
     );
   }
 
+  // Subject mode: institution combobox (ROOT) + CC + subject dropdowns
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+      {institutionCombobox}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
 
-      {/* Level 1: Course Cycle */}
-      <div>
-        <label htmlFor="tfs-cc-select" style={labelStyle}>Ciclo de Curso</label>
-        <select
-          id="tfs-cc-select"
-          aria-label="Ciclo de Curso"
-          aria-busy={loadingCC}
-          value={selectedCCId}
-          onChange={e => handleCCChange(e.target.value)}
-          disabled={ccDropdownDisabled}
-          style={selectStyle}
-        >
-          <option value="">{loadingCC ? 'Cargando...' : 'Seleccionar ciclo de curso...'}</option>
-          {courseCycles.map(cc => (
-            <option key={cc.uuid} value={cc.uuid}>{cc.courseName}</option>
-          ))}
-        </select>
-        {errorCC && <span style={errorStyle}>{errorCC}</span>}
+        {/* Level 1: Course Cycle */}
+        <div>
+          <label htmlFor="tfs-cc-select" style={labelStyle}>Ciclo de Curso</label>
+          <select
+            id="tfs-cc-select"
+            aria-label="Ciclo de Curso"
+            aria-busy={loadingCC}
+            value={selectedCCId}
+            onChange={e => handleCCChange(e.target.value)}
+            disabled={ccDropdownDisabled}
+            style={selectStyle}
+          >
+            <option value="">{loadingCC ? 'Cargando...' : 'Seleccionar ciclo de curso...'}</option>
+            {courseCycles.map(cc => (
+              <option key={cc.uuid} value={cc.uuid}>{cc.courseName}</option>
+            ))}
+          </select>
+          {errorCC && <span style={errorStyle}>{errorCC}</span>}
+        </div>
+
+        {/* Level 2: Subject */}
+        <div>
+          <label htmlFor="tfs-sub-select" style={labelStyle}>Materia</label>
+          <select
+            id="tfs-sub-select"
+            aria-label="Materia"
+            aria-busy={loadingSubs}
+            value={selectedSubjectId}
+            onChange={e => handleSubjectChange(e.target.value)}
+            disabled={subDropdownDisabled}
+            style={selectStyle}
+          >
+            <option value="">{loadingSubs ? 'Cargando...' : 'Seleccionar materia...'}</option>
+            {subjects.map(s => (
+              <option key={s.subjectId} value={s.subjectId}>{s.subjectName}</option>
+            ))}
+          </select>
+          {errorSubs && <span style={errorStyle}>{errorSubs}</span>}
+          {!errorSubs && subjects.length === 0 && selectedCCId && !loadingSubs && (
+            <span style={statusStyle}>Sin materias asignadas en este ciclo</span>
+          )}
+        </div>
+
       </div>
-
-      {/* Level 2: Subject */}
-      <div>
-        <label htmlFor="tfs-sub-select" style={labelStyle}>Materia</label>
-        <select
-          id="tfs-sub-select"
-          aria-label="Materia"
-          aria-busy={loadingSubs}
-          value={selectedSubjectId}
-          onChange={e => handleSubjectChange(e.target.value)}
-          disabled={subDropdownDisabled}
-          style={selectStyle}
-        >
-          <option value="">{loadingSubs ? 'Cargando...' : 'Seleccionar materia...'}</option>
-          {subjects.map(s => (
-            <option key={s.subjectId} value={s.subjectId}>{s.subjectName}</option>
-          ))}
-        </select>
-        {errorSubs && <span style={errorStyle}>{errorSubs}</span>}
-        {!errorSubs && subjects.length === 0 && selectedCCId && !loadingSubs && (
-          <span style={statusStyle}>Sin materias asignadas en este ciclo</span>
-        )}
-      </div>
-
     </div>
   );
 }

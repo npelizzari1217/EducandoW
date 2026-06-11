@@ -399,8 +399,12 @@ export default function SubjectGradingByCoursePage() {
     setStudents([]);
     setSelectedStudentId('');
 
-    apiClient
-      .get(`/course-cycles/${ccContext.courseCycleId}/students`)
+    // ROOT: pass institutionId so the tenant middleware can resolve the DB.
+    // Non-ROOT: no extra params (tenant resolved from JWT).
+    (ccContext.institutionId
+      ? apiClient.get(`/course-cycles/${ccContext.courseCycleId}/students`, { params: { institutionId: ccContext.institutionId } })
+      : apiClient.get(`/course-cycles/${ccContext.courseCycleId}/students`)
+    )
       .then((r) => setStudents((r.data as { data?: EnrolledStudent[] })?.data ?? []))
       .catch(() => setStudents([]))
       .finally(() => setStudentsLoading(false));
@@ -415,7 +419,7 @@ export default function SubjectGradingByCoursePage() {
     <div>
       <PremiumHeader
         title="Alumnos por Curso"
-        subtitle="Seleccioná tu curso a cargo y un alumno para ver sus calificaciones"
+        subtitle="Seleccioná un curso y un alumno para ver sus calificaciones"
         icon="📋"
       />
 
