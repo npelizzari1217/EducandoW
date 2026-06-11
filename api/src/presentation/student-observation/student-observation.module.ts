@@ -6,6 +6,7 @@ import { StudentObservationWriteController, StudentObservationReadController } f
 import { CreateObservationUseCase } from '../../application/student-observation/create-observation.use-case';
 import { ListObservationsByStudentUseCase } from '../../application/student-observation/list-by-student.use-case';
 import { ListObservationsByCourseUseCase } from '../../application/student-observation/list-by-course.use-case';
+import { ListObservationsByCycleUseCase } from '../../application/student-observation/list-by-cycle.use-case';
 import { DeleteObservationUseCase } from '../../application/student-observation/delete-observation.use-case';
 import { PrismaStudentObservationRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-student-observation.repository';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
@@ -22,6 +23,11 @@ import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/pr
       provide: ListObservationsByCourseUseCase,
       useFactory: (obsRepo, cycleRepo, enrollRepo) => new ListObservationsByCourseUseCase(obsRepo, cycleRepo, enrollRepo),
       inject: ['StudentObservationRepository', PrismaCourseCycleRepository, 'EnrollmentRepository'],
+    },
+    {
+      provide: ListObservationsByCycleUseCase,
+      useFactory: (obsRepo, enrollRepo) => new ListObservationsByCycleUseCase(obsRepo, enrollRepo),
+      inject: ['StudentObservationRepository', 'EnrollmentRepository'],
     },
     { provide: DeleteObservationUseCase, useFactory: (r) => new DeleteObservationUseCase(r), inject: ['StudentObservationRepository'] },
   ],

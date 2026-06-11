@@ -1,49 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import {
-  ok, err, Result,
-  NotFoundError,
+  ok, Result,
   StudentObservation, Id,
   StudentObservationRepository,
   EnrollmentRepository,
-  CourseCycleRepository,
   getHighestRoleRank,
 } from '@educandow/domain';
 import { filterCycleObservations } from './observation-cycle-filter';
 
-export interface ListByCourseInput {
-  cycleId: string; // CourseCycle uuid
+export interface ListByCycleInput {
+  cycleId: string; // AcademicCycle uuid
   callerRoles: string[];
 }
 
 @Injectable()
-export class ListObservationsByCourseUseCase {
+export class ListObservationsByCycleUseCase {
   constructor(
     private readonly observationRepo: StudentObservationRepository,
-    private readonly courseCycleRepo: CourseCycleRepository,
     private readonly enrollmentRepo: EnrollmentRepository,
   ) {}
 
-  async execute(input: ListByCourseInput): Promise<Result<StudentObservation[], Error>> {
+  async execute(input: ListByCycleInput): Promise<Result<StudentObservation[], Error>> {
     const callerRank = getHighestRoleRank(input.callerRoles);
 
-    // 1. Find the CourseCycle by its uuid
-    const courseCycle = await this.courseCycleRepo.findByUuid(input.cycleId);
-    if (!courseCycle) {
-      return err(new NotFoundError('CourseCycle', input.cycleId));
-    }
-
-    // 2. Find all enrollments for this academic cycle
-    const enrollments = await this.enrollmentRepo.findByCycleId(courseCycle.cycleId);
+    // 1. Find all enrollments for this academic cycle directly (no CourseCycle lookup)
+    const enrollments = await this.enrollmentRepo.findByCycleId(input.cycleId);
     const studentIds = enrollments.map((e) => Id.reconstruct(e.studentId.get()));
 
     if (studentIds.length === 0) {
       return ok([]);
     }
 
-    // 3. Fetch observations for all these students
+    // 2. Fetch observations for all these students
     const observations = await this.observationRepo.findByStudentIds(studentIds);
 
-    // 4. Apply cycle-scope + rank filter via shared helper
+    // 3. Apply cycle-scope + rank filter via shared helper
     const cycleEnrollmentIds = new Set(enrollments.map((e) => e.id.get()));
     return ok(filterCycleObservations(observations, cycleEnrollmentIds, callerRank));
   }

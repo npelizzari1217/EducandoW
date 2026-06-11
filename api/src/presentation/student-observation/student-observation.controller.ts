@@ -9,6 +9,7 @@ import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.gu
 import { CreateObservationUseCase } from '../../application/student-observation/create-observation.use-case';
 import { ListObservationsByStudentUseCase } from '../../application/student-observation/list-by-student.use-case';
 import { ListObservationsByCourseUseCase } from '../../application/student-observation/list-by-course.use-case';
+import { ListObservationsByCycleUseCase } from '../../application/student-observation/list-by-cycle.use-case';
 import { DeleteObservationUseCase } from '../../application/student-observation/delete-observation.use-case';
 
 // ── Create + Delete (flat endpoints) ──────────────────────
@@ -77,6 +78,7 @@ export class StudentObservationReadController {
   constructor(
     private readonly listByStudentUC: ListObservationsByStudentUseCase,
     private readonly listByCourseUC: ListObservationsByCourseUseCase,
+    private readonly listByCycleUC: ListObservationsByCycleUseCase,
   ) {}
 
   @Get('students/:studentId/observations')
@@ -100,6 +102,20 @@ export class StudentObservationReadController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.listByCourseUC.execute({
+      cycleId,
+      callerRoles: user.roles,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap().map((obs) => this.mapObservation(obs)) };
+  }
+
+  @Get('cycles/:cycleId/observations')
+  @Rank(20) // TEACHER+
+  async findByCycle(
+    @Param('cycleId') cycleId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const result = await this.listByCycleUC.execute({
       cycleId,
       callerRoles: user.roles,
     });
