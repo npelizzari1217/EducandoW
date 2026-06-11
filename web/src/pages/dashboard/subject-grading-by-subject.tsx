@@ -24,9 +24,9 @@ import { useGradingGrid } from './components/use-grading-grid';
 
 const FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
 
-/** Primario + Secundario: levels 20–29 (Primario) and 30–39 (Secundario) */
-const isPrimarioOrSecundario = (cc: { level: number }) =>
-  [2, 3].includes(Math.floor(cc.level / 10));
+/** All student levels: Inicial(1x), Primario(2x), Secundario(3x), Terciario(4x) — excludes admin(9x) */
+const isStudentLevel = (cc: { level: number }) =>
+  [1, 2, 3, 4].includes(Math.floor(cc.level / 10));
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
@@ -320,7 +320,7 @@ export default function SubjectGradingBySubjectPage() {
 
       {/* Teacher-filtered selector — Primario + Secundario CCs */}
       <Card className="mt-md">
-        <TeacherFilteredSelector onSelect={setContext} filterCourseCycle={isPrimarioOrSecundario} />
+        <TeacherFilteredSelector onSelect={setContext} filterCourseCycle={isStudentLevel} />
       </Card>
 
       {/* Grid or placeholder */}

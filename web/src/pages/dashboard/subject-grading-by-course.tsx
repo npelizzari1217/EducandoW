@@ -34,9 +34,9 @@ const FINAL_TYPE_LABELS: Record<typeof FINAL_TYPES[number], string> = {
   DEFINITIVA: 'Definitiva',
 };
 
-/** Primario + Secundario: levels 20–29 (Primario) and 30–39 (Secundario) */
-const isPrimarioOrSecundario = (cc: { level: number }) =>
-  [2, 3].includes(Math.floor(cc.level / 10));
+/** All student levels: Inicial(1x), Primario(2x), Secundario(3x), Terciario(4x) — excludes admin(9x) */
+const isStudentLevel = (cc: { level: number }) =>
+  [1, 2, 3, 4].includes(Math.floor(cc.level / 10));
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -399,7 +399,7 @@ export default function SubjectGradingByCoursePage() {
         <TeacherFilteredSelector
           role="homeroom"
           onSelectCC={handleCCSelect}
-          filterCourseCycle={isPrimarioOrSecundario}
+          filterCourseCycle={isStudentLevel}
         />
       </Card>
 
