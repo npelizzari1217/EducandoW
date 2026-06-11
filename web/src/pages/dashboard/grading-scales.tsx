@@ -8,6 +8,8 @@ import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { buildBranding } from '../../components/reports/PremiumPrintReport';
+import ScalePrintView from '../../components/reports/ScalePrintView';
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -136,8 +138,12 @@ export default function GradingScalesPage() {
   const [selectedScaleId, setSelectedScaleId] = useState<string | null>(null);
   const selectedScale = data.find(s => s.id === selectedScaleId) ?? null;
 
+  // Print view
+  const [showPrint, setShowPrint] = useState(false);
+
   // Value form state
   const [showValueForm, setShowValueForm] = useState(false);
+  const [editingValueId, setEditingValueId] = useState<string | null>(null);
   const [valueForm, setValueForm] = useState<ValueForm>(EMPTY_VALUE_FORM);
   const [valueSaving, setValueSaving] = useState(false);
   const [valueSaveError, setValueSaveError] = useState('');
@@ -242,23 +248,51 @@ export default function GradingScalesPage() {
     return Object.keys(errs).length === 0;
   }, [valueForm]);
 
-  const handleCreateValue = async () => {
+  const clearValueForm = () => {
+    setShowValueForm(false);
+    setEditingValueId(null);
+    setValueForm(EMPTY_VALUE_FORM);
+    setValueFieldErrors({});
+    setValueSaveError('');
+  };
+
+  const handleEditValue = (v: GradeScaleValueRow) => {
+    setEditingValueId(v.id);
+    setValueForm({
+      code: v.code,
+      label: v.label,
+      internalStatus: v.internal_status,
+      sortOrder: String(v.sort_order),
+    });
+    setValueFieldErrors({});
+    setValueSaveError('');
+    setShowValueForm(true);
+  };
+
+  const handleSaveValue = async () => {
     if (!selectedScale) return;
     if (!validateValueForm()) return;
     setValueSaving(true); setValueSaveError('');
     try {
-      await apiClient.post(`/grading/scales/${selectedScale.id}/values`, {
-        code: valueForm.code.trim(),
-        label: valueForm.label.trim(),
-        internalStatus: valueForm.internalStatus,
-        sortOrder: Number(valueForm.sortOrder),
-      }, { params: rootQueryParams });
-      setShowValueForm(false);
-      setValueForm(EMPTY_VALUE_FORM);
-      setValueFieldErrors({});
+      if (editingValueId) {
+        // code is immutable on the server — send only mutable fields
+        await apiClient.patch(`/grading/scales/${selectedScale.id}/values/${editingValueId}`, {
+          label: valueForm.label.trim(),
+          internalStatus: valueForm.internalStatus,
+          sortOrder: Number(valueForm.sortOrder),
+        }, { params: rootQueryParams });
+      } else {
+        await apiClient.post(`/grading/scales/${selectedScale.id}/values`, {
+          code: valueForm.code.trim(),
+          label: valueForm.label.trim(),
+          internalStatus: valueForm.internalStatus,
+          sortOrder: Number(valueForm.sortOrder),
+        }, { params: rootQueryParams });
+      }
+      clearValueForm();
       reload();
     } catch (e: unknown) {
-      setValueSaveError(extractErrorMessage(e) || 'Error al crear valor');
+      setValueSaveError(extractErrorMessage(e) || (editingValueId ? 'Error al guardar valor' : 'Error al crear valor'));
     } finally {
       setValueSaving(false);
     }
@@ -297,6 +331,22 @@ export default function GradingScalesPage() {
   // ── Permissions ────────────────────────────────────────
 
   const canCreate = hasModuleAction('GRADING_CONFIG', 'CREATE') && (!isRoot || !!institutionId);
+  const canPrint = hasModuleAction('GRADING_CONFIG', 'PRINT') && (!isRoot || !!institutionId);
+
+  // ── Print view ─────────────────────────────────────────
+
+  if (showPrint) {
+    return (
+      <ScalePrintView
+        branding={buildBranding(config)}
+        scales={filteredData}
+        levelLabels={LEVEL_LABELS}
+        modalityLabels={MODALITY_LABELS}
+        statusLabels={INTERNAL_STATUS_LABELS}
+        onClose={() => setShowPrint(false)}
+      />
+    );
+  }
 
   // ── Render ─────────────────────────────────────────────
 
@@ -323,6 +373,11 @@ export default function GradingScalesPage() {
             }}
           >
             {showScaleForm ? 'Cancelar' : 'Nueva escala'}
+          </Button>
+        )}
+        {canPrint && data.length > 0 && (
+          <Button variant="ghost" onClick={() => setShowPrint(true)}>
+            🖨 Imprimir
           </Button>
         )}
       </PremiumHeader>
@@ -558,13 +613,8 @@ export default function GradingScalesPage() {
                   variant={showValueForm ? 'danger-soft' : 'success-soft'}
                   size="sm"
                   onClick={() => {
-                    if (showValueForm) {
-                      setShowValueForm(false);
-                      setValueForm(EMPTY_VALUE_FORM);
-                      setValueFieldErrors({});
-                    } else {
-                      setShowValueForm(true);
-                    }
+                    if (showValueForm) clearValueForm();
+                    else { setEditingValueId(null); setValueForm(EMPTY_VALUE_FORM); setShowValueForm(true); }
                   }}
                 >
                   {showValueForm ? 'Cancelar' : 'Nuevo valor'}
@@ -594,12 +644,13 @@ export default function GradingScalesPage() {
                   )}
                   <div className="flex flex-col gap-md">
                     <Input
-                      label="Código *"
+                      label={editingValueId ? 'Código (no editable)' : 'Código *'}
                       id="value-code-input"
                       value={valueForm.code}
                       onChange={e => updateValueField('code', e.target.value)}
                       placeholder="10, A+, Logrado..."
                       error={valueFieldErrors.code}
+                      disabled={!!editingValueId}
                     />
                     <Input
                       label="Etiqueta *"
@@ -641,8 +692,8 @@ export default function GradingScalesPage() {
                     />
                   </div>
                   <div style={{ marginTop: 'var(--space-md)' }}>
-                    <Button variant="success-soft" onClick={handleCreateValue} loading={valueSaving}>
-                      Agregar valor
+                    <Button variant="success-soft" onClick={handleSaveValue} loading={valueSaving}>
+                      {editingValueId ? 'Guardar cambios' : 'Agregar valor'}
                     </Button>
                   </div>
                 </div>
@@ -682,12 +733,22 @@ export default function GradingScalesPage() {
                     header: '',
                     render: (row: Record<string, unknown>) => {
                       const v = row as unknown as GradeScaleValueRow;
+                      const canEditValue = hasModuleAction('GRADING_CONFIG', 'READ', 'UPDATE');
                       const canDeleteValue = hasModuleAction('GRADING_CONFIG', 'DELETE');
-                      return canDeleteValue ? (
-                        <Button variant="danger-soft" size="sm" onClick={() => setDeleteValueTarget(v)}>
-                          Eliminar
-                        </Button>
-                      ) : null;
+                      return (
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                          {canEditValue && (
+                            <Button variant="action" size="sm" onClick={() => handleEditValue(v)}>
+                              Editar
+                            </Button>
+                          )}
+                          {canDeleteValue && (
+                            <Button variant="danger-soft" size="sm" onClick={() => setDeleteValueTarget(v)}>
+                              Eliminar
+                            </Button>
+                          )}
+                        </div>
+                      );
                     },
                   },
                 ]}
