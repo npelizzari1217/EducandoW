@@ -345,97 +345,90 @@ describe('SubjectGradingByCoursePage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  // SBC-7: period grades section renders per subject after modal opened
-  it('SBC-7: period grades section renders after opening grades modal', async () => {
+  // SBC-7: materias table renders with subject rows and period columns after modal opened
+  it('SBC-7: materias table renders with subject row and period column headers after opening grades modal', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('materias-table')).toBeInTheDocument(),
     );
 
-    // Subject name visible
-    expect(screen.getByText('Matemática')).toBeInTheDocument();
+    const materiasTable = screen.getByTestId('materias-table');
+    // Subject name visible as a row cell
+    expect(within(materiasTable).getByText('Matemática')).toBeInTheDocument();
     // Period names visible as column headers
-    expect(screen.getByText('1er Trimestre')).toBeInTheDocument();
-    expect(screen.getByText('2do Trimestre')).toBeInTheDocument();
+    expect(within(materiasTable).getByText('1er Trimestre')).toBeInTheDocument();
+    expect(within(materiasTable).getByText('2do Trimestre')).toBeInTheDocument();
   });
 
-  // SBC-8: final grades section with 4 types per subject
-  it('SBC-8: final grades section shows FINAL, DICIEMBRE, MARZO, DEFINITIVA', async () => {
+  // SBC-8: materias table shows final grade columns
+  it('SBC-8: materias table shows Nota Final, Diciembre, Marzo, Definitiva column headers', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('student-final-grades-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('materias-table')).toBeInTheDocument(),
     );
 
-    const finalSection = screen.getByTestId('student-final-grades-section');
-    expect(within(finalSection).getByText('FINAL')).toBeInTheDocument();
-    expect(within(finalSection).getByText('DICIEMBRE')).toBeInTheDocument();
-    expect(within(finalSection).getByText('MARZO')).toBeInTheDocument();
-    expect(within(finalSection).getByText('DEFINITIVA')).toBeInTheDocument();
+    const materiasTable = screen.getByTestId('materias-table');
+    expect(within(materiasTable).getByText('Nota Final')).toBeInTheDocument();
+    expect(within(materiasTable).getByText('Diciembre')).toBeInTheDocument();
+    expect(within(materiasTable).getByText('Marzo')).toBeInTheDocument();
+    expect(within(materiasTable).getByText('Definitiva')).toBeInTheDocument();
   });
 
-  // SBC-9: PA/PPI/PP toggles present in period grades
-  it('SBC-9: PA/PPI/PP checkboxes visible in period grades section', async () => {
+  // SBC-9: PA/PPI/PP checkboxes are dropped in the new layout
+  it('SBC-9: PA/PPI/PP checkboxes are not rendered in the new table layout', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('materias-table')).toBeInTheDocument(),
     );
 
-    const paCheckboxes = screen.getAllByRole('checkbox', { name: /\bPA\b/i });
-    const ppiCheckboxes = screen.getAllByRole('checkbox', { name: /\bPPI\b/i });
-    const ppCheckboxes = screen.getAllByRole('checkbox', { name: /\bPP\b/i });
-
-    expect(paCheckboxes.length).toBeGreaterThan(0);
-    expect(ppiCheckboxes.length).toBeGreaterThan(0);
-    expect(ppCheckboxes.length).toBeGreaterThan(0);
+    expect(screen.queryAllByRole('checkbox', { name: /\bPA\b/i })).toHaveLength(0);
+    expect(screen.queryAllByRole('checkbox', { name: /\bPPI\b/i })).toHaveLength(0);
+    expect(screen.queryAllByRole('checkbox', { name: /\bPP\b/i })).toHaveLength(0);
   });
 
-  // SBC-10: competency section renders with "Imprimir" toggle per valuation period
-  it('SBC-10: competency section renders with Imprimir toggle per competency valuation', async () => {
+  // SBC-10: competencias table renders with competency names and no Imprimir toggles
+  it('SBC-10: competencias table renders with competency names and no Imprimir checkboxes', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('competencias-table')).toBeInTheDocument(),
     );
 
-    // Each competency valuation × periodValuation should have an "Imprimir" checkbox
-    const imprimirCheckboxes = screen.getAllByRole('checkbox', { name: /imprimir/i });
-    expect(imprimirCheckboxes.length).toBeGreaterThan(0);
+    // Competency names visible as row cells
+    expect(screen.getByText('Resolución de problemas')).toBeInTheDocument();
+    expect(screen.getByText('Comunicación oral')).toBeInTheDocument();
 
-    // Pre-existing imprimible=true for cv-2 should be checked
-    const checkedBoxes = imprimirCheckboxes.filter(
-      (cb) => (cb as HTMLInputElement).checked,
-    );
-    expect(checkedBoxes.length).toBeGreaterThan(0);
+    // No Imprimir checkboxes in new layout
+    expect(screen.queryAllByRole('checkbox', { name: /imprimir/i })).toHaveLength(0);
   });
 
-  // SBC-11: clicking Imprimir toggle calls PATCH /competency-valuations/:uuid/periods/:pid
-  it('SBC-11: clicking Imprimir toggle issues PATCH with imprimible', async () => {
+  // SBC-11: competency grade select change calls PATCH with gradeScaleValueId
+  it('SBC-11: changing competency grade select issues PATCH with gradeScaleValueId', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('competencias-table')).toBeInTheDocument(),
     );
 
-    const imprimirCheckboxes = screen.getAllByRole('checkbox', { name: /imprimir/i });
-    // cv-1 has imprimible=false → clicking toggles it to true
-    const uncheckedBox = imprimirCheckboxes.find(
-      (cb) => !(cb as HTMLInputElement).checked,
-    );
-    expect(uncheckedBox).toBeDefined();
-    await userEvent.click(uncheckedBox!);
+    const competenciasTable = screen.getByTestId('competencias-table');
+    const compSelects = within(competenciasTable).getAllByRole('combobox');
+    expect(compSelects.length).toBeGreaterThan(0);
+
+    // cv-1 / pi-uuid-1 is the first select (gradeScaleValueId: null → change to gsv-mb)
+    await userEvent.selectOptions(compSelects[0], 'gsv-mb');
 
     await waitFor(() => {
       expect(apiClient.patch).toHaveBeenCalledWith(
         expect.stringMatching(/\/competency-valuations\/cv-1\/periods\/pi-uuid-1/),
-        expect.objectContaining({ imprimible: true }),
+        expect.objectContaining({ gradeScaleValueId: 'gsv-mb' }),
         expect.objectContaining({ params: expect.anything() }),
       );
     });
@@ -447,10 +440,10 @@ describe('SubjectGradingByCoursePage', () => {
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('materias-table')).toBeInTheDocument(),
     );
 
-    // Find grade dropdown for subject math, period 1
+    // Find grade dropdowns for period bimesters in the materias table
     const gradeDropdowns = screen.getAllByRole('combobox', {
       name: /nota.*período|nota.*period|período.*nota/i,
     });
@@ -475,13 +468,13 @@ describe('SubjectGradingByCoursePage', () => {
     });
   });
 
-  // SBC-13: competency section renders human-readable name, NOT the raw UUID
-  it('SBC-13: competency section renders human-readable competency name (not raw ID)', async () => {
+  // SBC-13: competencias table renders human-readable name, NOT the raw UUID
+  it('SBC-13: competencias table renders human-readable competency name (not raw ID)', async () => {
     renderPage();
     await openGradesModal('Ana');
 
     await waitFor(() =>
-      expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
+      expect(screen.getByTestId('competencias-table')).toBeInTheDocument(),
     );
 
     // 'Resolución de problemas' is the name for cv-1 — must be visible

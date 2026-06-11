@@ -20,14 +20,19 @@ import apiClient from '../../api/client';
 import { TeacherFilteredSelector } from './components/TeacherFilteredSelector';
 import type { CourseCycleContext } from './components/TeacherFilteredSelector';
 import { useStudentGrades } from './components/use-student-grades';
-import type { SubjectWithState } from './components/use-student-grades';
-import type { ScaleValue } from './components/use-grading-grid';
 import { StudentLegajo } from './components/StudentLegajo';
 import { StudentObservationsPanel } from './components/StudentObservationsPanel';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
+
+const FINAL_TYPE_LABELS: Record<typeof FINAL_TYPES[number], string> = {
+  FINAL: 'Nota Final',
+  DICIEMBRE: 'Diciembre',
+  MARZO: 'Marzo',
+  DEFINITIVA: 'Definitiva',
+};
 
 /** Primario + Secundario: levels 20–29 (Primario) and 30–39 (Secundario) */
 const isPrimarioOrSecundario = (cc: { level: number }) =>
@@ -82,14 +87,6 @@ const sectionTitleStyle: React.CSSProperties = {
   color: 'var(--color-text)',
 };
 
-const subSectionTitleStyle: React.CSSProperties = {
-  fontWeight: 500,
-  fontSize: 'var(--text-sm)',
-  marginBottom: 'var(--space-xs)',
-  color: 'var(--color-text-secondary)',
-  marginTop: 'var(--space-md)',
-};
-
 const errorStyle: React.CSSProperties = {
   padding: 'var(--space-lg)',
   textAlign: 'center',
@@ -113,7 +110,7 @@ interface StudentGradingGridProps {
 }
 
 function StudentGradingGrid({ courseCycleId, studentId, level, modality, institutionId }: StudentGradingGridProps) {
-  const { loading, error, subjects, scaleValues, updatePeriodGrade, updateFinalGrade, updateImprimible } =
+  const { loading, error, subjects, scaleValues, updatePeriodGrade, updateFinalGrade, updateCompetencyGrade } =
     useStudentGrades({ courseCycleId, studentId, level, modality, institutionId });
 
   if (loading) {
@@ -142,233 +139,132 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
     );
   }
 
-  return (
-    <>
-      {subjects.map((subject) => (
-        <SubjectSection
-          key={subject.subjectId}
-          subject={subject}
-          scaleValues={scaleValues}
-          onUpdatePeriodGrade={updatePeriodGrade}
-          onUpdateFinalGrade={updateFinalGrade}
-          onUpdateImprimible={updateImprimible}
-        />
-      ))}
-    </>
+  // Period columns derived from first subject (all subjects share periods in a course)
+  const periodColumns = subjects[0]?.periods ?? [];
+
+  // All competency valuations across all subjects
+  const allCompetencies = subjects.flatMap((s) =>
+    s.competencyValuations.map((cv) => ({ ...cv, subjectName: s.subjectName })),
   );
-}
 
-// ── Inner: SubjectSection ──────────────────────────────────────────────────────
-
-interface SubjectSectionProps {
-  subject: SubjectWithState;
-  scaleValues: ScaleValue[];
-  onUpdatePeriodGrade(subjectId: string, periodOrdinal: number, updates: object): void;
-  onUpdateFinalGrade(subjectId: string, type: string, updates: object): void;
-  onUpdateImprimible(valuationId: string, periodItemId: string, imprimible: boolean): void;
-}
-
-function SubjectSection({
-  subject,
-  scaleValues,
-  onUpdatePeriodGrade,
-  onUpdateFinalGrade,
-  onUpdateImprimible,
-}: SubjectSectionProps) {
   return (
-    <Card className="mt-md">
-      {/* Subject name heading */}
-      <p style={sectionTitleStyle}>{subject.subjectName}</p>
-
-      {/* ── Period grades + PA/PPI/PP ──────────────────────────────────────── */}
-      <div data-testid="student-period-grades-section">
-        <p style={subSectionTitleStyle}>Notas por Período</p>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle} role="grid" aria-label={`Notas por período — ${subject.subjectName}`}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Período</th>
-                <th style={thStyle}>Nota</th>
-                <th style={thStyle}>PA</th>
-                <th style={thStyle}>PPI</th>
-                <th style={thStyle}>PP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subject.periods.map((period) => {
-                const grade = subject.periodGrades.find(
-                  (g) => g.periodOrdinal === period.periodOrdinal,
-                );
-                return (
-                  <tr key={period.periodOrdinal}>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{period.periodName}</td>
-
-                    {/* Grade dropdown */}
-                    <td style={tdStyle}>
+    <Card className="mt-lg">
+      {/* ── Table 1: Materias ──────────────────────────────────────────────── */}
+      <p style={sectionTitleStyle}>Materias</p>
+      <div data-testid="materias-table" style={{ overflowX: 'auto' }}>
+        <table style={tableStyle} role="grid" aria-label="Calificaciones por materia">
+          <thead>
+            <tr>
+              <th style={thStyle}>Materia</th>
+              {periodColumns.map((p) => (
+                <th key={p.periodOrdinal} style={thStyle}>{p.periodName}</th>
+              ))}
+              {FINAL_TYPES.map((type) => (
+                <th key={type} style={thStyle}>{FINAL_TYPE_LABELS[type]}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {subjects.map((subject) => (
+              <tr key={subject.subjectId}>
+                <td style={{ ...tdStyle, fontWeight: 500 }}>{subject.subjectName}</td>
+                {periodColumns.map((p) => {
+                  const grade = subject.periodGrades.find((g) => g.periodOrdinal === p.periodOrdinal);
+                  return (
+                    <td key={p.periodOrdinal} style={tdStyle}>
                       <select
                         style={selectStyle}
-                        aria-label={`Nota período ${period.periodOrdinal} - ${subject.subjectId}`}
+                        aria-label={`Nota período ${p.periodOrdinal} - ${subject.subjectId}`}
                         value={grade?.gradeScaleValueId ?? ''}
                         onChange={(e) =>
-                          onUpdatePeriodGrade(subject.subjectId, period.periodOrdinal, {
+                          updatePeriodGrade(subject.subjectId, p.periodOrdinal, {
                             gradeScaleValueId: e.target.value || null,
                           })
                         }
                       >
                         <option value="">—</option>
                         {scaleValues.map((sv) => (
-                          <option key={sv.id} value={sv.id}>
-                            {sv.code}
-                          </option>
+                          <option key={sv.id} value={sv.id}>{sv.code}</option>
                         ))}
                       </select>
                     </td>
-
-                    {/* PA */}
-                    <td style={tdStyle}>
-                      <input
-                        type="checkbox"
-                        aria-label="PA"
-                        checked={grade?.pa ?? false}
-                        onChange={(e) =>
-                          onUpdatePeriodGrade(subject.subjectId, period.periodOrdinal, {
-                            pa: e.target.checked,
-                          })
-                        }
-                      />
-                    </td>
-
-                    {/* PPI */}
-                    <td style={tdStyle}>
-                      <input
-                        type="checkbox"
-                        aria-label="PPI"
-                        checked={grade?.ppi ?? false}
-                        onChange={(e) =>
-                          onUpdatePeriodGrade(subject.subjectId, period.periodOrdinal, {
-                            ppi: e.target.checked,
-                          })
-                        }
-                      />
-                    </td>
-
-                    {/* PP */}
-                    <td style={tdStyle}>
-                      <input
-                        type="checkbox"
-                        aria-label="PP"
-                        checked={grade?.pp ?? false}
-                        onChange={(e) =>
-                          onUpdatePeriodGrade(subject.subjectId, period.periodOrdinal, {
-                            pp: e.target.checked,
-                          })
-                        }
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── Final grades ──────────────────────────────────────────────────── */}
-      <div data-testid="student-final-grades-section">
-        <p style={subSectionTitleStyle}>Calificaciones Especiales</p>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={tableStyle} role="grid" aria-label={`Calificaciones finales — ${subject.subjectName}`}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Tipo</th>
-                <th style={thStyle}>Nota</th>
-              </tr>
-            </thead>
-            <tbody>
-              {FINAL_TYPES.map((type) => {
-                const fg = subject.finalGrades.find((f) => f.type === type);
-                return (
-                  <tr key={type}>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{type}</td>
-                    <td style={tdStyle}>
+                  );
+                })}
+                {FINAL_TYPES.map((type) => {
+                  const fg = subject.finalGrades.find((f) => f.type === type);
+                  return (
+                    <td key={type} style={tdStyle}>
                       <select
                         style={selectStyle}
-                        aria-label={`Nota final ${type} - ${subject.subjectId}`}
+                        aria-label={`${FINAL_TYPE_LABELS[type]} - ${subject.subjectId}`}
                         value={fg?.gradeScaleValueId ?? ''}
                         onChange={(e) =>
-                          onUpdateFinalGrade(subject.subjectId, type, {
+                          updateFinalGrade(subject.subjectId, type, {
                             gradeScaleValueId: e.target.value || undefined,
                           })
                         }
                       >
                         <option value="">—</option>
                         {scaleValues.map((sv) => (
-                          <option key={sv.id} value={sv.id}>
-                            {sv.code}
-                          </option>
+                          <option key={sv.id} value={sv.id}>{sv.code}</option>
                         ))}
                       </select>
                     </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* ── Competency valuations with "Imprimir" toggle ───────────────────── */}
-      {subject.competencyValuations.length > 0 && (
-        <div data-testid="competency-section">
-          <p style={subSectionTitleStyle}>Competencias</p>
-          {subject.competencyValuations.map((cv) => (
-            <div
-              key={cv.valuationId}
-              style={{
-                borderBottom: '1px solid var(--color-border)',
-                padding: '0.35rem 0',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 'var(--space-md)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 'var(--text-xs)',
-                  color: 'var(--color-text-secondary)',
-                  minWidth: '8rem',
-                  fontWeight: 500,
-                }}
-              >
-                {cv.competencyName}
-              </span>
-
-              {cv.periodValuations.map((pv) => (
-                <label
-                  key={pv.periodItemId}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem',
-                    fontSize: 'var(--text-xs)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={pv.imprimible}
-                    aria-label={`Imprimir ${cv.valuationId}:${pv.periodItemId}`}
-                    onChange={(e) =>
-                      onUpdateImprimible(cv.valuationId, pv.periodItemId, e.target.checked)
-                    }
-                  />
-                  Imprimir
-                </label>
-              ))}
-            </div>
-          ))}
-        </div>
+      {/* ── Table 2: Competencias ──────────────────────────────────────────── */}
+      {allCompetencies.length > 0 && (
+        <>
+          <p style={{ ...sectionTitleStyle, marginTop: 'var(--space-lg)' }}>Competencias</p>
+          <div data-testid="competencias-table" style={{ overflowX: 'auto' }}>
+            <table style={tableStyle} role="grid" aria-label="Calificaciones por competencia">
+              <thead>
+                <tr>
+                  <th style={thStyle}>Competencia</th>
+                  {periodColumns.map((p) => (
+                    <th key={p.periodOrdinal} style={thStyle}>{p.periodName}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {allCompetencies.map((cv) => (
+                  <tr key={cv.valuationId}>
+                    <td style={{ ...tdStyle, fontWeight: 500 }}>{cv.competencyName}</td>
+                    {/* Map positionally: periodValuations[i] aligns with periodColumns[i] */}
+                    {periodColumns.map((p, idx) => {
+                      const pv = cv.periodValuations[idx];
+                      return (
+                        <td key={p.periodOrdinal} style={tdStyle}>
+                          {pv && (
+                            <select
+                              style={selectStyle}
+                              aria-label={`Competencia ${cv.valuationId} período ${p.periodOrdinal}`}
+                              value={pv.gradeScaleValueId ?? ''}
+                              onChange={(e) =>
+                                updateCompetencyGrade(cv.valuationId, pv.periodItemId, e.target.value || null)
+                              }
+                            >
+                              <option value="">—</option>
+                              {scaleValues.map((sv) => (
+                                <option key={sv.id} value={sv.id}>{sv.code}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </Card>
   );

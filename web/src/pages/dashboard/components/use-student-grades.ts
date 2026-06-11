@@ -123,6 +123,7 @@ export interface UseStudentGradesReturn {
   updatePeriodGrade(subjectId: string, periodOrdinal: number, updates: Partial<PeriodGradeState>): void;
   updateFinalGrade(subjectId: string, type: string, updates: Partial<FinalGradeState>): void;
   updateImprimible(valuationId: string, periodItemId: string, imprimible: boolean): void;
+  updateCompetencyGrade(valuationId: string, periodItemId: string, gradeScaleValueId: string | null): void;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -430,6 +431,75 @@ export function useStudentGrades({
     [institutionId],
   );
 
+  // ── updateCompetencyGrade: optimistic + PATCH ───────────────────────────
+
+  const updateCompetencyGrade = useCallback(
+    (valuationId: string, periodItemId: string, gradeScaleValueId: string | null) => {
+      // Optimistic update
+      setSubjects((prev) =>
+        prev.map((s) => ({
+          ...s,
+          competencyValuations: s.competencyValuations.map((cv) => {
+            if (cv.valuationId !== valuationId) return cv;
+            return {
+              ...cv,
+              periodValuations: cv.periodValuations.map((pv) =>
+                pv.periodItemId === periodItemId
+                  ? { ...pv, gradeScaleValueId, saveState: 'saving' as const }
+                  : pv,
+              ),
+            };
+          }),
+        })),
+      );
+
+      const tp = institutionId ? { institutionId } : {};
+      apiClient
+        .patch(
+          `/competency-valuations/${valuationId}/periods/${periodItemId}`,
+          { gradeScaleValueId },
+          { params: tp },
+        )
+        .then(() => {
+          setSubjects((prev) =>
+            prev.map((s) => ({
+              ...s,
+              competencyValuations: s.competencyValuations.map((cv) => {
+                if (cv.valuationId !== valuationId) return cv;
+                return {
+                  ...cv,
+                  periodValuations: cv.periodValuations.map((pv) =>
+                    pv.periodItemId === periodItemId
+                      ? { ...pv, saveState: 'idle' as const }
+                      : pv,
+                  ),
+                };
+              }),
+            })),
+          );
+        })
+        .catch(() => {
+          setSubjects((prev) =>
+            prev.map((s) => ({
+              ...s,
+              competencyValuations: s.competencyValuations.map((cv) => {
+                if (cv.valuationId !== valuationId) return cv;
+                return {
+                  ...cv,
+                  periodValuations: cv.periodValuations.map((pv) =>
+                    pv.periodItemId === periodItemId
+                      ? { ...pv, saveState: 'error' as const }
+                      : pv,
+                  ),
+                };
+              }),
+            })),
+          );
+        });
+    },
+    [institutionId],
+  );
+
   return {
     loading,
     error,
@@ -438,5 +508,6 @@ export function useStudentGrades({
     updatePeriodGrade,
     updateFinalGrade,
     updateImprimible,
+    updateCompetencyGrade,
   };
 }
