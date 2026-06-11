@@ -38,6 +38,7 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const paramsKey = JSON.stringify(params);
   const load = useCallback(async () => {
     if (!url) {
       setData([]);
@@ -48,7 +49,8 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
     try { const res = await apiClient.get(url, { params }); setData(adaptListResponse<T>(res)); }
     catch { setError('Error al cargar datos'); }
     finally { setLoading(false); }
-  }, [url, JSON.stringify(params)]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- paramsKey tracks params by value; object identity intentionally excluded to avoid refetch storms
+  }, [url, paramsKey]);
 
   useEffect(() => { load(); }, [load]);
   return { data, loading, error, reload: load };
