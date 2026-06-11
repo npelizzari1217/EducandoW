@@ -195,7 +195,7 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                       >
                         <option value="">—</option>
                         {scaleValues.map((sv) => (
-                          <option key={sv.id} value={sv.id}>{sv.code}</option>
+                          <option key={sv.id} value={sv.id}>{sv.label}</option>
                         ))}
                       </select>
                     </td>
@@ -217,7 +217,7 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                       >
                         <option value="">—</option>
                         {scaleValues.map((sv) => (
-                          <option key={sv.id} value={sv.id}>{sv.code}</option>
+                          <option key={sv.id} value={sv.id}>{sv.label}</option>
                         ))}
                       </select>
                     </td>
@@ -272,7 +272,7 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                             >
                               <option value="">—</option>
                               {scaleValues.map((sv) => (
-                                <option key={sv.id} value={sv.id}>{sv.code}</option>
+                                <option key={sv.id} value={sv.id}>{sv.label}</option>
                               ))}
                             </select>
                           )}

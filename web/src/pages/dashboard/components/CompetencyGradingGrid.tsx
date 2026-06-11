@@ -152,7 +152,7 @@ function GradeCell({ cell, cellKey, scaleValues, onUpdate, onUpdateImprimible, s
           <option value="">—</option>
           {scaleValues.map((sv) => (
             <option key={sv.id} value={sv.id}>
-              {sv.code} — {sv.label}
+              {sv.label}
             </option>
           ))}
         </select>

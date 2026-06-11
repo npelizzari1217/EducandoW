@@ -170,7 +170,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
                             <option value="">—</option>
                             {grid.scaleValues.map(sv => (
                               <option key={sv.id} value={sv.id}>
-                                {sv.code}
+                                {sv.label}
                               </option>
                             ))}
                           </select>
@@ -256,7 +256,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
                             <option value="">—</option>
                             {grid.scaleValues.map(sv => (
                               <option key={sv.id} value={sv.id}>
-                                {sv.code}
+                                {sv.label}
                               </option>
                             ))}
                           </select>
