@@ -141,6 +141,7 @@ model AcademicCycle {
   courseCycles        CourseCycle[]
   gradingPeriodDates  GradingPeriodDate[]
   studyPlans          StudyPlan[]         @relation("StudyPlanCycle")
+  ingresantes         Ingresante[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1278,4 +1279,31 @@ model MateriaPrevia {
   @@index([studentId])
   @@index([studentId, originAcademicYear])
   @@map("materias_previas")
+}
+
+// ── Ingresante (lista de espera de aspirantes) ──────────────
+
+model Ingresante {
+  id        String    @id @default(uuid())
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  dni       String
+  email     String?
+  birthDate DateTime? @map("birth_date")
+  address   String?
+  phone     String?
+  cycleId   String?   @map("cycle_id")
+  cycle     AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
+  level     Int
+  modality  Int       @default(0)
+  status    String    @default("INSCRIPTO")
+  active    Boolean   @default(true)
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([dni])
+  @@index([status])
+  @@index([cycleId])
+  @@map("ingresantes")
 }

@@ -37,6 +37,10 @@ export { Enrollment, EnrollmentStatus } from './enrollment/entities';
 export type { EnrollmentStatusValue } from './enrollment/entities';
 export type { EnrollmentRepository, FindByCourseParams } from './enrollment/repositories/enrollment-repository';
 
+// Ingresante
+export { Ingresante, IngresanteStatus, VALID_INGRESANTE_STATUSES } from './ingresante';
+export type { IngresanteProps, IngresanteStatusValue, IngresanteRepository } from './ingresante';
+
 // CourseCycle
 export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
 export type { CourseCycleProps, CreateCourseCycleInput, UpdateCourseCycleInput } from './course-cycle';
