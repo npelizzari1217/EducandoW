@@ -85,6 +85,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       create: {
         id: enrollment.id.get(),
         studentId: enrollment.studentId.get(),
+        cycleId: enrollment.cycleId?.get() ?? null,
         level: enrollment.level.levelCode,
         modality: enrollment.level.modalityCode,
         academicYear: enrollment.academicYear,
@@ -98,6 +99,7 @@ export class PrismaEnrollmentRepository implements EnrollmentRepository {
       },
       update: {
         studentId: enrollment.studentId.get(),
+        cycleId: enrollment.cycleId?.get() ?? null,
         level: enrollment.level.levelCode,
         modality: enrollment.level.modalityCode,
         academicYear: enrollment.academicYear,

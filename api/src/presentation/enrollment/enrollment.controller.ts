@@ -31,7 +31,7 @@ export class EnrollmentController {
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
     const e = result.unwrap();
-    return { data: { id: e.id.get(), level: e.level.toString(), academicYear: e.academicYear, status: e.status } };
+    return { data: { id: e.id.get(), level: e.level.toString(), academicYear: e.academicYear, status: e.status, cycleId: e.cycleId?.get() ?? null } };
   }
 
   @Get()
@@ -93,6 +93,6 @@ export class EnrollmentController {
   }
 }
 
-function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: { toString(): string }; enrolledAt: Date; printable: boolean; promoted: boolean }) {
-  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status.toString(), enrolledAt: e.enrolledAt.toISOString(), printable: e.printable, promoted: e.promoted };
+function toDto(e: { id: { get(): string }; studentId: { get(): string }; institutionId: { get(): string }; cycleId?: { get(): string }; level: { toString(): string }; academicYear: string; grade?: string; division?: string; status: { toString(): string }; enrolledAt: Date; printable: boolean; promoted: boolean }) {
+  return { id: e.id.get(), studentId: e.studentId.get(), institutionId: e.institutionId.get(), cycleId: e.cycleId?.get() ?? null, level: e.level.toString(), academicYear: e.academicYear, grade: e.grade, division: e.division, status: e.status.toString(), enrolledAt: e.enrolledAt.toISOString(), printable: e.printable, promoted: e.promoted };
 }

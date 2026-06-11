@@ -85,6 +85,21 @@ describe('CreateEnrollmentUseCase', () => {
     expect(result.isErr()).toBe(true);
     expect(repo.save).not.toHaveBeenCalled();
   });
+
+  it('should pass cycleId when creating an enrollment', async () => {
+    const uc = new CreateEnrollmentUseCase(repo);
+    const result = await uc.execute({
+      studentId: '00000000-0000-0000-0000-000000000001',
+      institutionId: '00000000-0000-0000-0000-000000000002',
+      level: 'PRIMARIO',
+      academicYear: '2026',
+      cycleId: 'cycle-2026-primario',
+    });
+
+    expect(result.isOk()).toBe(true);
+    const saved = vi.mocked(repo.save).mock.calls[0][0];
+    expect(saved.cycleId?.get()).toBe('cycle-2026-primario');
+  });
 });
 
 // ── ToggleEnrollmentFlagUseCase ───────────────────────────────────────────────

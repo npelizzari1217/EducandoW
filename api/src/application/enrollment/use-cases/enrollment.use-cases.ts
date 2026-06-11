@@ -10,6 +10,7 @@ export interface CreateEnrollmentInput {
   academicYear: string;
   grade?: string;
   division?: string;
+  cycleId?: string;
 }
 
 function buildLevel(level: string, modality?: string): Level {
@@ -43,6 +44,7 @@ export class CreateEnrollmentUseCase {
     const createResult = Enrollment.create({
       studentId: Id.reconstruct(input.studentId),
       institutionId: Id.reconstruct(input.institutionId),
+      cycleId: input.cycleId ? Id.reconstruct(input.cycleId) : undefined,
       level: lvl,
       academicYear: input.academicYear,
       grade: input.grade,

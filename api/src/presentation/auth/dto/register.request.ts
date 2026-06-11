@@ -95,6 +95,7 @@ export const CreateEnrollmentSchema = z.object({
   academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
   grade: codeField.optional(),
   division: codeField.optional(),
+  cycleId: z.string().optional(),
 });
 export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 
