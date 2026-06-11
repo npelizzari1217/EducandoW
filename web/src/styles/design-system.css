@@ -5,9 +5,6 @@
   --color-primary-hover: #1d4ed8;
   --color-primary-light: #dbeafe;
   --color-row-selected: #bfdbfe;
-  /* Inline edit highlight (materia/competencia editing background). Amber so it
-     reads as "you are editing this", distinct from the blue selected-row color. */
-  --color-edit-highlight: #fef3c7;
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   --color-danger-light: #fee2e2;
@@ -75,7 +72,6 @@
   --color-primary-hover: #a5b4fc;
   --color-primary-light: #1e1b4b;
   --color-row-selected: rgba(129, 140, 248, 0.28);
-  --color-edit-highlight: rgba(251, 191, 36, 0.16);
   --color-danger: #f87171;
   --color-danger-hover: #ef4444;
   --color-danger-light: #450a0a;

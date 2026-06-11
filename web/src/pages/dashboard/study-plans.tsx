@@ -608,14 +608,15 @@ export default function StudyPlansPage() {
         }
 
         /* ── Edit inline ── */
+        /* Match the course edit (.inline-form) look, day and night, per request. */
         .edit-inline-row {
           display: flex; gap: 0.4rem; align-items: center; flex: 1; flex-wrap: wrap;
-          background: var(--color-edit-highlight); padding: 0.4rem 0.55rem; border-radius: 8px;
+          background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.75rem;
         }
         .edit-inline-row input {
-          padding: 0.35rem 0.5rem; border: 1px solid var(--color-border);
-          border-radius: 6px; font-size: 0.82rem; color: var(--color-text);
-          background: var(--color-surface); outline: none;
+          padding: 0.4rem 0.6rem; border: 1px solid #e2e8f0;
+          border-radius: 6px; font-size: 0.82rem; color: #334155;
+          background: #fff; outline: none;
         }
         .edit-inline-row input:focus {
           border-color: #818cf8; box-shadow: 0 0 0 2px rgba(99,102,241,0.15);
