@@ -113,6 +113,9 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
   const { loading, error, subjects, scaleValues, updatePeriodGrade, updateFinalGrade, updateCompetencyGrade } =
     useStudentGrades({ courseCycleId, studentId, level, modality, institutionId });
 
+  // Which subject's competencies are shown below (defaults to the first subject)
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+
   if (loading) {
     return (
       <Card className="mt-lg">
@@ -142,10 +145,9 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
   // Period columns derived from first subject (all subjects share periods in a course)
   const periodColumns = subjects[0]?.periods ?? [];
 
-  // All competency valuations across all subjects
-  const allCompetencies = subjects.flatMap((s) =>
-    s.competencyValuations.map((cv) => ({ ...cv, subjectName: s.subjectName })),
-  );
+  // Active subject drives which competencies are shown below (defaults to the first)
+  const activeSubjectId = selectedSubjectId ?? subjects[0]?.subjectId ?? null;
+  const activeSubject = subjects.find((s) => s.subjectId === activeSubjectId) ?? null;
 
   return (
     <Card className="mt-lg">
@@ -166,7 +168,14 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
           </thead>
           <tbody>
             {subjects.map((subject) => (
-              <tr key={subject.subjectId}>
+              <tr
+                key={subject.subjectId}
+                onClick={() => setSelectedSubjectId(subject.subjectId)}
+                style={{
+                  cursor: 'pointer',
+                  background: subject.subjectId === activeSubjectId ? 'var(--color-surface-secondary, rgba(0,0,0,0.04))' : undefined,
+                }}
+              >
                 <td style={{ ...tdStyle, fontWeight: 500 }}>{subject.subjectName}</td>
                 {periodColumns.map((p) => {
                   const grade = subject.periodGrades.find((g) => g.periodOrdinal === p.periodOrdinal);
@@ -218,10 +227,12 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
         </table>
       </div>
 
-      {/* ── Table 2: Competencias ──────────────────────────────────────────── */}
-      {allCompetencies.length > 0 && (
+      {/* ── Table 2: Competencias de la materia seleccionada ───────────────── */}
+      {activeSubject && activeSubject.competencyValuations.length > 0 && (
         <>
-          <p style={{ ...sectionTitleStyle, marginTop: 'var(--space-lg)' }}>Competencias</p>
+          <p style={{ ...sectionTitleStyle, marginTop: 'var(--space-lg)' }}>
+            Competencias — {activeSubject.subjectName}
+          </p>
           <div data-testid="competencias-table" style={{ overflowX: 'auto' }}>
             <table style={tableStyle} role="grid" aria-label="Calificaciones por competencia">
               <thead>
@@ -233,7 +244,7 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                 </tr>
               </thead>
               <tbody>
-                {allCompetencies.map((cv) => (
+                {activeSubject.competencyValuations.map((cv) => (
                   <tr key={cv.valuationId}>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{cv.competencyName}</td>
                     {/* Map positionally: periodValuations[i] aligns with periodColumns[i] */}
