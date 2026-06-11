@@ -43,8 +43,6 @@ const navGroups: NavGroupDef[] = [
       { label: 'Cursos por Ciclo', path: '/course-cycles', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
       { label: 'Ciclos Lectivos', path: '/academic-cycles', moduleCode: 'COURSES' },
       { label: 'Usuarios', path: '/users', moduleCode: 'USERS' },
-      { label: 'Observaciones', path: '/observations', moduleCode: 'STUDENTS' },
-      { label: 'Observaciones por ciclo', path: '/observations-by-cycle', moduleCode: 'STUDENTS' },
     ],
   },
   {

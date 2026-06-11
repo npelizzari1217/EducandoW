@@ -514,22 +514,40 @@ describe('SubjectGradingByCoursePage', () => {
     expect(screen.getByRole('heading', { name: /calificaciones.*ana/i })).toBeInTheDocument();
   });
 
-  // SBC-16: clicking "Observaciones" opens the observations modal
-  it('SBC-16: clicking Observaciones on a student opens the observations modal', async () => {
+  // SBC-16: clicking "Observaciones Pedagógicas" opens the pedagogical observations modal
+  it('SBC-16: clicking Observaciones Pedagógicas on a student opens the modal', async () => {
     renderPage();
     await selectCC();
 
     await waitFor(() => screen.getByText('Ana'));
 
     const row = screen.getByText('Ana').closest('tr')!;
-    const observacionesBtn = within(row).getByRole('button', { name: /observaciones/i });
+    const observacionesBtn = within(row).getByRole('button', { name: /observaciones pedagógicas/i });
     await userEvent.click(observacionesBtn);
 
     await waitFor(() => screen.getByRole('dialog'));
     const dialog = screen.getByRole('dialog');
     expect(dialog).toBeInTheDocument();
-    // Title contains "Observaciones" and student name
-    expect(screen.getByRole('heading', { name: /observaciones.*ana/i })).toBeInTheDocument();
+    // Title contains "Observaciones Pedagógicas" and student name
+    expect(screen.getByRole('heading', { name: /observaciones pedagógicas.*ana/i })).toBeInTheDocument();
+  });
+
+  // SBC-16b: clicking "Observaciones Psicopedagógicas" opens the psychopedagogical observations modal
+  it('SBC-16b: clicking Observaciones Psicopedagógicas on a student opens the modal', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    const row = screen.getByText('Ana').closest('tr')!;
+    const observacionesBtn = within(row).getByRole('button', { name: /observaciones psicopedagógicas/i });
+    await userEvent.click(observacionesBtn);
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // Title contains "Observaciones Psicopedagógicas" and student name
+    expect(screen.getByRole('heading', { name: /observaciones psicopedagógicas.*ana/i })).toBeInTheDocument();
   });
 
   // SBC-17: clicking "Legajo" opens the legajo modal

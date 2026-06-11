@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApiList, useApiCreate } from '../../../hooks/use-api';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
+import apiClient from '../../../api/client';
 
 // ── Interfaces ─────────────────────────────────────────────
 
@@ -14,9 +15,20 @@ interface Observation {
   createdAt?: string;
 }
 
+interface Enrollment {
+  id: string;
+  studentId: string;
+  status: string;
+}
+
 const TYPE_BADGE: Record<string, { bg: string; color: string; label: string }> = {
   PEDAGOGICAL: { bg: '#dbeafe', color: '#1e40af', label: 'Pedagógica' },
   PSYCHOPEDAGOGICAL: { bg: '#f3e8ff', color: '#6b21a8', label: 'Psicopedagógica' },
+};
+
+const TYPE_LABEL: Record<'PEDAGOGICAL' | 'PSYCHOPEDAGOGICAL', string> = {
+  PEDAGOGICAL: 'pedagógicas',
+  PSYCHOPEDAGOGICAL: 'psicopedagógicas',
 };
 
 // ── Component ──────────────────────────────────────────────
@@ -24,11 +36,13 @@ const TYPE_BADGE: Record<string, { bg: string; color: string; label: string }> =
 interface StudentObservationsPanelProps {
   studentId: string;
   institutionId?: string;
+  type: 'PEDAGOGICAL' | 'PSYCHOPEDAGOGICAL';
 }
 
 export function StudentObservationsPanel({
   studentId,
   institutionId,
+  type,
 }: StudentObservationsPanelProps) {
   const tenantParams: Record<string, string> | undefined = institutionId
     ? { institutionId }
@@ -43,26 +57,71 @@ export function StudentObservationsPanel({
     studentId: string;
     type: string;
     content: string;
+    enrollmentId?: string;
     institutionId?: string;
   }>('/student-observations', tenantParams);
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ type: 'PEDAGOGICAL', content: '' });
+  const [content, setContent] = useState('');
+
+  // ── PEDAGOGICAL: resolve active enrollment on mount ────────
+  const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
+  const [noActiveEnrollment, setNoActiveEnrollment] = useState(false);
+
+  useEffect(() => {
+    if (type !== 'PEDAGOGICAL') return;
+    setEnrollmentLoading(true);
+    const params: Record<string, string> = { studentId };
+    if (institutionId) params.institutionId = institutionId;
+    apiClient
+      .get('/enrollments', { params })
+      .then((res) => {
+        const list = (res.data?.data ?? []) as Enrollment[];
+        const active = list.find((e) => e.status === 'ACTIVE') ?? null;
+        if (active) {
+          setActiveEnrollmentId(active.id);
+          setNoActiveEnrollment(false);
+        } else {
+          setNoActiveEnrollment(true);
+        }
+      })
+      .catch(() => {
+        setNoActiveEnrollment(true);
+      })
+      .finally(() => setEnrollmentLoading(false));
+  }, [type, studentId, institutionId]);
+
+  const isCreateDisabled =
+    type === 'PEDAGOGICAL' && (enrollmentLoading || noActiveEnrollment);
 
   const handleCreate = async () => {
-    const body = {
+    const body: {
+      studentId: string;
+      type: string;
+      content: string;
+      enrollmentId?: string;
+      institutionId?: string;
+    } = {
       studentId,
-      type: form.type,
-      content: form.content,
+      type,
+      content,
       ...(institutionId ? { institutionId } : {}),
     };
+    if (type === 'PEDAGOGICAL' && activeEnrollmentId) {
+      body.enrollmentId = activeEnrollmentId;
+    }
     const ok = await create(body);
     if (ok) {
       setShowForm(false);
-      setForm({ type: 'PEDAGOGICAL', content: '' });
+      setContent('');
       reload();
     }
   };
+
+  // Client-side filter: only show observations matching this panel's type
+  const filtered = data.filter((obs) => obs.type === type);
+  const typeLabel = TYPE_LABEL[type];
 
   return (
     <div>
@@ -72,13 +131,30 @@ export function StudentObservationsPanel({
           variant={showForm ? 'danger-soft' : 'success-soft'}
           size="sm"
           onClick={() => setShowForm(!showForm)}
+          disabled={isCreateDisabled}
         >
           {showForm ? 'Cancelar' : 'Nueva observación'}
         </Button>
       </div>
 
+      {/* No active enrollment warning */}
+      {type === 'PEDAGOGICAL' && !enrollmentLoading && noActiveEnrollment && (
+        <div
+          style={{
+            background: '#fefce8',
+            color: '#854d0e',
+            padding: '0.5rem 0.75rem',
+            borderRadius: 'var(--radius-md)',
+            marginBottom: 'var(--space-md)',
+            fontSize: 'var(--text-sm)',
+          }}
+        >
+          El alumno no tiene una inscripción activa para registrar observaciones pedagógicas.
+        </div>
+      )}
+
       {/* Create form */}
-      {showForm && (
+      {showForm && !isCreateDisabled && (
         <Card title="Nueva observación" className="mt-sm">
           {createError && (
             <div
@@ -96,23 +172,12 @@ export function StudentObservationsPanel({
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
             <div className="field">
-              <label className="field-label">Tipo</label>
-              <select
-                className="input"
-                value={form.type}
-                onChange={(e) => setForm({ ...form, type: e.target.value })}
-              >
-                <option value="PEDAGOGICAL">Pedagógica</option>
-                <option value="PSYCHOPEDAGOGICAL">Psicopedagógica</option>
-              </select>
-            </div>
-            <div className="field">
               <label className="field-label">Contenido</label>
               <textarea
                 className="input"
                 rows={4}
-                value={form.content}
-                onChange={(e) => setForm({ ...form, content: e.target.value })}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
                 required
                 style={{ resize: 'vertical' }}
               />
@@ -137,15 +202,15 @@ export function StudentObservationsPanel({
             Cargando...
           </p>
         )}
-        {!loading && data.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <Card>
             <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
-              No hay observaciones para este estudiante.
+              No hay observaciones {typeLabel} para este alumno.
             </p>
           </Card>
         )}
         {!loading &&
-          data.map((obs) => {
+          filtered.map((obs) => {
             const badge = TYPE_BADGE[obs.type] ?? TYPE_BADGE.PEDAGOGICAL;
             return (
               <Card key={obs.id} className="mt-sm">

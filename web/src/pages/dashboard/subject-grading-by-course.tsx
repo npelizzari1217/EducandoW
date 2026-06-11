@@ -321,12 +321,24 @@ const STUDENT_ACTIONS: StudentAction[] = [
     ),
   },
   {
-    key: 'observations',
-    label: 'Observaciones',
+    key: 'obs-pedagogicas',
+    label: 'Observaciones Pedagógicas',
     render: (s, ctx) => (
       <StudentObservationsPanel
         studentId={s.studentId}
         institutionId={ctx.institutionId}
+        type="PEDAGOGICAL"
+      />
+    ),
+  },
+  {
+    key: 'obs-psico',
+    label: 'Observaciones Psicopedagógicas',
+    render: (s, ctx) => (
+      <StudentObservationsPanel
+        studentId={s.studentId}
+        institutionId={ctx.institutionId}
+        type="PSYCHOPEDAGOGICAL"
       />
     ),
   },
