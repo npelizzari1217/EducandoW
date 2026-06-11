@@ -7,6 +7,7 @@ import { InstitutionModule } from './presentation/institution/institution.module
 import { StudentModule } from './presentation/student/student.module';
 import { TeacherModule } from './presentation/teacher/teacher.module';
 import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
+import { IngresanteModule } from './presentation/ingresante/ingresante.module';
 import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
 import { ModulesModule } from './presentation/modules/modules.module';
 import { UsersModule } from './presentation/users/users.module';
@@ -42,6 +43,7 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     StudentModule,
     TeacherModule,
     EnrollmentModule,
+    IngresanteModule,
     PedagogyModule,
     ModulesModule,
     UsersModule,
