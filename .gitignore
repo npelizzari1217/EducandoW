@@ -71,3 +71,6 @@ mobile/.atl/
 
 # Claude Code personal overrides
 .claude/settings.local.json
+
+# Claude Code local dir (settings, agent worktrees)
+.claude/
