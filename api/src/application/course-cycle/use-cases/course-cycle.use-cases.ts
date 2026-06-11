@@ -349,9 +349,11 @@ export class GenerateCourseCyclesUseCase {
 
         const existing = await this.courseCycleRepo.findByPair(pc.courseSectionId, input.cycleId);
 
+        let courseCycleUuid: string;
         if (existing) {
           existing.update({ courseName });
           await this.courseCycleRepo.save(existing);
+          courseCycleUuid = existing.uuid;
           updated++;
         } else {
           const cc = CourseCycle.create({
@@ -368,13 +370,15 @@ export class GenerateCourseCyclesUseCase {
             fourthBimonth: null,
           });
           await this.courseCycleRepo.save(cc);
-          // Fire-and-forget: auto-create CompetencyValuation parents for this new CourseCycle.
-          // Failure must NOT block cycle generation.
-          this.autoCreateUC.execute({ courseCycleId: cc.uuid }).catch((e) => {
-            console.error('[GenerateCourseCycles] AutoCreate failed (non-blocking):', e);
-          });
+          courseCycleUuid = cc.uuid;
           created++;
         }
+        // Fire-and-forget: sync CompetencyValuation parents for this CourseCycle on BOTH
+        // create AND update, so newly added subjects/competencies (or newly enrolled students)
+        // get their valuations. Idempotent (skipDuplicates); failure must NOT block generation.
+        this.autoCreateUC.execute({ courseCycleId: courseCycleUuid }).catch((e) => {
+          console.error('[GenerateCourseCycles] AutoCreate failed (non-blocking):', e);
+        });
         total++;
       }
     }

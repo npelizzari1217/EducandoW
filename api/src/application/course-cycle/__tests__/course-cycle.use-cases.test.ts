@@ -464,6 +464,32 @@ describe('GenerateCourseCyclesUseCase', () => {
     expect(mockRepo.save).toHaveBeenCalledTimes(5);
   });
 
+  // 2b. Cascade runs on BOTH create and update (re-sync of competencies/students)
+  it('runs the competency-valuation cascade for created AND updated course cycles', async () => {
+    (mockAutoCreateUC as unknown as { execute: ReturnType<typeof vi.fn> }).execute.mockClear();
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+      { id: 'spc-2', courseSectionId: 'course-2', courseSectionName: 'Lengua', studyPlanId: 'plan-1' },
+      { id: 'spc-3', courseSectionId: 'course-3', courseSectionName: 'Ciencias', studyPlanId: 'plan-1' },
+    ]);
+    const existingCC = makeCC();
+    mockRepo.findByPair = vi.fn()
+      .mockResolvedValueOnce(existingCC)  // course-1 exists → update
+      .mockResolvedValue(null);            // course-2, course-3 new → create
+
+    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    expect(result.updated).toBe(1);
+    expect(result.created).toBe(2);
+    // Cascade fired once per course — both the updated one and the two created ones
+    expect((mockAutoCreateUC as unknown as { execute: ReturnType<typeof vi.fn> }).execute).toHaveBeenCalledTimes(3);
+    expect((mockAutoCreateUC as unknown as { execute: ReturnType<typeof vi.fn> }).execute).toHaveBeenCalledWith({ courseCycleId: existingCC.uuid });
+  });
+
   // 3. Level derived from plan via Level.fromParts
   it('derives level via Level.fromParts instead of hardcoding', async () => {
     mockPlanRepo.findById = vi.fn().mockResolvedValue({
