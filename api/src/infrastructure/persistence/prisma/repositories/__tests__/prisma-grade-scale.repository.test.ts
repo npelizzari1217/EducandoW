@@ -115,6 +115,17 @@ describe('PrismaGradeScaleRepository — list', () => {
       }),
     );
   });
+
+  it('decomposes a composite course-cycle level (20) to the stored base level (2)', async () => {
+    mockClient.gradeScale.findMany.mockResolvedValue([]);
+    await repo.list({ level: 20 });
+
+    expect(mockClient.gradeScale.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ level: 2 }),
+      }),
+    );
+  });
 });
 
 // ═══════════════════════════════════════════════════════════

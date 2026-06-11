@@ -37,7 +37,7 @@ export class PrismaGradeScaleRepository implements GradeScaleRepository {
 
   async list(filters?: GradeScaleFilters): Promise<GradeScale[]> {
     const where: Record<string, unknown> = { deletedAt: null };
-    if (filters?.level !== undefined) where.level = filters.level;
+    if (filters?.level !== undefined) where.level = this.toBaseLevel(filters.level);
     if (filters?.modality !== undefined) where.modality = filters.modality;
     if (filters?.active !== undefined) where.active = filters.active;
 
@@ -51,7 +51,7 @@ export class PrismaGradeScaleRepository implements GradeScaleRepository {
 
   async findActiveByLevelModality(level: number, modality: number): Promise<GradeScale | null> {
     const r = await this.client.gradeScale.findFirst({
-      where: { level, modality, active: true, deletedAt: null },
+      where: { level: this.toBaseLevel(level), modality, active: true, deletedAt: null },
       orderBy: { updatedAt: 'desc' },
       include: { values: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } } },
     });
@@ -136,6 +136,16 @@ export class PrismaGradeScaleRepository implements GradeScaleRepository {
   }
 
   // ── Private helpers ────────────────────────────────────────
+
+  /**
+   * GradeScale stores the base levelCode (1-9). Grids resolve scales using the
+   * CourseCycle's composite level (levelCode*10 + modality, e.g. 20, 30, 40).
+   * Decompose composite values so the lookup matches the stored base level.
+   * Base levels (< 10) pass through unchanged.
+   */
+  private toBaseLevel(level: number): number {
+    return level >= 10 ? Math.floor(level / 10) : level;
+  }
 
   private toDomain(r: PrismaGradeScaleWithValues): GradeScale {
     return GradeScale.reconstruct({
