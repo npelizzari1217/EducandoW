@@ -42,7 +42,10 @@ export function SubjectCompetenciesManager({ studyPlanSubjectId, institutionId }
     setError('');
     try {
       const r = await apiClient.get('/subject-competencies', { params: { studyPlanSubjectId, ...(institutionId ? { institutionId } : {}) } });
-      setCompetencies(r.data?.data ?? []);
+      // Backend returns each competency keyed as `uuid`; the UI keys on `id`.
+      // Normalize so per-row edit (id match) and PATCH /:id work correctly.
+      const list = (r.data?.data ?? []) as Array<Record<string, unknown>>;
+      setCompetencies(list.map((c) => ({ ...c, id: (c.id ?? c.uuid) as string })) as Competency[]);
     } catch { setError('Error al cargar competencias'); }
     finally { setLoading(false); }
   };

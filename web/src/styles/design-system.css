@@ -17,7 +17,12 @@
   --color-border: #e2e8f0;
   --color-text: #1e293b;
   --color-text-muted: #64748b;
+  --color-text-secondary: #64748b;
   --color-text-light: #94a3b8;
+  --color-surface-secondary: #f1f5f9;
+
+  /* Native form controls (select/option/input/scrollbars) follow the theme */
+  color-scheme: light;
 
   /* Spacing */
   --space-xs: 0.25rem;
@@ -76,10 +81,14 @@
   --color-warning-light: #451a03;
   --color-bg: #0f172a;
   --color-surface: #1e293b;
+  --color-surface-secondary: #0f172a;
   --color-border: #334155;
   --color-text: #e2e8f0;
   --color-text-muted: #94a3b8;
+  --color-text-secondary: #94a3b8;
   --color-text-light: #64748b;
+  /* Native form controls (select/option/input/scrollbars) render dark */
+  color-scheme: dark;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 6px rgba(0,0,0,0.4);
   --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);

@@ -61,11 +61,16 @@ export class PrismaSubjectRepo implements SubjectRepository {
 
   private toDomain(r: SubjectRow): Subject {
     const modality = r.modality ?? EducationalModalityCode.COMUN;
+    // subject.level is stored as the BASE levelCode (app convention: save() writes
+    // s.levelCode). Some seed/imported rows hold the COMPOSITE code (levelCode*10+
+    // modality, e.g. 20). Normalize to base before composing, else fromParts builds
+    // an invalid composite (e.g. fromParts(20,0)=200) and findById throws.
+    const baseLevel = r.level >= 10 ? Math.floor(r.level / 10) : r.level;
     return Subject.reconstruct({
       id: Id.reconstruct(r.id),
       name: r.name,
       level: Level.fromParts(
-        r.level as EducationalLevelCode,
+        baseLevel as EducationalLevelCode,
         modality as EducationalModalityCode,
       ),
       institutionId: Id.reconstruct(TenantContext.getInstitutionId() ?? ''),
