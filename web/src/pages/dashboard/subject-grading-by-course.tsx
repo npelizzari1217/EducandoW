@@ -5,16 +5,8 @@
  *
  * Features:
  * - TeacherFilteredSelector in homeroom mode (Primario + Secundario) → emits CC
- * - Student picker fetched from /course-cycles/:id/students
- * - Per-subject sections: period grades + PA/PPI/PP + 4 finals + competency valuations
- *   with per-cell "Imprimir" toggle (PATCH /competency-valuations/:uuid/periods/:pid)
- * - Inline save (no full reload)
- *
- * W1-avoidance: useStudentGrades called ONCE per selection (not per subject).
- * CompetencyGradingGrid is intentionally NOT used here:
- *   - CGG is students×subject view; by-course is subject×student view
- *   - Rendering N CGG instances for N subjects = N×5 redundant fetches (W1 multiplied)
- *   - competencyValuations come directly from the by-student endpoint response
+ * - Student list fetched from /course-cycles/:id/students
+ * - Action modal: Calificaciones / Observaciones / Legajo per student
  *
  * Filter: Math.floor(level/10) ∈ {2, 3} (levels 20-39 — Primario + Secundario)
  * Specs: ESS-R2, ESS-R6, ESS-R7, ESS-R8, ESS-R10, TIA-R9, D3
@@ -22,12 +14,16 @@
 import { useState, useEffect } from 'react';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Modal } from '../../components/ui/modal';
 import apiClient from '../../api/client';
 import { TeacherFilteredSelector } from './components/TeacherFilteredSelector';
 import type { CourseCycleContext } from './components/TeacherFilteredSelector';
 import { useStudentGrades } from './components/use-student-grades';
 import type { SubjectWithState } from './components/use-student-grades';
 import type { ScaleValue } from './components/use-grading-grid';
+import { StudentLegajo } from './components/StudentLegajo';
+import { StudentObservationsPanel } from './components/StudentObservationsPanel';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -77,13 +73,6 @@ const selectStyle: React.CSSProperties = {
   color: 'var(--color-text)',
   fontSize: 'var(--text-sm)',
   minWidth: '5rem',
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: 'var(--text-sm)',
-  fontWeight: 500,
-  marginBottom: '0.25rem',
-  display: 'block',
 };
 
 const sectionTitleStyle: React.CSSProperties = {
@@ -385,20 +374,74 @@ function SubjectSection({
   );
 }
 
+// ── Action Registry ────────────────────────────────────────────────────────────
+
+interface StudentAction {
+  key: string;
+  label: string;
+  render: (
+    student: EnrolledStudent,
+    ctx: {
+      courseCycleId: string;
+      level: number;
+      modality: number | null;
+      institutionId?: string;
+    },
+  ) => React.ReactNode;
+}
+
+const STUDENT_ACTIONS: StudentAction[] = [
+  {
+    key: 'grades',
+    label: 'Calificaciones',
+    render: (s, ctx) => (
+      <StudentGradingGrid
+        courseCycleId={ctx.courseCycleId}
+        studentId={s.studentId}
+        level={ctx.level}
+        modality={ctx.modality}
+        institutionId={ctx.institutionId}
+      />
+    ),
+  },
+  {
+    key: 'observations',
+    label: 'Observaciones',
+    render: (s, ctx) => (
+      <StudentObservationsPanel
+        studentId={s.studentId}
+        institutionId={ctx.institutionId}
+      />
+    ),
+  },
+  {
+    key: 'legajo',
+    label: 'Legajo',
+    render: (s, ctx) => (
+      <StudentLegajo
+        studentId={s.studentId}
+        institutionId={ctx.institutionId}
+      />
+    ),
+  },
+];
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SubjectGradingByCoursePage() {
   const [ccContext, setCCContext] = useState<CourseCycleContext | null>(null);
   const [students, setStudents] = useState<EnrolledStudent[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [modalState, setModalState] = useState<{
+    student: EnrolledStudent;
+    action: StudentAction;
+  } | null>(null);
 
   // ── Fetch students when CC is selected ────────────────────────────────────
   useEffect(() => {
     if (!ccContext) return;
     setStudentsLoading(true);
     setStudents([]);
-    setSelectedStudentId('');
 
     apiClient
       .get(`/course-cycles/${ccContext.courseCycleId}/students`)
@@ -409,14 +452,14 @@ export default function SubjectGradingByCoursePage() {
 
   const handleCCSelect = (cc: CourseCycleContext) => {
     setCCContext(cc);
-    setSelectedStudentId('');
+    setModalState(null);
   };
 
   return (
     <div>
       <PremiumHeader
         title="Alumnos por Curso"
-        subtitle="Seleccioná tu curso a cargo y un alumno para ver sus calificaciones"
+        subtitle="Seleccioná tu curso a cargo para ver los alumnos y sus acciones"
         icon="📋"
       />
 
@@ -429,57 +472,78 @@ export default function SubjectGradingByCoursePage() {
         />
       </Card>
 
-      {/* Student picker — shown only when CC is selected */}
+      {/* Student list — shown only when CC is selected */}
       {ccContext && (
         <Card className="mt-md">
-          <label htmlFor="student-picker" style={labelStyle}>
-            Alumno
-          </label>
-          <select
-            id="student-picker"
-            aria-label="Alumno"
-            value={selectedStudentId}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-            disabled={studentsLoading}
-            style={{ ...selectStyle, width: '100%', maxWidth: '20rem' }}
-          >
-            <option value="">
-              {studentsLoading ? 'Cargando alumnos...' : 'Seleccionar alumno...'}
-            </option>
-            {students.map((s) => (
-              <option key={s.studentId} value={s.studentId}>
-                {s.firstName} {s.lastName}
-              </option>
-            ))}
-          </select>
+          <div data-testid="student-list">
+            {studentsLoading && (
+              <p style={{ padding: 'var(--space-md)', color: 'var(--color-text-secondary)' }}>
+                Cargando alumnos...
+              </p>
+            )}
+            {!studentsLoading && students.length === 0 && (
+              <p style={{ padding: 'var(--space-md)', color: 'var(--color-text-secondary)' }}>
+                No hay alumnos en este curso.
+              </p>
+            )}
+            {!studentsLoading && students.length > 0 && (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={tableStyle}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle}>Apellido</th>
+                      <th style={thStyle}>Nombre</th>
+                      <th style={thStyle}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {students.map((s) => (
+                      <tr key={s.studentId}>
+                        <td style={tdStyle}>{s.lastName}</td>
+                        <td style={tdStyle}>{s.firstName}</td>
+                        <td style={tdStyle}>
+                          <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                            {STUDENT_ACTIONS.map((action) => (
+                              <Button
+                                key={action.key}
+                                variant="action"
+                                size="sm"
+                                onClick={() => setModalState({ student: s, action })}
+                              >
+                                {action.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </Card>
       )}
 
-      {/* Grading grid or placeholder */}
-      {ccContext && selectedStudentId ? (
-        <div data-testid="grading-grid-slot" style={{ marginTop: 'var(--space-lg)' }}>
-          <StudentGradingGrid
-            courseCycleId={ccContext.courseCycleId}
-            studentId={selectedStudentId}
-            level={ccContext.level}
-            modality={ccContext.modality}
-            institutionId={ccContext.institutionId}
-          />
-        </div>
-      ) : (
-        <Card className="mt-lg">
-          <p
-            data-testid="grading-placeholder"
-            style={{
-              color: 'var(--color-text-secondary)',
-              textAlign: 'center',
-              padding: 'var(--space-lg)',
-            }}
-          >
-            Seleccioná un ciclo de curso y un alumno para ver sus calificaciones.
-          </p>
-        </Card>
-      )}
+      {/* Action modal */}
+      <Modal
+        open={modalState !== null}
+        title={
+          modalState
+            ? `${modalState.action.label} — ${modalState.student.firstName} ${modalState.student.lastName}`
+            : ''
+        }
+        onClose={() => setModalState(null)}
+        size="xl"
+      >
+        {modalState &&
+          modalState.action.render(modalState.student, {
+            courseCycleId: ccContext!.courseCycleId,
+            level: ccContext!.level,
+            modality: ccContext!.modality,
+            institutionId: ccContext!.institutionId,
+          })}
+      </Modal>
     </div>
   );
 }

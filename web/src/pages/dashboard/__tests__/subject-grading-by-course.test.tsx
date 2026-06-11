@@ -1,5 +1,5 @@
 /**
- * PR6-T1 [RED] — Integration tests for SubjectGradingByCourse page ("Alumnos por Curso").
+ * PR6-T1 [GREEN] — Integration tests for SubjectGradingByCourse page ("Alumnos por Curso").
  * Specs: ES-R2 (CORRECTED: all competencies), ES-R5, ES-R6, ES-R10, TIA-R9
  *
  * REAL API contracts (verified — mock EXACT shapes):
@@ -95,11 +95,6 @@ const mockScales = [
 
 /**
  * REAL shape of GET /grading/subject-grades/by-student response body's `data` field.
- * Source: api/src/application/grading/get-subject-grades-by-student.use-case.ts
- *   SubjectGradesByStudentResult.subjects → SubjectEntry[]
- *   Each SubjectEntry: subjectId, subjectName, periods[], periodGrades[], finalGrades[], competencyValuations[]
- *   competencyValuations[]: CompetencyValuationWithPeriods
- *     (valuationId, studentId, competencyId, periodValuations[{ periodItemId, ..., imprimible }])
  */
 const mockByStudentResponse = {
   courseCycleId: 'cc-hm-1',
@@ -202,6 +197,18 @@ function setupDefaultMocks() {
       if (url === '/grading/scales') {
         return Promise.resolve({ data: { data: mockScales } });
       }
+      // Observations endpoint
+      if (url.match(/\/students\/stu-[^/]+\/observations/)) {
+        return Promise.resolve({ data: { data: [] } });
+      }
+      // Legajo student detail endpoint
+      if (url.match(/\/students\/stu-[^/]+$/) && !url.includes('/course-cycles')) {
+        return Promise.resolve({ data: { data: null } });
+      }
+      // Legajo sub-resources
+      if (url === '/enrollments' || url === '/notas' || url === '/attendance') {
+        return Promise.resolve({ data: { data: [] } });
+      }
       return Promise.resolve({ data: { data: [] } });
     },
   );
@@ -219,9 +226,8 @@ function renderPage() {
   );
 }
 
-/** Performs full CC + student selection. Caller waits for grading grid. */
-async function selectCCAndStudent() {
-  // Wait for CC options to appear
+/** Selects the CC and waits for the student list to appear. */
+async function selectCC() {
   await waitFor(() => screen.getByText('3° A'));
 
   await userEvent.selectOptions(
@@ -229,13 +235,24 @@ async function selectCCAndStudent() {
     'cc-hm-1',
   );
 
-  // Student picker should appear; wait for it
-  await waitFor(() => screen.getByRole('combobox', { name: /alumno/i }));
+  // Wait for student list to appear
+  await waitFor(() => screen.getByTestId('student-list'));
+}
 
-  await userEvent.selectOptions(
-    screen.getByRole('combobox', { name: /alumno/i }),
-    'stu-ana',
-  );
+/** Opens the grades modal for the given student. */
+async function openGradesModal(studentFirstName: string) {
+  await selectCC();
+
+  // Wait for student rows to render
+  await waitFor(() => screen.getByText(studentFirstName));
+
+  // Find the row containing the student and click "Calificaciones"
+  const row = screen.getByText(studentFirstName).closest('tr')!;
+  const calificacionesBtn = within(row).getByRole('button', { name: /calificaciones/i });
+  await userEvent.click(calificacionesBtn);
+
+  // Wait for dialog to open
+  await waitFor(() => screen.getByRole('dialog'));
 }
 
 // ── Tests ──────────────────────────────────────────────────────────────────────
@@ -290,8 +307,8 @@ describe('SubjectGradingByCoursePage', () => {
     });
   });
 
-  // SBC-5: student picker populated from homeroom CC's students after CC selection
-  it('SBC-5: student picker appears and is populated after CC selection', async () => {
+  // SBC-5: student list appears after CC selection
+  it('SBC-5: student list appears and is populated after CC selection', async () => {
     renderPage();
     await waitFor(() => screen.getByText('3° A'));
 
@@ -304,15 +321,17 @@ describe('SubjectGradingByCoursePage', () => {
       expect(apiClient.get).toHaveBeenCalledWith('/course-cycles/cc-hm-1/students');
     });
 
-    await waitFor(() => screen.getByRole('combobox', { name: /alumno/i }));
+    await waitFor(() => screen.getByTestId('student-list'));
 
-    // Students appear in the dropdown
-    expect(screen.getByText('Ana García')).toBeInTheDocument();
-    expect(screen.getByText('Carlos López')).toBeInTheDocument();
+    // Students appear in the table
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.getByText('García')).toBeInTheDocument();
+    expect(screen.getByText('Carlos')).toBeInTheDocument();
+    expect(screen.getByText('López')).toBeInTheDocument();
   });
 
-  // SBC-6: placeholder shown before student is selected
-  it('SBC-6: placeholder shown when CC selected but student not yet chosen', async () => {
+  // SBC-6: student list shows without modal after CC selection
+  it('SBC-6: student list shown when CC selected (no modal open by default)', async () => {
     renderPage();
     await waitFor(() => screen.getByText('3° A'));
 
@@ -321,14 +340,14 @@ describe('SubjectGradingByCoursePage', () => {
       'cc-hm-1',
     );
 
-    await waitFor(() => screen.getByRole('combobox', { name: /alumno/i }));
-    expect(screen.getByTestId('grading-placeholder')).toBeInTheDocument();
+    await waitFor(() => screen.getByTestId('student-list'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  // SBC-7: period grades section renders per subject after student selected
-  it('SBC-7: period grades section renders after CC + student selected', async () => {
+  // SBC-7: period grades section renders per subject after modal opened
+  it('SBC-7: period grades section renders after opening grades modal', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
@@ -344,7 +363,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-8: final grades section with 4 types per subject
   it('SBC-8: final grades section shows FINAL, DICIEMBRE, MARZO, DEFINITIVA', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('student-final-grades-section')).toBeInTheDocument(),
@@ -360,7 +379,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-9: PA/PPI/PP toggles present in period grades
   it('SBC-9: PA/PPI/PP checkboxes visible in period grades section', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
@@ -378,7 +397,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-10: competency section renders with "Imprimir" toggle per valuation period
   it('SBC-10: competency section renders with Imprimir toggle per competency valuation', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
@@ -398,7 +417,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-11: clicking Imprimir toggle calls PATCH /competency-valuations/:uuid/periods/:pid
   it('SBC-11: clicking Imprimir toggle issues PATCH with imprimible', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
@@ -424,7 +443,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-12: inline save — period grade change triggers PUT /grading/subject-grades with items wrapper
   it('SBC-12: changing period grade dropdown triggers PUT /grading/subject-grades with items wrapper', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('student-period-grades-section')).toBeInTheDocument(),
@@ -458,7 +477,7 @@ describe('SubjectGradingByCoursePage', () => {
   // SBC-13: competency section renders human-readable name, NOT the raw UUID
   it('SBC-13: competency section renders human-readable competency name (not raw ID)', async () => {
     renderPage();
-    await selectCCAndStudent();
+    await openGradesModal('Ana');
 
     await waitFor(() =>
       expect(screen.getByTestId('competency-section')).toBeInTheDocument(),
@@ -468,5 +487,95 @@ describe('SubjectGradingByCoursePage', () => {
     expect(screen.getByText('Resolución de problemas')).toBeInTheDocument();
     // Raw competencyId UUIDs must NOT be visible as standalone text
     expect(screen.queryByText('comp-uuid-1')).not.toBeInTheDocument();
+  });
+
+  // SBC-14: after CC selection, student list shows rows for all students
+  it('SBC-14: after CC selection, student list shows rows for all students', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByTestId('student-list'));
+
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.getByText('García')).toBeInTheDocument();
+    expect(screen.getByText('Carlos')).toBeInTheDocument();
+    expect(screen.getByText('López')).toBeInTheDocument();
+  });
+
+  // SBC-15: clicking "Calificaciones" opens a modal with correct title
+  it('SBC-15: clicking Calificaciones on a student opens the grades modal', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    const row = screen.getByText('Ana').closest('tr')!;
+    const calificacionesBtn = within(row).getByRole('button', { name: /calificaciones/i });
+    await userEvent.click(calificacionesBtn);
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // The modal title contains both "Calificaciones" and the student name
+    expect(screen.getByRole('heading', { name: /calificaciones.*ana/i })).toBeInTheDocument();
+  });
+
+  // SBC-16: clicking "Observaciones" opens the observations modal
+  it('SBC-16: clicking Observaciones on a student opens the observations modal', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    const row = screen.getByText('Ana').closest('tr')!;
+    const observacionesBtn = within(row).getByRole('button', { name: /observaciones/i });
+    await userEvent.click(observacionesBtn);
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // Title contains "Observaciones" and student name
+    expect(screen.getByRole('heading', { name: /observaciones.*ana/i })).toBeInTheDocument();
+  });
+
+  // SBC-17: clicking "Legajo" opens the legajo modal
+  it('SBC-17: clicking Legajo on a student opens the legajo modal', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    const row = screen.getByText('Ana').closest('tr')!;
+    const legajoBtn = within(row).getByRole('button', { name: /legajo/i });
+    await userEvent.click(legajoBtn);
+
+    await waitFor(() => screen.getByRole('dialog'));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
+    // Title contains "Legajo"
+    expect(screen.getByRole('heading', { name: /legajo.*ana/i })).toBeInTheDocument();
+  });
+
+  // SBC-18: closing the modal returns to the student list
+  it('SBC-18: closing the modal returns to the student list view', async () => {
+    renderPage();
+    await selectCC();
+
+    await waitFor(() => screen.getByText('Ana'));
+
+    const row = screen.getByText('Ana').closest('tr')!;
+    const calificacionesBtn = within(row).getByRole('button', { name: /calificaciones/i });
+    await userEvent.click(calificacionesBtn);
+
+    await waitFor(() => screen.getByRole('dialog'));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    // Click close button
+    const closeBtn = screen.getByRole('button', { name: /cerrar/i });
+    await userEvent.click(closeBtn);
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    // Student list still visible
+    expect(screen.getByTestId('student-list')).toBeInTheDocument();
   });
 });
