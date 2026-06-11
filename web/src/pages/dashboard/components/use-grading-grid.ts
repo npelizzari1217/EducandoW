@@ -148,6 +148,10 @@ export interface GradingGridOptions {
   level: number;
   modality: number | null;
   subjectId?: string;
+  /** ROOT-only: when set, threads institutionId into every tenant API call so the
+   *  server middleware can resolve the correct tenant DB. Non-ROOT callers must
+   *  leave this undefined — their tenant is resolved from the JWT.              */
+  institutionId?: string;
 }
 
 export interface UseGradingGridReturn {
@@ -184,6 +188,7 @@ export function useGradingGrid({
   level,
   modality,
   subjectId,
+  institutionId,
 }: GradingGridOptions): UseGradingGridReturn {
   // ── Existing competency channel state ─────────────────────────────────────────
   const [loading, setLoading] = useState(true);
@@ -221,22 +226,25 @@ export function useGradingGrid({
     setLoading(true);
     setError('');
 
+    // ROOT: include institutionId in all tenant calls; non-ROOT: empty object → no extra param
+    const tenantParams = institutionId ? { institutionId } : {};
+
     const templateParams: Record<string, string> = { level: String(level) };
     if (modality !== null && modality !== undefined) {
       templateParams.modality = String(modality);
     }
 
     const baseFetches: Promise<unknown>[] = [
-      apiClient.get(`/course-cycles/${courseCycleId}/students`),
-      apiClient.get('/subject-competencies', { params: { studyPlanSubjectId } }),
-      apiClient.get('/grading/period-templates', { params: templateParams }),
-      apiClient.get('/grading/scales', { params: templateParams }),
-      apiClient.get('/competency-valuations', { params: { courseCycleId, studyPlanSubjectId } }),
+      apiClient.get(`/course-cycles/${courseCycleId}/students`, { params: tenantParams }),
+      apiClient.get('/subject-competencies', { params: { studyPlanSubjectId, ...tenantParams } }),
+      apiClient.get('/grading/period-templates', { params: { ...templateParams, ...tenantParams } }),
+      apiClient.get('/grading/scales', { params: { ...templateParams, ...tenantParams } }),
+      apiClient.get('/competency-valuations', { params: { courseCycleId, studyPlanSubjectId, ...tenantParams } }),
     ];
 
     // Add subject-grades channel when subjectId is provided
     const subjectGradesFetch = subjectId
-      ? apiClient.get('/grading/subject-grades', { params: { courseCycleId, subjectId } })
+      ? apiClient.get('/grading/subject-grades', { params: { courseCycleId, subjectId, ...tenantParams } })
       : null;
 
     if (subjectGradesFetch) {
@@ -363,7 +371,7 @@ export function useGradingGrid({
       setError('Error al cargar los datos de la grilla');
       setLoading(false);
     });
-  }, [courseCycleId, studyPlanSubjectId, level, modality, subjectId]);
+  }, [courseCycleId, studyPlanSubjectId, level, modality, subjectId, institutionId]);
 
   // ── switchPeriod: updates activePeriodItemId, no refetch (CGG-2) ─────────────
 
@@ -388,8 +396,9 @@ export function useGradingGrid({
       return next;
     });
 
+    const tp = institutionId ? { institutionId } : {};
     apiClient
-      .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { gradeScaleValueId })
+      .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { gradeScaleValueId }, { params: tp })
       .then((res) => {
         const data = res.data?.data;
         setCells((prev) => {
@@ -416,7 +425,7 @@ export function useGradingGrid({
           return next;
         });
       });
-  }, []);
+  }, [institutionId]);
 
   // ── updateImprimible: toggle imprimible per cell via PATCH ────────────────────
 
@@ -435,8 +444,9 @@ export function useGradingGrid({
       return next;
     });
 
+    const tp = institutionId ? { institutionId } : {};
     apiClient
-      .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { imprimible })
+      .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { imprimible }, { params: tp })
       .then((res) => {
         const data = res.data?.data;
         setCells((prev) => {
@@ -460,7 +470,7 @@ export function useGradingGrid({
           return next;
         });
       });
-  }, []);
+  }, [institutionId]);
 
   // ── saveAll: bounded-parallel allSettled (≤5 in-flight) D3 ────────────────────
 
@@ -471,6 +481,7 @@ export function useGradingGrid({
     if (snapshot.length === 0) return;
 
     setIsSavingAll(true);
+    const tp = institutionId ? { institutionId } : {};
 
     // Mark all as saving
     setCells((prev) => {
@@ -490,7 +501,7 @@ export function useGradingGrid({
           apiClient
             .patch(`/competency-valuations/${cell.valuationId}/periods/${cell.periodItemId}`, {
               gradeScaleValueId: cell.gradeScaleValueId,
-            })
+            }, { params: tp })
             .then((res) => ({ key, success: true, data: res.data?.data }))
             .catch(() => ({ key, success: false, data: null as null })),
         ),
@@ -521,7 +532,7 @@ export function useGradingGrid({
     }
 
     setIsSavingAll(false);
-  }, []);
+  }, [institutionId]);
 
   // ── updateSubjectPeriodGrade: optimistic update + immediate PUT ───────────────
 
@@ -545,6 +556,7 @@ export function useGradingGrid({
     const currentCell = subjectPeriodGradeCellsRef.current.get(cellKey);
     const merged = { ...currentCell, ...updates };
 
+    const tp = institutionId ? { institutionId } : {};
     apiClient
       .put('/grading/subject-grades', {
         items: [{
@@ -557,7 +569,7 @@ export function useGradingGrid({
           ppi: merged.ppi ?? false,
           pp: merged.pp ?? false,
         }],
-      })
+      }, { params: tp })
       .then((res) => {
         const data = res.data?.data;
         setSubjectPeriodGradeCells((prev) => {
@@ -583,7 +595,7 @@ export function useGradingGrid({
           return next;
         });
       });
-  }, [courseCycleId, subjectId]);
+  }, [courseCycleId, subjectId, institutionId]);
 
   // ── updateSubjectFinalGrade: optimistic update + immediate PUT ────────────────
 
@@ -606,6 +618,7 @@ export function useGradingGrid({
     const currentCell = subjectFinalGradeCellsRef.current.get(cellKey);
     const merged = { ...currentCell, ...updates };
 
+    const tp = institutionId ? { institutionId } : {};
     apiClient
       .put('/grading/subject-final-grades', {
         items: [{
@@ -619,7 +632,7 @@ export function useGradingGrid({
           // condicion: only included when set (undefined omits the field from the PUT body)
           ...(merged.condicion !== undefined ? { condicion: merged.condicion } : {}),
         }],
-      })
+      }, { params: tp })
       .then((res) => {
         const data = res.data?.data;
         setSubjectFinalGradeCells((prev) => {
@@ -647,7 +660,7 @@ export function useGradingGrid({
           return next;
         });
       });
-  }, [courseCycleId, subjectId]);
+  }, [courseCycleId, subjectId, institutionId]);
 
   // ── saveSubjectGrades: bounded-parallel save for dirty period grade cells ─────
 
@@ -658,6 +671,7 @@ export function useGradingGrid({
     if (snapshot.length === 0) return;
 
     setIsSavingSubjectGrades(true);
+    const tp = institutionId ? { institutionId } : {};
 
     setSubjectPeriodGradeCells((prev) => {
       const next = new Map(prev);
@@ -684,7 +698,7 @@ export function useGradingGrid({
                 ppi: cell.ppi,
                 pp: cell.pp,
               }],
-            })
+            }, { params: tp })
             .then((res) => ({ key, success: true, data: res.data?.data }))
             .catch(() => ({ key, success: false, data: null as null })),
         ),
@@ -706,7 +720,7 @@ export function useGradingGrid({
     }
 
     setIsSavingSubjectGrades(false);
-  }, [courseCycleId, subjectId]);
+  }, [courseCycleId, subjectId, institutionId]);
 
   // ── saveSubjectFinalGrades: bounded-parallel save for dirty final grade cells ──
 
@@ -717,6 +731,7 @@ export function useGradingGrid({
     if (snapshot.length === 0) return;
 
     setIsSavingSubjectGrades(true);
+    const tp = institutionId ? { institutionId } : {};
 
     setSubjectFinalGradeCells((prev) => {
       const next = new Map(prev);
@@ -744,7 +759,7 @@ export function useGradingGrid({
                 // condicion: only included when set
                 ...(cell.condicion !== undefined ? { condicion: cell.condicion } : {}),
               }],
-            })
+            }, { params: tp })
             .then((res) => ({ key, success: true, data: res.data?.data }))
             .catch(() => ({ key, success: false, data: null as null })),
         ),
@@ -766,7 +781,7 @@ export function useGradingGrid({
     }
 
     setIsSavingSubjectGrades(false);
-  }, [courseCycleId, subjectId]);
+  }, [courseCycleId, subjectId, institutionId]);
 
   return {
     loading,

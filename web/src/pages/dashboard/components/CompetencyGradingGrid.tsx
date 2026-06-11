@@ -43,6 +43,8 @@ export interface CompetencyGradingGridProps {
    * Existing consumers that omit this prop are unaffected.
    */
   injectedGrid?: CompetencyGradingGridData;
+  /** ROOT-only: passed through to useGradingGrid when CGG owns its own fetch. */
+  institutionId?: string;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
@@ -214,6 +216,7 @@ export function CompetencyGradingGrid({
   level,
   modality,
   injectedGrid,
+  institutionId,
 }: CompetencyGradingGridProps) {
   // When a parent passes injectedGrid, suppress this component's own fetch by
   // using empty keys (the hook early-exits when courseCycleId is falsy).
@@ -223,6 +226,7 @@ export function CompetencyGradingGrid({
     studyPlanSubjectId: injectedGrid ? '' : studyPlanSubjectId,
     level,
     modality,
+    institutionId,
   });
 
   const {

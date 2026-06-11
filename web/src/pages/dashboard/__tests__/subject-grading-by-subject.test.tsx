@@ -395,6 +395,7 @@ describe('SubjectGradingBySubjectPage', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -425,6 +426,7 @@ describe('SubjectGradingBySubjectPage', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -554,6 +556,7 @@ describe('SubjectGradingBySubjectPage — Secundario + condicion', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });

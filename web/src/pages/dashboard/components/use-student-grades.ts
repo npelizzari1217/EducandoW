@@ -109,6 +109,10 @@ export interface StudentGradesOptions {
   studentId: string;
   level: number;
   modality: number | null;
+  /** ROOT-only: when set, threads institutionId into every tenant API call so the
+   *  server middleware can resolve the correct tenant DB. Non-ROOT callers must
+   *  leave this undefined — their tenant is resolved from the JWT.              */
+  institutionId?: string;
 }
 
 export interface UseStudentGradesReturn {
@@ -128,6 +132,7 @@ export function useStudentGrades({
   studentId,
   level,
   modality,
+  institutionId,
 }: StudentGradesOptions): UseStudentGradesReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -148,6 +153,9 @@ export function useStudentGrades({
     setLoading(true);
     setError('');
 
+    // ROOT: include institutionId in all tenant calls; non-ROOT: empty object → no extra param
+    const tenantParams = institutionId ? { institutionId } : {};
+
     const scaleParams: Record<string, string> = { level: String(level) };
     if (modality !== null && modality !== undefined) {
       scaleParams.modality = String(modality);
@@ -155,9 +163,9 @@ export function useStudentGrades({
 
     Promise.allSettled([
       apiClient.get('/grading/subject-grades/by-student', {
-        params: { courseCycleId, studentId },
+        params: { courseCycleId, studentId, ...tenantParams },
       }),
-      apiClient.get('/grading/scales', { params: scaleParams }),
+      apiClient.get('/grading/scales', { params: { ...scaleParams, ...tenantParams } }),
     ]).then(([byStudentRes, scalesRes]) => {
       // ── Subject grades + competency valuations ────────────────────────────
       const byStudentData: RawByStudentResponse | null =
@@ -200,7 +208,7 @@ export function useStudentGrades({
       setError('Error al cargar los datos del alumno');
       setLoading(false);
     });
-  }, [courseCycleId, studentId, level, modality]);
+  }, [courseCycleId, studentId, level, modality, institutionId]);
 
   // ── updatePeriodGrade: optimistic + PUT ──────────────────────────────────
 
@@ -236,6 +244,7 @@ export function useStudentGrades({
         }),
       );
 
+      const tp = institutionId ? { institutionId } : {};
       apiClient
         .put('/grading/subject-grades', {
           items: [
@@ -250,7 +259,7 @@ export function useStudentGrades({
               pp: merged.pp ?? false,
             },
           ],
-        })
+        }, { params: tp })
         .then(() => {
           setSubjects((prev) =>
             prev.map((s) => {
@@ -278,7 +287,7 @@ export function useStudentGrades({
           );
         });
     },
-    [courseCycleId, studentId],
+    [courseCycleId, studentId, institutionId],
   );
 
   // ── updateFinalGrade: optimistic + PUT ───────────────────────────────────
@@ -311,6 +320,7 @@ export function useStudentGrades({
         }),
       );
 
+      const tp = institutionId ? { institutionId } : {};
       apiClient
         .put('/grading/subject-final-grades', {
           items: [
@@ -324,7 +334,7 @@ export function useStudentGrades({
               passed: merged.passed ?? undefined,
             },
           ],
-        })
+        }, { params: tp })
         .then(() => {
           setSubjects((prev) =>
             prev.map((s) => {
@@ -352,7 +362,7 @@ export function useStudentGrades({
           );
         });
     },
-    [courseCycleId, studentId],
+    [courseCycleId, studentId, institutionId],
   );
 
   // ── updateImprimible: optimistic + PATCH ─────────────────────────────────
@@ -377,8 +387,9 @@ export function useStudentGrades({
         })),
       );
 
+      const tp = institutionId ? { institutionId } : {};
       apiClient
-        .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { imprimible })
+        .patch(`/competency-valuations/${valuationId}/periods/${periodItemId}`, { imprimible }, { params: tp })
         .then(() => {
           setSubjects((prev) =>
             prev.map((s) => ({
@@ -416,7 +427,7 @@ export function useStudentGrades({
           );
         });
     },
-    [],
+    [institutionId],
   );
 
   return {

@@ -120,11 +120,12 @@ interface StudentGradingGridProps {
   studentId: string;
   level: number;
   modality: number | null;
+  institutionId?: string;
 }
 
-function StudentGradingGrid({ courseCycleId, studentId, level, modality }: StudentGradingGridProps) {
+function StudentGradingGrid({ courseCycleId, studentId, level, modality, institutionId }: StudentGradingGridProps) {
   const { loading, error, subjects, scaleValues, updatePeriodGrade, updateFinalGrade, updateImprimible } =
-    useStudentGrades({ courseCycleId, studentId, level, modality });
+    useStudentGrades({ courseCycleId, studentId, level, modality, institutionId });
 
   if (loading) {
     return (
@@ -399,12 +400,8 @@ export default function SubjectGradingByCoursePage() {
     setStudents([]);
     setSelectedStudentId('');
 
-    // ROOT: pass institutionId so the tenant middleware can resolve the DB.
-    // Non-ROOT: no extra params (tenant resolved from JWT).
-    (ccContext.institutionId
-      ? apiClient.get(`/course-cycles/${ccContext.courseCycleId}/students`, { params: { institutionId: ccContext.institutionId } })
-      : apiClient.get(`/course-cycles/${ccContext.courseCycleId}/students`)
-    )
+    apiClient
+      .get(`/course-cycles/${ccContext.courseCycleId}/students`)
       .then((r) => setStudents((r.data as { data?: EnrolledStudent[] })?.data ?? []))
       .catch(() => setStudents([]))
       .finally(() => setStudentsLoading(false));
@@ -419,7 +416,7 @@ export default function SubjectGradingByCoursePage() {
     <div>
       <PremiumHeader
         title="Alumnos por Curso"
-        subtitle="Seleccioná un curso y un alumno para ver sus calificaciones"
+        subtitle="Seleccioná tu curso a cargo y un alumno para ver sus calificaciones"
         icon="📋"
       />
 
@@ -466,6 +463,7 @@ export default function SubjectGradingByCoursePage() {
             studentId={selectedStudentId}
             level={ccContext.level}
             modality={ccContext.modality}
+            institutionId={ccContext.institutionId}
           />
         </div>
       ) : (

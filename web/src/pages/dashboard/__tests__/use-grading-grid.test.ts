@@ -117,7 +117,7 @@ describe('useGradingGrid', () => {
     const { result } = renderHook(() => useGradingGrid(defaultOptions));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(apiClient.get).toHaveBeenCalledWith('/course-cycles/cc-1/students');
+    expect(apiClient.get).toHaveBeenCalledWith('/course-cycles/cc-1/students', { params: {} });
     expect(apiClient.get).toHaveBeenCalledWith(
       '/subject-competencies',
       expect.objectContaining({ params: { studyPlanSubjectId: 'sps-1' } }),
@@ -467,6 +467,7 @@ describe('useGradingGrid - subject-grade channels', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -495,6 +496,7 @@ describe('useGradingGrid - subject-grade channels', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -522,6 +524,7 @@ describe('useGradingGrid - subject-grade channels', () => {
             }),
           ]),
         }),
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -548,6 +551,99 @@ describe('useGradingGrid - subject-grade channels', () => {
           expect.objectContaining({ studentId: 's-2' }),
         ]),
       }),
+      expect.objectContaining({ params: expect.anything() }),
     );
+  });
+});
+
+// ── ROOT institutionId threading (ROOT-1, ROOT-2) ─────────────────────────────
+
+describe('useGradingGrid - ROOT institutionId threading', () => {
+  beforeEach(() => {
+    setupMocks();
+  });
+
+  // ROOT-1: when institutionId provided, all tenant GETs receive the param
+  it('ROOT-1: when institutionId is provided, all tenant GETs include institutionId in params', async () => {
+    const { result } = renderHook(() =>
+      useGradingGrid({ ...defaultOptions, institutionId: 'inst-root-1' }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // Students endpoint (path-only GET)
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/course-cycles/cc-1/students',
+      expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+    );
+    // Subject competencies
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/subject-competencies',
+      expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+    );
+    // Period templates
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/grading/period-templates',
+      expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+    );
+    // Scales
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/grading/scales',
+      expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+    );
+    // Competency valuations
+    expect(apiClient.get).toHaveBeenCalledWith(
+      '/competency-valuations',
+      expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+    );
+  });
+
+  // ROOT-2: when institutionId absent (non-ROOT), no fetch includes institutionId
+  it('ROOT-2: when institutionId is absent, no fetch includes institutionId param', async () => {
+    const { result } = renderHook(() => useGradingGrid(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    const calls = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls as Array<[string, { params?: Record<string, string> }?]>;
+    for (const [, config] of calls) {
+      expect(config?.params?.institutionId).toBeUndefined();
+    }
+  });
+
+  // ROOT-3: mutation (PATCH) from updateCell includes institutionId when ROOT
+  it('ROOT-3: updateCell PATCH includes institutionId in params when ROOT', async () => {
+    (apiClient.patch as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: {} } });
+    const { result } = renderHook(() =>
+      useGradingGrid({ ...defaultOptions, institutionId: 'inst-root-1' }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.updateCell('val-1:pi-1', 'gsv-2');
+    });
+
+    await waitFor(() => {
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        expect.stringContaining('/competency-valuations/'),
+        expect.objectContaining({ gradeScaleValueId: 'gsv-2' }),
+        expect.objectContaining({ params: expect.objectContaining({ institutionId: 'inst-root-1' }) }),
+      );
+    });
+  });
+
+  // ROOT-4: mutation (PATCH) from updateCell does NOT include institutionId when non-ROOT
+  it('ROOT-4: updateCell PATCH does NOT include institutionId in params when non-ROOT', async () => {
+    (apiClient.patch as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: {} } });
+    const { result } = renderHook(() => useGradingGrid(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => {
+      result.current.updateCell('val-1:pi-1', 'gsv-2');
+    });
+
+    await waitFor(() => {
+      const patchCalls = (apiClient.patch as ReturnType<typeof vi.fn>).mock.calls as Array<[string, object, { params?: Record<string, string> }?]>;
+      for (const [, , config] of patchCalls) {
+        expect(config?.params?.institutionId).toBeUndefined();
+      }
+    });
   });
 });

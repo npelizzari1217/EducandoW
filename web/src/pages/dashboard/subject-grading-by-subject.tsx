@@ -94,6 +94,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
     level: context.level,
     modality: context.modality,
     subjectId: context.subjectId,
+    institutionId: context.institutionId,
   });
 
   if (grid.loading) {
@@ -298,6 +299,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
         level={context.level}
         modality={context.modality}
         injectedGrid={grid}
+        institutionId={context.institutionId}
       />
     </>
   );

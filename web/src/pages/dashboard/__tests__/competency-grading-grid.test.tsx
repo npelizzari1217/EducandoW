@@ -330,6 +330,7 @@ describe('CGG-5: per-cell PATCH on dropdown change', () => {
       expect(apiClient.patch).toHaveBeenCalledWith(
         '/competency-valuations/val-2/periods/pi-1',
         { gradeScaleValueId: 'gsv-mb' },
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -594,6 +595,7 @@ describe('CGG-13: imprimible toggle per cell', () => {
       expect(apiClient.patch).toHaveBeenCalledWith(
         '/competency-valuations/val-4/periods/pi-1',
         { imprimible: true },
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
@@ -618,6 +620,7 @@ describe('CGG-13: imprimible toggle per cell', () => {
       expect(apiClient.patch).toHaveBeenCalledWith(
         '/competency-valuations/val-1/periods/pi-1',
         { imprimible: false },
+        expect.objectContaining({ params: expect.anything() }),
       );
     });
   });
