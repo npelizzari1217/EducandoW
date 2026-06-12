@@ -1466,8 +1466,8 @@ model Ingresante {
   birthDate DateTime? @map("birth_date")
   address   String?
   phone     String?
-  cycleId   String?   @map("cycle_id")
-  cycle     AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
+  cycleId   String    @map("cycle_id")
+  cycle     AcademicCycle @relation(fields: [cycleId], references: [uuid], onDelete: Restrict)
   level     Int
   modality  Int       @default(0)
   status    String    @default("INSCRIPTO")

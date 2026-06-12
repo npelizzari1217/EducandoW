@@ -189,7 +189,7 @@
 
 ## Group E — D1 Cleanup Script + Migración (paralelo con todos los demás grupos)
 
-### E-1 Script: `cleanup-ingresantes-sin-ciclo.ts`
+### E-1 [x] Script: `cleanup-ingresantes-sin-ciclo.ts`
 - **File**: `api/scripts/cleanup-ingresantes-sin-ciclo.ts`
 - Patrón: `backfill-docente-x-ciclo.ts` (pg Pool master → iterate institutions → TenantPrismaClient)
 - Por tenant: `tenant.ingresante.deleteMany({ where: { cycleId: null } })`
@@ -201,7 +201,7 @@
 - Leer `.env` de `api/`; loguear resumen al final (total borrados, tenants omitidos por umbral)
 - **Deploy note**: PASO MANUAL — ejecutar antes de E-3 (migración); backup previo en prod
 
-### E-2 [RED+GREEN] Tests del script
+### E-2 [x] Tests del script
 - **File**: `api/scripts/__tests__/cleanup-ingresantes-sin-ciclo.test.ts` (o carpeta análoga)
 - Tests del helper exportado `countNullCycleIngresantes`:
   - Devuelve 0 cuando no hay registros con cycleId null
@@ -210,7 +210,7 @@
   - Idempotencia: llamar dos veces con tenant mock sin null records → `deleteMany` con count 0
 - **Depends on**: E-1
 
-### E-3 Migración Prisma tenant: `cycle_id NOT NULL`
+### E-3 [x] Migración Prisma tenant: `cycle_id NOT NULL`
 - **File**: nueva migración en `api/prisma_tenant/migrations/<timestamp>_ingresante_cycle_id_not_null/`
 - SQL: `ALTER TABLE ingresantes ALTER COLUMN cycle_id SET NOT NULL;`
 - Actualizar el schema Prisma `prisma_tenant/schema.prisma`: `cycleId String` (quitar `?`)
