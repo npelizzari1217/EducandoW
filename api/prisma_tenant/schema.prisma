@@ -114,6 +114,49 @@ model Teacher {
   @@map("teachers")
 }
 
+// ── Asignacion Curso x Ciclo (Fase 4) ─────────────────────
+
+// RolCurso — functional role within a CursoXCiclo.
+// PRECEPTOR: daily attendance (presente diario). Multiple per CC allowed (D2).
+// TITULAR: homeroom teacher link (migrated from CourseCycle.homeroomTeacherId in Fase 4 backfill).
+enum RolCurso {
+  PRECEPTOR
+  TITULAR
+}
+
+// TurnoCurso — shift for a course-cycle assignment.
+// Optional and informational — no uniqueness constraint per D2.
+enum TurnoCurso {
+  MANANA
+  TARDE
+  VESPERTINO
+  NOCHE
+}
+
+// AsignacionCursoXCiclo — assignment of a DocenteXCiclo to a CursoXCiclo at the
+// course level (Fase 4, ACC-R1/R2). INDEPENDENT from GrupoXCursoXMateriaXCiclo (ACC-R4).
+// D2: turno is informational — no uniqueness constraint on it.
+// Multiple preceptors per CC are allowed; multiple per turno are allowed.
+// TITULAR: at most one per CC enforced at application layer (ACC-S5).
+model AsignacionCursoXCiclo {
+  id               String     @id @default(uuid())
+  courseCycleId    String     @map("course_cycle_id")     // → CourseCycle.uuid
+  docenteXCicloId  String     @map("docente_x_ciclo_id")  // → DocenteXCiclo.id
+  rol              RolCurso
+  turno            TurnoCurso? // optional and informational (D2)
+
+  courseCycle   CourseCycle  @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade)
+  docenteXCiclo DocenteXCiclo @relation(fields: [docenteXCicloId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, docenteXCicloId, rol, turno])
+  @@index([courseCycleId])
+  @@index([docenteXCicloId])
+  @@map("asignaciones_curso_x_ciclo")
+}
+
 // ── Docente x Ciclo (Fase 2) ───────────────────────────────
 
 // DocenteXCiclo — participation record linking a master-DB User to an AcademicCycle.
@@ -135,7 +178,8 @@ model DocenteXCiclo {
 
   cycle AcademicCycle @relation(fields: [cycleId], references: [uuid])
 
-  grupos GrupoXCursoXMateriaXCiclo[]
+  grupos       GrupoXCursoXMateriaXCiclo[]
+  asignaciones AsignacionCursoXCiclo[]
 
   @@unique([userId, cycleId])
   @@index([cycleId])
@@ -296,7 +340,7 @@ model CourseCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
-  /// FK → Teacher.id (nullable — homeroom teacher link for "por curso" view). AD-6.
+  /// @deprecated — migrado a AsignacionCursoXCiclo rol=TITULAR (Fase 4 backfill). FK → Teacher.id. NOT DROPPED (D5).
   homeroomTeacherId String? @map("homeroom_teacher_id")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
@@ -312,6 +356,7 @@ model CourseCycle {
   subjectFinalGrades    SubjectFinalGrade[]
   materiasPrevias       MateriaPrevia[]
   materiasXCiclo        MateriaXCursoXCiclo[]
+  asignacionesCurso     AsignacionCursoXCiclo[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])

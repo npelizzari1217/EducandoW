@@ -201,6 +201,14 @@ export { AlumnosXGrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
 export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';
 export type { AlumnosXGrupoRepository } from './materia-grupo-ciclo';
 
+// Asignacion Curso x Ciclo (Fase 4)
+export { AsignacionCursoXCiclo, RolCurso, TurnoCurso } from './asignacion-curso-ciclo';
+export type {
+  AsignacionCursoXCicloProps,
+  CreateAsignacionCursoXCicloInput,
+} from './asignacion-curso-ciclo';
+export type { AsignacionCursoXCicloRepository } from './asignacion-curso-ciclo';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';

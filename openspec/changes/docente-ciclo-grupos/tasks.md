@@ -270,31 +270,31 @@
 
 ### Schema & Migración
 
-- [ ] F4-S1: Agregar enums al tenant schema:
+- [x] F4-S1: Agregar enums al tenant schema:
   `enum RolCurso { PRECEPTOR TITULAR }` · `enum TurnoCurso { MANANA TARDE VESPERTINO NOCHE }`
-- [ ] F4-S2: Agregar modelo `AsignacionCursoXCiclo`:
+- [x] F4-S2: Agregar modelo `AsignacionCursoXCiclo`:
   `courseCycleId → CourseCycle.uuid (FK)`, `docenteXCicloId FK → DocenteXCiclo.id`,
   `rol RolCurso`, `turno TurnoCurso?`,
   `@@unique([courseCycleId, docenteXCicloId, rol, turno])` (turno null = distintos de turno no-null en Postgres),
   `@@index([courseCycleId])`, `@map("asignaciones_curso_x_ciclo")`
-- [ ] F4-S3: Agregar comentario `// @deprecated — migrado a AsignacionCursoXCiclo rol=TITULAR (Fase 4)`
+- [x] F4-S3: Agregar comentario `// @deprecated — migrado a AsignacionCursoXCiclo rol=TITULAR (Fase 4)`
   al campo `homeroomTeacherId` en `CourseCycle` (sin dropearlo — D5)
-- [ ] F4-S4: Generar migración Prisma + deploy multi-tenant
+- [x] F4-S4: Generar migración Prisma + deploy multi-tenant
 
 ### Backfill Script
 
-- [ ] F4-B1: Crear `api/scripts/backfill-asignacion-curso.ts`:
+- [x] F4-B1: Crear `api/scripts/backfill-asignacion-curso.ts`:
   - Por cada CourseCycle activo con `homeroomTeacherId != null`:
     buscar el `DocenteXCiclo` del Teacher vinculado (vía Teacher.userId → DocenteXCiclo)
     → upsert `AsignacionCursoXCiclo(courseCycleId, docenteXCicloId, rol=TITULAR, turno=null)` (skipDuplicates)
   - El campo `homeroomTeacherId` NO se borra (D5)
   - Loguear CCs donde el Teacher no tiene DocenteXCiclo (edge case; debería ser 0 tras Fase 2)
-- [ ] F4-B2: Validar idempotencia
+- [x] F4-B2: Validar idempotencia
 
 ### Dominio
 
-- [ ] F4-D1: Entidad `AsignacionCursoXCiclo` + enums `RolCurso`, `TurnoCurso` en `@educandow/domain`
-- [ ] F4-D2: Interface `AsignacionCursoXCicloRepository`:
+- [x] F4-D1: Entidad `AsignacionCursoXCiclo` + enums `RolCurso`, `TurnoCurso` en `@educandow/domain`
+- [x] F4-D2: Interface `AsignacionCursoXCicloRepository`:
   `assign(data)`, `findByCourseId(courseCycleId)`,
   `findByCourseAndDocente(courseCycleId, docenteXCicloId)`,
   `isPreceptor(userId, courseCycleId): Promise<boolean>`,
@@ -302,37 +302,37 @@
 
 ### Infraestructura
 
-- [ ] F4-I1: `PrismaAsignacionCursoXCicloRepository`
-- [ ] F4-I2: Registrar en el módulo NestJS correspondiente
+- [x] F4-I1: `PrismaAsignacionCursoXCicloRepository`
+- [x] F4-I2: Registrar en el módulo NestJS correspondiente
 
 ### Aplicación
 
-- [ ] F4-A1: `AssignDocenteToCursoUseCase`:
+- [x] F4-A1: `AssignDocenteToCursoUseCase`:
   - Recibe `(courseCycleId, userId, rol: RolCurso, turno?: TurnoCurso)`
   - Valida que el `cycleId` del CC coincide con el ciclo del userId (ACC-S6)
   - Llama `DocenteXCicloService.getOrCreateForCycle(userId, cycleId)` → obtiene `docenteXCicloId`
   - Sin restricción de unicidad de turno (D2 — ACC-S2: 2 preceptores en el mismo turno son válidos)
   - Persiste `AsignacionCursoXCiclo`
-- [ ] F4-A2: `ListAsignacionesCursoUseCase`: lista asignaciones del CC con persona desde User master
-- [ ] F4-A3: `RemoveAsignacionCursoUseCase`
+- [x] F4-A2: `ListAsignacionesCursoUseCase`: lista asignaciones del CC con persona desde User master
+- [x] F4-A3: `RemoveAsignacionCursoUseCase`
 
 ### Presentación
 
-- [ ] F4-P1: `POST /course-cycles/:ccId/asignaciones` — asignar DocenteXCiclo como preceptor o titular
-- [ ] F4-P2: `GET /course-cycles/:ccId/asignaciones` — listar con persona enriquecida
-- [ ] F4-P3: `DELETE /course-cycles/:ccId/asignaciones/:id`
-- [ ] F4-P4: DTOs: `{ rol, turno?, docenteXCicloId, userId, firstName, lastName, ... }`
+- [x] F4-P1: `POST /course-cycles/:ccId/asignaciones` — asignar DocenteXCiclo como preceptor o titular
+- [x] F4-P2: `GET /course-cycles/:ccId/asignaciones` — listar con persona enriquecida
+- [x] F4-P3: `DELETE /course-cycles/:ccId/asignaciones/:id`
+- [x] F4-P4: DTOs: `{ rol, turno?, docenteXCicloId, userId, firstName, lastName, ... }`
 
 ### Tests
 
-- [ ] F4-T1: Unit — D2/ACC-S2: segundo preceptor en el mismo turno → sin conflicto, ambos válidos
-- [ ] F4-T2: Unit — ACC-S6: asignar DocenteXCiclo de ciclo C2 a CC de ciclo C1 → rechazado
-- [ ] F4-T3: Unit — ACC-S7: asignar preceptor no crea ni modifica ningún GrupoXCursoXMateriaXCiclo
-- [ ] F4-T4: Unit — ACC-S4/S5: asignar titular funciona; reemplazar titular actualiza la asignación
+- [x] F4-T1: Unit — D2/ACC-S2: segundo preceptor en el mismo turno → sin conflicto, ambos válidos
+- [x] F4-T2: Unit — ACC-S6: asignar DocenteXCiclo de ciclo C2 a CC de ciclo C1 → rechazado
+- [x] F4-T3: Unit — ACC-S7: asignar preceptor no crea ni modifica ningún GrupoXCursoXMateriaXCiclo
+- [x] F4-T4: Unit — ACC-S4/S5: asignar titular funciona; reemplazar titular actualiza la asignación
 - [ ] F4-T5: Integration — ACC-S1: preceptor asignado con turno → persiste correctamente
 - [ ] F4-T6: Integration — ACC-S3: 2 preceptores con distintos turnos en el mismo CC
 - [ ] F4-T7: Integration — ACC-S8: cross-tenant isolation
-- [ ] F4-T8: Integration — backfill: `homeroomTeacherId` → `AsignacionCursoXCiclo TITULAR`;
+- [x] F4-T8: Integration — backfill: `homeroomTeacherId` → `AsignacionCursoXCiclo TITULAR`;
   doble corrida idempotente; campo `homeroomTeacherId` sigue presente en el CC
 
 ---
