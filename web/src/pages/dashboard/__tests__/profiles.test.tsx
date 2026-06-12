@@ -307,9 +307,9 @@ describe('ProfilesPage component', () => {
     const btn = await screen.findByText('Nuevo Perfil');
     await user.click(btn);
 
-    // After clicking, button changes to "Cancelar"
+    // After clicking, at least one "Cancelar" is visible (header + inside form)
     await waitFor(() => {
-      expect(screen.getByText('Cancelar')).toBeInTheDocument();
+      expect(screen.getAllByText('Cancelar')[0]).toBeInTheDocument();
     });
   });
 
@@ -321,9 +321,9 @@ describe('ProfilesPage component', () => {
     const newBtn = await screen.findByText('Nuevo Perfil');
     await user.click(newBtn);
 
-    // Close form
-    const cancelBtn = await screen.findByText('Cancelar');
-    await user.click(cancelBtn);
+    // Close form — use first Cancelar (header button); form also has one, so findAllByText
+    const cancelBtns = await screen.findAllByText('Cancelar');
+    await user.click(cancelBtns[0]);
 
     await waitFor(() => {
       expect(screen.getByText('Nuevo Perfil')).toBeInTheDocument();

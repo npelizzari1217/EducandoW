@@ -124,14 +124,13 @@ describe('CourseCyclesPage', () => {
     expect(btn).toBeDisabled();
   });
 
-  // 5.2.2 — Submit with mandatory filters only
-  it('submits generate with level and cycleId only (no studyPlanId)', async () => {
+  // 5.2.2 — Plan de estudio is now mandatory: button stays disabled without it
+  it('keeps "Generar Cursos" disabled when studyPlanId is missing', async () => {
     const user = userEvent.setup();
     renderPage();
 
     const levelSelect = selectByLabelText('Nivel');
     await user.selectOptions(levelSelect, '20');
-    // Wait for React to process state change
     await waitFor(() => {
       expect(levelSelect).toHaveValue('20');
     });
@@ -142,18 +141,9 @@ describe('CourseCyclesPage', () => {
       expect(cycleSelect).toHaveValue('cycle-1');
     });
 
-    await waitFor(() => {
-      expect(getGenerateBtn()).not.toBeDisabled();
-    }, { timeout: 3000 });
-
-    await user.click(getGenerateBtn());
-
-    await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith('/course-cycles/generate', {
-        level: 20,
-        cycleId: 'cycle-1',
-      }, { params: { institutionId: 'inst-1' } });
-    });
+    // Without studyPlanId the button must remain disabled
+    expect(getGenerateBtn()).toBeDisabled();
+    expect(mockPost).not.toHaveBeenCalled();
   });
 
   // 5.2.3 — Submit with all three filters (optional studyPlanId)
@@ -204,6 +194,11 @@ describe('CourseCyclesPage', () => {
     await user.selectOptions(selectByLabelText('Ciclo Lectivo'), 'cycle-1');
     await waitFor(() => {
       expect(selectByLabelText('Ciclo Lectivo')).toHaveValue('cycle-1');
+    });
+
+    await user.selectOptions(selectByLabelText('Plan de Estudio'), 'plan-1');
+    await waitFor(() => {
+      expect(selectByLabelText('Plan de Estudio')).toHaveValue('plan-1');
     });
 
     await waitFor(() => {
