@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CourseSectionRepository, CourseSection, Id, Level, LevelType, EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import { CourseSectionRepository, CourseSection, Id, Level, LevelType, EducationalModalityCode } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -69,16 +69,19 @@ export class PrismaCourseSectionRepo implements CourseSectionRepository {
   }
 
   private toDomain(r: CourseSectionRow): CourseSection {
+    // r.level may be stored as a base code (e.g. 2 = Primario) from API saves,
+    // or as a composite code (e.g. 20 = Primario+Común) from seed / legacy data.
+    // Normalize to composite (base*10+modality) before reconstructing.
     const modality = r.modality ?? EducationalModalityCode.COMUN;
+    const composite = r.level >= 10
+      ? r.level                     // already composite (seed / legacy rows)
+      : r.level * 10 + modality;    // base code — compute composite
     return CourseSection.reconstruct({
       id: Id.reconstruct(r.id),
       name: r.name,
       grade: r.grade ?? undefined,
       division: r.division ?? undefined,
-      level: Level.fromParts(
-        r.level as EducationalLevelCode,
-        modality as EducationalModalityCode,
-      ),
+      level: Level.reconstruct(composite as LevelType),
       academicYear: r.academicYear,
       institutionId: Id.reconstruct(TenantContext.getInstitutionId() ?? ''),
     });

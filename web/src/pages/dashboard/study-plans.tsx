@@ -360,7 +360,9 @@ export default function StudyPlansPage() {
       setEditingCourse({ courseSectionId: null, grade: '', division: '' });
       // Refresh (sin colapsar el árbol)
       fetchPlanCourses(planId);
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error('[handleSaveCourse] Error al actualizar la sección:', err);
+    }
   };
 
   const handleDeleteCourse = async (planId: string, courseSectionId: string) => {

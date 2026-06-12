@@ -1,11 +1,22 @@
 import { useState, useEffect } from 'react';
 import PremiumPrintReport, { type PrintBranding } from './PremiumPrintReport';
 
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface SubjectData {
+  /** studyPlanSubjectId — junction-table PK used to fetch competencies */
+  id: string;
+  name: string;
+  hoursPerWeek: number | null;
+  /** Names of the competencies for this subject */
+  competencies: string[];
+}
+
 interface CourseData {
   name: string;
   grade: string | null;
   division: string | null;
-  subjects: { name: string; hoursPerWeek: number | null }[];
+  subjects: SubjectData[];
 }
 
 interface Props {
@@ -16,9 +27,9 @@ interface Props {
   planYear: string;
   courses: CourseData[];
   onClose?: () => void;
-  /** Si es true, ya tiene los datos cargados y no necesita fetch */
-  ready?: boolean;
 }
+
+// ── Constants ──────────────────────────────────────────────────────────────
 
 const LEVEL_LABELS: Record<string, string> = {
   '1': 'Inicial', '2': 'Primario', '3': 'Secundario', '4': 'Terciario', '9': 'Administración',
@@ -28,11 +39,17 @@ const MODALITY_LABELS: Record<string, string> = {
   '0': 'Común', '1': 'Adultos', '2': 'Especial', '9': 'Todas',
 };
 
+// ── Print view ─────────────────────────────────────────────────────────────
+
 export default function StudyPlanDetailPrintView({
   branding, planName, planLevel, planModality, planYear,
   courses, onClose,
 }: Props) {
   const totalSubjects = courses.reduce((sum, c) => sum + c.subjects.length, 0);
+  const totalCompetencies = courses.reduce(
+    (sum, c) => sum + c.subjects.reduce((s2, subj) => s2 + subj.competencies.length, 0),
+    0,
+  );
 
   return (
     <div style={{ position: 'relative' }}>
@@ -61,7 +78,7 @@ export default function StudyPlanDetailPrintView({
       >
         {/* ── Resumen del plan ── */}
         <div style={{
-          display: 'table', width: '100%', marginBottom: '1rem',
+          display: 'table', width: '100%', marginBottom: '1.25rem',
           border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden',
         }}>
           <div style={{ display: 'table-row', background: '#f8fafc' }}>
@@ -74,11 +91,13 @@ export default function StudyPlanDetailPrintView({
             <div style={{ display: 'table-cell', padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.78rem', color: '#475569' }}>Año lectivo</div>
             <div style={{ display: 'table-cell', padding: '0.5rem 0.75rem', fontSize: '0.82rem' }}>{planYear}</div>
             <div style={{ display: 'table-cell', padding: '0.5rem 0.75rem', fontWeight: 600, fontSize: '0.78rem', color: '#475569' }}>Totales</div>
-            <div style={{ display: 'table-cell', padding: '0.5rem 0.75rem', fontSize: '0.82rem' }}>{courses.length} cursos · {totalSubjects} materias</div>
+            <div style={{ display: 'table-cell', padding: '0.5rem 0.75rem', fontSize: '0.82rem' }}>
+              {courses.length} {courses.length === 1 ? 'curso' : 'cursos'} · {totalSubjects} {totalSubjects === 1 ? 'materia' : 'materias'} · {totalCompetencies} {totalCompetencies === 1 ? 'competencia' : 'competencias'}
+            </div>
           </div>
         </div>
 
-        {/* ── Cursos y materias (identados) ── */}
+        {/* ── Cursos → Materias → Competencias ── */}
         {courses.length === 0 ? (
           <p style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem', fontSize: '0.85rem' }}>
             Este plan no tiene cursos cargados.
@@ -86,58 +105,112 @@ export default function StudyPlanDetailPrintView({
         ) : (
           <div style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
             {courses.map((course, ci) => (
-              <div key={ci} style={{ marginBottom: '0.75rem' }}>
-                {/* Curso (evitar que el header quede huérfano) */}
+              <div key={ci} style={{ marginBottom: '1.25rem' }}>
+
+                {/* ── CORTE DE CONTROL NIVEL 1: CURSO ── */}
                 <div style={{
-                  padding: '0.55rem 0.75rem',
-                  background: branding.bodyColor ?? '#ffffff',
-                  border: '1px solid #e2e8f0',
+                  padding: '0.55rem 0.85rem',
+                  background: branding.headerColor ?? '#1e293b',
+                  color: branding.headerTextColor ?? '#ffffff',
                   borderRadius: 6,
-                  fontWeight: 650,
-                  fontSize: '0.85rem',
-                  color: branding.bodyTextColor ?? '#1e293b',
-                  marginBottom: course.subjects.length > 0 ? '0.25rem' : '0',
-                  pageBreakInside: 'avoid',
+                  fontWeight: 700,
+                  fontSize: '0.88rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  pageBreakAfter: 'avoid',
+                  breakAfter: 'avoid',
                 }}>
-                  📘 {course.name}
-                  {(course.grade || course.division) && (
-                    <span style={{ fontWeight: 400, fontSize: '0.75rem', color: '#64748b', marginLeft: '0.5rem' }}>
-                      {[course.grade, course.division].filter(Boolean).join(' ')}
-                    </span>
-                  )}
-                  <span style={{ float: 'right', fontSize: '0.72rem', color: '#94a3b8', fontWeight: 400 }}>
+                  <span>
+                    {course.name}
+                    {(course.grade || course.division) && (
+                      <span style={{ fontWeight: 400, fontSize: '0.76rem', opacity: 0.8, marginLeft: '0.5rem' }}>
+                        {[course.grade, course.division].filter(Boolean).join(' ')}
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 400, opacity: 0.75 }}>
                     {course.subjects.length} {course.subjects.length === 1 ? 'materia' : 'materias'}
                   </span>
                 </div>
 
-                {/* Materias identadas */}
-                {course.subjects.map((subj, si) => (
-                  <div key={si} style={{
-                    padding: '0.4rem 0.75rem 0.4rem 2.5rem',
-                    fontSize: '0.78rem',
-                    color: branding.bodyTextColor ?? '#334155',
-                    borderBottom: '1px solid #f1f5f9',
-                    display: 'table', width: '100%', boxSizing: 'border-box',
-                    pageBreakInside: 'avoid',
-                  }}>
-                    <span style={{ display: 'table-cell' }}>
-                      <span style={{ color: '#94a3b8', marginRight: '0.3rem' }}>└</span>
-                      {subj.name}
-                    </span>
-                    {subj.hoursPerWeek != null && (
-                      <span style={{ display: 'table-cell', textAlign: 'right', fontSize: '0.7rem', color: '#94a3b8', width: '80px' }}>
-                        {subj.hoursPerWeek} h/sem
-                      </span>
-                    )}
-                  </div>
-                ))}
-
-                {course.subjects.length === 0 && (
+                {/* Materias del curso */}
+                {course.subjects.length === 0 ? (
                   <div style={{
-                    padding: '0.3rem 0.75rem 0.3rem 2.5rem',
-                    fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic',
+                    padding: '0.4rem 0.85rem 0.4rem 1.5rem',
+                    fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic',
+                    borderLeft: '3px solid #e2e8f0', marginTop: '0.25rem',
                   }}>
                     Sin materias cargadas
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '0.25rem', borderLeft: '3px solid #e2e8f0', marginLeft: '0.5rem' }}>
+                    {course.subjects.map((subj, si) => (
+                      <div
+                        key={si}
+                        style={{
+                          marginBottom: si < course.subjects.length - 1 ? '0.4rem' : 0,
+                          pageBreakInside: 'avoid',
+                          breakInside: 'avoid',
+                        }}
+                      >
+                        {/* ── CORTE DE CONTROL NIVEL 2: MATERIA ── */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.42rem 0.75rem 0.42rem 1rem',
+                          background: '#f8fafc',
+                          borderBottom: '1px solid #e2e8f0',
+                          fontWeight: 600,
+                          fontSize: '0.8rem',
+                          color: branding.bodyTextColor ?? '#1e293b',
+                        }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>▸</span>
+                            {subj.name}
+                          </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.7rem', color: '#94a3b8', fontWeight: 400 }}>
+                            {subj.competencies.length > 0 && (
+                              <span>{subj.competencies.length} {subj.competencies.length === 1 ? 'competencia' : 'competencias'}</span>
+                            )}
+                            {subj.hoursPerWeek != null && (
+                              <span>{subj.hoursPerWeek} h/sem</span>
+                            )}
+                          </span>
+                        </div>
+
+                        {/* Competencias de la materia */}
+                        {subj.competencies.length === 0 ? (
+                          <div style={{
+                            padding: '0.3rem 0.75rem 0.3rem 2.5rem',
+                            fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic',
+                          }}>
+                            Sin competencias
+                          </div>
+                        ) : (
+                          <div style={{ padding: '0.3rem 0.75rem 0.3rem 2rem' }}>
+                            {subj.competencies.map((comp, pi) => (
+                              <div
+                                key={pi}
+                                style={{
+                                  fontSize: '0.76rem',
+                                  color: branding.bodyTextColor ?? '#334155',
+                                  padding: '0.18rem 0',
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '0.4rem',
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                <span style={{ color: '#94a3b8', flexShrink: 0, marginTop: '0.05rem' }}>•</span>
+                                <span>{comp}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -149,7 +222,9 @@ export default function StudyPlanDetailPrintView({
   );
 }
 
-/** Componente wrapper que hace fetch de cursos y materias al abrirse */
+// ── Loader ─────────────────────────────────────────────────────────────────
+// Fetches courses → subjects → competencies on mount, then renders the view.
+
 export function StudyPlanDetailPrintLoader({
   branding,
   planId,
@@ -170,34 +245,58 @@ export function StudyPlanDetailPrintLoader({
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Fetch courses + subjects on mount
   useEffect(() => {
     (async () => {
       try {
         const { default: apiClient } = await import('../../api/client');
-        // Fetch courses
+
+        // 1. Fetch all courses for the plan
         const coursesRes = await apiClient.get(`/study-plans/${planId}/courses`);
-        const rawCourses = coursesRes.data?.data ?? [];
+        const rawCourses: Array<Record<string, unknown>> = coursesRes.data?.data ?? [];
 
-        const enriched: CourseData[] = [];
-        for (const pc of rawCourses) {
-          // Fetch subjects for each course
-          let subjects: { name: string; hoursPerWeek: number | null }[] = [];
-          try {
-            const subjRes = await apiClient.get(`/study-plan-courses/${pc.id}/subjects`);
-            subjects = (subjRes.data?.data ?? []).map((s: { subjectName?: string; subjectId?: string; hoursPerWeek?: number | null }) => ({
-              name: s.subjectName ?? s.subjectId ?? '—',
-              hoursPerWeek: s.hoursPerWeek ?? null,
-            }));
-          } catch { /* ignore */ }
+        // 2. Fetch subjects + competencies for each course (courses sequentially, subjects+competencies in parallel)
+        const enriched: CourseData[] = await Promise.all(
+          rawCourses.map(async (pc) => {
+            let subjects: SubjectData[] = [];
 
-          enriched.push({
-            name: pc.courseSectionName ?? pc.courseSectionId ?? `Curso ${pc.id}`,
-            grade: pc.courseGrade ?? null,
-            division: pc.courseDivision ?? null,
-            subjects,
-          });
-        }
+            try {
+              const subjRes = await apiClient.get(`/study-plan-courses/${pc.id as string}/subjects`);
+              const rawSubjects: Array<Record<string, unknown>> = subjRes.data?.data ?? [];
+
+              // Fetch competencies for each subject in parallel
+              subjects = await Promise.all(
+                rawSubjects.map(async (s) => {
+                  const studyPlanSubjectId = s.id as string;
+                  let competencies: string[] = [];
+
+                  try {
+                    const compRes = await apiClient.get('/subject-competencies', {
+                      params: { studyPlanSubjectId },
+                    });
+                    competencies = (compRes.data?.data ?? []).map(
+                      (c: Record<string, unknown>) => (c.name ?? '') as string,
+                    );
+                  } catch { /* ignore — show empty competencies */ }
+
+                  return {
+                    id: studyPlanSubjectId,
+                    name: (s.subjectName ?? s.subjectId ?? '—') as string,
+                    hoursPerWeek: (s.hoursPerWeek ?? null) as number | null,
+                    competencies,
+                  };
+                }),
+              );
+            } catch { /* ignore — show course with no subjects */ }
+
+            return {
+              name: (pc.courseSectionName ?? pc.courseSectionId ?? `Curso ${pc.id as string}`) as string,
+              grade: (pc.courseGrade ?? null) as string | null,
+              division: (pc.courseDivision ?? null) as string | null,
+              subjects,
+            };
+          }),
+        );
+
         setCourses(enriched);
       } catch { /* ignore */ }
       finally { setLoading(false); }
