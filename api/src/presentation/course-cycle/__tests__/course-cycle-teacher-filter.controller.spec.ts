@@ -163,6 +163,97 @@ describe('CourseCycleController — GET list with teacher filter', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Puerta 2 — access scope (resolveAccessScope) integration in list()
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('CourseCycleController — list() access scope (Puerta 2)', () => {
+  it('SECRETARIO with levelIn=[20] passes levelIn to listUC', async () => {
+    const listUCMock = vi.fn().mockResolvedValue(makeListResult([makeCC('cc-sec-1')]));
+    const ctrl = makeController({ listUC: { execute: listUCMock } });
+    const secretarioUser = { userId: 'sec-id', roles: ['SECRETARIO'], levels: [20] };
+
+    await ctrl.list(secretarioUser, {});
+
+    expect(listUCMock).toHaveBeenCalledWith(
+      expect.objectContaining({ levelIn: [20] }),
+    );
+    // level (UI filter) not set, so should not appear
+    const call = listUCMock.mock.calls[0][0];
+    expect(call.level).toBeUndefined();
+  });
+
+  it('DIRECTOR with levelIn=[30,40] passes levelIn to listUC', async () => {
+    const listUCMock = vi.fn().mockResolvedValue(makeListResult([]));
+    const ctrl = makeController({ listUC: { execute: listUCMock } });
+    const directorUser = { userId: 'dir-id', roles: ['DIRECTOR'], levels: [30, 40] };
+
+    await ctrl.list(directorUser, {});
+
+    expect(listUCMock).toHaveBeenCalledWith(
+      expect.objectContaining({ levelIn: [30, 40] }),
+    );
+  });
+
+  it('ADMIN (allLevels=true) passes levelIn=undefined to listUC', async () => {
+    const listUCMock = vi.fn().mockResolvedValue(makeListResult([makeCC('cc-admin-1')]));
+    const ctrl = makeController({ listUC: { execute: listUCMock } });
+    const adminUser = { userId: 'admin-id', roles: ['ADMIN'], levels: [] };
+
+    await ctrl.list(adminUser, {});
+
+    expect(listUCMock).toHaveBeenCalled();
+    const call = listUCMock.mock.calls[0][0];
+    expect(call.levelIn).toBeUndefined();
+  });
+
+  it('TEACHER (non-administrative) goes through listTeacherCCsUC path, not listUC', async () => {
+    const listUCMock = vi.fn().mockResolvedValue(makeListResult([]));
+    const teacherMock = vi.fn().mockResolvedValue([makeTeacherCC('cc-t-1')]);
+    const ctrl = makeController({
+      listUC: { execute: listUCMock },
+      listTeacherCCsUC: { execute: teacherMock },
+    });
+    const teacherUser = { userId: 'teacher-id', roles: ['TEACHER'], levels: [20] };
+
+    const result = await ctrl.list(teacherUser, {});
+
+    expect(teacherMock).toHaveBeenCalledWith({ userId: 'teacher-id', mode: 'subject' });
+    expect(listUCMock).not.toHaveBeenCalled();
+    expect(result).toHaveProperty('data');
+  });
+
+  it('PRECEPTOR (non-administrative) goes through listTeacherCCsUC path', async () => {
+    const listUCMock = vi.fn();
+    const teacherMock = vi.fn().mockResolvedValue([]);
+    const ctrl = makeController({
+      listUC: { execute: listUCMock },
+      listTeacherCCsUC: { execute: teacherMock },
+    });
+    const preceptorUser = { userId: 'prec-id', roles: ['PRECEPTOR'], levels: [20] };
+
+    await ctrl.list(preceptorUser, {});
+
+    expect(teacherMock).toHaveBeenCalled();
+    expect(listUCMock).not.toHaveBeenCalled();
+  });
+
+  it('ROOT with teacherUserId still delegates to listTeacherCCsUC', async () => {
+    const listUCMock = vi.fn();
+    const teacherMock = vi.fn().mockResolvedValue([makeTeacherCC('cc-r-1')]);
+    const ctrl = makeController({
+      listUC: { execute: listUCMock },
+      listTeacherCCsUC: { execute: teacherMock },
+    });
+    const rootUser = { userId: 'root-id', roles: ['ROOT'] };
+
+    await ctrl.list(rootUser, { teacherUserId: 'some-teacher' });
+
+    expect(teacherMock).toHaveBeenCalledWith({ userId: 'some-teacher', mode: 'subject' });
+    expect(listUCMock).not.toHaveBeenCalled();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // GET /course-cycles/:id/subjects — teacher subjects in a CC
 // ═══════════════════════════════════════════════════════════════════════════════
 

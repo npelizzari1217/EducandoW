@@ -12,8 +12,8 @@ import type { AuthenticatedRequest } from './auth.guard';
  * back to base levels via Math.floor(code / 10), then checks for
  * overlap with the required levels.
  *
- * ROOT users bypass all level checks. Controllers without @Levels()
- * are unaffected (guard defaults to true).
+ * ROOT and ADMIN users bypass all level checks (allLevels=true per access model Puerta 2).
+ * Controllers without @Levels() are unaffected (guard defaults to true).
  */
 @Injectable()
 export class LevelsGuard implements CanActivate {
@@ -32,8 +32,8 @@ export class LevelsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const user = request.user;
 
-    if (!user || user.roles?.includes('ROOT')) {
-      return true; // No user (should not happen at this point) or ROOT bypass
+    if (!user || user.roles?.includes('ROOT') || user.roles?.includes('ADMIN')) {
+      return true; // No user (should not happen at this point) or ROOT/ADMIN bypass (allLevels=true)
     }
 
     const userLevels = user.levels ?? [];

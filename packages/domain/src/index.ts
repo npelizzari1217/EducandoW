@@ -191,3 +191,5 @@ export type { RefreshTokenRepository, RefreshTokenData } from './auth/repositori
 export { UserRegistered } from './auth/events/user-registered';
 export { UserNotFoundError, EmailAlreadyExistsError, InvalidCredentialsError } from './auth/errors/user.errors';
 export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser, canViewUser } from './auth/role-hierarchy';
+export { resolveAccessScope } from './auth/access-scope';
+export type { AccessScope } from './auth/access-scope';

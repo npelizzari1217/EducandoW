@@ -20,7 +20,7 @@ export interface CreateStudentInput {
 const ALLOWED_TUTOR_FIELDS = ['phone', 'address', 'photoUrl', 'email', 'birthDate', 'guardianPhone'];
 
 // Roles that can edit ALL fields (full access, no field-level restriction)
-const FULL_ACCESS_ROLES = ['ADMIN', 'MANAGER', 'TEACHER', 'PRECEPTOR'];
+const FULL_ACCESS_ROLES = ['ADMIN', 'DIRECTOR', 'SECRETARIO', 'TEACHER', 'PRECEPTOR'];
 
 const RESTRICTED_ROLES = ['STUDENT', 'TUTOR'];
 
@@ -69,7 +69,7 @@ export class ListStudentsUseCase {
       return this.repo.findByGuardianUserId(caller.userId);
     }
 
-    // ADMIN / MANAGER / TEACHER / PRECEPTOR: see all
+    // ADMIN / DIRECTOR / SECRETARIO / TEACHER / PRECEPTOR: see all
     return this.repo.findByInstitution(institutionId);
   }
 }

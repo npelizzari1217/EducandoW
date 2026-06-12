@@ -13,7 +13,6 @@ async function main() {
     { id: 'r-director', name: 'DIRECTOR', description: 'Directivo' },
     { id: 'r-secretario', name: 'SECRETARIO', description: 'Secretario' },
     { id: 'r-preceptor', name: 'PRECEPTOR', description: 'Preceptor' },
-    { id: 'r-mgr', name: 'MANAGER', description: 'Gestor académico' },
     { id: 'r-teach', name: 'TEACHER', description: 'Docente' },
     { id: 'r-tutor', name: 'TUTOR', description: 'Padre/Madre/Tutor legal' },
     { id: 'r-student', name: 'STUDENT', description: 'Alumno' },
@@ -77,6 +76,8 @@ async function main() {
   // ── Seed role ↔ module assignments ────────────────────────
   const ALL_ACTIONS = ['READ', 'CREATE', 'UPDATE', 'DELETE', 'PRINT'];
   const ALL_MODULE_IDS = modules.map((m) => m.id);
+  // DIRECTOR and SECRETARIO have all modules except INSTITUTIONS (managed by ADMIN only)
+  const DIRECTOR_MODULE_IDS = ALL_MODULE_IDS.filter((id) => id !== 'm-inst');
 
   // ── Seed profiles ───────────────────────────────────────
   const profiles = [
@@ -160,20 +161,19 @@ async function main() {
       moduleIds: ALL_MODULE_IDS,
       actions: ALL_ACTIONS,
     },
+    // ADMIN: todos los módulos, todas las acciones (gestiona la institución)
     'r-admin': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-study-plans', 'm-classrooms', 'm-attendance-types', 'm-grading-config'],
+      moduleIds: ALL_MODULE_IDS,
       actions: ALL_ACTIONS,
     },
-    'r-mgr': {
-      moduleIds: ['m-students', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms'],
-      actions: ALL_ACTIONS,
-    },
+    // DIRECTOR: todos los módulos EXCEPTO Instituciones, todas las acciones
     'r-director': {
-      moduleIds: ['m-inst', 'm-users', 'm-students', 'm-teachers', 'm-reports', 'm-subjects', 'm-courses', 'm-enrollments', 'm-grades', 'm-attendance', 'm-study-plans', 'm-classrooms', 'm-attendance-types', 'm-grading-config'],
+      moduleIds: DIRECTOR_MODULE_IDS,
       actions: ALL_ACTIONS,
     },
+    // SECRETARIO: idéntico a DIRECTOR (mismo alcance de módulos, scope de datos diferente)
     'r-secretario': {
-      moduleIds: ['m-students', 'm-reports', 'm-enrollments', 'm-attendance', 'm-grades', 'm-classrooms'],
+      moduleIds: DIRECTOR_MODULE_IDS,
       actions: ALL_ACTIONS,
     },
     'r-preceptor': {
@@ -215,15 +215,16 @@ async function main() {
     'm-grades': ['READ'],
   };
 
-  // ADMIN: institutions(READ,UPDATE), users/students/teachers/reports keep ALL_ACTIONS
-  const adminActions: Record<string, string[]> = {
-    'm-inst': ['READ', 'UPDATE'],
-  };
-
   // PRECEPTOR: students(READ), attendance(CREATE, READ)
   const preceptorActions: Record<string, string[]> = {
     'm-students': ['READ'],
     'm-attendance': ['CREATE', 'READ'],
+  };
+
+  // ADMIN: tiene todos los módulos con ALL_ACTIONS, EXCEPTO Instituciones,
+  // que se capa a READ/UPDATE/PRINT — crear/borrar instituciones es exclusivo de ROOT.
+  const adminActions: Record<string, string[]> = {
+    'm-inst': ['READ', 'UPDATE', 'PRINT'],
   };
 
   const customActions: Record<string, Record<string, string[]>> = {

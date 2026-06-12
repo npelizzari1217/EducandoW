@@ -85,7 +85,7 @@ describe('User', () => {
   it('backward-compat role returns first role', () => {
     const user = User.reconstruct({
       ...validProps,
-      roles: ['ADMIN', 'MANAGER'],
+      roles: ['ADMIN', 'DIRECTOR'],
       id: Id.create(),
       createdAt: new Date(),
       updatedAt: new Date(),

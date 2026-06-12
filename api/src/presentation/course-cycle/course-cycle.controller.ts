@@ -6,6 +6,7 @@ import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
+import { resolveAccessScope } from '@educandow/domain';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   CreateCourseCycleSchema,
@@ -100,21 +101,23 @@ export class CourseCycleController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(CourseCycleListQuerySchema.merge(TeacherCCListQuerySchema.partial()))) query: CourseCycleListQueryDto & TeacherCCListQueryDto,
   ) {
+    const scope = resolveAccessScope(user);
     const isRoot = user.roles.includes('ROOT');
 
-    if (!isRoot) {
-      // C2: Non-ROOT always uses their own JWT userId — no cross-teacher enumeration
+    if (!scope.isAdministrative) {
+      // TEACHER and below: only their own records (Puerta 2)
       const ccs = await this.listTeacherCCsUC.execute({
         userId: user.userId,
         mode: query.role ?? 'subject',
       });
-      // W3: use case now returns { cycle, modality }[] — pass modality to toResponse so the
-      // TeacherFilteredSelectionContext receives the real modality for scale/template lookup.
+      // W3: use case returns { cycle, modality }[] — pass modality to toResponse for
+      // scale/template lookup in TeacherFilteredSelectionContext.
       return { data: ccs.map(({ cycle, modality }) => this.toResponse(cycle, null, modality)) };
     }
 
-    // ROOT: optional teacherUserId filter for admin lookups
-    if (query.teacherUserId) {
+    // Administrative (SECRETARIO / DIRECTOR / ADMIN / ROOT)
+    // ROOT: optional teacherUserId filter for admin cross-teacher lookups
+    if (isRoot && query.teacherUserId) {
       const ccs = await this.listTeacherCCsUC.execute({
         userId: query.teacherUserId,
         mode: query.role ?? 'subject',
@@ -122,9 +125,10 @@ export class CourseCycleController {
       return { data: ccs.map(({ cycle, modality }) => this.toResponse(cycle, null, modality)) };
     }
 
-    // ROOT without filter: full list
+    // Full tenant list, scoped by level unless ROOT/ADMIN (allLevels=true)
     const result = await this.listUC.execute({
       level: query.level,
+      levelIn: scope.allLevels ? undefined : scope.compositeLevels,
       cycleId: query.cycleId,
       active: query.active,
       page: query.page,

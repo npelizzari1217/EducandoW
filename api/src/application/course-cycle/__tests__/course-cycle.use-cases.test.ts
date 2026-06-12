@@ -389,6 +389,31 @@ describe('ListCourseCyclesUseCase', () => {
     expect(result.data).toHaveLength(1);
     expect(result.total).toBe(1);
   });
+
+  it('passes levelIn to findAll when provided (SECRETARIO scope)', async () => {
+    const cc = makeCC();
+    const findAllMock = vi.fn().mockResolvedValue({ data: [cc], page: 1, pageSize: 20, total: 1 });
+    const mockRepo = makeMockRepo({ findAll: findAllMock });
+    const useCase = new ListCourseCyclesUseCase(mockRepo);
+
+    await useCase.execute({ levelIn: [20] });
+
+    expect(findAllMock).toHaveBeenCalledWith(
+      expect.objectContaining({ levelIn: [20] }),
+    );
+  });
+
+  it('does not pass levelIn when ADMIN (allLevels=true) calls with no levelIn', async () => {
+    const findAllMock = vi.fn().mockResolvedValue({ data: [], page: 1, pageSize: 20, total: 0 });
+    const mockRepo = makeMockRepo({ findAll: findAllMock });
+    const useCase = new ListCourseCyclesUseCase(mockRepo);
+
+    await useCase.execute({ level: 20 });
+
+    const call = findAllMock.mock.calls[0][0];
+    expect(call.levelIn).toBeUndefined();
+    expect(call.level).toBe(20);
+  });
 });
 
 // ── GenerateCourseCyclesUseCase ──────────────────────────

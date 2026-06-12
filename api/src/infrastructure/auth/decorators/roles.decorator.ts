@@ -8,7 +8,7 @@ export const ROLES_KEY = 'roles';
  *
  * Accepts role names, module+action objects, or both:
  *   @Roles('ADMIN')
- *   @Roles('ADMIN', 'MANAGER')
+ *   @Roles('ADMIN', 'DIRECTOR')
  *   @Roles({ module: 'GRADES', action: 'CREATE' })
  *   @Roles('TEACHER', { module: 'GRADES', action: 'READ' })
  */

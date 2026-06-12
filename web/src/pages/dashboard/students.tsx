@@ -24,8 +24,8 @@ export default function StudentsPage() {
   const isRoot = roles.includes('ROOT');
   const isTutor = roles.includes('TUTOR');
   const isStudent = roles.includes('STUDENT');
-  const isAdmin = roles.includes('ADMIN') || roles.includes('MANAGER');
-  const isStaff = isRoot || isAdmin || roles.includes('MANAGER') || roles.includes('TEACHER') || roles.includes('PRECEPTOR');
+  const isAdmin = roles.includes('ADMIN');
+  const isStaff = isRoot || isAdmin || roles.includes('DIRECTOR') || roles.includes('SECRETARIO') || roles.includes('TEACHER') || roles.includes('PRECEPTOR');
 
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
 

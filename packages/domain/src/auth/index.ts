@@ -9,3 +9,5 @@ export type { RefreshTokenRepository, RefreshTokenData } from './repositories/re
 export { UserRegistered } from './events/user-registered';
 export { UserNotFoundError, EmailAlreadyExistsError, InvalidCredentialsError } from './errors/user.errors';
 export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser, canViewUser } from './role-hierarchy';
+export { resolveAccessScope } from './access-scope';
+export type { AccessScope } from './access-scope';

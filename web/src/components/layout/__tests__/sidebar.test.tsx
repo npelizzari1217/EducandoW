@@ -42,18 +42,6 @@ function setRole(role: string) {
     (mockUser as any).modules = undefined; // ROOT bypasses all
   } else if (role === 'ADMIN') {
     (mockUser as any).modules = adminModules;
-  } else if (role === 'MANAGER') {
-    (mockUser as any).modules = [
-      { moduleCode: 'STUDENTS', actions: ['READ'] },
-      { moduleCode: 'SUBJECTS', actions: ['READ'] },
-      { moduleCode: 'COURSES', actions: ['READ'] },
-      { moduleCode: 'ENROLLMENTS', actions: ['READ'] },
-      { moduleCode: 'GRADES', actions: ['READ'] },
-      { moduleCode: 'ATTENDANCE', actions: ['READ'] },
-      { moduleCode: 'STUDY_PLANS', actions: ['READ'] },
-      { moduleCode: 'CLASSROOMS', actions: ['READ'] },
-      { moduleCode: 'REPORTS', actions: ['READ'] },
-    ];
   } else {
     (mockUser as any).modules = [];
   }
@@ -297,7 +285,7 @@ describe('Sidebar filtering', () => {
 
   it('does NOT show placeholder for non-admin roles when user levels empty', () => {
     (mockUser as any).levels = [];
-    setRole('MANAGER');
+    setRole('TEACHER');
     renderSidebar();
 
     expect(screen.queryByText(/No tenés niveles educativos asignados/i)).not.toBeInTheDocument();
@@ -386,7 +374,7 @@ describe('Sidebar filtering', () => {
 
   it('hides Perfiles link when user lacks USERS module', () => {
     (mockUser as any).levels = [10];
-    setRole('MANAGER'); // MANAGER only has READ for specific modules, not USERS
+    setRole('TEACHER'); // TEACHER does not have USERS module access
     renderSidebar();
 
     expect(screen.queryByText('Perfiles')).not.toBeInTheDocument();

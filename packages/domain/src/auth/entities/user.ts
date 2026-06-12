@@ -6,7 +6,7 @@ import { EducationalModalityCode } from '../../shared/value-objects/educational-
 /**
  * Known system role names — used for static type-checking in the Roles decorator.
  */
-export type UserRole = 'ROOT' | 'ADMIN' | 'DIRECTOR' | 'SECRETARIO' | 'PRECEPTOR' | 'MANAGER' | 'TEACHER' | 'TUTOR' | 'STUDENT';
+export type UserRole = 'ROOT' | 'ADMIN' | 'DIRECTOR' | 'SECRETARIO' | 'PRECEPTOR' | 'TEACHER' | 'TUTOR' | 'STUDENT';
 
 /**
  * Module access entry: what actions this user has on a specific module.

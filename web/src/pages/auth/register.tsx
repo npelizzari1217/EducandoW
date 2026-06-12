@@ -34,7 +34,7 @@ export default function RegisterPage() {
           <Input label="Nombre completo" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
           <Input label="Email" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
           <Input label="Contraseña" type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required minLength={6} />
-          <div className="field"><label className="field-label">Rol</label><select className="input" value={form.role} onChange={e => setForm({...form, role: e.target.value})}><option value="TEACHER">Docente</option><option value="MANAGER">Directivo</option><option value="ADMIN">Administrador</option></select></div>
+          <div className="field"><label className="field-label">Rol</label><select className="input" value={form.role} onChange={e => setForm({...form, role: e.target.value})}><option value="TEACHER">Docente</option><option value="ADMIN">Administrador</option><option value="DIRECTOR">Directivo</option><option value="SECRETARIO">Secretario</option><option value="PRECEPTOR">Preceptor</option><option value="TUTOR">Tutor</option><option value="STUDENT">Alumno</option></select></div>
           <Input label="ID de Institución (opcional)" value={form.institutionId} onChange={e => setForm({...form, institutionId: e.target.value})} placeholder="UUID de la institución" />
           <Button type="submit" loading={isLoading} className="w-full">Crear cuenta</Button>
         </form>

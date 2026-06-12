@@ -52,7 +52,19 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       deletedAt: null,
     };
 
-    if (filters.level !== undefined) {
+    if (filters.levelIn && filters.levelIn.length > 0) {
+      if (filters.level !== undefined) {
+        // Intersect: if the UI-requested level is within allowed levels, filter by that exact level.
+        // If it's outside the allowed scope, return empty immediately.
+        if (filters.levelIn.includes(filters.level)) {
+          where.level = filters.level;
+        } else {
+          return { data: [], page, pageSize, total: 0 };
+        }
+      } else {
+        where.level = { in: filters.levelIn };
+      }
+    } else if (filters.level !== undefined) {
       where.level = filters.level;
     }
     if (filters.cycleId !== undefined) {

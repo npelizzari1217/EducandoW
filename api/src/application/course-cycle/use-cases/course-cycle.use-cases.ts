@@ -81,6 +81,9 @@ export interface UpdateCourseCycleInput {
 
 export interface ListCourseCyclesInput {
   level?: number;
+  /** Restricción de acceso: códigos de nivel compuestos permitidos.
+   * Pasado por el controller cuando !scope.allLevels (SECRETARIO/DIRECTOR). */
+  levelIn?: number[];
   cycleId?: string;
   active?: boolean;
   page?: number;

@@ -100,6 +100,83 @@ describe('LevelsGuard', () => {
     expect(result).toBe(true);
   });
 
+  // ── Scenario 4b: ADMIN bypasses level check ────────────────
+  it('should return true for ADMIN users regardless of levels', () => {
+    // GIVEN an ADMIN user without any levels assigned
+    // AND the guard requires SECUNDARIO (base code 3)
+    (reflector.getAllAndOverride as any).mockReturnValue([3]);
+    const ctx = createMockContext(handler, cls, {
+      roles: ['ADMIN'],
+      levels: [], // ADMIN may not have levels (allLevels=true per access model)
+    });
+
+    // WHEN canActivate is called
+    const result = guard.canActivate(ctx);
+
+    // THEN the guard passes regardless (Puerta 2: ADMIN sees all levels)
+    expect(result).toBe(true);
+  });
+
+  // ── Scenario 4c: DIRECTOR with correct level passes ─────────
+  it('should return true for DIRECTOR with matching level', () => {
+    // GIVEN a DIRECTOR with composite level 30 (SECUNDARIO+COMUN)
+    // AND the guard requires SECUNDARIO (base code 3)
+    (reflector.getAllAndOverride as any).mockReturnValue([3]);
+    const ctx = createMockContext(handler, cls, {
+      roles: ['DIRECTOR'],
+      levels: [30],
+    });
+
+    const result = guard.canActivate(ctx);
+
+    expect(result).toBe(true);
+  });
+
+  // ── Scenario 4d: DIRECTOR with wrong level is blocked ───────
+  it('should return false for DIRECTOR with non-matching level', () => {
+    // GIVEN a DIRECTOR with composite level 10 (INICIAL+COMUN)
+    // AND the guard requires SECUNDARIO (base code 3)
+    (reflector.getAllAndOverride as any).mockReturnValue([3]);
+    const ctx = createMockContext(handler, cls, {
+      roles: ['DIRECTOR'],
+      levels: [10],
+    });
+
+    const result = guard.canActivate(ctx);
+
+    expect(result).toBe(false);
+  });
+
+  // ── Scenario 4e: SECRETARIO with correct level passes ───────
+  it('should return true for SECRETARIO with matching level', () => {
+    // GIVEN a SECRETARIO with composite levels [20, 30]
+    // AND the guard requires PRIMARIO (base code 2)
+    (reflector.getAllAndOverride as any).mockReturnValue([2]);
+    const ctx = createMockContext(handler, cls, {
+      roles: ['SECRETARIO'],
+      levels: [20, 30],
+    });
+
+    const result = guard.canActivate(ctx);
+
+    expect(result).toBe(true);
+  });
+
+  // ── Scenario 4f: SECRETARIO with wrong level is blocked ─────
+  it('should return false for SECRETARIO with non-matching level', () => {
+    // GIVEN a SECRETARIO with composite level 20 (PRIMARIO only)
+    // AND the guard requires INICIAL (base code 1)
+    (reflector.getAllAndOverride as any).mockReturnValue([1]);
+    const ctx = createMockContext(handler, cls, {
+      roles: ['SECRETARIO'],
+      levels: [20],
+    });
+
+    const result = guard.canActivate(ctx);
+
+    expect(result).toBe(false);
+  });
+
   // ── Scenario 5: No @Levels decorator → pass through ────────
   it('should return true when no @Levels metadata is present', () => {
     // GIVEN a controller with NO @Levels() decorator

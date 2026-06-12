@@ -8,6 +8,11 @@ export interface EnrolledStudent {
 
 export interface CourseCycleFilters {
   level?: number;
+  /** Restricción de acceso por nivel: lista de códigos compuestos permitidos.
+   * Se usa cuando !allLevels (SECRETARIO/DIRECTOR). Filtra sobre el campo `level` del CourseCycle.
+   * Si está presente y no vacío, limita los resultados a los niveles permitidos.
+   * Se intersecta con `level` cuando ambos están presentes. */
+  levelIn?: number[];
   cycleId?: string;
   active?: boolean;
   page?: number;
