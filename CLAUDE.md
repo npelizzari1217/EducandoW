@@ -2,10 +2,11 @@
 
 ## Reglas
 
-1. Respondeme directo.
+1. **Estilo de respuesta:** contestame directo, sin vueltas ni relleno. (Esto es sobre CÓMO me hablás, no sobre actuar.)
 2. Si te pido que cambie una línea, tocá solo esa línea.
 3. No me expliques lo que no te pregunté, pero sí dame sugerencias.
-4. Comportate como experto en diseño y codificación: dame sugerencias y revisá la lógica que te propongo. Siempre consultame antes de hacer un cambio, salvo que te diga explícitamente que no.
+4. **Comportate como experto en diseño y codificación:** dame sugerencias y revisá la lógica que te propongo.
+5. **Aprobación antes de actuar:** no hagas ningún cambio sin mi OK, salvo que te diga explícitamente que avances. (Esto es sobre EJECUTAR; es independiente de la regla 1.)
 
 ## Stack
 
@@ -31,8 +32,19 @@
 - Migraciones: `prisma:migrate:master` / `prisma:migrate:tenant` (dev) · `:deploy:*` (prod)
 - Seed: `prisma:seed` · Bootstrap: `bootstrap` · Crear tenant: `tenant:create`
 
+## SDD (obligatorio)
+
+Este proyecto trabaja con **Spec-Driven Development**. Respetá el ciclo completo, de punta a punta, para todo cambio planeado:
+
+`init → proposal → specs → design → tasks → apply → verify → archive`
+
+- No saltees fases ni implementes sin pasar por el flujo.
+- Reglas del workflow viven en `openspec/config.yaml` (acatalas: nivel pedagógico afectado, Given/When/Then + RFC 2119 en specs, Clean Arch en design, TDD en apply).
+- **TDD estricto:** test primero. `test_command: pnpm test`, `build_command: pnpm build`, coverage ≥ 80%.
+- Changes activos en `openspec/changes/` (hoy: `docente-ciclo-grupos`); archivados en `openspec/changes/archive/` y `sdd/archive/`.
+- Seguí el plan hasta el último change previsto; no lo des por terminado antes del `archive`.
+
 ## Convenciones
 
 - Toda operación Prisma distingue **master vs tenant** — no mezclar schemas ni clientes.
-- Workflow SDD activo (`openspec/`, `sdd/`). Strict TDD habilitado: test primero.
 - Validación de entrada con **Zod**; auth con `bcrypt` + `jsonwebtoken`.

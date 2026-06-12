@@ -49,6 +49,7 @@ model Student {
   subjectPeriodGrades     SubjectPeriodGrade[]
   subjectFinalGrades      SubjectFinalGrade[]
   materiasPrevias         MateriaPrevia[]
+  alumnosXMateriaXCursoXCiclo AlumnosXMateriaXCursoXCiclo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,10 +135,104 @@ model DocenteXCiclo {
 
   cycle AcademicCycle @relation(fields: [cycleId], references: [uuid])
 
+  grupos GrupoXCursoXMateriaXCiclo[]
+
   @@unique([userId, cycleId])
   @@index([cycleId])
   @@index([userId])
   @@map("docentes_x_ciclo")
+}
+
+// ── Materia / Grupo por Ciclo (Fase 3a) ───────────────────
+
+// MateriaXCursoXCiclo — one row per (CourseCycle, Subject) after "Generar".
+// Materializes the study plan subjects into a specific course-cycle.
+// studyPlanSubjectId: provenance link (not a FK — plan lives in tenant but
+//   the reference is kept soft so plan edits don't cascade into materias).
+model MateriaXCursoXCiclo {
+  id                   String  @id @default(uuid())
+  courseCycleId        String  @map("course_cycle_id")         // → CourseCycle.uuid
+  subjectId            String  @map("subject_id")              // → Subject.id
+  studyPlanSubjectId   String? @map("study_plan_subject_id")   // provenance (soft ref)
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+  subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)
+
+  alumnos AlumnosXMateriaXCursoXCiclo[]
+  grupos  GrupoXCursoXMateriaXCiclo[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, subjectId])
+  @@index([courseCycleId])
+  @@map("materias_x_curso_x_ciclo")
+}
+
+// AlumnosXMateriaXCursoXCiclo — authoritative universe of students for a subject.
+// Students must be added one by one (MGC-R2); bulk endpoint is out of scope.
+// The @@unique([materiaXCursoXCicloId, studentId]) enforces 1 row per student-materia.
+model AlumnosXMateriaXCursoXCiclo {
+  id                    String @id @default(uuid())
+  materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")
+  studentId             String @map("student_id")                  // → Student.id
+
+  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  student Student              @relation(fields: [studentId],             references: [id], onDelete: Cascade)
+
+  grupoMemberships AlumnosXGrupoXCursoXMateriaXCiclo[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([materiaXCursoXCicloId, studentId], map: "alumnos_x_materia_x_curso_x_ciclo_materia_student_key")
+  @@index([materiaXCursoXCicloId])
+  @@map("alumnos_x_materia_x_curso_x_ciclo")
+}
+
+// GrupoXCursoXMateriaXCiclo — one group per (MateriaXCursoXCiclo, DocenteXCiclo).
+// For a normal (non-split) subject: 1 group = all students.
+// For a split subject (materia partida): N groups, each with a different DocenteXCiclo.
+// Overlap is allowed (co-docencia): same student in multiple groups of the same materia.
+model GrupoXCursoXMateriaXCiclo {
+  id                    String  @id @default(uuid())
+  materiaXCursoXCicloId String  @map("materia_x_curso_x_ciclo_id")
+  docenteXCicloId       String  @map("docente_x_ciclo_id")           // → DocenteXCiclo.id
+  name                  String?
+
+  materia       MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  docenteXCiclo DocenteXCiclo       @relation(fields: [docenteXCicloId],       references: [id], onDelete: Restrict)
+
+  alumnos AlumnosXGrupoXCursoXMateriaXCiclo[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([materiaXCursoXCicloId, docenteXCicloId], map: "grupos_x_curso_x_materia_x_ciclo_materia_docente_key")
+  @@index([materiaXCursoXCicloId])
+  @@index([docenteXCicloId])
+  @@map("grupos_x_curso_x_materia_x_ciclo")
+}
+
+// AlumnosXGrupoXCursoXMateriaXCiclo — maps a student (via their materia membership)
+// into a specific group. The FK to AlumnosXMateriaXCursoXCiclo (not to Student directly)
+// enforces grupo ⊆ materia at the DB level (MGC-R4). Cross-course students are
+// impossible because the alumnoMateria row itself belongs to a specific CourseCycle.
+model AlumnosXGrupoXCursoXMateriaXCiclo {
+  id                          String @id @default(uuid())
+  grupoId                     String @map("grupo_id")
+  alumnosXMateriaXCursoXCicloId String @map("alumnos_x_materia_x_curso_x_ciclo_id")
+
+  grupo         GrupoXCursoXMateriaXCiclo   @relation(fields: [grupoId],                        references: [id], onDelete: Cascade)
+  alumnoMateria AlumnosXMateriaXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([grupoId, alumnosXMateriaXCursoXCicloId], map: "alumnos_x_grupo_x_materia_x_ciclo_grupo_alumno_key")
+  @@index([grupoId])
+  @@index([alumnosXMateriaXCursoXCicloId])
+  @@map("alumnos_x_grupo_x_curso_x_materia_x_ciclo")
 }
 
 // ── Academic Cycles ───────────────────────────────────────
@@ -216,6 +311,7 @@ model CourseCycle {
   subjectPeriodGrades   SubjectPeriodGrade[]
   subjectFinalGrades    SubjectFinalGrade[]
   materiasPrevias       MateriaPrevia[]
+  materiasXCiclo        MateriaXCursoXCiclo[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -282,6 +378,7 @@ model Subject {
   subjectPeriodGrades      SubjectPeriodGrade[]
   subjectFinalGrades       SubjectFinalGrade[]
   materiasPrevias          MateriaPrevia[]
+  materiasXCursoXCiclo     MateriaXCursoXCiclo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

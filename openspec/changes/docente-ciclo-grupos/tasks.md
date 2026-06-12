@@ -154,25 +154,25 @@
 
 ### Schema & Migración
 
-- [ ] F3-S1: Agregar `MateriaXCursoXCiclo` al tenant schema:
+- [x] F3-S1: Agregar `MateriaXCursoXCiclo` al tenant schema:
   `courseCycleId → CourseCycle.uuid (FK)`, `subjectId → Subject.id (FK)`,
   `studyPlanSubjectId String? @map("study_plan_subject_id")` (provenance),
   `@@unique([courseCycleId, subjectId])`, `@@index([courseCycleId])`, `@map("materias_x_curso_x_ciclo")`
-- [ ] F3-S2: Agregar `AlumnosXMateriaXCursoXCiclo`:
+- [x] F3-S2: Agregar `AlumnosXMateriaXCursoXCiclo`:
   `materiaXCursoXCicloId FK`, `studentId → Student.id (FK)`,
   `@@unique([materiaXCursoXCicloId, studentId])`, `@@index([materiaXCursoXCicloId])`,
   `@map("alumnos_x_materia_x_curso_x_ciclo")`
-- [ ] F3-S3: Agregar `GrupoXCursoXMateriaXCiclo`:
+- [x] F3-S3: Agregar `GrupoXCursoXMateriaXCiclo`:
   `materiaXCursoXCicloId FK`, `docenteXCicloId FK → DocenteXCiclo.id`, `name String?`,
   `@@unique([materiaXCursoXCicloId, docenteXCicloId])`, `@@index([materiaXCursoXCicloId])`,
   `@@index([docenteXCicloId])`, `@map("grupos_x_curso_x_materia_x_ciclo")`
-- [ ] F3-S4: Agregar `AlumnosXGrupoXCursoXMateriaXCiclo`:
+- [x] F3-S4: Agregar `AlumnosXGrupoXCursoXMateriaXCiclo`:
   `grupoId FK → GrupoXCursoXMateriaXCiclo.id`,
   `alumnosXMateriaXCursoXCicloId FK → AlumnosXMateriaXCursoXCiclo.id`
   (el FK garantiza grupo ⊆ materia a nivel BD — diseño explícito),
   `@@unique([grupoId, alumnosXMateriaXCursoXCicloId])`,
   índices por ambos FK, `@map("alumnos_x_grupo_x_curso_x_materia_x_ciclo")`
-- [ ] F3-S5: Generar migración Prisma; revisar SQL de FKs; desplegar multi-tenant
+- [x] F3-S5: Generar migración Prisma; revisar SQL de FKs; desplegar multi-tenant
 
 ### Backfill Script
 
