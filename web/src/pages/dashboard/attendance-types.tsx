@@ -369,6 +369,7 @@ export default function AttendanceTypesPage() {
                 ) : (
                   <Button variant="success-soft" onClick={handleCreate} loading={saving}>Crear tipo</Button>
                 )}
+                <Button variant="danger-soft" onClick={clearForm}>Cancelar</Button>
               </div>
             </Card>
           )}

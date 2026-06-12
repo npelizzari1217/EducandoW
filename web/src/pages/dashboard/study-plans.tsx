@@ -711,7 +711,10 @@ export default function StudyPlansPage() {
                 ))}
               </select>
             </div>
-            <Button variant="success-soft" onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={handleCreatePlan} loading={creating}>Crear plan</Button>
+              <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>
+            </div>
           </div>
         </Card>
       )}

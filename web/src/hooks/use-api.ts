@@ -47,7 +47,7 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
     }
     setLoading(true); setError('');
     try { const res = await apiClient.get(url, { params }); setData(adaptListResponse<T>(res)); }
-    catch { setError('Error al cargar datos'); }
+    catch { setError('Error al cargar datos'); setData([]); }
     finally { setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- paramsKey tracks params by value; object identity intentionally excluded to avoid refetch storms
   }, [url, paramsKey]);

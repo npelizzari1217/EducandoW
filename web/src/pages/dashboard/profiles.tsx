@@ -282,9 +282,12 @@ export default function ProfilesPage() {
               </div>
             )}
 
-            <Button variant="success-soft" onClick={handleSave} loading={saving}>
-              {editingId ? 'Guardar cambios' : 'Crear perfil'}
-            </Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={handleSave} loading={saving}>
+                {editingId ? 'Guardar cambios' : 'Crear perfil'}
+              </Button>
+              <Button variant="danger-soft" onClick={clearForm}>Cancelar</Button>
+            </div>
           </div>
         </Card>
       )}

@@ -133,7 +133,10 @@ export default function TeachersPage() {
               <input type="checkbox" checked={form.active} onChange={e => setForm({...form, active: e.target.checked})} />
               Activo
             </label>
-            <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear docente</Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear docente</Button>
+              <Button variant="danger-soft" onClick={() => setShowForm(false)}>Cancelar</Button>
+            </div>
           </div>
         </Card>
       )}

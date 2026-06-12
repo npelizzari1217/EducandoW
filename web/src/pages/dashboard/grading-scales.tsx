@@ -499,6 +499,7 @@ export default function GradingScalesPage() {
                     Crear escala
                   </Button>
                 )}
+                <Button variant="danger-soft" onClick={clearScaleForm}>Cancelar</Button>
               </div>
             </Card>
           )}
@@ -691,10 +692,11 @@ export default function GradingScalesPage() {
                       error={valueFieldErrors.sortOrder}
                     />
                   </div>
-                  <div style={{ marginTop: 'var(--space-md)' }}>
+                  <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-sm)' }}>
                     <Button variant="success-soft" onClick={handleSaveValue} loading={valueSaving}>
                       {editingValueId ? 'Guardar cambios' : 'Agregar valor'}
                     </Button>
+                    <Button variant="danger-soft" onClick={clearValueForm}>Cancelar</Button>
                   </div>
                 </div>
               )}

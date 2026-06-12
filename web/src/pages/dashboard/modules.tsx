@@ -235,9 +235,12 @@ export default function ModulesPage() {
                 Activo
               </label>
             )}
-            <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
-              {editingId ? 'Guardar cambios' : 'Crear módulo'}
-            </Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
+                {editingId ? 'Guardar cambios' : 'Crear módulo'}
+              </Button>
+              <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>
+            </div>
           </div>
         </div>
       )}

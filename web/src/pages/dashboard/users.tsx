@@ -534,9 +534,12 @@ export default function UsersPage() {
               <span style={{ fontWeight: 500 }}>Activo</span>
             </label>
 
-            <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
-              {editingId ? 'Guardar cambios' : 'Crear usuario'}
-            </Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={editingId ? handleUpdate : handleCreate} loading={creating || updating}>
+                {editingId ? 'Guardar cambios' : 'Crear usuario'}
+              </Button>
+              <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>
+            </div>
           </div>
         </Card>
       )}

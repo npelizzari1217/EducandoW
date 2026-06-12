@@ -784,6 +784,7 @@ export default function InstitutionsPage() {
             ) : (
               <Button variant="success-soft" onClick={handleCreate} loading={creating}>Crear institución</Button>
             )}
+            <Button variant="danger-soft" onClick={clearForm}>Cancelar</Button>
           </div>
           </>
           )}

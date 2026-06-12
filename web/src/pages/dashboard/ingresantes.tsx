@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/auth-context';
+import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiCreate } from '../../hooks/use-api';
 import { useCan } from '../../hooks/use-can';
 import apiClient from '../../api/client';
@@ -9,6 +11,8 @@ import { Input } from '../../components/ui/input';
 import { LEVEL_CATALOG } from '../../constants/levels';
 
 // ── Types ────────────────────────────────────────────────────────────────────
+
+interface Institution { id: string; name: string; }
 
 interface Ingresante {
   id: string;
@@ -40,6 +44,7 @@ interface CreateIngresanteBody {
   email?: string;
   cycleId?: string;
   level: string;
+  institutionId?: string;
 }
 
 // ── Status badge map ─────────────────────────────────────────────────────────
@@ -61,8 +66,21 @@ const NEXT_STATUS: Record<string, string> = {
 
 export default function IngresantesPage() {
   const { can } = useCan();
+  const { user } = useAuth();
+  const { config } = useInstitution();
+  const roles: string[] = user?.roles ?? [];
+  const isRoot = roles.includes('ROOT');
+  const userInstitutionId = user?.institutionId ?? config.id ?? '';
+  const [institutionId, setInstitutionId] = useState(userInstitutionId);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
 
-  const { data, loading, reload } = useApiList<Ingresante>('/ingresantes');
+  useEffect(() => {
+    apiClient.get('/institutions').then(r => {
+      setInstitutions(r.data?.data ?? []);
+    }).catch(() => {});
+  }, []);
+
+  const { data, loading, reload } = useApiList<Ingresante>('/ingresantes', institutionId ? { institutionId } : undefined);
 
   const [showAll, setShowAll] = useState(false);
   const displayData = showAll
@@ -80,7 +98,7 @@ export default function IngresantesPage() {
   // ── Create form ──────────────────────────────────────────────────────────
 
   const { creating, createError, create, setCreateError } =
-    useApiCreate<CreateIngresanteBody>('/ingresantes');
+    useApiCreate<CreateIngresanteBody>('/ingresantes', institutionId ? { institutionId } : undefined);
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<CreateIngresanteBody>({
@@ -99,11 +117,12 @@ export default function IngresantesPage() {
       dni: form.dni,
       level: form.level,
     };
-    if (form.birthDate) body.birthDate = form.birthDate;
-    if (form.address)   body.address   = form.address;
-    if (form.phone)     body.phone     = form.phone;
-    if (form.email)     body.email     = form.email;
-    if (form.cycleId)   body.cycleId   = form.cycleId;
+    if (form.birthDate)  body.birthDate  = form.birthDate;
+    if (form.address)    body.address    = form.address;
+    if (form.phone)      body.phone      = form.phone;
+    if (form.email)      body.email      = form.email;
+    if (form.cycleId)    body.cycleId    = form.cycleId;
+    if (institutionId)   body.institutionId = institutionId;
 
     const ok = await create(body);
     if (ok) {
@@ -149,6 +168,32 @@ export default function IngresantesPage() {
           </Button>
         )}
       </PremiumHeader>
+
+      {/* ── Institution selector ─────────────────────────────── */}
+      <div className="flex gap-md items-center" style={{ marginBottom: 'var(--space-md)' }}>
+        <div>
+          <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Institución</label>
+          {isRoot ? (
+            <select
+              value={institutionId}
+              onChange={e => setInstitutionId(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            >
+              <option value="">Todas las instituciones</option>
+              {institutions.map(inst => (
+                <option key={inst.id} value={inst.id}>{inst.name}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={institutions.find(i => i.id === institutionId)?.name || config.name || institutionId}
+              disabled
+              style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', minWidth: '220px' }}
+            />
+          )}
+        </div>
+      </div>
 
       {/* ── Create form ──────────────────────────────────────── */}
       {showForm && can('ENROLLMENTS', 'CREATE') && (
@@ -245,9 +290,12 @@ export default function IngresantesPage() {
               </select>
             </div>
 
-            <Button variant="success-soft" onClick={handleCreate} loading={creating}>
-              Crear ingresante
-            </Button>
+            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+              <Button variant="success-soft" onClick={handleCreate} loading={creating}>
+                Crear ingresante
+              </Button>
+              <Button variant="danger-soft" onClick={() => setShowForm(false)}>Cancelar</Button>
+            </div>
           </div>
         </Card>
       )}

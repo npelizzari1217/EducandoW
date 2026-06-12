@@ -21,6 +21,8 @@ const LEVEL_LABELS: Record<number, string> = {
   40: 'Terciario',
 };
 
+const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
 const selectStyle: React.CSSProperties = {
   padding: '0.5rem', borderRadius: 'var(--radius-md)',
   border: '1px solid var(--color-border)',
@@ -63,10 +65,22 @@ export default function CourseCyclesPage() {
   const queryParams: Record<string, string> = {};
   if (institutionId) queryParams.institutionId = institutionId;
   if (filters.level) queryParams.level = filters.level;
-  if (filters.cycleId) queryParams.cycleId = filters.cycleId;
+  // Only send cycleId to the backend when it is a valid UUID — the API rejects non-UUID values.
+  // Non-UUID cycleIds (legacy string IDs) are filtered client-side below.
+  if (filters.cycleId && isUUID(filters.cycleId)) queryParams.cycleId = filters.cycleId;
+  // studyPlanId is sent but the backend currently ignores it; client-side filter below handles it.
   if (filters.studyPlanId) queryParams.studyPlanId = filters.studyPlanId;
 
-  const { data, loading, reload } = useCourseCycles(Object.keys(queryParams).length > 0 ? queryParams : undefined);
+  const { data: rawData, loading, reload } = useCourseCycles(Object.keys(queryParams).length > 0 ? queryParams : undefined);
+
+  // Client-side filters for values the backend does not handle:
+  // – non-UUID cycleIds (backend returns 400 for those; we skip sending them and filter here)
+  // – studyPlanId (backend ignores this param entirely)
+  const data = rawData.filter(cc => {
+    if (filters.cycleId && !isUUID(filters.cycleId) && cc.cycleId !== filters.cycleId) return false;
+    if (filters.studyPlanId && cc.studyPlanId !== filters.studyPlanId) return false;
+    return true;
+  });
   const { creating, createError, create } = useCreateCourseCycle();
   const { updating, updateError, update } = useUpdateCourseCycle();
   const { deleting, del } = useDeleteCourseCycle();
@@ -122,7 +136,7 @@ export default function CourseCyclesPage() {
   };
 
   const handleGenerate = async () => {
-    if (!filters.level || !filters.cycleId) return;
+    if (!filters.level || !filters.cycleId || !filters.studyPlanId) return;
     setGenerating(true);
     try {
       const payload: Record<string, string | number> = {
@@ -219,7 +233,7 @@ export default function CourseCyclesPage() {
           <div style={{ display: 'flex', gap: 'var(--space-md)', marginLeft: 'var(--space-sm)' }}>
             <Button
               onClick={handleGenerate}
-              disabled={!filters.level || !filters.cycleId || generating}
+              disabled={!filters.level || !filters.cycleId || !filters.studyPlanId || generating}
               data-testid="generate-btn"
             >
               {generating ? 'Generando...' : 'Generar Cursos'}
