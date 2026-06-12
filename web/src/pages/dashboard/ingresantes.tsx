@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
-import { useApiList, useApiCreate } from '../../hooks/use-api';
+import { useApiList, useApiCreate, extractErrorMessage } from '../../hooks/use-api';
 import { useCan } from '../../hooks/use-can';
 import apiClient from '../../api/client';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -70,6 +70,16 @@ export default function IngresantesPage() {
   const { config } = useInstitution();
   const roles: string[] = user?.roles ?? [];
   const isRoot = roles.includes('ROOT');
+  // D3: ROOT and ADMIN can choose any level; others have a fixed level
+  const isAllLevels = isRoot || roles.includes('ADMIN');
+
+  // Pre-compute the fixed level entry for non-ROOT/ADMIN users
+  const userBaseLevel = user?.userLevels?.[0]?.level ?? null;
+  const derivedLevelEntry = (!isAllLevels && userBaseLevel != null)
+    ? (LEVEL_CATALOG.find(e => e.levelCode === userBaseLevel && e.modalityCode === 0) ?? null)
+    : null;
+  const derivedLevelName = derivedLevelEntry?.name ?? '';
+
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
   const [institutionId, setInstitutionId] = useState(userInstitutionId);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -87,14 +97,6 @@ export default function IngresantesPage() {
     ? data
     : data.filter(i => ['INSCRIPTO', 'PAGO_MATRICULA', 'ACEPTADO'].includes(i.status));
 
-  const [cycles, setCycles] = useState<AcademicCycle[]>([]);
-
-  useEffect(() => {
-    apiClient
-      .get('/academic-cycles', { params: { limit: '100' } })
-      .then(r => setCycles(r.data?.data ?? []));
-  }, []);
-
   // ── Create form ──────────────────────────────────────────────────────────
 
   const { creating, createError, create, setCreateError } =
@@ -105,10 +107,37 @@ export default function IngresantesPage() {
     firstName: '', lastName: '', dni: '', level: '',
   });
 
+  // F-1: for non-ROOT/ADMIN, auto-set the fixed level whenever user changes
+  useEffect(() => {
+    if (isAllLevels || !derivedLevelName) return;
+    setForm(f => ({ ...f, level: derivedLevelName, cycleId: undefined }));
+  }, [derivedLevelName, isAllLevels]);
+
+  // F-2: fetch cycles filtered by the resolved level; re-fetch when level changes
+  const [cycles, setCycles] = useState<AcademicCycle[]>([]);
+  useEffect(() => {
+    const levelEntry = LEVEL_CATALOG.find(e => e.name === form.level);
+    if (!levelEntry) {
+      if (!isAllLevels) {
+        // Non-ROOT/ADMIN without a resolved level — wait until level is set
+        setCycles([]);
+        return;
+      }
+      // ROOT/ADMIN with no level chosen yet — show all cycles for browsing
+    }
+    const params: Record<string, string> = { limit: '100' };
+    if (levelEntry) params.level = String(levelEntry.levelCode);
+    apiClient
+      .get('/academic-cycles', { params })
+      .then(r => setCycles(r.data?.data ?? []))
+      .catch(() => {});
+  }, [form.level, isAllLevels]);
+
   const handleCreate = async () => {
     setCreateError('');
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.dni.trim() || !form.level) {
-      setCreateError('Nombre, apellido, DNI y nivel son requeridos');
+    // F-3: both level and cycleId are now required
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.dni.trim() || !form.level || !form.cycleId) {
+      setCreateError('Nombre, apellido, DNI, nivel y ciclo lectivo son requeridos');
       return;
     }
     const body: CreateIngresanteBody = {
@@ -116,32 +145,45 @@ export default function IngresantesPage() {
       lastName: form.lastName,
       dni: form.dni,
       level: form.level,
+      cycleId: form.cycleId,  // always include — now required by backend
     };
     if (form.birthDate)  body.birthDate  = form.birthDate;
     if (form.address)    body.address    = form.address;
     if (form.phone)      body.phone      = form.phone;
     if (form.email)      body.email      = form.email;
-    if (form.cycleId)    body.cycleId    = form.cycleId;
     if (institutionId)   body.institutionId = institutionId;
 
     const ok = await create(body);
     if (ok) {
       setShowForm(false);
-      setForm({ firstName: '', lastName: '', dni: '', level: '' });
+      // For non-ROOT/ADMIN keep the fixed level; for ROOT/ADMIN reset to empty
+      setForm({ firstName: '', lastName: '', dni: '', level: isAllLevels ? '' : derivedLevelName });
       reload();
     }
   };
 
   // ── Status actions ───────────────────────────────────────────────────────
 
+  const [statusError, setStatusError] = useState<string>('');
+
   const handleAdvanceStatus = async (id: string, nextStatus: string) => {
-    await apiClient.patch(`/ingresantes/${id}/status`, { status: nextStatus });
-    reload();
+    setStatusError('');
+    try {
+      await apiClient.patch(`/ingresantes/${id}/status`, { status: nextStatus });
+      reload();
+    } catch (err: unknown) {
+      setStatusError(extractErrorMessage(err));
+    }
   };
 
   const handleNoIngresara = async (id: string) => {
-    await apiClient.patch(`/ingresantes/${id}/status`, { status: 'NO_INGRESARA' });
-    reload();
+    setStatusError('');
+    try {
+      await apiClient.patch(`/ingresantes/${id}/status`, { status: 'NO_INGRESARA' });
+      reload();
+    } catch (err: unknown) {
+      setStatusError(extractErrorMessage(err));
+    }
   };
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -257,7 +299,34 @@ export default function IngresantesPage() {
               onChange={e => setForm({ ...form, email: e.target.value })}
             />
 
-            {/* Ciclo lectivo selector */}
+            {/* F-1: Nivel — dropdown for ROOT/ADMIN, read-only for others */}
+            <div className="field">
+              <label htmlFor="nivel-select" className="field-label">Nivel</label>
+              {isAllLevels ? (
+                <select
+                  id="nivel-select"
+                  className="input"
+                  value={form.level}
+                  onChange={e => setForm({ ...form, level: e.target.value })}
+                  required
+                >
+                  <option value="">Seleccioná un nivel</option>
+                  {LEVEL_CATALOG.filter(l => l.pedagogical).map(l => (
+                    <option key={l.code} value={l.name}>{l.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id="nivel-select"
+                  type="text"
+                  value={derivedLevelEntry?.label ?? form.level}
+                  disabled
+                  style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: '#f8fafc', color: '#64748b', fontSize: 'var(--text-sm)', width: '100%' }}
+                />
+              )}
+            </div>
+
+            {/* F-2: Ciclo lectivo — filtered by resolved level, required */}
             <div className="field">
               <label htmlFor="ciclo-select" className="field-label">Ciclo lectivo</label>
               <select
@@ -265,27 +334,11 @@ export default function IngresantesPage() {
                 className="input"
                 value={form.cycleId ?? ''}
                 onChange={e => setForm({ ...form, cycleId: e.target.value || undefined })}
-              >
-                <option value="">Sin ciclo lectivo</option>
-                {cycles.map(c => (
-                  <option key={c.uuid} value={c.uuid}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Nivel selector */}
-            <div className="field">
-              <label htmlFor="nivel-select" className="field-label">Nivel</label>
-              <select
-                id="nivel-select"
-                className="input"
-                value={form.level}
-                onChange={e => setForm({ ...form, level: e.target.value })}
                 required
               >
-                <option value="">Seleccioná un nivel</option>
-                {LEVEL_CATALOG.filter(l => l.pedagogical).map(l => (
-                  <option key={l.code} value={l.name}>{l.label}</option>
+                <option value="">Seleccioná un ciclo lectivo (requerido)</option>
+                {cycles.map(c => (
+                  <option key={c.uuid} value={c.uuid}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -298,6 +351,23 @@ export default function IngresantesPage() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* ── Status transition error ───────────────────────────── */}
+      {statusError && (
+        <div style={{
+          background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem',
+          borderRadius: 'var(--radius-md)', marginTop: 'var(--space-sm)', fontSize: 'var(--text-sm)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span>{statusError}</span>
+          <button
+            onClick={() => setStatusError('')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', fontSize: '1rem', lineHeight: 1 }}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       {/* ── List ─────────────────────────────────────────────── */}

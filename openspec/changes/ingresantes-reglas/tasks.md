@@ -226,7 +226,7 @@
 
 ## Group F — Frontend (paralelo con backend; deploy después de PR-2)
 
-### F-1 Nivel por rol en `IngresantesPage`
+### F-1 [x] Nivel por rol en `IngresantesPage`
 - **File**: `web/src/pages/dashboard/ingresantes.tsx`
 - Determinar `isAllLevels`: `roles.includes('ROOT') || roles.includes('ADMIN')`
 - ROOT/ADMIN → `<select>` con `LEVEL_CATALOG.filter(l => l.pedagogical)` (ya existe; hacerlo required)
@@ -234,14 +234,14 @@
   `useEffect([user])` con el nivel derivado de `user.levels?.[0]` (convertir a string de nivel)
 - Agregar `required` visual en la label
 
-### F-2 Ciclo filtrado por nivel resuelto + requerido
+### F-2 [x] Ciclo filtrado por nivel resuelto + requerido
 - **File**: `web/src/pages/dashboard/ingresantes.tsx`
 - Cambiar el fetch de ciclos a `/academic-cycles?level=<form.level>&limit=100` cuando
   `form.level` está seteado; refetch en `useEffect([form.level])`
 - Cambiar placeholder del select: "Seleccioná un ciclo lectivo (requerido)"
 - **Depends on**: F-1
 
-### F-3 `handleCreate`: validar cycleId requerido
+### F-3 [x] `handleCreate`: validar cycleId requerido
 - **File**: `web/src/pages/dashboard/ingresantes.tsx`
 - Agregar `|| !form.cycleId` a la validación early-return
 - Mensaje: "Nombre, apellido, DNI, nivel y ciclo lectivo son requeridos"
