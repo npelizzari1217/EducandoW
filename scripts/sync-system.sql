@@ -169,10 +169,6 @@ VALUES ('rm-r-director-m-grades', 'r-director', 'm-grades', ARRAY['READ','CREATE
 ON CONFLICT ("roleId", "moduleId") DO UPDATE SET actions=EXCLUDED.actions;
 
 INSERT INTO role_modules (id, "roleId", "moduleId", actions)
-VALUES ('rm-r-director-m-inst', 'r-director', 'm-inst', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']::text[])
-ON CONFLICT ("roleId", "moduleId") DO UPDATE SET actions=EXCLUDED.actions;
-
-INSERT INTO role_modules (id, "roleId", "moduleId", actions)
 VALUES ('rm-r-director-m-reports', 'r-director', 'm-reports', ARRAY['READ','CREATE','UPDATE','DELETE','PRINT']::text[])
 ON CONFLICT ("roleId", "moduleId") DO UPDATE SET actions=EXCLUDED.actions;
 
