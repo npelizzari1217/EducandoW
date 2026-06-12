@@ -22,6 +22,7 @@ import type { AcademicCycleRepository } from '@educandow/domain';
 import type { StudyPlanRepository } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
 import type { AutoCreateCompetencyValuationsUC } from '../../pedagogy/use-cases/competency.use-cases';
+import type { MaterializeMateriasUseCase } from '../../materia-grupo-ciclo/materialize-materias.use-case';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -300,6 +301,7 @@ export class GenerateCourseCyclesUseCase {
     private readonly studyPlanRepo: StudyPlanRepository,
     private readonly academicCycleRepo: AcademicCycleRepository,
     private readonly autoCreateUC: AutoCreateCompetencyValuationsUC,
+    private readonly materializeMateriasUC?: MaterializeMateriasUseCase,
   ) {}
 
   async execute(input: GenerateCourseCyclesInput): Promise<CreateManyResult> {
@@ -382,6 +384,24 @@ export class GenerateCourseCyclesUseCase {
         this.autoCreateUC.execute({ courseCycleId: courseCycleUuid }).catch((e) => {
           console.error('[GenerateCourseCycles] AutoCreate failed (non-blocking):', e);
         });
+
+        // Fire-and-forget: materialize MateriaXCursoXCiclo from plan subjects (F3-A1, D1).
+        // Aditivo: creates missing rows + re-syncs studyPlanSubjectId on existing ones.
+        // Never touches grades, groups, or AlumnosXGrupo (D1).
+        if (this.materializeMateriasUC && (pc.subjects ?? []).length > 0) {
+          this.materializeMateriasUC
+            .execute({
+              courseCycleId: courseCycleUuid,
+              planSubjects: pc.subjects!.map((s) => ({
+                subjectId: s.subjectId,
+                studyPlanSubjectId: s.id,
+              })),
+            })
+            .catch((e) => {
+              console.error('[GenerateCourseCycles] materializeMaterias failed (non-blocking):', e);
+            });
+        }
+
         total++;
       }
     }

@@ -22,6 +22,7 @@ import { ReportesModule } from './presentation/reportes/reportes.module';
 import { AttendanceTypeModule } from './presentation/attendance-type/attendance-type.module';
 import { GradingModule } from './presentation/grading/grading.module';
 import { DocenteCicloModule } from './presentation/docente-ciclo/docente-ciclo.module';
+import { MateriasGruposModule } from './presentation/materia-grupo-ciclo/materia-grupo-ciclo.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -59,6 +60,7 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     AttendanceTypeModule,
     GradingModule,
     DocenteCicloModule,
+    MateriasGruposModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [

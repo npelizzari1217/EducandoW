@@ -1,7 +1,9 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyModule } from '../pedagogy/pedagogy.module';
 import { EnrollmentModule } from '../enrollment/enrollment.module';
+import { MateriasGruposModule } from '../materia-grupo-ciclo/materia-grupo-ciclo.module';
+import { MaterializeMateriasUseCase } from '../../application/materia-grupo-ciclo/materialize-materias.use-case';
 import { CourseCycleController } from './course-cycle.controller';
 import {
   CreateCourseCycleUseCase,
@@ -32,7 +34,7 @@ const StudyPlanRepo = 'StudyPlanRepository';
 const EnrollmentRepo = 'EnrollmentRepository';
 
 @Module({
-  imports: [AuthModule, PedagogyModule, EnrollmentModule],
+  imports: [AuthModule, PedagogyModule, EnrollmentModule, forwardRef(() => MateriasGruposModule)],
   controllers: [CourseCycleController],
   providers: [
     PrismaCourseCycleRepository,
@@ -78,8 +80,9 @@ const EnrollmentRepo = 'EnrollmentRepository';
         sp: StudyPlanRepository,
         ac: AcademicCycleRepository,
         autoCreate: AutoCreateCompetencyValuationsUC,
-      ) => new GenerateCourseCyclesUseCase(cc, sp, ac, autoCreate),
-      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo, AutoCreateCompetencyValuationsUC],
+        materialize: MaterializeMateriasUseCase,
+      ) => new GenerateCourseCyclesUseCase(cc, sp, ac, autoCreate, materialize),
+      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo, AutoCreateCompetencyValuationsUC, MaterializeMateriasUseCase],
     },
     {
       provide: GetActivePeriodUseCase,

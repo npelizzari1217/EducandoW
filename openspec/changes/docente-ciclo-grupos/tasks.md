@@ -176,14 +176,14 @@
 
 ### Backfill Script
 
-- [ ] F3-B1: Crear `api/scripts/backfill-materia-grupo.ts` — por institución activa → por CourseCycle activo:
+- [x] F3-B1: Crear `api/scripts/backfill-materia-grupo.ts` — por institución activa → por CourseCycle activo:
   1. Materializar plan: `StudyPlanSubject` del plan del CC → upsert `MateriaXCursoXCiclo` (skipDuplicates, guardar `studyPlanSubjectId`)
   2. Por cada materia materializada: upsert `AlumnosXMateriaXCursoXCiclo` = alumnos inscriptos en el CC (skipDuplicates)
   3. Por cada `SubjectAssignment` activa en el CC → buscar `DocenteXCiclo` del teacher:
      crear `GrupoXCursoXMateriaXCiclo` (1 grupo = todos) + `AlumnosXGrupoXCursoXMateriaXCiclo` = universo completo
      (skipDuplicates en ambas tablas)
   4. `SubjectAssignment` NO se elimina (D5)
-- [ ] F3-B2: Validar idempotencia: doble corrida produce el mismo estado sin errores
+- [x] F3-B2: Validar idempotencia: doble corrida produce el mismo estado sin errores
 
 ### Dominio
 
@@ -205,54 +205,54 @@
 - [x] F3-I2: `PrismaAlumnosXMateriaRepository`
 - [x] F3-I3: `PrismaGrupoRepository`
 - [x] F3-I4: `PrismaAlumnosXGrupoRepository`
-- [ ] F3-I5: Registrar los 4 repositorios en el módulo NestJS del tenant
+- [x] F3-I5: Registrar los 4 repositorios en el módulo NestJS del tenant
 
 ### Aplicación
 
-- [ ] F3-A1: Extender `GenerateCourseCyclesUseCase` (o el use-case de "Generar"):
+- [x] F3-A1: Extender `GenerateCourseCyclesUseCase` (o el use-case de "Generar"):
   - Paso adicional post-creación/verificación del CourseCycle: `createMany` de `MateriaXCursoXCiclo`
     por cada `StudyPlanSubject` del plan (skipDuplicates — idempotente)
   - Re-sync aditivo (D1): para MXCCs ya existentes, actualizar `description` y competencias desde el plan
     (pisar solo datos definitorios del plan — nunca grades, ni grupos, ni AlumnosXGrupo)
   - Lanzado como fire-and-forget o awaited (seguir patrón existente del use-case)
-- [ ] F3-A2: `AddStudentToMateriaUseCase`:
+- [x] F3-A2: `AddStudentToMateriaUseCase`:
   - Validar que el student pertenece al registro de inscriptos de la institución (no del flujo de ingresantes — MGC-S5)
   - Crear `AlumnosXMateriaXCursoXCiclo`; no exponer bulk endpoint (MGC-S6)
-- [ ] F3-A3: `CreateGrupoUseCase`:
+- [x] F3-A3: `CreateGrupoUseCase`:
   - Recibe `(materiaXCursoXCicloId, userId, name?)`
   - Llama `DocenteXCicloService.getOrCreateForCycle(userId, cycleId)` → obtiene `docenteXCicloId`
   - Valida que el `cycleId` del docente coincide con el ciclo del CC
   - Persiste `GrupoXCursoXMateriaXCiclo`
-- [ ] F3-A4: `AddStudentToGrupoUseCase`:
+- [x] F3-A4: `AddStudentToGrupoUseCase`:
   - Recibe `(grupoId, alumnosXMateriaXCursoXCicloId)` (el FK es directo — FK garantiza la restricción a BD)
   - Validar que `alumnosXMateriaXCursoXCicloId` pertenece a la misma `materiaXCursoXCicloId` del grupo (MGC-S11)
   - Rechazar si el alumno pertenece a un CC distinto al del grupo (MGC-S10 — detectar vía join)
   - Permitir overlap: mismo alumno en 2 grupos de la misma materia (MGC-S12 — co-docencia)
-- [ ] F3-A5: `ListMateriasUseCase`: lista `MateriaXCursoXCiclo` de un CourseCycle con conteo de alumnos y grupos
-- [ ] F3-A6: `ListGruposUseCase`: lista grupos de una `MateriaXCursoXCiclo` con `docenteXCicloId`,
+- [x] F3-A5: `ListMateriasUseCase`: lista `MateriaXCursoXCiclo` de un CourseCycle con conteo de alumnos y grupos
+- [x] F3-A6: `ListGruposUseCase`: lista grupos de una `MateriaXCursoXCiclo` con `docenteXCicloId`,
   nombre del docente (join desde User), y lista de alumnos del grupo
 
 ### Presentación
 
-- [ ] F3-P1: `POST /course-cycles/:ccId/materias/:materiaId/alumnos` — agregar alumno al universo de la materia
-- [ ] F3-P2: `GET /course-cycles/:ccId/materias` — listar materias del CursoXCiclo
-- [ ] F3-P3: `POST /course-cycles/:ccId/materias/:materiaId/grupos` — crear grupo
-- [ ] F3-P4: `GET /course-cycles/:ccId/materias/:materiaId/grupos` — listar grupos de la materia
-- [ ] F3-P5: `POST /grupos/:grupoId/alumnos` — agregar alumno al grupo (recibe `alumnosXMateriaId`)
-- [ ] F3-P6: `GET /grupos/:grupoId/alumnos` — listar alumnos del grupo
-- [ ] F3-P7: DTOs de request y response para todos los endpoints nuevos
+- [x] F3-P1: `POST /course-cycles/:ccId/materias/:materiaId/alumnos` — agregar alumno al universo de la materia
+- [x] F3-P2: `GET /course-cycles/:ccId/materias` — listar materias del CursoXCiclo
+- [x] F3-P3: `POST /course-cycles/:ccId/materias/:materiaId/grupos` — crear grupo
+- [x] F3-P4: `GET /course-cycles/:ccId/materias/:materiaId/grupos` — listar grupos de la materia
+- [x] F3-P5: `POST /grupos/:grupoId/alumnos` — agregar alumno al grupo (recibe `alumnosXMateriaId`)
+- [x] F3-P6: `GET /grupos/:grupoId/alumnos` — listar alumnos del grupo
+- [x] F3-P7: DTOs de request y response para todos los endpoints nuevos
 
 ### Tests
 
-- [ ] F3-T1: Unit — D1: re-generación actualiza descriptions/competencias del plan; no modifica grades,
+- [x] F3-T1: Unit — D1: re-generación actualiza descriptions/competencias del plan; no modifica grades,
   grupos existentes ni AlumnosXGrupo ya cargados
-- [ ] F3-T2: Unit — MGC-S3: dos CCs del mismo plan producen dos sets independientes de MateriaXCursoXCiclo
-- [ ] F3-T3: Unit — MGC-S9: alumno presente en universo de materia puede agregarse al grupo
-- [ ] F3-T4: Unit — MGC-S11: alumno fuera del universo de la materia → error al intentar agregar al grupo
-- [ ] F3-T5: Unit — MGC-S10: alumno de otro CC → rechazado al agregar al grupo
-- [ ] F3-T6: Unit — MGC-S12: mismo alumno en G1 y G2 de la misma materia → ambos aceptados (co-docencia)
-- [ ] F3-T7: Unit — MGC-S7: materia no partida con 1 grupo cubre todos los alumnos
-- [ ] F3-T8: Unit — MGC-S8: materia partida con G1(D1) + G2(D2), subconjuntos distintos
+- [x] F3-T2: Unit — MGC-S3: dos CCs del mismo plan producen dos sets independientes de MateriaXCursoXCiclo
+- [x] F3-T3: Unit — MGC-S9: alumno presente en universo de materia puede agregarse al grupo
+- [x] F3-T4: Unit — MGC-S11: alumno fuera del universo de la materia → error al intentar agregar al grupo
+- [x] F3-T5: Unit — MGC-S10: alumno de otro CC → rechazado al agregar al grupo
+- [x] F3-T6: Unit — MGC-S12: mismo alumno en G1 y G2 de la misma materia → ambos aceptados (co-docencia)
+- [x] F3-T7: Unit — MGC-S7: materia no partida con 1 grupo cubre todos los alumnos
+- [x] F3-T8: Unit — MGC-S8: materia partida con G1(D1) + G2(D2), subconjuntos distintos
 - [ ] F3-T9: Integration — MGC-S1: "Generar" con plan de N materias → N `MateriaXCursoXCiclo` creadas
 - [ ] F3-T10: Integration — MGC-S2: crear `CicloLectivo` sin CC → 0 `MateriaXCursoXCiclo`
 - [ ] F3-T11: Integration — backfill: SubjectAssignment → 1 grupo por materia con universo completo;
