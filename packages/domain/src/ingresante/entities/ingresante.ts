@@ -124,7 +124,7 @@ export class Ingresante {
     return this.transitionTo(IngresanteStatus.reconstruct('INGRESO'));
   }
 
-  markNoIngresara(): void {
-    this.props.status = IngresanteStatus.reconstruct('NO_INGRESARA');
+  markNoIngresara(): Result<void, ValidationError> {
+    return this.transitionTo(IngresanteStatus.reconstruct('NO_INGRESARA'));
   }
 }
