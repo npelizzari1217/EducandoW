@@ -135,4 +135,36 @@ describe('UpdateInstitutionUseCase — authorization', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
+
+  it('preserves existing sessionTimeoutMinutes when not provided in update', async () => {
+    const inst = makeMockInst({ sessionTimeoutMinutes: 45 });
+    mockRepo.findById.mockResolvedValue(inst);
+    mockRepo.update.mockResolvedValue(undefined);
+
+    const result = await useCase.execute('inst-001', { phone: '555-9999' }, {
+      institutionId: 'inst-001',
+      isRoot: false,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.unwrap().sessionTimeoutMinutes).toBe(45);
+    }
+  });
+
+  it('updates sessionTimeoutMinutes when provided', async () => {
+    const inst = makeMockInst({ sessionTimeoutMinutes: 20 });
+    mockRepo.findById.mockResolvedValue(inst);
+    mockRepo.update.mockResolvedValue(undefined);
+
+    const result = await useCase.execute('inst-001', { session_timeout_minutes: 90 }, {
+      institutionId: 'inst-001',
+      isRoot: false,
+    });
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.unwrap().sessionTimeoutMinutes).toBe(90);
+    }
+  });
 });

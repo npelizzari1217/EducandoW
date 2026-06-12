@@ -58,6 +58,33 @@ describe('Institution', () => {
     expect(inst.contactEmail).toBe('mail@test.com');
   });
 
+  it('sessionTimeoutMinutes defaults to 20 when not provided', () => {
+    const inst = Institution.create({
+      name: 'Escuela Test',
+      institutionLevels: [IL(EducationalLevelCode.PRIMARIO)],
+    });
+    expect(inst.sessionTimeoutMinutes).toBe(20);
+  });
+
+  it('sessionTimeoutMinutes uses the provided value', () => {
+    const inst = Institution.create({
+      name: 'Escuela Test',
+      institutionLevels: [IL(EducationalLevelCode.PRIMARIO)],
+      sessionTimeoutMinutes: 60,
+    });
+    expect(inst.sessionTimeoutMinutes).toBe(60);
+  });
+
+  it('reconstruct preserves sessionTimeoutMinutes', () => {
+    const inst = Institution.reconstruct({
+      id: { get: () => 'id-1' } as any,
+      name: 'Colegio',
+      institutionLevels: [IL(EducationalLevelCode.INICIAL)],
+      sessionTimeoutMinutes: 45,
+    });
+    expect(inst.sessionTimeoutMinutes).toBe(45);
+  });
+
   it('levels getter computes composite codes', () => {
     const inst = Institution.create({
       name: 'Test',

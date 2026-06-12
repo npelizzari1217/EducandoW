@@ -186,6 +186,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       sendMessages: record.sendMessages,
       socketHost: record.socketHost ?? undefined,
       socketPort: record.socketPort ?? undefined,
+      sessionTimeoutMinutes: record.sessionTimeoutMinutes ?? 20,
       active: record.active,
       deletedAt: record.deletedAt ?? undefined,
       dbName: record.dbName,
@@ -227,6 +228,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       sendMessages: institution.sendMessages,
       socketHost: institution.socketHost,
       socketPort: institution.socketPort,
+      sessionTimeoutMinutes: institution.sessionTimeoutMinutes ?? 20,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
     };
@@ -260,6 +262,7 @@ export class PrismaInstitutionRepository implements InstitutionRepository {
       sendMessages: institution.sendMessages,
       socketHost: institution.socketHost,
       socketPort: institution.socketPort,
+      sessionTimeoutMinutes: institution.sessionTimeoutMinutes ?? 20,
       active: institution.active ?? true,
       dbName: institution.dbName ?? `educandow_${institution.id.get()}`,
     };

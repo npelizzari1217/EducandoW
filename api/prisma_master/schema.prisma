@@ -37,6 +37,7 @@ model Institution {
   sendMessages      Boolean  @default(false) @map("send_messages")
   socketHost        String?  @map("socket_host")
   socketPort        Int?     @map("socket_port")
+  sessionTimeoutMinutes Int  @default(20) @map("session_timeout_minutes")
   active            Boolean  @default(true)
   deletedAt         DateTime? @map("deleted_at")
   dbName            String   @unique @map("db_name")

@@ -58,6 +58,7 @@ const InstitutionFullBaseSchema = z.object({
   send_messages: z.boolean().optional().default(false),
   socket_host: optionalMediumString,
   socket_port: portField,
+  session_timeout_minutes: z.number().int().min(1).max(1440).optional(),
   institution_levels: z.array(institutionLevelSchema).optional(),
   levels: z.array(levelNameEnum).optional(),
   admin_email: z.string().email('Email inválido').optional(),
