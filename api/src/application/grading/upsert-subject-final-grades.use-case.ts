@@ -1,5 +1,6 @@
 /**
  * PR4-T10 [GREEN] — UpsertSubjectFinalGradesUseCase.
+ * Fase 5 [GREEN] — F5-A4: authorization via AssignmentAuthorizer.
  *
  * Conditional lifecycle enforced HERE, not in the entity (AD-2):
  *   - DICIEMBRE blocked when FINAL.passed=true → 400
@@ -7,17 +8,19 @@
  *   - DEFINITIVA has no lifecycle block
  *   - passed field accepted on all types
  * Validations:
+ *   - Auth: userId must be authorized to write for each (courseCycleId, subjectId) → 403 (F5-A4)
  *   - courseCycleId must exist in tenant → 404
  *   - studentId must exist in tenant → 404
  *   - gradeScaleValueId (if provided) must belong to active scale for CC level/modality → 400
  * Specs: SFG-R3..R9, AD-2
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
 import type {
   SubjectFinalGradeRepository,
   CourseCycleRepository,
   GradeScaleRepository,
+  AssignmentAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -37,6 +40,12 @@ export interface UpsertFinalGradeItem {
 }
 
 export interface UpsertSubjectFinalGradesInput {
+  /**
+   * Authenticated user performing the write.
+   * When provided, the assignment authorizer checks group membership before writing (F5-A4).
+   */
+  userId?: string;
+  userRoles?: string[];
   items: UpsertFinalGradeItem[];
 }
 
@@ -48,12 +57,32 @@ export class UpsertSubjectFinalGradesUseCase {
     private readonly finalGradeRepo: SubjectFinalGradeRepository,
     private readonly ccRepo: CourseCycleRepository,
     private readonly gradeScaleRepo: GradeScaleRepository,
+    private readonly authorizer: AssignmentAuthorizerPort,
   ) {}
 
   async execute(
     input: UpsertSubjectFinalGradesInput,
-  ): Promise<Result<void, NotFoundError | ValidationError>> {
+  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError>> {
     if (input.items.length === 0) return ok(undefined);
+
+    // ── 0. Authorization check (F5-A4) — one check per unique (cc, subject) ──
+    if (input.userId !== undefined) {
+      const authGroups = new Set(input.items.map((i) => `${i.courseCycleId}::${i.subjectId}`));
+      for (const key of authGroups) {
+        const [courseCycleId, subjectId] = key.split('::');
+        const allowed = await this.authorizer.canWriteGrades(
+          input.userId,
+          input.userRoles ?? [],
+          courseCycleId,
+          subjectId,
+        );
+        if (!allowed) {
+          return err(new ForbiddenError(
+            `User "${input.userId}" is not authorized to write final grades for subject "${subjectId}" in course-cycle "${courseCycleId}"`,
+          ));
+        }
+      }
+    }
 
     // ── 1. Group items by (courseCycleId, subjectId, studentId) for lifecycle checks
     // We need to load existing finals per (studentId, courseCycleId, subjectId) combo.

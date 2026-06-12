@@ -1,10 +1,11 @@
 /**
  * PR4-T7 [RED] — UpsertSubjectPeriodGradesUseCase tests.
  * Specs: SPG-R3, SPG-R4, SPG-R5, SPG-R6, SPG-R7, SPG-R9, PPF-R2, PPF-R4, PPF-R7, PPF-R8, PPF-R9, PPF-R11, AD-3
+ * Fase 5 additions: F5-T1 (docente no asignado → 403), F5-T4 (asignado → 200)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpsertSubjectPeriodGradesUseCase } from './upsert-subject-period-grades.use-case';
-import { SubjectPeriodGrade, SubjectGradingPeriod, NotFoundError, ValidationError } from '@educandow/domain';
+import { SubjectPeriodGrade, SubjectGradingPeriod, NotFoundError, ValidationError, ForbiddenError } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({
@@ -44,6 +45,8 @@ function makeRepos(overrides: Partial<{
   gradeScaleValue: unknown;
   gradeScale: unknown;
   studentExists: boolean;
+  /** Authorizer result — defaults to true (user is authorized). */
+  authorized: boolean;
 }> = {}) {
   const periods = overrides.sgpPeriods ?? [makePeriod(1), makePeriod(2), makePeriod(3)];
   const existingGrades = overrides.existingGrades ?? [];
@@ -51,6 +54,7 @@ function makeRepos(overrides: Partial<{
   const gradeScaleValue = overrides.gradeScaleValue !== undefined ? overrides.gradeScaleValue : MOCK_GRADE_SCALE_VALUE;
   const gradeScale = overrides.gradeScale !== undefined ? overrides.gradeScale : MOCK_GRADE_SCALE;
   const studentExists = overrides.studentExists !== undefined ? overrides.studentExists : true;
+  const authorized = overrides.authorized !== undefined ? overrides.authorized : true;
 
   return {
     sgpRepo: {
@@ -74,6 +78,9 @@ function makeRepos(overrides: Partial<{
         findUnique: vi.fn().mockResolvedValue(studentExists ? { id: 'student-1' } : null),
       },
     },
+    authorizer: {
+      canWriteGrades: vi.fn().mockResolvedValue(authorized),
+    },
   };
 }
 
@@ -83,6 +90,7 @@ function makeUseCase(repos: ReturnType<typeof makeRepos>) {
     repos.sgpRepo as any,
     repos.ccRepo as any,
     repos.gradeScaleRepo as any,
+    repos.authorizer as any,
   );
 }
 
@@ -361,5 +369,72 @@ describe('UpsertSubjectPeriodGradesUseCase', () => {
     expect(result.isOk()).toBe(true);
     const saved = (repos.periodGradeRepo.saveMany as any).mock.calls[0][0];
     expect(saved).toHaveLength(3);
+  });
+
+  // ── Fase 5: authorization checks ───────────────────────────────────────────
+
+  it('F5-T1: unassigned teacher → err(ForbiddenError), no saveMany called', async () => {
+    repos = makeRepos({ authorized: false });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      userId: 'teacher-unassigned',
+      userRoles: ['TEACHER'],
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        periodOrdinal: 1,
+      }],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    expect(repos.periodGradeRepo.saveMany).not.toHaveBeenCalled();
+  });
+
+  it('F5-T4: assigned teacher → ok(void), grade persisted', async () => {
+    repos = makeRepos({ authorized: true });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      userId: 'teacher-assigned',
+      userRoles: ['TEACHER'],
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        periodOrdinal: 1,
+      }],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repos.periodGradeRepo.saveMany).toHaveBeenCalled();
+    expect(repos.authorizer.canWriteGrades).toHaveBeenCalledWith(
+      'teacher-assigned',
+      ['TEACHER'],
+      'cc-uuid-1',
+      'subj-1',
+    );
+  });
+
+  it('F5: auth check per unique (ccId, subjectId) group — checked once per group', async () => {
+    repos = makeRepos({ authorized: true });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    await uc.execute({
+      userId: 'teacher-1',
+      userRoles: ['TEACHER'],
+      items: [
+        { studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 },
+        { studentId: 'student-2', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 },
+      ],
+    });
+
+    // Called once for the single (cc, subject) group
+    expect(repos.authorizer.canWriteGrades).toHaveBeenCalledTimes(1);
   });
 });

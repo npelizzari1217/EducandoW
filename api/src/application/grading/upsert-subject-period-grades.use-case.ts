@@ -1,8 +1,10 @@
 /**
  * PR4-T8 [GREEN] — UpsertSubjectPeriodGradesUseCase.
+ * Fase 5 [GREEN] — F5-A3: authorization via AssignmentAuthorizer.
  *
  * One write path for both period grades AND pa/ppi/pp flags (AD-3).
  * Batch upsert via saveMany. Validations:
+ *   - Auth: userId must be authorized to write for each (courseCycleId, subjectId) → 403 (F5-A3)
  *   - courseCycleId must exist in tenant → 404
  *   - subjectId must have a snapshotted period structure → 404
  *   - periodOrdinal must be within snapshot range → 400
@@ -11,12 +13,13 @@
  * Specs: SPG-R3..R9, PPF-R4, AD-3
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, SubjectPeriodGrade } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectPeriodGrade } from '@educandow/domain';
 import type {
   SubjectPeriodGradeRepository,
   SubjectGradingPeriodRepository,
   CourseCycleRepository,
   GradeScaleRepository,
+  AssignmentAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -36,6 +39,13 @@ export interface UpsertPeriodGradeItem {
 }
 
 export interface UpsertSubjectPeriodGradesInput {
+  /**
+   * Authenticated user performing the write.
+   * When provided, the assignment authorizer checks group membership before writing (F5-A3).
+   * Omitting these fields skips the auth check (backward compat for internal callers).
+   */
+  userId?: string;
+  userRoles?: string[];
   items: UpsertPeriodGradeItem[];
 }
 
@@ -48,11 +58,12 @@ export class UpsertSubjectPeriodGradesUseCase {
     private readonly sgpRepo: SubjectGradingPeriodRepository,
     private readonly ccRepo: CourseCycleRepository,
     private readonly gradeScaleRepo: GradeScaleRepository,
+    private readonly authorizer: AssignmentAuthorizerPort,
   ) {}
 
   async execute(
     input: UpsertSubjectPeriodGradesInput,
-  ): Promise<Result<void, NotFoundError | ValidationError>> {
+  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError>> {
     if (input.items.length === 0) return ok(undefined);
 
     // ── 1. Group items by (courseCycleId, subjectId) for bulk validation ──────
@@ -62,6 +73,24 @@ export class UpsertSubjectPeriodGradesUseCase {
       const bucket = groupMap.get(key) ?? [];
       bucket.push(item);
       groupMap.set(key, bucket);
+    }
+
+    // ── 1b. Authorization check (F5-A3) — one check per unique (cc, subject) ─
+    if (input.userId !== undefined) {
+      for (const [, items] of groupMap) {
+        const { courseCycleId, subjectId } = items[0];
+        const allowed = await this.authorizer.canWriteGrades(
+          input.userId,
+          input.userRoles ?? [],
+          courseCycleId,
+          subjectId,
+        );
+        if (!allowed) {
+          return err(new ForbiddenError(
+            `User "${input.userId}" is not authorized to write grades for subject "${subjectId}" in course-cycle "${courseCycleId}"`,
+          ));
+        }
+      }
     }
 
     // ── 2. Per-group validation ───────────────────────────────────────────────

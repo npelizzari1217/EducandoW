@@ -1,6 +1,7 @@
 /**
  * PR4-T9 [RED] — UpsertSubjectFinalGradesUseCase tests.
  * Specs: SFG-R3, SFG-R4, SFG-R5, SFG-R6, SFG-R7, SFG-R8, SFG-R9, AD-2
+ * Fase 5 additions: F5-T2 (docente no asignado → 403)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpsertSubjectFinalGradesUseCase } from './upsert-subject-final-grades.use-case';
@@ -10,6 +11,7 @@ import {
   SubjectFinalGradeCondicion,
   NotFoundError,
   ValidationError,
+  ForbiddenError,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -52,12 +54,15 @@ function makeRepos(overrides: Partial<{
   gradeScaleValue: unknown;
   gradeScale: unknown;
   studentExists: boolean;
+  /** Authorizer result — defaults to true (user is authorized). */
+  authorized: boolean;
 }> = {}) {
   const existingFinals = overrides.existingFinals ?? [];
   const gradingCtx = overrides.gradingCtx !== undefined ? overrides.gradingCtx : { level: 20, modality: 1 };
   const gradeScaleValue = overrides.gradeScaleValue !== undefined ? overrides.gradeScaleValue : MOCK_GRADE_SCALE_VALUE;
   const gradeScale = overrides.gradeScale !== undefined ? overrides.gradeScale : MOCK_GRADE_SCALE;
   const studentExists = overrides.studentExists !== undefined ? overrides.studentExists : true;
+  const authorized = overrides.authorized !== undefined ? overrides.authorized : true;
 
   return {
     finalGradeRepo: {
@@ -76,6 +81,9 @@ function makeRepos(overrides: Partial<{
         findUnique: vi.fn().mockResolvedValue(studentExists ? { id: 'student-1' } : null),
       },
     },
+    authorizer: {
+      canWriteGrades: vi.fn().mockResolvedValue(authorized),
+    },
   };
 }
 
@@ -84,6 +92,7 @@ function makeUseCase(repos: ReturnType<typeof makeRepos>) {
     repos.finalGradeRepo as any,
     repos.ccRepo as any,
     repos.gradeScaleRepo as any,
+    repos.authorizer as any,
   );
 }
 
@@ -631,5 +640,48 @@ describe('UpsertSubjectFinalGradesUseCase', () => {
     expect(result.isOk()).toBe(true);
     const saved = (repos.finalGradeRepo.saveMany as any).mock.calls[0][0];
     expect(saved).toHaveLength(2);
+  });
+
+  // ── Fase 5: authorization checks ───────────────────────────────────────────
+
+  it('F5-T2: unassigned teacher → err(ForbiddenError), no saveMany called', async () => {
+    repos = makeRepos({ authorized: false });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      userId: 'teacher-unassigned',
+      userRoles: ['TEACHER'],
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+      }],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
+  });
+
+  it('F5-T2: assigned teacher → ok(void), final grade persisted', async () => {
+    repos = makeRepos({ authorized: true });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      userId: 'teacher-assigned',
+      userRoles: ['TEACHER'],
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+      }],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repos.finalGradeRepo.saveMany).toHaveBeenCalled();
   });
 });

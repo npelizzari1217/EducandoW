@@ -269,16 +269,21 @@ describe('SubjectGradesController — PUT period grades', () => {
     ).rejects.toThrow();
   });
 
-  it('calls upsertPeriodGradesUC.execute with the body items', async () => {
+  it('calls upsertPeriodGradesUC.execute with the body items + userId/userRoles from user (F5-A3)', async () => {
     const executeMock = vi.fn().mockResolvedValue(ok(undefined));
     const ctrl = makeController({ upsertPeriodGradesUC: { execute: executeMock } });
+    const mockUser = { userId: 'teacher-1', roles: ['TEACHER'] };
     const body = {
       items: [{ studentId: 'student-1', courseCycleId: 'cc-1', subjectId: 'subj-1', periodOrdinal: 2, pa: true }],
     };
 
-    await ctrl.upsertPeriodGrades(body);
+    await ctrl.upsertPeriodGrades(mockUser, body);
 
-    expect(executeMock).toHaveBeenCalledWith(body);
+    expect(executeMock).toHaveBeenCalledWith({
+      ...body,
+      userId: mockUser.userId,
+      userRoles: mockUser.roles,
+    });
   });
 });
 
@@ -349,16 +354,21 @@ describe('SubjectGradesController — PUT final grades', () => {
     ).rejects.toThrow();
   });
 
-  it('calls upsertFinalGradesUC.execute with the body items', async () => {
+  it('calls upsertFinalGradesUC.execute with body items + userId/userRoles from user (F5-A4)', async () => {
     const executeMock = vi.fn().mockResolvedValue(ok(undefined));
     const ctrl = makeController({ upsertFinalGradesUC: { execute: executeMock } });
+    const mockUser = { userId: 'teacher-1', roles: ['TEACHER'] };
     const body = {
       items: [{ studentId: 'student-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', passed: true }],
     };
 
-    await ctrl.upsertFinalGrades(body);
+    await ctrl.upsertFinalGrades(mockUser, body);
 
-    expect(executeMock).toHaveBeenCalledWith(body);
+    expect(executeMock).toHaveBeenCalledWith({
+      ...body,
+      userId: mockUser.userId,
+      userRoles: mockUser.roles,
+    });
   });
 
   it('W1: validation pipe: gradeScaleValueId null rejected with 400 (clearing final grades not supported)', async () => {
@@ -442,14 +452,19 @@ describe('SubjectGradesController — condicion flow', () => {
     const ctrl = Object.create(SubjectGradesController.prototype);
     ctrl.upsertFinalGradesUC = { execute: executeMock };
 
+    const mockUser = { userId: 'teacher-1', roles: ['TEACHER'] };
     const body = {
       items: [{ studentId: 's-1', courseCycleId: 'cc-1', subjectId: 'subj-1', type: 'FINAL', condicion: SubjectFinalGradeCondicion.PREVIA }],
     };
 
-    const response = await ctrl.upsertFinalGrades(body);
+    const response = await ctrl.upsertFinalGrades(mockUser, body);
 
     expect(response).toEqual({ data: null });
-    expect(executeMock).toHaveBeenCalledWith(body);
+    expect(executeMock).toHaveBeenCalledWith({
+      ...body,
+      userId: mockUser.userId,
+      userRoles: mockUser.roles,
+    });
   });
 
   // C-2: PUT condicion=PREVIA+passed=true → ValidationError → 400

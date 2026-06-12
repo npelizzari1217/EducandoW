@@ -145,6 +145,8 @@ export {
   ValueNotFoundError,
 } from './grading';
 export type { GradeScaleRepository, GradeScaleFilters } from './grading';
+export { ASSIGNMENT_AUTHORIZER } from './grading';
+export type { AssignmentAuthorizerPort } from './grading';
 
 // Grading — Periods
 export { PeriodSortOrder } from './grading';

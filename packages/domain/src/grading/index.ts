@@ -65,3 +65,7 @@ export type {
   GradingPeriodRepository,
   GradingPeriodTemplateFilters,
 } from './repositories/grading-period.repository';
+
+// Ports (Fase 5)
+export { ASSIGNMENT_AUTHORIZER } from './ports/assignment-authorizer.port';
+export type { AssignmentAuthorizerPort } from './ports/assignment-authorizer.port';

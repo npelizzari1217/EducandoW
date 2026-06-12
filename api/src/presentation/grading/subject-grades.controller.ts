@@ -100,21 +100,32 @@ export class SubjectGradesController {
   /**
    * PUT /grading/subject-grades
    * Batch upsert period grades AND pa/ppi/pp flags (one write path — AD-3).
+   * Fase 5: userId + userRoles passed to use case for group-assignment authz (F5-A3).
    * Returns 200 { data: null } on success.
+   * 403 if teacher is not assigned to the group for this subject (bug closed).
    * 400 on invalid gradeScaleValueId or periodOrdinal out of range.
    * 404 on missing courseCycleId / subjectId / studentId.
    */
   @Put('subject-grades')
   @Roles({ module: 'GRADES', action: 'WRITE' })
   async upsertPeriodGrades(
+    @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(UpsertSubjectPeriodGradesSchema))
     body: UpsertSubjectPeriodGradesDto,
   ) {
-    const result = await this.upsertPeriodGradesUC.execute(body);
+    const result = await this.upsertPeriodGradesUC.execute({
+      ...body,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
     if (result.isErr()) {
       const error = result.unwrapErr();
       if (error instanceof NotFoundError) {
         throw new NotFoundException(error.message);
+      }
+      // ForbiddenError (F5-A3 — teacher not assigned to group)
+      if (error.constructor.name === 'ForbiddenError') {
+        throw new ForbiddenException(error.message);
       }
       throw new BadRequestException(error.message);
     }
@@ -127,19 +138,30 @@ export class SubjectGradesController {
    *   DICIEMBRE blocked when FINAL.passed=true → 400.
    *   MARZO blocked when DICIEMBRE.passed=true → 400.
    *   DEFINITIVA always allowed.
+   * Fase 5: userId + userRoles passed for group-assignment authz (F5-A4).
    * Returns 200 { data: null } on success.
+   * 403 if teacher is not assigned to the group for this subject.
    */
   @Put('subject-final-grades')
   @Roles({ module: 'GRADES', action: 'WRITE' })
   async upsertFinalGrades(
+    @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(UpsertSubjectFinalGradesSchema))
     body: UpsertSubjectFinalGradesDto,
   ) {
-    const result = await this.upsertFinalGradesUC.execute(body);
+    const result = await this.upsertFinalGradesUC.execute({
+      ...body,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
     if (result.isErr()) {
       const error = result.unwrapErr();
       if (error instanceof NotFoundError) {
         throw new NotFoundException(error.message);
+      }
+      // ForbiddenError (F5-A4 — teacher not assigned to group)
+      if (error.constructor.name === 'ForbiddenError') {
+        throw new ForbiddenException(error.message);
       }
       throw new BadRequestException(error.message);
     }
