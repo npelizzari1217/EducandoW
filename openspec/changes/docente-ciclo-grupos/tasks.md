@@ -387,65 +387,65 @@
 
 ### Schema & Migración
 
-- [ ] F6-S1: Auditar schema tenant actual: identificar tabla(s) de asistencia existentes
+- [x] F6-S1: Auditar schema tenant actual: identificar tabla(s) de asistencia existentes
   (`attendance`, `studentAttendance`, o similar). Determinar si ya existe la discriminación
   ausencia-por-materia vs presencia-diaria o si se requiere una tabla nueva / nuevas columnas.
-- [ ] F6-S2: Agregar modelo `AusenciaXGrupo` (ausencias por materia) si no existe separación:
+- [x] F6-S2: Agregar modelo `AusenciaXGrupo` (ausencias por materia) si no existe separación:
   `grupoId FK → GrupoXCursoXMateriaXCiclo.id`, `studentId FK`, `date Date`,
   `observaciones String?`, `@@unique([grupoId, studentId, date])`, `@@index([grupoId, date])`
-- [ ] F6-S3: Verificar que la tabla de asistencia diaria tiene `courseCycleId FK` y `date`.
+- [x] F6-S3: Verificar que la tabla de asistencia diaria tiene `courseCycleId FK` y `date`.
   Agregar `courseCycleId` si falta. Asegurar que diaria y por-materia son tipos/tablas separados
   y no se mezclan (asistencia delta — "registros independientes").
-- [ ] F6-S4: Generar migración + deploy multi-tenant
+- [x] F6-S4: Generar migración + deploy multi-tenant
 
 ### Dominio
 
-- [ ] F6-D1: Definir o extender port `SubjectAbsenceRepository`:
+- [x] F6-D1: Definir o extender port `SubjectAbsenceRepository`:
   `record(grupoId, studentId, date, obs?)`, `findByGrupoAndDate(grupoId, date)`, `delete(id)`
-- [ ] F6-D2: Definir o extender port `DailyAttendanceRepository`:
+- [x] F6-D2: Definir o extender port `DailyAttendanceRepository`:
   `record(courseCycleId, studentId, date, type)`,
   `findByCourseAndDate(courseCycleId, date)`
 
 ### Infraestructura
 
-- [ ] F6-I1: `PrismaSubjectAbsenceRepository` (o extensión del repo de asistencia existente)
-- [ ] F6-I2: `PrismaDailyAttendanceRepository` (o extensión del repo existente)
-- [ ] F6-I3: Registrar en módulo NestJS
+- [x] F6-I1: `PrismaSubjectAbsenceRepository` (o extensión del repo de asistencia existente)
+- [x] F6-I2: `PrismaDailyAttendanceRepository` (o extensión del repo existente)
+- [x] F6-I3: Registrar en módulo NestJS
 
 ### Aplicación
 
-- [ ] F6-A1: `RecordSubjectAbsenceUseCase`:
+- [x] F6-A1: `RecordSubjectAbsenceUseCase`:
   - Door 1: módulo `ATTENDANCE:CREATE` del User
   - Door 2: `AssignmentAuthorizer` (reutilizar de Fase 5) — verifica que el userId es DocenteXCiclo
     asignado al grupo (adaptado para attendance scope)
   - D3: SECRETARIO/DIRECTOR bypass Door 2
   - Rechaza si teacher no está en el grupo → HTTP 403 (asistencia delta escena 2)
-- [ ] F6-A2: `RecordDailyAttendanceUseCase`:
+- [x] F6-A2: `RecordDailyAttendanceUseCase`:
   - Door 1: módulo `ATTENDANCE:CREATE`
   - Door 2: `AsignacionCursoXCicloRepository.isPreceptor(userId, courseCycleId)`
   - D3: SECRETARIO/DIRECTOR bypass Door 2
   - Rechaza si user no es preceptor del CC → HTTP 403 (asistencia delta escena 5)
   - Los registros de asistencia diaria son independientes de los de ausencias por materia (asistencia delta escena "independientes")
-- [ ] F6-A3: `GetSubjectAbsencesUseCase`: lectura scoped al grupo para TEACHER; scope completo para SECRETARIO/DIRECTOR
-- [ ] F6-A4: `GetDailyAttendanceUseCase`: lectura scoped al CC para PRECEPTOR; scope completo para SECRETARIO/DIRECTOR
+- [x] F6-A3: `GetSubjectAbsencesUseCase`: lectura scoped al grupo para TEACHER; scope completo para SECRETARIO/DIRECTOR
+- [x] F6-A4: `GetDailyAttendanceUseCase`: lectura scoped al CC para PRECEPTOR; scope completo para SECRETARIO/DIRECTOR
 
 ### Presentación
 
-- [ ] F6-P1: `POST /grupos/:grupoId/ausencias` — registrar ausencia por materia
-- [ ] F6-P2: `GET /grupos/:grupoId/ausencias?date=` — listar ausencias del grupo por fecha
-- [ ] F6-P3: `POST /course-cycles/:ccId/asistencia-diaria` — registrar presencia diaria
-- [ ] F6-P4: `GET /course-cycles/:ccId/asistencia-diaria?date=`
-- [ ] F6-P5: DTOs para request y response de ambos tipos
+- [x] F6-P1: `POST /grupos/:grupoId/ausencias` — registrar ausencia por materia
+- [x] F6-P2: `GET /grupos/:grupoId/ausencias?date=` — listar ausencias del grupo por fecha
+- [x] F6-P3: `POST /course-cycles/:ccId/asistencia-diaria` — registrar presencia diaria
+- [x] F6-P4: `GET /course-cycles/:ccId/asistencia-diaria?date=`
+- [x] F6-P5: DTOs para request y response de ambos tipos
 
 ### Tests
 
-- [ ] F6-T1: Unit — Door 1 pass + Door 2 pass → ausencia por materia aceptada
-- [ ] F6-T2: Unit — Door 1 pass + Door 2 fail (no asignado al grupo) → 403 (asistencia delta escena 2)
-- [ ] F6-T3: Unit — Door 1 fail (sin módulo) + Door 2 pass → 403
-- [ ] F6-T4: Unit — D3: SECRETARIO lee toda la asistencia de su scope (asistencia delta escena "Secretario lee")
-- [ ] F6-T5: Unit — Materia partida: D1 registra G1, D2 registra G2 simultáneamente → sin conflicto (asistencia delta escena 3)
-- [ ] F6-T6: Unit — Teacher de materia sin asignación de preceptor intenta asistencia diaria → 403 (asistencia delta escena 4)
-- [ ] F6-T7: Unit — Preceptor asignado registra asistencia diaria del CC → 200 (asistencia delta escena 1)
+- [x] F6-T1: Unit — Door 1 pass + Door 2 pass → ausencia por materia aceptada
+- [x] F6-T2: Unit — Door 1 pass + Door 2 fail (no asignado al grupo) → 403 (asistencia delta escena 2)
+- [ ] F6-T3: Unit — Door 1 fail (sin módulo) + Door 2 pass → 403 (enforced at controller @Roles — integration pending)
+- [x] F6-T4: Unit — D3: SECRETARIO lee toda la asistencia de su scope (asistencia delta escena "Secretario lee")
+- [x] F6-T5: Unit — Materia partida: D1 registra G1, D2 registra G2 simultáneamente → sin conflicto (asistencia delta escena 3)
+- [x] F6-T6: Unit — Teacher de materia sin asignación de preceptor intenta asistencia diaria → 403 (asistencia delta escena 4)
+- [x] F6-T7: Unit — Preceptor asignado registra asistencia diaria del CC → 200 (asistencia delta escena 1)
 - [ ] F6-T8: Integration — registro diario y registro por materia del mismo alumno en la misma fecha → ambos persisten independientemente (asistencia delta escena "registros independientes")
 - [ ] F6-T9: Integration — 3-door enforcement: módulo presente + asignación ausente → 403; viceversa → 403; ambos → 200
 

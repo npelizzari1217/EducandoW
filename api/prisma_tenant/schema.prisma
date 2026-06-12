@@ -50,6 +50,8 @@ model Student {
   subjectFinalGrades      SubjectFinalGrade[]
   materiasPrevias         MateriaPrevia[]
   alumnosXMateriaXCursoXCiclo AlumnosXMateriaXCursoXCiclo[]
+  ausenciasXGrupo             AusenciaXGrupo[]
+  asistenciaDiaria            AsistenciaDiaria[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -247,7 +249,8 @@ model GrupoXCursoXMateriaXCiclo {
   materia       MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
   docenteXCiclo DocenteXCiclo       @relation(fields: [docenteXCicloId],       references: [id], onDelete: Restrict)
 
-  alumnos AlumnosXGrupoXCursoXMateriaXCiclo[]
+  alumnos    AlumnosXGrupoXCursoXMateriaXCiclo[]
+  ausencias  AusenciaXGrupo[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -357,6 +360,7 @@ model CourseCycle {
   materiasPrevias       MateriaPrevia[]
   materiasXCiclo        MateriaXCursoXCiclo[]
   asignacionesCurso     AsignacionCursoXCiclo[]
+  asistenciaDiaria      AsistenciaDiaria[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -1476,4 +1480,51 @@ model Ingresante {
   @@index([status])
   @@index([cycleId])
   @@map("ingresantes")
+}
+
+// ── Asistencia Fase 6 ─────────────────────────────────────
+
+// AusenciaXGrupo — subject-level absence per GrupoXCursoXMateriaXCiclo.
+// Recorded by the DocenteXCiclo assigned to the group. Independent from AsistenciaDiaria.
+// F6-S2
+model AusenciaXGrupo {
+  id           String   @id @default(uuid())
+  grupoId      String   @map("grupo_id")
+  studentId    String   @map("student_id")
+  date         DateTime @db.Date
+  observaciones String? @map("observaciones")
+
+  grupo   GrupoXCursoXMateriaXCiclo @relation(fields: [grupoId],   references: [id], onDelete: Cascade)
+  student Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([grupoId, studentId, date])
+  @@index([grupoId, date])
+  @@index([studentId])
+  @@map("ausencias_x_grupo")
+}
+
+// AsistenciaDiaria — daily attendance per CourseCycle + date recorded by a preceptor.
+// Independent from subject-group absences (asistencia delta spec).
+// F6-S3
+model AsistenciaDiaria {
+  id            String   @id @default(uuid())
+  courseCycleId String   @map("course_cycle_id")
+  studentId     String   @map("student_id")
+  date          DateTime @db.Date
+  statusCode    String   @map("status_code")   // e.g. "P" present, "A" absent — free code from AttendanceType.code
+  observaciones String?  @map("observaciones")
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId],    references: [id],   onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, studentId, date])
+  @@index([courseCycleId, date])
+  @@index([studentId])
+  @@map("asistencia_diaria")
 }
