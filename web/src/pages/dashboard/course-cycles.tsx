@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteCourseCycle } from '../../hooks/useCourseCycles';
@@ -235,6 +236,26 @@ export default function CourseCyclesPage() {
         </div>
       </Card>
 
+      {/* F7-D1/D2: Regeneration warning — shown when CCs already exist for the current filter */}
+      {data.length > 0 && (
+        <div
+          data-testid="regen-warning"
+          style={{
+            marginTop: 'var(--space-md)',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-md)',
+            background: '#fefce8',
+            border: '1px solid #fde68a',
+            color: '#92400e',
+            fontSize: 'var(--text-sm)',
+          }}
+        >
+          <strong>Atención:</strong> Este curso ya fue generado. Al volver a generar se agregarán las
+          materias faltantes del plan y se re-sincronizarán las descripciones. No se tocarán
+          notas, grupos ni alumnos ya cargados.
+        </div>
+      )}
+
       {/* Create Form */}
       {showForm && (
         <div style={{ marginTop: 'var(--space-md)' }}>
@@ -284,7 +305,11 @@ export default function CourseCyclesPage() {
               { key: 'actions', header: '', render: (item) => {
                 const cc = item.actions;
                 return (
-                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)', flexWrap: 'wrap' }}>
+                  {/* F7-N1: link to Materias del Ciclo */}
+                  <Link to={`/course-cycles/${cc.uuid}/materias`}>
+                    <Button variant="action" size="sm">Materias</Button>
+                  </Link>
                   <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
                 </div>

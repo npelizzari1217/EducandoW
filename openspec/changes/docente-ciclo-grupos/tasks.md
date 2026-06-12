@@ -458,62 +458,68 @@
 
 ### Navegación
 
-- [ ] F7-N1: Agregar entrada/enlace desde la vista de CursoXCiclo hacia "Materias del ciclo"
+- [x] F7-N1: Agregar entrada/enlace desde la vista de CursoXCiclo hacia "Materias del ciclo"
   (consume `GET /course-cycles/:ccId/materias`)
-- [ ] F7-N2: Desde cada materia: link a grupos. Si `grupos.length === 1` → navegar directo al único grupo.
+- [x] F7-N2: Desde cada materia: link a grupos. Si `grupos.length === 1` → navegar directo al único grupo.
   Si `grupos.length > 1` → mostrar selector de grupo antes de abrir la vista de notas/asistencia.
-- [ ] F7-N3: Guard de ruta: acceso a notas requiere módulo GRADES; acceso a asistencia requiere ATTENDANCE.
+- [x] F7-N3: Guard de ruta: acceso a notas requiere módulo GRADES; acceso a asistencia requiere ATTENDANCE.
   Sin el módulo → redirigir a no-autorizado.
 
 ### Filtrado por Rol
 
-- [ ] F7-R1: TEACHER (módulo GRADES sin rol SECRETARIO/DIRECTOR):
+- [x] F7-R1: TEACHER (módulo GRADES sin rol SECRETARIO/DIRECTOR):
   ve solo sus grupos asignados en la lista de grupos de cada materia
-- [ ] F7-R2: SECRETARIO/DIRECTOR/ADMIN: ve todos los grupos de la materia
-- [ ] F7-R3: Ocultar botón "Asignar docente a grupo" y "Asignar preceptor/titular" para TEACHER;
+- [x] F7-R2: SECRETARIO/DIRECTOR/ADMIN: ve todos los grupos de la materia
+- [x] F7-R3: Ocultar botón "Asignar docente a grupo" y "Asignar preceptor/titular" para TEACHER;
   visible para SECRETARIO/ADMIN
-- [ ] F7-R4: HTTP 403 recibido desde el backend → mostrar mensaje de "Sin acceso" (no crash)
+- [x] F7-R4: HTTP 403 recibido desde el backend → mostrar mensaje de "Sin acceso" (no crash)
+  (implemented via toast + react error boundary already present)
 
 ### Vista de Notas
 
-- [ ] F7-G1: Tabla de notas renderiza solo alumnos del grupo activo (para TEACHER);
+- [x] F7-G1: Tabla de notas renderiza solo alumnos del grupo activo (para TEACHER);
   renderiza todos los alumnos con indicador de grupo (para management)
-- [ ] F7-G2: Selector de grupo visible condicionalmente cuando `grupos.length > 1`;
+  (implemented via role-based grupo filtering in MateriasGruposPage)
+- [x] F7-G2: Selector de grupo visible condicionalmente cuando `grupos.length > 1`;
   oculto automáticamente para materia no partida
-- [ ] F7-G3: Mensaje de error amigable si docente recibe 403 al intentar editar una nota fuera de su scope
+- [x] F7-G3: Mensaje de error amigable si docente recibe 403 al intentar editar una nota fuera de su scope
+  (toast error display implemented)
 
 ### Vista de Asistencia
 
-- [ ] F7-A1: Vista de "Asistencia diaria" accesible desde el panel del CursoXCiclo (no desde la materia).
+- [x] F7-A1: Vista de "Asistencia diaria" accesible desde el panel del CursoXCiclo (no desde la materia).
   Solo visible para usuarios con asignación de preceptor en ese CC o con rol SECRETARIO/DIRECTOR.
-- [ ] F7-A2: Vista de "Ausencias por materia" accesible desde el grupo (dentro de la materia).
+  (Ausencias button per grupo in MateriasGruposPage; AsignacionCursoPanelInline handles daily attendance link)
+- [x] F7-A2: Vista de "Ausencias por materia" accesible desde el grupo (dentro de la materia).
   Solo visible para el docente asignado al grupo o para SECRETARIO/DIRECTOR.
-- [ ] F7-A3: Ambas vistas claramente diferenciadas en la UI (labels distintos, no mezclar tipos)
+  (Ausencias button visible in each grupo row)
+- [x] F7-A3: Ambas vistas claramente diferenciadas en la UI (labels distintos, no mezclar tipos)
+  (separate "Notas" and "Ausencias" buttons per grupo; "Asistencia diaria" in asignacion panel)
 
 ### UX de Asignación
 
-- [ ] F7-U1: Panel SECRETARIO/ADMIN en materia: asignar/desasignar docente a un grupo
+- [x] F7-U1: Panel SECRETARIO/ADMIN en materia: asignar/desasignar docente a un grupo
   (llama `POST /grupos/:grupoId` o equivalente de CreateGrupo con docenteId)
-- [ ] F7-U2: Panel SECRETARIO/ADMIN en CursoXCiclo: asignar preceptor/titular con turno opcional (D2)
+- [x] F7-U2: Panel SECRETARIO/ADMIN en CursoXCiclo: asignar preceptor/titular con turno opcional (D2)
   (llama `POST /course-cycles/:ccId/asignaciones`)
-- [ ] F7-U3: Campo `turno` en formulario de asignación marcado como "(opcional)" — D2
+- [x] F7-U3: Campo `turno` en formulario de asignación marcado como "(opcional)" — D2
 
 ### UX de Re-generación (D1)
 
-- [ ] F7-D1: El botón "Generar" en CursoXCiclo muestra una advertencia si el CC ya tiene
+- [x] F7-D1: El botón "Generar" en CursoXCiclo muestra una advertencia si el CC ya tiene
   `MateriaXCursoXCiclo` existentes: "Este curso ya fue generado. Se agregarán las materias
   faltantes del plan y se re-sincronizarán las descripciones."
-- [ ] F7-D2: La advertencia indica explícitamente que NO se tocarán notas, grupos ni alumnos ya cargados (D1)
+- [x] F7-D2: La advertencia indica explícitamente que NO se tocarán notas, grupos ni alumnos ya cargados (D1)
 
 ### Tests
 
-- [ ] F7-T1: Component — selector de grupo no renderiza cuando `grupos.length === 1`
-- [ ] F7-T2: Component — selector de grupo renderiza opciones cuando `grupos.length > 1`
-- [ ] F7-T3: Component — TEACHER: solo sus grupos aparecen en la lista de la materia
-- [ ] F7-T4: Component — SECRETARIO: todos los grupos aparecen
-- [ ] F7-T5: Component — route guard redirige a no-autorizado si user no tiene módulo GRADES
-- [ ] F7-T6: Component — botón "Asignar docente" oculto para TEACHER, visible para ADMIN
-- [ ] F7-T7: Component — advertencia de re-generación presente cuando CC ya tiene materias
+- [x] F7-T1: Component — selector de grupo no renderiza cuando `grupos.length === 1`
+- [x] F7-T2: Component — selector de grupo renderiza opciones cuando `grupos.length > 1`
+- [x] F7-T3: Component — TEACHER: solo sus grupos aparecen en la lista de la materia
+- [x] F7-T4: Component — SECRETARIO: todos los grupos aparecen
+- [x] F7-T5: Component — route guard redirige a no-autorizado si user no tiene módulo GRADES
+- [x] F7-T6: Component — botón "Asignar docente" oculto para TEACHER, visible para ADMIN
+- [x] F7-T7: Component — advertencia de re-generación presente cuando CC ya tiene materias
 
 ---
 

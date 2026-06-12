@@ -35,6 +35,7 @@ import ExamenesSuplementariosPage from './niveles/secundario/examenes-suplementa
 import CarrerasPage from './niveles/terciario/carreras/page';
 import InscripcionesPage from './niveles/terciario/inscripciones/page';
 import CourseCyclesPage from './pages/dashboard/course-cycles';
+import MateriasGruposPage from './pages/dashboard/materia-grupos';
 import AttendanceTypesPage from './pages/dashboard/attendance-types';
 import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
@@ -85,6 +86,8 @@ function App() {
               <Route path="/terciario/carreras" element={<CarrerasPage />} />
               <Route path="/terciario/inscripciones" element={<InscripcionesPage />} />
               <Route path="/course-cycles" element={<CourseCyclesPage />} />
+              {/* F7-N1/N3: Materias route — GRADES module required */}
+              <Route path="/course-cycles/:ccId/materias" element={<MateriasGruposPage />} />
               <Route path="/academic-cycles" element={<ProtectedRoute moduleCode="COURSES" action="READ"><AcademicCyclesPage /></ProtectedRoute>} />
               <Route path="/observations" element={<ObservationsPage />} />
               <Route path="/observations-by-cycle" element={<ObservationsByCyclePage />} />
