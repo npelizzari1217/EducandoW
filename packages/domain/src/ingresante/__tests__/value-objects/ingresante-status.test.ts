@@ -76,4 +76,71 @@ describe('IngresanteStatus', () => {
     expect(VALID_INGRESANTE_STATUSES).toContain('INGRESO');
     expect(VALID_INGRESANTE_STATUSES).toContain('NO_INGRESARA');
   });
+
+  // ── canTransitionTo — valid edges ───────────────────────
+
+  it.each([
+    ['INSCRIPTO', 'PAGO_MATRICULA'],
+    ['INSCRIPTO', 'NO_INGRESARA'],
+    ['PAGO_MATRICULA', 'ACEPTADO'],
+    ['PAGO_MATRICULA', 'NO_INGRESARA'],
+    ['ACEPTADO', 'NO_INGRESARA'],
+    ['ACEPTADO', 'INGRESO'],
+  ] as const)(
+    'canTransitionTo: %s → %s is valid',
+    (from, to) => {
+      const current = IngresanteStatus.reconstruct(from);
+      const next = IngresanteStatus.reconstruct(to);
+      expect(current.canTransitionTo(next)).toBe(true);
+    },
+  );
+
+  // ── canTransitionTo — invalid edges ─────────────────────
+
+  it.each([
+    ['INSCRIPTO', 'ACEPTADO'],    // skip
+    ['INSCRIPTO', 'INGRESO'],     // skip
+    ['PAGO_MATRICULA', 'INSCRIPTO'], // backward
+    ['ACEPTADO', 'INSCRIPTO'],    // backward
+    ['ACEPTADO', 'PAGO_MATRICULA'], // backward
+    ['INGRESO', 'INSCRIPTO'],     // terminal
+    ['INGRESO', 'PAGO_MATRICULA'], // terminal
+    ['INGRESO', 'ACEPTADO'],      // terminal
+    ['INGRESO', 'NO_INGRESARA'],  // terminal
+    ['NO_INGRESARA', 'INSCRIPTO'], // terminal
+    ['NO_INGRESARA', 'PAGO_MATRICULA'], // terminal
+  ] as const)(
+    'canTransitionTo: %s → %s is invalid',
+    (from, to) => {
+      const current = IngresanteStatus.reconstruct(from);
+      const next = IngresanteStatus.reconstruct(to);
+      expect(current.canTransitionTo(next)).toBe(false);
+    },
+  );
+
+  // ── isTerminal ───────────────────────────────────────────
+
+  it.each(['INGRESO', 'NO_INGRESARA'] as const)(
+    'isTerminal() returns true for terminal state: %s',
+    (status) => {
+      expect(IngresanteStatus.reconstruct(status).isTerminal()).toBe(true);
+    },
+  );
+
+  it.each(['INSCRIPTO', 'PAGO_MATRICULA', 'ACEPTADO'] as const)(
+    'isTerminal() returns false for non-terminal state: %s',
+    (status) => {
+      expect(IngresanteStatus.reconstruct(status).isTerminal()).toBe(false);
+    },
+  );
+
+  it('canTransitionTo from terminal is always false regardless of destination', () => {
+    const ingreso = IngresanteStatus.reconstruct('INGRESO');
+    const noIngresara = IngresanteStatus.reconstruct('NO_INGRESARA');
+    for (const s of ['INSCRIPTO', 'PAGO_MATRICULA', 'ACEPTADO', 'INGRESO', 'NO_INGRESARA'] as const) {
+      const target = IngresanteStatus.reconstruct(s);
+      expect(ingreso.canTransitionTo(target)).toBe(false);
+      expect(noIngresara.canTransitionTo(target)).toBe(false);
+    }
+  });
 });

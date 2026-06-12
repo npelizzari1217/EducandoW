@@ -19,6 +19,23 @@ export const VALID_INGRESANTE_STATUSES: readonly IngresanteStatusValue[] = [
 export class IngresanteStatus {
   private constructor(public readonly value: IngresanteStatusValue) {}
 
+  /** Allowed transitions from each state. Empty array = terminal state. */
+  static readonly TRANSITIONS: Record<IngresanteStatusValue, IngresanteStatusValue[]> = {
+    INSCRIPTO: ['PAGO_MATRICULA', 'NO_INGRESARA'],
+    PAGO_MATRICULA: ['ACEPTADO', 'NO_INGRESARA'],
+    ACEPTADO: ['INGRESO', 'NO_INGRESARA'],
+    INGRESO: [],
+    NO_INGRESARA: [],
+  };
+
+  canTransitionTo(next: IngresanteStatus): boolean {
+    return IngresanteStatus.TRANSITIONS[this.value].includes(next.value);
+  }
+
+  isTerminal(): boolean {
+    return IngresanteStatus.TRANSITIONS[this.value].length === 0;
+  }
+
   static create(value: string): Result<IngresanteStatus, ValidationError> {
     const upperValue = value?.toUpperCase();
     if (!VALID_INGRESANTE_STATUSES.includes(upperValue as IngresanteStatusValue)) {

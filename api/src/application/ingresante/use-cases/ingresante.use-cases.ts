@@ -16,6 +16,7 @@ import {
 } from '@educandow/domain';
 import { CreateStudentUseCase } from '../../student/use-cases/student.use-cases';
 import { CreateEnrollmentUseCase } from '../../enrollment/use-cases/enrollment.use-cases';
+import type { TenantTransactionRunner } from '../../shared/ports/tenant-transaction-runner';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -44,17 +45,40 @@ export interface CreateIngresanteInput {
   address?: string;
   phone?: string;
   email?: string;
-  cycleId?: string;
+  cycleId: string;
   level: string;
   modality?: string;
 }
 
 @Injectable()
 export class CreateIngresanteUseCase {
-  constructor(private readonly repo: IngresanteRepository) {}
+  constructor(
+    private readonly repo: IngresanteRepository,
+    private readonly cycleRepo: AcademicCycleRepository,
+  ) {}
 
   async execute(input: CreateIngresanteInput): Promise<Result<Ingresante, ValidationError>> {
+    // SC-CYC-01: cycleId is required
+    if (!input.cycleId?.trim()) {
+      return err(new ValidationError('cycleId es requerido'));
+    }
+
+    // Validate cycle exists and level matches
+    const cycle = await this.cycleRepo.findByUuid(input.cycleId);
+    if (!cycle) {
+      return err(new ValidationError(`Ciclo lectivo no encontrado: ${input.cycleId}`));
+    }
+
     const level = buildLevel(input.level, input.modality);
+
+    // SC-CYC-05: cycle level must match requested level
+    if (cycle.level.code !== level.levelCode) {
+      return err(
+        new ValidationError(
+          `El ciclo lectivo no corresponde al nivel seleccionado`,
+        ),
+      );
+    }
 
     const result = Ingresante.create({
       firstName: input.firstName,
@@ -64,7 +88,7 @@ export class CreateIngresanteUseCase {
       address: input.address,
       phone: input.phone,
       email: input.email,
-      cycleId: input.cycleId ? Id.reconstruct(input.cycleId) : undefined,
+      cycleId: Id.reconstruct(input.cycleId),
       level,
     });
 
@@ -105,7 +129,9 @@ export class UpdateIngresanteStatusUseCase {
     const ingresante = await this.repo.findById(Id.reconstruct(input.ingresanteId));
     if (!ingresante) return err(new NotFoundError('Ingresante', input.ingresanteId));
 
-    ingresante.setStatus(statusResult.unwrap());
+    const transition = ingresante.transitionTo(statusResult.unwrap());
+    if (transition.isErr()) return err(transition.unwrapErr());
+
     await this.repo.save(ingresante);
     return ok(ingresante);
   }
@@ -146,12 +172,13 @@ export class PromoteIngresanteUseCase {
     private readonly createStudentUC: CreateStudentUseCase,
     private readonly createEnrollmentUC: CreateEnrollmentUseCase,
     private readonly academicCycleRepo: AcademicCycleRepository,
+    private readonly runner: TenantTransactionRunner,
   ) {}
 
   async execute(
     input: PromoteIngresanteInput,
   ): Promise<Result<PromoteIngresanteOutput, ValidationError | NotFoundError>> {
-    // 1. Load ingresante
+    // 1. Load ingresante (outside transaction — read-only)
     const ingresante = await this.ingresanteRepo.findById(Id.reconstruct(input.ingresanteId));
     if (!ingresante) return err(new NotFoundError('Ingresante', input.ingresanteId));
 
@@ -169,36 +196,45 @@ export class PromoteIngresanteUseCase {
       }
     }
 
-    // 4. Create student — reuses CreateStudentUseCase path
-    const studentResult = await this.createStudentUC.execute({
-      firstName: ingresante.firstName,
-      lastName: ingresante.lastName,
-      dni: ingresante.dni,
-      birthDate: ingresante.birthDate
-        ? ingresante.birthDate.toISOString().substring(0, 10)
-        : undefined,
-      email: ingresante.email,
-      institutionId: input.institutionId,
-    });
-    if (studentResult.isErr()) return err(studentResult.unwrapErr());
-    const student = studentResult.unwrap();
+    // 4–6. Run atomically: any err inside throws → Prisma rolls back
+    try {
+      const output = await this.runner.run(async () => {
+        // 4. Create student
+        const studentResult = await this.createStudentUC.execute({
+          firstName: ingresante.firstName,
+          lastName: ingresante.lastName,
+          dni: ingresante.dni,
+          birthDate: ingresante.birthDate
+            ? ingresante.birthDate.toISOString().substring(0, 10)
+            : undefined,
+          email: ingresante.email,
+          institutionId: input.institutionId,
+        });
+        if (studentResult.isErr()) throw studentResult.unwrapErr();
+        const student = studentResult.unwrap();
 
-    // 5. Create enrollment (best-effort; full transactional rollback is out of scope —
-    //    if this fails, the student was already created but the ingresante is NOT flagged INGRESO)
-    const enrollmentResult = await this.createEnrollmentUC.execute({
-      studentId: student.id.get(),
-      institutionId: input.institutionId,
-      level: ingresante.level.toString(),
-      academicYear,
-      cycleId: ingresante.cycleId?.get(),
-    });
-    if (enrollmentResult.isErr()) return err(enrollmentResult.unwrapErr());
-    const enrollment = enrollmentResult.unwrap();
+        // 5. Create enrollment
+        const enrollmentResult = await this.createEnrollmentUC.execute({
+          studentId: student.id.get(),
+          institutionId: input.institutionId,
+          level: ingresante.level.toString(),
+          academicYear,
+          cycleId: ingresante.cycleId?.get(),
+        });
+        if (enrollmentResult.isErr()) throw enrollmentResult.unwrapErr();
+        const enrollment = enrollmentResult.unwrap();
 
-    // 6. Mark ingresante INGRESO and persist — keeps history, removes from pending list via status
-    ingresante.markIngreso();
-    await this.ingresanteRepo.save(ingresante);
+        // 6. Mark ingresante INGRESO and persist
+        const markResult = ingresante.markIngreso();
+        if (markResult.isErr()) throw markResult.unwrapErr();
+        await this.ingresanteRepo.save(ingresante);
 
-    return ok({ studentId: student.id.get(), enrollmentId: enrollment.id.get() });
+        return { studentId: student.id.get(), enrollmentId: enrollment.id.get() };
+      });
+
+      return ok(output);
+    } catch (e) {
+      return err(e as ValidationError);
+    }
   }
 }

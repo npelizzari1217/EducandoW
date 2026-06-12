@@ -20,7 +20,9 @@ export interface IngresanteProps {
   deletedAt?: Date;
 }
 
-type CreateInput = Omit<IngresanteProps, 'id' | 'status' | 'createdAt' | 'deletedAt'>;
+type CreateInput = Omit<IngresanteProps, 'id' | 'status' | 'createdAt' | 'deletedAt' | 'cycleId'> & {
+  cycleId: Id;
+};
 
 export class Ingresante {
   private constructor(private props: IngresanteProps) {}
@@ -106,12 +108,20 @@ export class Ingresante {
 
   // ── Mutations ────────────────────────────────────────────
 
-  setStatus(status: IngresanteStatus): void {
-    this.props.status = status;
+  transitionTo(next: IngresanteStatus): Result<void, ValidationError> {
+    if (!this.props.status.canTransitionTo(next)) {
+      return err(
+        new ValidationError(
+          `Transición inválida: no se puede pasar de ${this.props.status.value} a ${next.value}`,
+        ),
+      );
+    }
+    this.props.status = next;
+    return ok(undefined);
   }
 
-  markIngreso(): void {
-    this.props.status = IngresanteStatus.reconstruct('INGRESO');
+  markIngreso(): Result<void, ValidationError> {
+    return this.transitionTo(IngresanteStatus.reconstruct('INGRESO'));
   }
 
   markNoIngresara(): void {

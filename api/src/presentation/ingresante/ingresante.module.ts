@@ -11,6 +11,7 @@ import {
   PromoteIngresanteUseCase,
 } from '../../application/ingresante/use-cases/ingresante.use-cases';
 import { PrismaIngresanteRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-ingresante.repository';
+import { PrismaTenantTransactionRunner } from '../../infrastructure/persistence/prisma/tenant-transaction-runner';
 import { CreateStudentUseCase } from '../../application/student/use-cases/student.use-cases';
 import { CreateEnrollmentUseCase } from '../../application/enrollment/use-cases/enrollment.use-cases';
 
@@ -21,10 +22,13 @@ import { CreateEnrollmentUseCase } from '../../application/enrollment/use-cases/
     PrismaIngresanteRepository,
     { provide: 'IngresanteRepository', useExisting: PrismaIngresanteRepository },
 
+    PrismaTenantTransactionRunner,
+    { provide: 'TenantTransactionRunner', useExisting: PrismaTenantTransactionRunner },
+
     {
       provide: CreateIngresanteUseCase,
-      useFactory: (r) => new CreateIngresanteUseCase(r),
-      inject: ['IngresanteRepository'],
+      useFactory: (r, cycleRepo) => new CreateIngresanteUseCase(r, cycleRepo),
+      inject: ['IngresanteRepository', 'AcademicCycleRepository'],
     },
     {
       provide: UpdateIngresanteStatusUseCase,
@@ -52,13 +56,14 @@ import { CreateEnrollmentUseCase } from '../../application/enrollment/use-cases/
 
     {
       provide: PromoteIngresanteUseCase,
-      useFactory: (ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo) =>
-        new PromoteIngresanteUseCase(ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo),
+      useFactory: (ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo, runner) =>
+        new PromoteIngresanteUseCase(ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo, runner),
       inject: [
         'IngresanteRepository',
         'Ingresante_CreateStudentUC',
         'Ingresante_CreateEnrollmentUC',
         'AcademicCycleRepository',
+        'TenantTransactionRunner',
       ],
     },
   ],

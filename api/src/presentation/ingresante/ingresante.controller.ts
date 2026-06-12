@@ -10,9 +10,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { Ingresante } from '@educandow/domain';
-import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import { resolveAccessScope, Level, LevelType } from '@educandow/domain';
+import { AuthGuard, type AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import {
@@ -40,7 +42,21 @@ export class IngresanteController {
 
   @Post()
   @Roles('ROOT', { module: 'ENROLLMENTS', action: 'CREATE' })
-  async create(@Body(new ZodValidationPipe(CreateIngresanteSchema)) body: CreateIngresanteDTO) {
+  async create(
+    @Body(new ZodValidationPipe(CreateIngresanteSchema)) body: CreateIngresanteDTO,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    // D3: resolve level by role
+    const scope = resolveAccessScope(user);
+    if (!scope.allLevels) {
+      // Non-ROOT/ADMIN: force level from their first assigned level
+      if (!scope.compositeLevels.length) {
+        throw new BadRequestException('El usuario no tiene niveles asignados');
+      }
+      const userLevel = Level.reconstruct(scope.compositeLevels[0] as LevelType);
+      body = { ...body, level: userLevel.toString() };
+    }
+
     const result = await this.createUC.execute(body);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toDto(result.unwrap()) };

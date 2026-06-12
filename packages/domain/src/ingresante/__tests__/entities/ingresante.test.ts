@@ -11,6 +11,7 @@ describe('Ingresante', () => {
     lastName: 'Pérez',
     dni: '12345678',
     level: Level.reconstruct(LevelType.SECUNDARIO),
+    cycleId: Id.create(),
   };
 
   // ── create ───────────────────────────────────────────────
@@ -42,7 +43,6 @@ describe('Ingresante', () => {
     expect(i.address).toBeUndefined();
     expect(i.phone).toBeUndefined();
     expect(i.email).toBeUndefined();
-    expect(i.cycleId).toBeUndefined();
     expect(i.deletedAt).toBeUndefined();
   });
 
@@ -141,33 +141,111 @@ describe('Ingresante', () => {
     expect(i.deletedAt).toBe(deletedAt);
   });
 
-  // ── status transitions ───────────────────────────────────
+  // ── transitionTo ─────────────────────────────────────────
 
-  it('setStatus changes the status', () => {
+  it('transitionTo returns ok(void) on valid transition and mutates state', () => {
     const i = Ingresante.create(validProps).unwrap();
     expect(i.status.value).toBe('INSCRIPTO');
-    i.setStatus(IngresanteStatus.reconstruct('PAGO_MATRICULA'));
+    const result = i.transitionTo(IngresanteStatus.reconstruct('PAGO_MATRICULA'));
+    expect(result.isOk()).toBe(true);
     expect(i.status.value).toBe('PAGO_MATRICULA');
   });
 
-  it('markIngreso sets status to INGRESO', () => {
+  it('transitionTo returns err(ValidationError) on skip and does not mutate state', () => {
     const i = Ingresante.create(validProps).unwrap();
-    i.markIngreso();
+    const result = i.transitionTo(IngresanteStatus.reconstruct('ACEPTADO')); // skip
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+    expect(result.unwrapErr().message).toContain('INSCRIPTO');
+    expect(result.unwrapErr().message).toContain('ACEPTADO');
+    expect(i.status.value).toBe('INSCRIPTO'); // unchanged
+  });
+
+  it('transitionTo returns err(ValidationError) on backward transition and does not mutate state', () => {
+    const i = Ingresante.reconstruct({
+      id: Id.create(),
+      firstName: 'A',
+      lastName: 'B',
+      dni: '12345678',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      status: IngresanteStatus.reconstruct('PAGO_MATRICULA'),
+      createdAt: new Date(),
+    });
+    const result = i.transitionTo(IngresanteStatus.reconstruct('INSCRIPTO'));
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+    expect(i.status.value).toBe('PAGO_MATRICULA'); // unchanged
+  });
+
+  it('transitionTo returns err(ValidationError) from terminal state', () => {
+    const terminal = Ingresante.reconstruct({
+      id: Id.create(),
+      firstName: 'A',
+      lastName: 'B',
+      dni: '12345678',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      status: IngresanteStatus.reconstruct('INGRESO'),
+      createdAt: new Date(),
+    });
+    const result = terminal.transitionTo(IngresanteStatus.reconstruct('INSCRIPTO'));
+    expect(result.isErr()).toBe(true);
+    expect(terminal.status.value).toBe('INGRESO'); // unchanged
+  });
+
+  // ── markIngreso ──────────────────────────────────────────
+
+  it('markIngreso returns ok(void) when status is ACEPTADO and transitions to INGRESO', () => {
+    const i = Ingresante.reconstruct({
+      id: Id.create(),
+      firstName: 'A',
+      lastName: 'B',
+      dni: '12345678',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      status: IngresanteStatus.reconstruct('ACEPTADO'),
+      createdAt: new Date(),
+    });
+    const result = i.markIngreso();
+    expect(result.isOk()).toBe(true);
     expect(i.status.value).toBe('INGRESO');
   });
 
-  it('markNoIngresara sets status to NO_INGRESARA', () => {
-    const i = Ingresante.create(validProps).unwrap();
-    i.markNoIngresara();
-    expect(i.status.value).toBe('NO_INGRESARA');
-  });
+  it.each(['INSCRIPTO', 'PAGO_MATRICULA', 'INGRESO', 'NO_INGRESARA'] as const)(
+    'markIngreso returns err(ValidationError) when status is %s',
+    (status) => {
+      const i = Ingresante.reconstruct({
+        id: Id.create(),
+        firstName: 'A',
+        lastName: 'B',
+        dni: '12345678',
+        level: Level.reconstruct(LevelType.PRIMARIO),
+        status: IngresanteStatus.reconstruct(status),
+        createdAt: new Date(),
+      });
+      const result = i.markIngreso();
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+      expect(i.status.value).toBe(status); // unchanged
+    },
+  );
 
-  it('setStatus can transition through all states', () => {
-    const i = Ingresante.create(validProps).unwrap();
-    const statuses = ['PAGO_MATRICULA', 'ACEPTADO', 'INGRESO'] as const;
-    for (const s of statuses) {
-      i.setStatus(IngresanteStatus.reconstruct(s));
-      expect(i.status.value).toBe(s);
-    }
+  // ── reconstruct: non-retroactive (D2) ───────────────────
+
+  it('reconstruct accepts any status without validating (SC-SM-10 / D2)', () => {
+    // A legacy record could be ACEPTADO without having gone through PAGO_MATRICULA.
+    // reconstruct() must not validate the state machine history.
+    const legacy = Ingresante.reconstruct({
+      id: Id.create(),
+      firstName: 'Legacy',
+      lastName: 'Record',
+      dni: '99999999',
+      level: Level.reconstruct(LevelType.PRIMARIO),
+      status: IngresanteStatus.reconstruct('ACEPTADO'),
+      createdAt: new Date(),
+    });
+    expect(legacy.status.value).toBe('ACEPTADO');
+    // And future transitions from this reconstructed state follow the rules
+    const transition = legacy.transitionTo(IngresanteStatus.reconstruct('NO_INGRESARA'));
+    expect(transition.isOk()).toBe(true);
+    expect(legacy.status.value).toBe('NO_INGRESARA');
   });
 });

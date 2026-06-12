@@ -13,7 +13,7 @@ export const CreateIngresanteSchema = z.object({
   address: z.string().max(200).optional(),
   phone: z.string().max(50).optional(),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
-  cycleId: z.string().optional(),
+  cycleId: z.string().uuid('cycleId debe ser un UUID válido'),
   level: z.string().min(1, 'level es requerido'),
   modality: z.string().optional(),
 });
