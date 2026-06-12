@@ -237,6 +237,11 @@ async function main() {
 
   for (const [roleId, { moduleIds, actions: defaultActions }] of Object.entries(roleModules)) {
     const overwrite = customActions[roleId] ?? {};
+    // Remove stale assignments so re-seeding is deterministic: a module dropped
+    // from a role's matrix (e.g. DIRECTOR losing INSTITUTIONS) must not linger.
+    await prisma.roleModule.deleteMany({
+      where: { roleId, moduleId: { notIn: moduleIds } },
+    });
     for (const moduleId of moduleIds) {
       const actions = overwrite[moduleId] ?? defaultActions;
       if (actions.length === 0) continue; // skip modules with no actions
