@@ -184,6 +184,23 @@ export { DocenteXCiclo } from './docente-ciclo';
 export type { DocenteXCicloProps, CreateDocenteXCicloInput } from './docente-ciclo';
 export type { DocenteXCicloRepository } from './docente-ciclo';
 
+// Materia / Grupo por Ciclo (Fase 3b)
+export { MateriaXCursoXCiclo } from './materia-grupo-ciclo';
+export type { MateriaXCursoXCicloProps, CreateMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
+export type { MateriaXCursoXCicloRepository } from './materia-grupo-ciclo';
+
+export { AlumnosXMateriaXCursoXCiclo } from './materia-grupo-ciclo';
+export type { AlumnosXMateriaXCursoXCicloProps, CreateAlumnosXMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
+export type { AlumnosXMateriaRepository } from './materia-grupo-ciclo';
+
+export { GrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
+export type { GrupoXCursoXMateriaXCicloProps, CreateGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';
+export type { GrupoRepository } from './materia-grupo-ciclo';
+
+export { AlumnosXGrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
+export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';
+export type { AlumnosXGrupoRepository } from './materia-grupo-ciclo';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';

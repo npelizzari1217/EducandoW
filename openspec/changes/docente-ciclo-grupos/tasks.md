@@ -187,24 +187,24 @@
 
 ### Dominio
 
-- [ ] F3-D1: Entidad `MateriaXCursoXCiclo` + interface `MateriaXCursoXCicloRepository`:
+- [x] F3-D1: Entidad `MateriaXCursoXCiclo` + interface `MateriaXCursoXCicloRepository`:
   `findByCourseCycleId(ccId)`, `upsertMany(data[])`, `findById(id)`, `updateDescription(id, data)`
-- [ ] F3-D2: Entidad `AlumnosXMateriaXCursoXCiclo` + interface `AlumnosXMateriaRepository`:
+- [x] F3-D2: Entidad `AlumnosXMateriaXCursoXCiclo` + interface `AlumnosXMateriaRepository`:
   `findByMateria(materiaId)`, `addStudent(materiaId, studentId)`,
   `isMember(materiaId, studentId): boolean`
-- [ ] F3-D3: Entidad `GrupoXCursoXMateriaXCiclo` + interface `GrupoRepository`:
+- [x] F3-D3: Entidad `GrupoXCursoXMateriaXCiclo` + interface `GrupoRepository`:
   `findByMateria(materiaId)`, `findByDocente(docenteXCicloId)`,
   `findGroupsForDocente(docenteXCicloId, materiaId)`, `create(data)`, `findById(id)`
-- [ ] F3-D4: Entidad `AlumnosXGrupoXCursoXMateriaXCiclo` + interface `AlumnosXGrupoRepository`:
+- [x] F3-D4: Entidad `AlumnosXGrupoXCursoXMateriaXCiclo` + interface `AlumnosXGrupoRepository`:
   `addStudent(grupoId, alumnosXMateriaId)`, `findByGrupo(grupoId)`,
   `isMember(grupoId, alumnosXMateriaId): boolean`
 
 ### Infraestructura
 
-- [ ] F3-I1: `PrismaMateriaXCursoXCicloRepository`
-- [ ] F3-I2: `PrismaAlumnosXMateriaRepository`
-- [ ] F3-I3: `PrismaGrupoRepository`
-- [ ] F3-I4: `PrismaAlumnosXGrupoRepository`
+- [x] F3-I1: `PrismaMateriaXCursoXCicloRepository`
+- [x] F3-I2: `PrismaAlumnosXMateriaRepository`
+- [x] F3-I3: `PrismaGrupoRepository`
+- [x] F3-I4: `PrismaAlumnosXGrupoRepository`
 - [ ] F3-I5: Registrar los 4 repositorios en el módulo NestJS del tenant
 
 ### Aplicación
