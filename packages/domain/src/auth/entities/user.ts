@@ -42,6 +42,17 @@ export interface UserProps {
   deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  // ── Persona fields (Fase 1 — UP-R1) ──────────────────────
+  /** First name (given name). Nullable — not set for legacy users. */
+  firstName?: string;
+  /** Last name (family name). Nullable — not set for legacy users. */
+  lastName?: string;
+  /** DNI / national ID number. Unique per institution (nulls are distinct). */
+  dni?: string;
+  /** Academic/professional title (e.g. "Lic.", "Prof.", "Mg."). */
+  title?: string;
+  /** Phone number. */
+  phone?: string;
 }
 
 export class User {
@@ -75,6 +86,11 @@ export class User {
       active: true,
       createdAt: new Date(),
       updatedAt: new Date(),
+      firstName: props.firstName,
+      lastName: props.lastName,
+      dni: props.dni,
+      title: props.title,
+      phone: props.phone,
     });
   }
 
@@ -86,6 +102,13 @@ export class User {
   get email(): Email { return this.props.email; }
   get name(): string { return this.props.name; }
   get passwordHash(): string { return this.props.passwordHash; }
+
+  // ── Persona getters (Fase 1 — UP-R1) ─────────────────────
+  get firstName(): string | undefined { return this.props.firstName; }
+  get lastName(): string | undefined { return this.props.lastName; }
+  get dni(): string | undefined { return this.props.dni; }
+  get title(): string | undefined { return this.props.title; }
+  get phone(): string | undefined { return this.props.phone; }
 
   /** All role names assigned to this user via userRoles. */
   get roles(): string[] { return this.props.roles ?? []; }

@@ -5,6 +5,79 @@ import { Email } from '../../../shared/value-objects/email';
 import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
 import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
 
+// ── Persona fields (F1-T1, F1-T2) ────────────────────────────
+describe('User — persona fields (UP-R1)', () => {
+  const baseProps = {
+    email: Email.reconstruct('ana@test.com'),
+    name: 'Ana García',
+    passwordHash: 'hashed',
+    roles: ['TEACHER'],
+    modules: [],
+  };
+
+  // F1-T1 / UP-S1: User con los 5 campos → todos devueltos en read
+  it('exposes persona fields when set on create', () => {
+    const user = User.create({
+      ...baseProps,
+      firstName: 'Ana',
+      lastName: 'García',
+      dni: '27123456',
+      title: 'Lic.',
+      phone: '351-555-1234',
+    });
+    expect(user.firstName).toBe('Ana');
+    expect(user.lastName).toBe('García');
+    expect(user.dni).toBe('27123456');
+    expect(user.title).toBe('Lic.');
+    expect(user.phone).toBe('351-555-1234');
+  });
+
+  // F1-T1 / UP-S1: reconstruct también expone los campos
+  it('exposes persona fields when reconstructed', () => {
+    const user = User.reconstruct({
+      ...baseProps,
+      id: Id.create(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      firstName: 'Ana',
+      lastName: 'García',
+      dni: '27123456',
+      title: 'Lic.',
+      phone: '351-555-1234',
+    });
+    expect(user.firstName).toBe('Ana');
+    expect(user.lastName).toBe('García');
+    expect(user.dni).toBe('27123456');
+    expect(user.title).toBe('Lic.');
+    expect(user.phone).toBe('351-555-1234');
+  });
+
+  // F1-T2 / UP-S2: User sin campos persona → todos undefined/null, sin error
+  it('returns undefined for all persona fields when not set', () => {
+    const user = User.create(baseProps);
+    expect(user.firstName).toBeUndefined();
+    expect(user.lastName).toBeUndefined();
+    expect(user.dni).toBeUndefined();
+    expect(user.title).toBeUndefined();
+    expect(user.phone).toBeUndefined();
+  });
+
+  // UP-S2: reconstruct sin campos persona
+  it('returns undefined for persona fields when reconstructed without them', () => {
+    const user = User.reconstruct({
+      ...baseProps,
+      id: Id.create(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    expect(user.firstName).toBeUndefined();
+    expect(user.lastName).toBeUndefined();
+    expect(user.dni).toBeUndefined();
+    expect(user.title).toBeUndefined();
+    expect(user.phone).toBeUndefined();
+  });
+});
+
 describe('User', () => {
   const validProps = {
     email: Email.reconstruct('test@test.com'),

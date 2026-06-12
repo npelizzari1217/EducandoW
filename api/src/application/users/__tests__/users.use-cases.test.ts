@@ -38,6 +38,34 @@ describe('userToResponse', () => {
     userLevels: [] as { level: number; modality: number }[],
   };
 
+  // F1-T1 / UP-S1: persona fields present → exposed in response
+  it('returns persona fields when set on the row', () => {
+    const row = {
+      ...baseRow,
+      firstName: 'Ana',
+      lastName: 'García',
+      dni: '27123456',
+      title: 'Lic.',
+      phone: '351-555-1234',
+    };
+    const response = userToResponse(row);
+    expect(response.firstName).toBe('Ana');
+    expect(response.lastName).toBe('García');
+    expect(response.dni).toBe('27123456');
+    expect(response.title).toBe('Lic.');
+    expect(response.phone).toBe('351-555-1234');
+  });
+
+  // F1-T2 / UP-S2: persona fields absent → all null in response
+  it('returns null for persona fields when absent from row', () => {
+    const response = userToResponse(baseRow);
+    expect(response.firstName).toBeNull();
+    expect(response.lastName).toBeNull();
+    expect(response.dni).toBeNull();
+    expect(response.title).toBeNull();
+    expect(response.phone).toBeNull();
+  });
+
   it('returns levels as composite codes from userLevels', () => {
     const row = {
       ...baseRow,

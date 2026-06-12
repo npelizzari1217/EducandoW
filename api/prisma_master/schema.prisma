@@ -105,6 +105,7 @@ model User {
   id            String   @id @default(uuid())
   email         String   @unique
   passwordHash  String   @map("password")
+  // @deprecated — kept for auth/display; new paths use firstName + lastName
   name          String
   institutionId String?
   profileId     String?
@@ -113,6 +114,15 @@ model User {
   lockedUntil    DateTime?
   active         Boolean   @default(true)
   deletedAt      DateTime?
+
+  // ── Persona fields (Fase 1 — UP-R1) ─────────────────────
+  firstName     String?   @map("first_name")
+  lastName      String?   @map("last_name")
+  // DNI único por institución; NULLs son distintos en Postgres → ROOT y sin-DNI coexisten
+  dni           String?
+  // Título académico/profesional (e.g. "Lic.", "Prof.", "Mg.")
+  title         String?
+  phone         String?
 
   institution   Institution?   @relation(fields: [institutionId], references: [id])
   profile       Profile?       @relation(fields: [profileId], references: [id])
@@ -124,6 +134,7 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([institutionId, dni])
   @@map("users")
 }
 

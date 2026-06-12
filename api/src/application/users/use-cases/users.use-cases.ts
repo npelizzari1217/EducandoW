@@ -24,6 +24,12 @@ interface UserRow {
   institution?: { id: string; name: string } | null;
   userModules?: { module: { code: string; name: string }; actions: string[] }[];
   userLevels?: { level: number; modality: number }[];
+  // Persona fields (Fase 1 — UP-R1)
+  firstName?: string | null;
+  lastName?: string | null;
+  dni?: string | null;
+  title?: string | null;
+  phone?: string | null;
 }
 
 export function userToResponse(u: UserRow) {
@@ -52,6 +58,15 @@ export function userToResponse(u: UserRow) {
       moduleName: um.module.name,
       actions: um.actions,
     })),
+    // Persona fields (UP-R1, UP-R3) — sourced exclusively from User (master DB).
+    // After the backfill script (backfill-user-persona.ts) runs, User is the
+    // authoritative source. Teacher.firstName/lastName/dni/title/phone are
+    // legacy-read-only and MUST NOT take precedence over User values (UP-S6).
+    firstName: u.firstName ?? null,
+    lastName: u.lastName ?? null,
+    dni: u.dni ?? null,
+    title: u.title ?? null,
+    phone: u.phone ?? null,
   };
 }
 
@@ -146,6 +161,12 @@ export class CreateUserUseCase {
     creatorModules?: ModuleAccessItem[];
     levels?: { level: number; modality: number }[];
     profileId?: string;
+    // Persona fields (Fase 1 — UP-R1)
+    firstName?: string;
+    lastName?: string;
+    dni?: string;
+    title?: string;
+    phone?: string;
   }) {
     const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
@@ -203,6 +224,13 @@ export class CreateUserUseCase {
       passwordHash,
       institutionId,
     };
+
+    // Persona fields (UP-R1) — only set if provided
+    if (input.firstName !== undefined) createData.firstName = input.firstName;
+    if (input.lastName !== undefined) createData.lastName = input.lastName;
+    if (input.dni !== undefined) createData.dni = input.dni;
+    if (input.title !== undefined) createData.title = input.title;
+    if (input.phone !== undefined) createData.phone = input.phone;
 
     // Include profileId if provided
     if (input.profileId) {
@@ -333,6 +361,12 @@ export class UpdateUserUseCase {
       moduleAccess?: ModuleAccessItem[];
       levels?: { level: number; modality: number }[];
       profileId?: string | null;
+      // Persona fields (Fase 1 — UP-R1)
+      firstName?: string | null;
+      lastName?: string | null;
+      dni?: string | null;
+      title?: string | null;
+      phone?: string | null;
     },
     creatorRoles: string[],
     creatorInstitutionId?: string,
@@ -398,6 +432,13 @@ export class UpdateUserUseCase {
     if (institutionId !== undefined) data.institutionId = institutionId;
     if (input.active !== undefined) data.active = input.active;
     if (input.profileId !== undefined) data.profileId = input.profileId;
+
+    // Persona fields (UP-R1) — allow explicit null to clear
+    if (input.firstName !== undefined) data.firstName = input.firstName;
+    if (input.lastName !== undefined) data.lastName = input.lastName;
+    if (input.dni !== undefined) data.dni = input.dni;
+    if (input.title !== undefined) data.title = input.title;
+    if (input.phone !== undefined) data.phone = input.phone;
 
     // Handle levels: present → replace, absent → don't touch, empty → clear
     if (input.levels !== undefined) {

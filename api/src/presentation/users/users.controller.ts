@@ -76,6 +76,12 @@ export class UsersController {
       creatorModules: this.getCreatorModules(req),
       levels: body.levels,
       profileId: body.profileId,
+      // Persona fields (UP-R1)
+      firstName: body.firstName,
+      lastName: body.lastName,
+      dni: body.dni,
+      title: body.title,
+      phone: body.phone,
     });
   }
 

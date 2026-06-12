@@ -49,6 +49,12 @@ interface UserRow {
   userRoles?: UserRoleRow[];
   userModules?: UserModuleRow[];
   userLevels?: UserLevelRow[];
+  // Persona fields (Fase 1 — UP-R1)
+  firstName?: string | null;
+  lastName?: string | null;
+  dni?: string | null;
+  title?: string | null;
+  phone?: string | null;
 }
 
 @Injectable()
@@ -222,6 +228,12 @@ export class PrismaUserRepository implements UserRepository {
       deletedAt: record.deletedAt ?? undefined,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      // Persona fields (Fase 1 — UP-R1) — convert null→undefined for domain
+      firstName: record.firstName ?? undefined,
+      lastName: record.lastName ?? undefined,
+      dni: record.dni ?? undefined,
+      title: record.title ?? undefined,
+      phone: record.phone ?? undefined,
     });
   }
 }
