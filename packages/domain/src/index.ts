@@ -179,6 +179,11 @@ export type {
   GradingPeriodTemplateFilters,
 } from './grading';
 
+// Docente x Ciclo (Fase 2)
+export { DocenteXCiclo } from './docente-ciclo';
+export type { DocenteXCicloProps, CreateDocenteXCicloInput } from './docente-ciclo';
+export type { DocenteXCicloRepository } from './docente-ciclo';
+
 // Auth
 export { User } from './auth/entities/user';
 export type { UserRole, ModuleAccess, UserLevelEntry } from './auth/entities/user';

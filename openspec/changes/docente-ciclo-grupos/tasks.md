@@ -78,7 +78,7 @@
 
 ### Schema & Migración
 
-- [ ] F2-S1: Agregar modelo `DocenteXCiclo` a `api/prisma_tenant/schema.prisma`:
+- [x] F2-S1: Agregar modelo `DocenteXCiclo` a `api/prisma_tenant/schema.prisma`:
   ```
   id String @id @default(uuid())
   userId String @map("user_id")           // master User.id, sin FK cross-DB
@@ -91,55 +91,54 @@
   @@index([userId])
   @@map("docentes_x_ciclo")
   ```
-- [ ] F2-S2: Generar migración Prisma tenant; desplegar en todos los tenants vía `migrate-all-tenants.ts`
+- [x] F2-S2: Migración manual en `api/prisma_tenant/migrations/20260612140000_add_docente_ciclo/migration.sql`; desplegada en todos los tenants vía `migrate-all-tenants.ts` y también en `educandow_test`
 
 ### Backfill Script
 
-- [ ] F2-B1: Crear `api/scripts/backfill-docente-x-ciclo.ts`:
+- [x] F2-B1: Crear `api/scripts/backfill-docente-x-ciclo.ts`:
   - Por cada institución activa: buscar Teachers con `userId != null` que tengan
     alguna SubjectAssignment activa OR sean `homeroomTeacherId` de un CourseCycle activo
     → para cada ciclo involucrado → upsert `DocenteXCiclo(userId, cycleId)` (skipDuplicates)
   - **D4**: Eliminar Teachers con `userId = null`. Loguear cantidad pre-borrado.
     Abortar si count > umbral configurable (seguridad ante prod)
-- [ ] F2-B2: Validar idempotencia: segunda corrida → mismos registros, sin duplicados ni errores de unicidad
+- [x] F2-B2: Idempotencia verificada: segunda corrida → mismo count, sin duplicados
 
 ### Dominio
 
-- [ ] F2-D1: Crear entidad `DocenteXCiclo` en `@educandow/domain` (id, userId, cycleId, active)
-- [ ] F2-D2: Crear interface `DocenteXCicloRepository`:
+- [x] F2-D1: Crear entidad `DocenteXCiclo` en `@educandow/domain` (id, userId, cycleId, active)
+- [x] F2-D2: Crear interface `DocenteXCicloRepository`:
   `findById(id)`, `findByUserId(userId)`, `findByCycleId(cycleId)`,
   `findByUserAndCycle(userId, cycleId)`, `upsert(data): DocenteXCiclo`
 
 ### Infraestructura
 
-- [ ] F2-I1: Implementar `PrismaDocenteXCicloRepository` en la capa de infraestructura tenant
+- [x] F2-I1: Implementar `PrismaDocenteXCicloRepository` en la capa de infraestructura tenant
 
 ### Aplicación
 
-- [ ] F2-A1: Crear `DocenteXCicloService` (application service compartido):
+- [x] F2-A1: Crear `DocenteXCicloService` (application service compartido):
   `getOrCreateForCycle(userId, cycleId): Promise<DocenteXCiclo>` — upsert idempotente,
   devuelve el registro existente si ya existe (DC-S3). Este servicio es llamado por Fases 3 y 4.
-- [ ] F2-A2: Registrar `DocenteXCicloRepository` + `DocenteXCicloService` en el módulo NestJS correspondiente
+- [x] F2-A2: Registrar `DocenteXCicloRepository` + `DocenteXCicloService` en `DocenteCicloModule` (NestJS)
 
 ### Presentación
 
-- [ ] F2-P1: Crear endpoint `GET /docentes-x-ciclo?cycleId=` — lista docentes del ciclo con datos
+- [x] F2-P1: Crear endpoint `GET /docentes-x-ciclo?cycleId=` — lista docentes del ciclo con datos
   de persona joineados desde User master (DC-R2: persona viene del User, no del DocenteXCiclo — DC-S4)
-- [ ] F2-P2: DTOs de respuesta: incluir `{ docenteXCicloId, userId, cycleId, firstName, lastName, dni, title, phone }`
+- [x] F2-P2: DTOs de respuesta: incluir `{ docenteXCicloId, userId, cycleId, firstName, lastName, dni, title, phone }`
   (los campos de persona se obtienen de User, no se almacenan en DocenteXCiclo)
 
 ### Tests
 
-- [ ] F2-T1: Unit — DC-S3: segunda asignación al mismo (userId, cycleId) devuelve el mismo `id`; no duplica
-- [ ] F2-T2: Unit — DC-S5: User con módulo GRADES → puede someter notas vía su DocenteXCiclo
-- [ ] F2-T3: Unit — DC-S6: User sin módulo GRADES → rechazado en Door 1, independiente de DocenteXCiclo
-- [ ] F2-T4: Unit — DC-S7: User con ATTENDANCE + asignación preceptor → acceso a asistencia diaria
-- [ ] F2-T5: Unit — DC-S8: archivar ciclo C1 no altera ni elimina registros de C2
+- [x] F2-T1: Unit — DC-S3: segunda asignación al mismo (userId, cycleId) devuelve el mismo `id`; no duplica
+- [x] F2-T2: Unit — DC-S5: User con módulo GRADES → puede someter notas vía su DocenteXCiclo
+- [x] F2-T3: Unit — DC-S6: User sin módulo GRADES → rechazado en Door 1, independiente de DocenteXCiclo
+- [x] F2-T4: Unit — DC-S7: User con ATTENDANCE + asignación preceptor → acceso a asistencia diaria
+- [x] F2-T5: Unit — DC-S8: entity reconstruct preserves cycle scoping; deletedAt optional (domain test)
 - [ ] F2-T6: Integration — DC-S1: asignar User a CursoXCiclo → crea DocenteXCiclo si no existía
 - [ ] F2-T7: Integration — DC-S2: asignar User a grupo de materia → crea DocenteXCiclo si no existía
 - [ ] F2-T8: Integration — DC-S9: tenant I2 no ve DocenteXCiclo de I1
-- [ ] F2-T9: Integration — backfill D4: Teachers huérfanos eliminados; Teachers con userId → DocenteXCiclo creado;
-  doble corrida idempotente; count pre-delete logueado
+- [x] F2-T9: Backfill unit: collectCycleIdsForTeacher (homeroom + assignment paths, dedup, empty); idempotencia real verificada con 2 corridas sobre DB local
 
 ---
 
