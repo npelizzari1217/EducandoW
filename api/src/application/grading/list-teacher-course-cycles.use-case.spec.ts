@@ -1,10 +1,29 @@
 /**
- * PR4-T11 [RED] — ListTeacherCourseCyclesUseCase tests.
- * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R7, TIA-R9, ES-R4, ES-R5, ES-R6, AD-6
+ * ListTeacherCourseCyclesUseCase tests — model NUEVO (DocenteXCiclo + grupos).
+ *
+ * Subject mode: resolves CCs via DocenteXCiclo → GrupoXCursoXMateriaXCiclo → MateriaXCursoXCiclo.courseCycleId.
+ * Homeroom mode: unchanged — still uses Teacher.homeroomTeacherId.
+ *
+ * New model scenarios:
+ *   - Docente con grupo (modelo nuevo) → ve su CC.
+ *   - Docente sin DocenteXCiclo → no la ve.
+ *   - Docente con DocenteXCiclo pero sin grupos → no la ve.
+ *   - Gestión (ROOT/ADMIN/SECRETARIO/DIRECTOR) not tested here — they use ListCourseCyclesUseCase (scope).
+ *
+ * Homeroom mode tests keep the old Teacher model (homeroomTeacherId on CC is still Teacher.id).
+ *
+ * Specs: TIA-R2 (new), TIA-R3 (new), TIA-R5, TIA-R9, ESS-R1/R2 (new), AD-6
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ListTeacherCourseCyclesUseCase } from './list-teacher-course-cycles.use-case';
-import { Teacher, Id, Dni, Email, CourseCycle, CourseName, PassingGrade, Level } from '@educandow/domain';
+import { TenantContext } from '../../infrastructure/auth/tenant.context';
+import { Teacher, Id, Dni, Email, CourseCycle, CourseName, PassingGrade, Level, DocenteXCiclo, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
+
+vi.mock('../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn(),
+  },
+}));
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +37,27 @@ function makeTeacher(id = 'teacher-uuid-1', userId = 'user-abc'): Teacher {
     userId,
     institutionId: Id.reconstruct('inst-1'),
     active: true,
+  });
+}
+
+function makeDocente(id = 'dxc-1', userId = 'user-abc', cycleId = 'cycle-1'): DocenteXCiclo {
+  return DocenteXCiclo.reconstruct({
+    id,
+    userId,
+    cycleId,
+    active: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+}
+
+function makeGrupo(id = 'grupo-1', docenteXCicloId = 'dxc-1', materiaXCursoXCicloId = 'materia-1'): GrupoXCursoXMateriaXCiclo {
+  return GrupoXCursoXMateriaXCiclo.reconstruct({
+    id,
+    docenteXCicloId,
+    materiaXCursoXCicloId,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 }
 
@@ -44,73 +84,93 @@ function makeCC(uuid: string, level: number, courseId: string): CourseCycle {
   });
 }
 
-function makeAssignment(teacherId: string, courseSectionId: string, subjectId = 'subj-1') {
-  return { id: { get: () => `assign-${Math.random()}` }, subjectId, teacherId, courseSectionId };
+function makeMockClient(materias: { id: string; courseCycleId: string }[] = []) {
+  return {
+    materiaXCursoXCiclo: {
+      findMany: vi.fn().mockResolvedValue(materias),
+    },
+  };
 }
 
-function makeRepos(overrides: Record<string, unknown> = {}) {
+function makeRepos(overrides: Partial<{
+  docenteRepo: Record<string, unknown>;
+  grupoRepo: Record<string, unknown>;
+  teacherRepo: Record<string, unknown>;
+  courseCycleRepo: Record<string, unknown>;
+}> = {}) {
   return {
     teacherRepo: {
       findByUserId: vi.fn().mockResolvedValue(null),
-      ...((overrides.teacherRepo as Record<string, unknown>) ?? {}),
+      ...(overrides.teacherRepo ?? {}),
     },
-    subjectAssignmentRepo: {
-      findByTeacher: vi.fn().mockResolvedValue([]),
-      ...((overrides.subjectAssignmentRepo as Record<string, unknown>) ?? {}),
+    docenteRepo: {
+      findByUserId: vi.fn().mockResolvedValue([]),
+      findByUserAndCycle: vi.fn().mockResolvedValue(null),
+      ...(overrides.docenteRepo ?? {}),
+    },
+    grupoRepo: {
+      findByDocente: vi.fn().mockResolvedValue([]),
+      ...(overrides.grupoRepo ?? {}),
     },
     courseCycleRepo: {
       findByHomeroomTeacher: vi.fn().mockResolvedValue([]),
-      findByCourseSectionIds: vi.fn().mockResolvedValue([]),
-      // Default: empty map — tests that need grading-context override this
+      findByUuids: vi.fn().mockResolvedValue([]),
       findGradingContextsByUuids: vi.fn().mockResolvedValue(new Map()),
-      ...((overrides.courseCycleRepo as Record<string, unknown>) ?? {}),
+      ...(overrides.courseCycleRepo ?? {}),
     },
   };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ListTeacherCourseCyclesUseCase — subject mode
+// ListTeacherCourseCyclesUseCase — mode=subject (modelo nuevo)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
-  let useCase: ListTeacherCourseCyclesUseCase;
+describe('ListTeacherCourseCyclesUseCase — mode=subject (modelo nuevo DocenteXCiclo)', () => {
   let repos: ReturnType<typeof makeRepos>;
+  let useCase: ListTeacherCourseCyclesUseCase;
+  let mockClient: ReturnType<typeof makeMockClient>;
 
   beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
     repos = makeRepos();
     useCase = new ListTeacherCourseCyclesUseCase(
       repos.teacherRepo as any,
-      repos.subjectAssignmentRepo as any,
+      repos.docenteRepo as any,
+      repos.grupoRepo as any,
       repos.courseCycleRepo as any,
     );
   });
 
-  it('TIA-R2: unlinked userId → empty array (200, no error)', async () => {
-    repos.teacherRepo.findByUserId.mockResolvedValue(null);
+  it('TIA-R2: userId sin DocenteXCiclo → empty array (200, no error)', async () => {
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([]);
 
     const result = await useCase.execute({ userId: 'user-xyz', mode: 'subject' });
 
     expect(result).toEqual([]);
+    expect(repos.grupoRepo.findByDocente).not.toHaveBeenCalled();
   });
 
-  it('TIA-R6: teacher with no assignments → empty array', async () => {
-    repos.teacherRepo.findByUserId.mockResolvedValue(makeTeacher());
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([]);
+  it('TIA-R6: docente con DocenteXCiclo pero sin grupos → empty array', async () => {
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([makeDocente()]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([]);
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     expect(result).toEqual([]);
-    expect(repos.courseCycleRepo.findByCourseSectionIds).not.toHaveBeenCalled();
+    expect(repos.courseCycleRepo.findByUuids).not.toHaveBeenCalled();
   });
 
-  it('TIA-R3: returns CCs where teacher has SubjectAssignment', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-uuid-A'),
-    ]);
-    const primarioCC = makeCC('cc-A', 20, 'cs-uuid-A');  // level 20 = PRIMARIO
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC]);
+  it('TIA-R3 (nuevo modelo): docente con grupo → ve su CC', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    const grupo = makeGrupo('grupo-1', 'dxc-1', 'materia-uuid-1');
+    const cc = makeCC('cc-A', 20, 'cs-A');
+
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([grupo]);
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([{ id: 'materia-uuid-1', courseCycleId: 'cc-A' }]);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([cc]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(new Map([['cc-A', { level: 20, modality: 0 }]]));
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
@@ -118,165 +178,61 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject', () => {
     expect(result[0].cycle.uuid).toBe('cc-A');
   });
 
-  it('W3: returns { cycle, modality } shape — modality from StudyPlan grading context (level 22 cc → StudyPlan modality 2)', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-uuid-B'),
-    ]);
-    // level 22 = Bilingüismo Primario; StudyPlan also returns modality 2
-    const cc = makeCC('cc-B', 22, 'cs-uuid-B');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([cc]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+  it('W3: retorna { cycle, modality } con modality del StudyPlan (cc nivel 22 → modality 2)', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    const grupo = makeGrupo('grupo-1', 'dxc-1', 'materia-B');
+    const cc = makeCC('cc-B', 22, 'cs-B');
+
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([grupo]);
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([{ id: 'materia-B', courseCycleId: 'cc-B' }]);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([cc]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
       new Map([['cc-B', { level: 22, modality: 2 }]]),
     );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     expect(result).toHaveLength(1);
-    // Each item is { cycle: CourseCycle, modality: number }
     expect(result[0]).toMatchObject({ modality: 2 });
-    expect((result[0] as any).cycle?.uuid).toBe('cc-B');
+    expect(result[0].cycle.uuid).toBe('cc-B');
   });
 
-  it('W3-DIVERGE: modality from StudyPlan (authoritative) when it differs from cc.level.modalityCode', async () => {
-    // This is THE divergence test. cc.level = 20 → level.modalityCode = 0.
-    // But the StudyPlan for this CC says modality = 1.
-    // With the old cc.level.modalityCode implementation this returns 0 → RED.
-    // After re-pointing to findGradingContextsByUuids (StudyPlan) it returns 1 → GREEN.
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-uuid-C'),
-    ]);
-    const cc = makeCC('cc-diverge', 20, 'cs-uuid-C'); // level 20 → modalityCode = 0
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([cc]);
-    // StudyPlan says modality = 1 (diverged from CourseCycle.level composite)
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
-      new Map([['cc-diverge', { level: 20, modality: 1 }]]),
+  it('W3-DIVERGE: modality del StudyPlan cuando difiere de cc.level.modalityCode', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    const grupo = makeGrupo('grupo-1', 'dxc-1', 'materia-C');
+    const cc = makeCC('cc-diverge', 20, 'cs-C'); // level 20 → modalityCode = 0
+
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([grupo]);
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([{ id: 'materia-C', courseCycleId: 'cc-diverge' }]);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([cc]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
+      new Map([['cc-diverge', { level: 20, modality: 1 }]]), // StudyPlan dice modality=1
     );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     expect(result).toHaveLength(1);
-    // MUST be 1 (StudyPlan.modality), NOT 0 (cc.level.modalityCode)
+    // DEBE ser 1 (StudyPlan.modality), NO 0 (cc.level.modalityCode)
     expect(result[0].modality).toBe(1);
   });
 
-  it('ESS-R1/D3: Secundario (level=30) is INCLUDED in subject mode alongside Primario (level=20)', async () => {
-    // Updated in PR4-T12: subject mode now includes Primario (decade=2) + Secundario (decade=3).
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-primario'),
-      makeAssignment(teacher.id.get(), 'cs-secundario'),
+  it('ESS-R1/D3: Secundario (level=30) INCLUIDO junto a Primario (level=20)', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([
+      makeGrupo('g1', 'dxc-1', 'mat-primario'),
+      makeGrupo('g2', 'dxc-1', 'mat-secundario'),
     ]);
-    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
-    const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, secundarioCC]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
-      new Map([
-        ['cc-primario',   { level: 20, modality: 0 }],
-        ['cc-secundario', { level: 30, modality: 0 }],
-      ]),
-    );
-
-    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
-
-    expect(result).toHaveLength(2);
-    const uuids = result.map((r) => r.cycle.uuid);
-    expect(uuids).toContain('cc-primario');
-    expect(uuids).toContain('cc-secundario');
-  });
-
-  it('deduplicates courseSectionIds before calling repo (same section, multiple subjects)', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    // Two assignments to the SAME section (different subjects)
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-A', 'subj-math'),
-      makeAssignment(teacher.id.get(), 'cs-A', 'subj-science'),
-    ]);
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([makeCC('cc-A', 20, 'cs-A')]);
-
-    await useCase.execute({ userId: 'user-abc', mode: 'subject' });
-
-    const calledWith = repos.courseCycleRepo.findByCourseSectionIds.mock.calls[0][0] as string[];
-    expect(calledWith).toHaveLength(1);  // deduplicated to 1 section
-    expect(calledWith[0]).toBe('cs-A');
-  });
-
-  it('teacher isolation: teacher A cannot see CCs that only teacher B has assignments in', async () => {
-    const teacherA = makeTeacher('teacher-A', 'user-A');
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacherA);
-    // Only assignments for teacher A are returned by the repo
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([]);
-
-    const result = await useCase.execute({ userId: 'user-A', mode: 'subject' });
-
-    expect(result).toEqual([]);
-    expect(repos.subjectAssignmentRepo.findByTeacher).toHaveBeenCalledWith(teacherA.id.get());
-  });
-});
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// ListTeacherCourseCyclesUseCase — Secundario inclusion (PR4-T11)
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('ListTeacherCourseCyclesUseCase — Secundario inclusion', () => {
-  let useCase: ListTeacherCourseCyclesUseCase;
-  let repos: ReturnType<typeof makeRepos>;
-
-  beforeEach(() => {
-    repos = makeRepos();
-    useCase = new ListTeacherCourseCyclesUseCase(
-      repos.teacherRepo as any,
-      repos.subjectAssignmentRepo as any,
-      repos.courseCycleRepo as any,
-    );
-  });
-
-  it('ESS-R1: mode=subject returns BOTH Primario (level 20) and Secundario (level 30) CCs', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-primario'),
-      makeAssignment(teacher.id.get(), 'cs-secundario'),
-    ]);
-    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
-    const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, secundarioCC]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
-      new Map([
-        ['cc-primario', { level: 20, modality: 0 }],
-        ['cc-secundario', { level: 30, modality: 0 }],
-      ]),
-    );
-
-    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
-
-    // BOTH Primario AND Secundario must be returned
-    expect(result).toHaveLength(2);
-    const uuids = result.map((r) => r.cycle.uuid);
-    expect(uuids).toContain('cc-primario');
-    expect(uuids).toContain('cc-secundario');
-  });
-
-  it('ESS-R2: Terciario (level=40) is EXCLUDED from mode=subject results', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-primario'),
-      makeAssignment(teacher.id.get(), 'cs-secundario'),
-      makeAssignment(teacher.id.get(), 'cs-terciario'),
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([
+      { id: 'mat-primario',   courseCycleId: 'cc-primario' },
+      { id: 'mat-secundario', courseCycleId: 'cc-secundario' },
     ]);
     const primarioCC   = makeCC('cc-primario',   20, 'cs-primario');
     const secundarioCC = makeCC('cc-secundario', 30, 'cs-secundario');
-    const terciarioCC  = makeCC('cc-terciario',  40, 'cs-terciario');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([
-      primarioCC, secundarioCC, terciarioCC,
-    ]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([primarioCC, secundarioCC]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
       new Map([
         ['cc-primario',   { level: 20, modality: 0 }],
         ['cc-secundario', { level: 30, modality: 0 }],
@@ -285,67 +241,34 @@ describe('ListTeacherCourseCyclesUseCase — Secundario inclusion', () => {
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
+    expect(result).toHaveLength(2);
     const uuids = result.map((r) => r.cycle.uuid);
-    expect(uuids).not.toContain('cc-terciario');
     expect(uuids).toContain('cc-primario');
     expect(uuids).toContain('cc-secundario');
   });
 
-  it('ESS-R2: Inicial (level=10) is EXCLUDED from mode=subject results', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-primario'),
-      makeAssignment(teacher.id.get(), 'cs-inicial'),
+  it('ESS-R2: Terciario (level=40) e Inicial (level=10) EXCLUIDOS del subject mode', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([
+      makeGrupo('g1', 'dxc-1', 'mat-10'),
+      makeGrupo('g2', 'dxc-1', 'mat-20'),
+      makeGrupo('g3', 'dxc-1', 'mat-30'),
+      makeGrupo('g4', 'dxc-1', 'mat-40'),
     ]);
-    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
-    const inicialCC  = makeCC('cc-inicial',  10, 'cs-inicial');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC, inicialCC]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
-      new Map([['cc-primario', { level: 20, modality: 0 }]]),
-    );
-
-    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
-
-    const uuids = result.map((r) => r.cycle.uuid);
-    expect(uuids).not.toContain('cc-inicial');
-    expect(uuids).toContain('cc-primario');
-  });
-
-  it('Primario behavior unchanged: a Primario-only teacher still sees only their Primario CCs', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-primario'),
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([
+      { id: 'mat-10', courseCycleId: 'cc-10' },
+      { id: 'mat-20', courseCycleId: 'cc-20' },
+      { id: 'mat-30', courseCycleId: 'cc-30' },
+      { id: 'mat-40', courseCycleId: 'cc-40' },
     ]);
-    const primarioCC = makeCC('cc-primario', 20, 'cs-primario');
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([primarioCC]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
-      new Map([['cc-primario', { level: 20, modality: 0 }]]),
-    );
-
-    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
-
-    expect(result).toHaveLength(1);
-    expect(result[0].cycle.uuid).toBe('cc-primario');
-  });
-
-  it('pins ONLY decade=2 (Primario) and decade=3 (Secundario): a "level > 0" predicate would include Terciario (40) and Inicial (10) — both MUST be excluded', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.subjectAssignmentRepo.findByTeacher.mockResolvedValue([
-      makeAssignment(teacher.id.get(), 'cs-10'),   // Inicial
-      makeAssignment(teacher.id.get(), 'cs-20'),   // Primario
-      makeAssignment(teacher.id.get(), 'cs-30'),   // Secundario
-      makeAssignment(teacher.id.get(), 'cs-40'),   // Terciario
-    ]);
-    repos.courseCycleRepo.findByCourseSectionIds.mockResolvedValue([
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([
       makeCC('cc-10', 10, 'cs-10'),
       makeCC('cc-20', 20, 'cs-20'),
       makeCC('cc-30', 30, 'cs-30'),
       makeCC('cc-40', 40, 'cs-40'),
     ]);
-    repos.courseCycleRepo.findGradingContextsByUuids.mockResolvedValue(
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
       new Map([
         ['cc-20', { level: 20, modality: 0 }],
         ['cc-30', { level: 30, modality: 0 }],
@@ -355,47 +278,111 @@ describe('ListTeacherCourseCyclesUseCase — Secundario inclusion', () => {
     const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
 
     const uuids = result.map((r) => r.cycle.uuid);
-    // IN:
-    expect(uuids).toContain('cc-20');  // Primario
-    expect(uuids).toContain('cc-30');  // Secundario
-    // OUT (CRITICAL — pins that the predicate is not too broad):
-    expect(uuids).not.toContain('cc-10');  // Inicial (decade=1)
-    expect(uuids).not.toContain('cc-40');  // Terciario (decade=4)
+    expect(uuids).toContain('cc-20');   // Primario — IN
+    expect(uuids).toContain('cc-30');   // Secundario — IN
+    expect(uuids).not.toContain('cc-10'); // Inicial — OUT
+    expect(uuids).not.toContain('cc-40'); // Terciario — OUT
     expect(result).toHaveLength(2);
+  });
+
+  it('deduplicates courseCycleIds cuando el mismo CC aparece en múltiples grupos', async () => {
+    const dxc = makeDocente('dxc-1', 'user-abc');
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc]);
+    // Dos grupos distintos pero que apuntan al MISMO CC
+    repos.grupoRepo.findByDocente = vi.fn().mockResolvedValue([
+      makeGrupo('g1', 'dxc-1', 'mat-math'),
+      makeGrupo('g2', 'dxc-1', 'mat-science'),
+    ]);
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([
+      { id: 'mat-math',    courseCycleId: 'cc-A' },
+      { id: 'mat-science', courseCycleId: 'cc-A' }, // mismo CC
+    ]);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([makeCC('cc-A', 20, 'cs-A')]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
+      new Map([['cc-A', { level: 20, modality: 0 }]]),
+    );
+
+    await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    const calledWith = (repos.courseCycleRepo.findByUuids as ReturnType<typeof vi.fn>).mock.calls[0][0] as string[];
+    expect(calledWith).toHaveLength(1); // deduplicado a 1 CC
+    expect(calledWith[0]).toBe('cc-A');
+  });
+
+  it('teacher isolation: docenteRepo se llama con el userId correcto', async () => {
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([]);
+
+    await useCase.execute({ userId: 'user-XYZ', mode: 'subject' });
+
+    expect(repos.docenteRepo.findByUserId).toHaveBeenCalledWith('user-XYZ');
+  });
+
+  it('docente con múltiples DocenteXCiclo (varios ciclos) → grupos de TODOS los ciclos', async () => {
+    const dxc1 = makeDocente('dxc-1', 'user-abc', 'cycle-2024');
+    const dxc2 = makeDocente('dxc-2', 'user-abc', 'cycle-2025');
+    repos.docenteRepo.findByUserId = vi.fn().mockResolvedValue([dxc1, dxc2]);
+    (repos.grupoRepo.findByDocente as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([makeGrupo('g1', 'dxc-1', 'mat-2024')])
+      .mockResolvedValueOnce([makeGrupo('g2', 'dxc-2', 'mat-2025')]);
+    mockClient.materiaXCursoXCiclo.findMany.mockResolvedValue([
+      { id: 'mat-2024', courseCycleId: 'cc-2024' },
+      { id: 'mat-2025', courseCycleId: 'cc-2025' },
+    ]);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([
+      makeCC('cc-2024', 20, 'cs-2024'),
+      makeCC('cc-2025', 20, 'cs-2025'),
+    ]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
+      new Map([
+        ['cc-2024', { level: 20, modality: 0 }],
+        ['cc-2025', { level: 20, modality: 0 }],
+      ]),
+    );
+
+    const result = await useCase.execute({ userId: 'user-abc', mode: 'subject' });
+
+    expect(result).toHaveLength(2);
+    // grupoRepo.findByDocente should be called for each dxc
+    expect(repos.grupoRepo.findByDocente).toHaveBeenCalledTimes(2);
   });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ListTeacherCourseCyclesUseCase — homeroom mode
+// ListTeacherCourseCyclesUseCase — homeroom mode (Teacher model, unchanged)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe('ListTeacherCourseCyclesUseCase — mode=homeroom', () => {
-  let useCase: ListTeacherCourseCyclesUseCase;
+describe('ListTeacherCourseCyclesUseCase — mode=homeroom (Teacher model, sin cambios)', () => {
   let repos: ReturnType<typeof makeRepos>;
+  let useCase: ListTeacherCourseCyclesUseCase;
 
   beforeEach(() => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(makeMockClient() as any);
     repos = makeRepos();
     useCase = new ListTeacherCourseCyclesUseCase(
       repos.teacherRepo as any,
-      repos.subjectAssignmentRepo as any,
+      repos.docenteRepo as any,
+      repos.grupoRepo as any,
       repos.courseCycleRepo as any,
     );
   });
 
-  it('TIA-R2: unlinked userId → empty array', async () => {
-    repos.teacherRepo.findByUserId.mockResolvedValue(null);
+  it('TIA-R2: userId sin Teacher record → empty array', async () => {
+    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(null);
 
     const result = await useCase.execute({ userId: 'user-xyz', mode: 'homeroom' });
 
     expect(result).toEqual([]);
   });
 
-  it('TIA-R5: returns CCs where teacher is homeroomTeacherId', async () => {
+  it('TIA-R5: teacher con homeroomTeacherId → ve sus CCs', async () => {
     const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher.mockResolvedValue([
+    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
+    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([
       makeCC('cc-homeroom', 20, 'cs-A'),
     ]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
+      new Map([['cc-homeroom', { level: 20, modality: 0 }]]),
+    );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
@@ -404,13 +391,16 @@ describe('ListTeacherCourseCyclesUseCase — mode=homeroom', () => {
     expect(repos.courseCycleRepo.findByHomeroomTeacher).toHaveBeenCalledWith(teacher.id.get());
   });
 
-  it('TIA-R9: filters out non-Primario homeroom CCs', async () => {
+  it('TIA-R9: filtra non-Primario homeroom CCs', async () => {
     const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher.mockResolvedValue([
-      makeCC('cc-primario', 20, 'cs-A'),
+    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
+    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([
+      makeCC('cc-primario',  20, 'cs-A'),
       makeCC('cc-terciario', 40, 'cs-B'),
     ]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
+      new Map([['cc-primario', { level: 20, modality: 0 }]]),
+    );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
@@ -418,13 +408,14 @@ describe('ListTeacherCourseCyclesUseCase — mode=homeroom', () => {
     expect(result[0].cycle.uuid).toBe('cc-primario');
   });
 
-  it('does NOT call SubjectAssignmentRepo in homeroom mode', async () => {
+  it('homeroom mode NO llama a docenteRepo ni grupoRepo', async () => {
     const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId.mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher.mockResolvedValue([]);
+    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
+    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([]);
 
     await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
-    expect(repos.subjectAssignmentRepo.findByTeacher).not.toHaveBeenCalled();
+    expect(repos.docenteRepo.findByUserId).not.toHaveBeenCalled();
+    expect(repos.grupoRepo.findByDocente).not.toHaveBeenCalled();
   });
 });

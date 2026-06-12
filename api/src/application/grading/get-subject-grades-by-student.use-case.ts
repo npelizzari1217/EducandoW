@@ -1,16 +1,16 @@
 /**
- * PR4-T6 [GREEN] — GetSubjectGradesByStudentUseCase.
- * Security fixes (PR4a-SEC): C1 — authz check + scaffold removal.
+ * GetSubjectGradesByStudentUseCase — authz via AssignmentAuthorizer (modelo nuevo).
  *
  * Feeds the "Alumnos por curso" grid. For a (courseCycle, student) pair:
- *   1. Authz: teacher must be homeroom of courseCycleId OR have any subject assignment in it — C1.
+ *   1. Authz: authorizer.canAccessCourseCycle(userId, userRoles, courseCycleId) — C1.
+ *      Same model as the write path (DocenteXCiclo + grupos) — GET y POST validan igual.
  *   2. Resolves all subjects in the CC (via StudyPlan).
  *   3. For each subject: ensures snapshot, fetches existing period grades + finals.
  *   4. Returns ALL competency valuations with imprimible field (no pre-filter) (CORRECTION).
  *
  * SCAFFOLD REMOVED (C1): saveMany of empty grade rows must NOT happen on GET.
  * Absent row = ungraded; rows are created on write (PR4b).
- * ROOT bypasses ownership check.
+ * ROOT/management bypass handled inside AssignmentAuthorizer (Door 2).
  * Specs: SFG-R10, ES-R2 (CORRECTED), AD-7
  */
 import { Injectable } from '@nestjs/common';
@@ -23,8 +23,7 @@ import type {
   SubjectFinalGradeRepository,
   CompetencyValuationRepository,
   CompetencyValuationWithPeriods,
-  TeacherRepository,
-  SubjectAssignmentRepository,
+  AssignmentAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -77,8 +76,7 @@ export class GetSubjectGradesByStudentUseCase {
     private readonly periodGradeRepo: SubjectPeriodGradeRepository,
     private readonly finalGradeRepo: SubjectFinalGradeRepository,
     private readonly cvRepo: CompetencyValuationRepository,
-    private readonly teacherRepo: TeacherRepository,
-    private readonly assignmentRepo: SubjectAssignmentRepository,
+    private readonly authorizer: AssignmentAuthorizerPort,
   ) {}
 
   async execute(input: {
@@ -89,31 +87,9 @@ export class GetSubjectGradesByStudentUseCase {
   }): Promise<GetSubjectGradesByStudentResponse> {
     const { courseCycleId, studentId, userId, userRoles } = input;
 
-    // ── C1: Ownership check ───────────────────────────────────────────────────
-    if (!userRoles.includes('ROOT')) {
-      const teacher = await this.teacherRepo.findByUserId(userId);
-      if (!teacher) return { forbidden: true };
-
-      const client = TenantContext.getClient();
-      if (!client) return { forbidden: true };
-
-      const cc = await client.courseCycle.findUnique({
-        where: { uuid: courseCycleId },
-        select: { courseId: true, homeroomTeacherId: true },
-      });
-      if (!cc) return { forbidden: true };
-
-      const teacherId = teacher.id.get();
-      const isHomeroom = cc.homeroomTeacherId === teacherId;
-
-      let isAssigned = false;
-      if (!isHomeroom) {
-        const assignments = await this.assignmentRepo.findByTeacher(teacherId);
-        isAssigned = assignments.some((a) => a.courseSectionId === cc.courseId);
-      }
-
-      if (!isHomeroom && !isAssigned) return { forbidden: true };
-    }
+    // ── C1: Ownership check via AssignmentAuthorizer (same model as write path) ─
+    const canAccess = await this.authorizer.canAccessCourseCycle(userId, userRoles, courseCycleId);
+    if (!canAccess) return { forbidden: true };
 
     // ── 1. Get subjects for this CC via study plan ────────────────────────────
     const subjectEntries = await this.resolveSubjects(courseCycleId);

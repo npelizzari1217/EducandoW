@@ -1,5 +1,7 @@
 /**
- * PR4-T5 [RED] — GetSubjectGradesByStudentUseCase tests.
+ * GetSubjectGradesByStudentUseCase tests — authz via AssignmentAuthorizer (modelo nuevo).
+ *
+ * C1 authz ahora usa authorizer.canAccessCourseCycle (misma fuente que el write path).
  * Specs: SFG-R10, ES-R2 (CORRECTED — all competencies), AD-7
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -24,6 +26,13 @@ function makePeriod(ordinal: number, subjectId = 'subj-1'): SubjectGradingPeriod
   });
 }
 
+function makeAuthorizer(authorized = true) {
+  return {
+    canWriteGrades: vi.fn().mockResolvedValue(authorized),
+    canAccessCourseCycle: vi.fn().mockResolvedValue(authorized),
+  };
+}
+
 function makeRepos(overrides: Partial<{
   periodGradeResult: SubjectPeriodGrade[];
   finalGradeResult: unknown[];
@@ -42,14 +51,6 @@ function makeRepos(overrides: Partial<{
     },
     cvRepo: {
       findByCourseCycleAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
-    },
-    // Default: authorized teacher — homeroom or has assignment in the CC
-    teacherRepo: {
-      findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }),
-    },
-    assignmentRepo: {
-      // Assignment in cs-A (matches default mockClient cc.courseId)
-      findByTeacher: vi.fn().mockResolvedValue([{ courseSectionId: 'cs-A', subjectId: 'subj-1' }]),
     },
   };
 }
@@ -80,6 +81,7 @@ describe('GetSubjectGradesByStudentUseCase', () => {
   let useCase: GetSubjectGradesByStudentUseCase;
   let repos: ReturnType<typeof makeRepos>;
   let mockClient: ReturnType<typeof makeMockClient>;
+  let authorizer: ReturnType<typeof makeAuthorizer>;
 
   const AUTH = { userId: 'user-teacher-1', userRoles: ['TEACHER'] as string[] };
 
@@ -87,26 +89,29 @@ describe('GetSubjectGradesByStudentUseCase', () => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
     repos = makeRepos();
+    authorizer = makeAuthorizer(true);
     useCase = new GetSubjectGradesByStudentUseCase(
       repos.sgpRepo as any,
       repos.periodGradeRepo as any,
       repos.finalGradeRepo as any,
       repos.cvRepo as any,
-      repos.teacherRepo as any,
-      repos.assignmentRepo as any,
+      authorizer as any,
     );
   });
 
-  it('returns empty subjects when CC not found', async () => {
-    mockClient.courseCycle.findUnique.mockResolvedValue(null);
+  it('returns empty subjects when CC not found (canAccessCourseCycle returns false)', async () => {
+    authorizer = makeAuthorizer(false);
+    useCase = new GetSubjectGradesByStudentUseCase(
+      repos.sgpRepo as any, repos.periodGradeRepo as any,
+      repos.finalGradeRepo as any, repos.cvRepo as any, authorizer as any,
+    );
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
-    // null CC returns forbidden since ownership cannot be verified
     expect(result).toEqual({ forbidden: true });
   });
 
-  it('returns subjects from study plan for the CC (authorized teacher with assignment)', async () => {
+  it('returns subjects from study plan for the CC (authorized teacher)', async () => {
     repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
     const grade = SubjectPeriodGrade.create({ studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 });
     repos.periodGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([grade]);
@@ -124,7 +129,7 @@ describe('GetSubjectGradesByStudentUseCase', () => {
     repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
     const grade = SubjectPeriodGrade.create({ studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 });
     repos.periodGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([grade]);
-    repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);  // no finals yet
+    repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
@@ -156,7 +161,6 @@ describe('GetSubjectGradesByStudentUseCase', () => {
 
     const res = result as any;
     const cv = res.subjects[0].competencyValuations[0];
-    // BOTH period valuations returned — no imprimible filter
     expect(cv.periodValuations).toHaveLength(2);
   });
 
@@ -166,7 +170,6 @@ describe('GetSubjectGradesByStudentUseCase', () => {
 
     await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
-    // courseCycle.findUnique is called at least once (authz check + subject resolution)
     expect(mockClient.courseCycle.findUnique).toHaveBeenCalledWith(
       expect.objectContaining({ where: { uuid: 'cc-uuid-1' } }),
     );
@@ -176,72 +179,70 @@ describe('GetSubjectGradesByStudentUseCase', () => {
     repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
     const grade = SubjectPeriodGrade.create({ studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 });
     repos.periodGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([grade]);
-    repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);  // no FINAL yet
+    repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);
 
     await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
-    // C1 fix: finalGradeRepo.saveMany must NOT be called on GET
     expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
   });
 
-  // ── AUTHZ-C1: by-student ownership checks ─────────────────────────────────
+  // ── AUTHZ-C1: ownership checks via AssignmentAuthorizer ──────────────────────
 
-  it('AUTHZ-C1: teacher who is neither homeroom nor assigned to CC returns { forbidden: true }', async () => {
-    // CC has no homeroomTeacherId matching teacher-1, and no assignment
-    mockClient.courseCycle.findUnique.mockResolvedValue({
-      studyPlanId: 'sp-1', courseId: 'cs-A', homeroomTeacherId: 'other-teacher',
-    });
-    repos.teacherRepo = { findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }) };
-    repos.assignmentRepo = { findByTeacher: vi.fn().mockResolvedValue([]) };  // no assignments
+  it('AUTHZ-C1: canAccessCourseCycle=false → { forbidden: true }', async () => {
+    const auth = makeAuthorizer(false);
     useCase = new GetSubjectGradesByStudentUseCase(
       repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
+      repos.finalGradeRepo as any, repos.cvRepo as any, auth as any,
     );
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
     expect(result).toEqual({ forbidden: true });
+    expect(auth.canAccessCourseCycle).toHaveBeenCalledWith('user-teacher-1', ['TEACHER'], 'cc-uuid-1');
   });
 
-  it('AUTHZ-C1: homeroom teacher can access by-student (homeroom path)', async () => {
-    // CC.homeroomTeacherId matches teacher-1
-    mockClient.courseCycle.findUnique.mockResolvedValue({
-      studyPlanId: 'sp-1', courseId: 'cs-A', homeroomTeacherId: 'teacher-1',
-    });
-    repos.teacherRepo = { findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }) };
-    repos.assignmentRepo = { findByTeacher: vi.fn().mockResolvedValue([]) };  // no subject assignment
-    repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
-    repos.periodGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);
+  it('AUTHZ-C1: canAccessCourseCycle=true → no forbidden', async () => {
+    const auth = makeAuthorizer(true);
+    repos.sgpRepo.ensureSnapshot.mockResolvedValue([]);
     useCase = new GetSubjectGradesByStudentUseCase(
       repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
+      repos.finalGradeRepo as any, repos.cvRepo as any, auth as any,
     );
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 
-    // Not forbidden — homeroom access is sufficient
     expect(result).not.toEqual({ forbidden: true });
   });
 
-  it('AUTHZ-C1: ROOT bypasses ownership check', async () => {
-    repos.teacherRepo = { findByUserId: vi.fn() };
-    repos.assignmentRepo = { findByTeacher: vi.fn() };
+  it('AUTHZ-C1: ROOT → authorizer.canAccessCourseCycle maneja el bypass', async () => {
+    const auth = makeAuthorizer(true);
     repos.sgpRepo.ensureSnapshot.mockResolvedValue([]);
     useCase = new GetSubjectGradesByStudentUseCase(
       repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
+      repos.finalGradeRepo as any, repos.cvRepo as any, auth as any,
     );
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', userId: 'root-id', userRoles: ['ROOT'] });
 
     expect(result).not.toEqual({ forbidden: true });
-    expect(repos.teacherRepo.findByUserId).not.toHaveBeenCalled();
+    expect(auth.canAccessCourseCycle).toHaveBeenCalledWith('root-id', ['ROOT'], 'cc-uuid-1');
   });
 
-  // ── condicion in response (PR4-T5 [RED]) ─────────────────────────────────────
+  it('AUTHZ-C1: ADMIN → authorizer.canAccessCourseCycle maneja el bypass (gestión)', async () => {
+    const auth = makeAuthorizer(true);
+    repos.sgpRepo.ensureSnapshot.mockResolvedValue([]);
+    useCase = new GetSubjectGradesByStudentUseCase(
+      repos.sgpRepo as any, repos.periodGradeRepo as any,
+      repos.finalGradeRepo as any, repos.cvRepo as any, auth as any,
+    );
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', userId: 'admin-id', userRoles: ['ADMIN'] });
+
+    expect(result).not.toEqual({ forbidden: true });
+    expect(auth.canAccessCourseCycle).toHaveBeenCalledWith('admin-id', ['ADMIN'], 'cc-uuid-1');
+  });
+
+  // ── condicion in response ─────────────────────────────────────────────────────
 
   describe('condicion in response', () => {
     it('COND-S9: finalGrades[] entries include condicion=PREVIA for student-scoped read', async () => {
@@ -294,7 +295,7 @@ describe('GetSubjectGradesByStudentUseCase', () => {
 
     it('absent final grade row returns condicion: null (not undefined)', async () => {
       repos.sgpRepo.ensureSnapshot.mockResolvedValue([makePeriod(1)]);
-      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);  // no FINAL row
+      repos.finalGradeRepo.findByStudentAndCourseCycle.mockResolvedValue([]);
 
       const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
 

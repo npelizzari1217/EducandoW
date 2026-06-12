@@ -1,15 +1,16 @@
 /**
- * PR4-T14 [GREEN] — ListTeacherSubjectsInCourseCycleUseCase.
+ * ListTeacherSubjectsInCourseCycleUseCase — modelo NUEVO (DocenteXCiclo + grupos).
  *
- * Returns only the subjects in the given CourseCycle to which the resolved teacher
- * has a SubjectAssignment. (TIA-R4)
+ * Reemplaza Teacher+SubjectAssignment por DocenteXCiclo+GrupoRepository.
+ * Path: userId+cycleId → DocenteXCiclo → GrupoXCursoXMateriaXCiclo (filtrando por CC)
+ *       → MateriaXCursoXCiclo.subjectId → nombres + studyPlanSubjectId.
  *
- * Unlinked userId → empty array, never error. (TIA-R2)
- * CC not found → empty array (cross-tenant isolation). (TIA-R7)
+ * userId sin DocenteXCiclo en este ciclo → empty array, never error.
+ * CC not found → empty array (cross-tenant isolation).
  * Specs: TIA-R4, TIA-R7
  */
 import { Injectable } from '@nestjs/common';
-import type { SubjectAssignmentRepository, TeacherRepository } from '@educandow/domain';
+import type { DocenteXCicloRepository, GrupoRepository } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 export interface TeacherSubjectEntry {
@@ -26,41 +27,46 @@ export interface TeacherSubjectEntry {
 @Injectable()
 export class ListTeacherSubjectsInCourseCycleUseCase {
   constructor(
-    private readonly teacherRepo: TeacherRepository,
-    private readonly assignmentRepo: SubjectAssignmentRepository,
+    private readonly docenteRepo: DocenteXCicloRepository,
+    private readonly grupoRepo: GrupoRepository,
   ) {}
 
   async execute(input: { userId: string; courseCycleId: string }): Promise<TeacherSubjectEntry[]> {
-    // 1. Resolve Teacher (TIA-R2: null → empty)
-    const teacher = await this.teacherRepo.findByUserId(input.userId);
-    if (!teacher) return [];
-
-    // 2. Get CourseCycle.courseId (= CourseSection.id) to filter assignments
+    // 1. Get CourseCycle to extract cycleId (needed for DocenteXCiclo lookup)
     const client = TenantContext.getClient();
     if (!client) return [];
 
     const cc = await client.courseCycle.findUnique({
       where: { uuid: input.courseCycleId },
-      select: { courseId: true, studyPlanId: true },
+      select: { cycleId: true, courseId: true, studyPlanId: true },
     });
-    if (!cc) return [];  // cross-tenant or not-found
+    if (!cc) return []; // cross-tenant or not-found
 
-    // 3. Get teacher's assignments, filter to those in this CC's course section
-    const allAssignments = await this.assignmentRepo.findByTeacher(teacher.id.get());
-    const ccAssignments = allAssignments.filter((a) => a.courseSectionId === cc.courseId);
+    // 2. Find DocenteXCiclo for (userId, cycleId)
+    const dxc = await this.docenteRepo.findByUserAndCycle(input.userId, cc.cycleId);
+    if (!dxc) return [];
 
-    if (ccAssignments.length === 0) return [];
+    // 3. Get all grupos for this DocenteXCiclo (may span multiple CCs)
+    const grupos = await this.grupoRepo.findByDocente(dxc.id);
+    if (grupos.length === 0) return [];
 
-    // 4. Fetch subject names from the tenant DB
-    const subjectIds = ccAssignments.map((a) => a.subjectId);
+    // 4. Filter materias belonging to THIS CC only
+    const materiaIds = grupos.map((g) => g.materiaXCursoXCicloId);
+    const materias = await client.materiaXCursoXCiclo.findMany({
+      where: { id: { in: materiaIds }, courseCycleId: input.courseCycleId },
+      select: { id: true, subjectId: true },
+    });
+    if (materias.length === 0) return [];
+
+    // 5. Fetch subject names from the tenant DB
+    const subjectIds = materias.map((m) => m.subjectId);
     const subjects = await client.subject.findMany({
       where: { id: { in: subjectIds } },
       select: { id: true, name: true },
     });
-
     const subjectMap = new Map(subjects.map((s) => [s.id, s.name]));
 
-    // 5. Bulk-resolve studyPlanSubjectId for each subject (needed by front-end competency channel).
+    // 6. Bulk-resolve studyPlanSubjectId for each subject (needed by front-end competency channel).
     //    Path: studyPlanId + courseId → StudyPlanCourse → StudyPlanSubject.
     const studyPlanSubjectMap = new Map<string, string>();
     if (cc.studyPlanId) {

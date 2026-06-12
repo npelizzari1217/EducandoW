@@ -1,34 +1,37 @@
 /**
- * PR4-T12 [GREEN] — ListTeacherCourseCyclesUseCase.
+ * ListTeacherCourseCyclesUseCase — modelo NUEVO (DocenteXCiclo + grupos).
  *
- * Resolves the authenticated user's Teacher record and returns the CourseCycles
- * the teacher is authorized to view:
- *   - mode='subject'  → CCs via SubjectAssignment.courseSectionId (AD-6 "por materia" path)
- *     Includes Primario (decade=2) AND Secundario (decade=3). Terciario (4) and Inicial (1) excluded.
- *   - mode='homeroom' → CCs via CourseCycle.homeroomTeacherId    (AD-6 "por curso" path)
- *     Primario only (decade=2). Homeroom mode is Primario-specific; not extended to Secundario.
+ * mode='subject': resolver CCs vía DocenteXCiclo → GrupoXCursoXMateriaXCiclo
+ *   → MateriaXCursoXCiclo.courseCycleId.
+ *   Includes Primario (decade=2) AND Secundario (decade=3). Terciario (4) and Inicial (1) excluded.
  *
- * Unlinked userId (no Teacher with that userId) → empty array, never an error. (TIA-R2)
+ * mode='homeroom': sin cambios — usa Teacher.homeroomTeacherId (modelo viejo).
+ *   Primario only (decade=2). Homeroom mode is Primario-specific.
+ *
+ * userId sin DocenteXCiclo (subject mode) → empty array, never an error.
  * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R9, ESS-R1, ESS-R2, AD-6, D3
  */
 import { Injectable } from '@nestjs/common';
 import type {
   CourseCycle,
   CourseCycleRepository,
-  SubjectAssignmentRepository,
   TeacherRepository,
+  DocenteXCicloRepository,
+  GrupoRepository,
 } from '@educandow/domain';
+import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 /** Decades allowed for subject-mode entry screens: Primario (2x) + Secundario (3x). */
 const SUBJECT_ALLOWED_DECADES = [2, 3];
-/** Homeroom mode remains Primario-only — not extended to Secundario in this PR. */
+/** Homeroom mode remains Primario-only — not extended to Secundario. */
 const HOMEROOM_DECADE = 2;
 
 @Injectable()
 export class ListTeacherCourseCyclesUseCase {
   constructor(
-    private readonly teacherRepo: TeacherRepository,
-    private readonly assignmentRepo: SubjectAssignmentRepository,
+    private readonly teacherRepo: TeacherRepository,           // homeroom only
+    private readonly docenteRepo: DocenteXCicloRepository,     // subject mode (new model)
+    private readonly grupoRepo: GrupoRepository,               // subject mode (new model)
     private readonly courseCycleRepo: CourseCycleRepository,
   ) {}
 
@@ -36,23 +39,46 @@ export class ListTeacherCourseCyclesUseCase {
     userId: string;
     mode: 'subject' | 'homeroom';
   }): Promise<Array<{ cycle: CourseCycle; modality: number | null }>> {
-    // 1. Resolve Teacher from JWT userId (TIA-R2: null → empty, never error)
-    const teacher = await this.teacherRepo.findByUserId(input.userId);
-    if (!teacher) return [];
-
     let courseCycles: CourseCycle[];
 
     if (input.mode === 'homeroom') {
-      // AD-6 "por curso" path: CourseCycle.homeroomTeacherId = teacher.id
+      // AD-6 "por curso" path: Teacher.homeroomTeacherId (modelo viejo, sin cambios)
+      const teacher = await this.teacherRepo.findByUserId(input.userId);
+      if (!teacher) return [];
       courseCycles = await this.courseCycleRepo.findByHomeroomTeacher(teacher.id.get());
     } else {
-      // AD-6 "por materia" path: SubjectAssignment → courseSectionId → CourseCycle.courseId
-      const assignments = await this.assignmentRepo.findByTeacher(teacher.id.get());
-      if (assignments.length === 0) return [];
+      // AD-6 "por materia" path — modelo NUEVO:
+      // userId → DocenteXCiclo[] → GrupoXCursoXMateriaXCiclo[] → MateriaXCursoXCiclo.courseCycleId
 
-      // Deduplicate courseSectionIds (a teacher can have multiple subjects per section)
-      const courseSectionIds = [...new Set(assignments.map((a) => a.courseSectionId))];
-      courseCycles = await this.courseCycleRepo.findByCourseSectionIds(courseSectionIds);
+      // Step 1: Resolve all DocenteXCiclo records for this user (may span multiple cycles)
+      const docentes = await this.docenteRepo.findByUserId(input.userId);
+      if (docentes.length === 0) return [];
+
+      // Step 2: Collect all grupos for each DocenteXCiclo record
+      const gruposByDxc = await Promise.all(
+        docentes.map((dxc) => this.grupoRepo.findByDocente(dxc.id)),
+      );
+      const allGrupos = gruposByDxc.flat();
+      if (allGrupos.length === 0) return [];
+
+      // Step 3: Deduplicate materiaXCursoXCicloIds
+      const materiaIds = [...new Set(allGrupos.map((g) => g.materiaXCursoXCicloId))];
+
+      // Step 4: Batch-lookup courseCycleIds for those materias (raw Prisma — same pattern as AssignmentAuthorizer)
+      const client = TenantContext.getClient();
+      if (!client) return [];
+
+      const materias = await client.materiaXCursoXCiclo.findMany({
+        where: { id: { in: materiaIds } },
+        select: { courseCycleId: true },
+      });
+      if (materias.length === 0) return [];
+
+      // Step 5: Deduplicate courseCycleIds (UUID)
+      const ccUuids = [...new Set(materias.map((m) => m.courseCycleId))];
+
+      // Step 6: Fetch CourseCycle entities
+      courseCycles = await this.courseCycleRepo.findByUuids(ccUuids);
     }
 
     // Filter by allowed decades per mode:
@@ -68,9 +94,6 @@ export class ListTeacherCourseCyclesUseCase {
     if (filtered.length === 0) return [];
 
     // W3: resolve modality from StudyPlan (authoritative source) via a single bulk query.
-    // This matches the write-side: upsert use cases call findGradingContextByUuid →
-    // CourseCycle.studyPlanId → StudyPlan.modality. Using cc.level.modalityCode would
-    // diverge if a StudyPlan's modality changes without cascading to CourseCycle.level.
     const uuids = filtered.map((cc) => cc.uuid);
     const gradingContexts = await this.courseCycleRepo.findGradingContextsByUuids(uuids);
 

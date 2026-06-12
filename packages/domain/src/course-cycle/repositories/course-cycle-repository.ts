@@ -77,4 +77,11 @@ export interface CourseCycleRepository {
    * Tenant scoping is via TenantContext.
    */
   findByCourseSectionIds(courseSectionIds: string[]): Promise<CourseCycle[]>;
+
+  /**
+   * Returns CourseCycles whose uuid is in the provided set.
+   * Used for "por grupo": MateriaXCursoXCiclo.courseCycleId → CourseCycle.uuid.
+   * Empty input → empty array. Tenant scoping is via TenantContext.
+   */
+  findByUuids(uuids: string[]): Promise<CourseCycle[]>;
 }

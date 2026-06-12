@@ -24,4 +24,20 @@ export interface AssignmentAuthorizerPort {
     courseCycleId: string,
     subjectId: string,
   ): Promise<boolean>;
+
+  /**
+   * Checks if a user can access (read) grade data for an entire CourseCycle
+   * (e.g. the "by student" grid that shows all subjects in the CC).
+   *
+   * Contract:
+   *   - ROOT: always permitted.
+   *   - SECRETARIO / DIRECTOR / ADMIN: permitted (D3 management bypass).
+   *   - TEACHER (rank < SECRETARIO): permitted only if the user has at least
+   *     one GrupoXCursoXMateriaXCiclo in the given CourseCycle.
+   */
+  canAccessCourseCycle(
+    userId: string,
+    userRoles: string[],
+    courseCycleId: string,
+  ): Promise<boolean>;
 }

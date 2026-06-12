@@ -1,6 +1,8 @@
 /**
- * PR4-T3 [RED] — GetSubjectGradesBySubjectUseCase tests.
- * Specs: SPG-R8, ES-R1 (CORRECTED — all competencies), TIA-R2, AD-5, AD-7
+ * GetSubjectGradesBySubjectUseCase tests — authz via AssignmentAuthorizer (modelo nuevo).
+ *
+ * C1 authz ahora usa authorizer.canWriteGrades (misma fuente que el write path).
+ * Specs: SPG-R8, ES-R1 (CORRECTED — all competencies), AD-5, AD-7
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetSubjectGradesBySubjectUseCase } from './get-subject-grades-by-subject.use-case';
@@ -22,6 +24,14 @@ function makePeriod(ordinal: number): SubjectGradingPeriod {
     sortOrder: ordinal,
     name: `Período ${ordinal}`,
   });
+}
+
+/** Authorized authorizer (canWriteGrades returns true) */
+function makeAuthorizer(authorized = true) {
+  return {
+    canWriteGrades: vi.fn().mockResolvedValue(authorized),
+    canAccessCourseCycle: vi.fn().mockResolvedValue(authorized),
+  };
 }
 
 function makeRepos(overrides: Partial<{
@@ -55,15 +65,6 @@ function makeRepos(overrides: Partial<{
     },
     ccRepo: {
       findEnrolledStudents: vi.fn().mockResolvedValue(students),
-    },
-    // Default: authorized teacher with matching assignment (cs-A / subj-uuid-1)
-    teacherRepo: {
-      findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }),
-    },
-    assignmentRepo: {
-      findByTeacher: vi.fn().mockResolvedValue([
-        { courseSectionId: 'cs-A', subjectId: 'subj-uuid-1' },
-      ]),
     },
   };
 }
@@ -100,18 +101,19 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
   let useCase: GetSubjectGradesBySubjectUseCase;
   let repos: ReturnType<typeof makeRepos>;
   let mockClient: ReturnType<typeof makeMockClient>;
+  let authorizer: ReturnType<typeof makeAuthorizer>;
 
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    authorizer = makeAuthorizer(true); // authorized by default
   });
 
-  // Helper: construct use case with authorized teacher defaults
-  function makeUseCase(r = repos) {
+  function makeUseCase(r = repos, auth = authorizer) {
     return new GetSubjectGradesBySubjectUseCase(
       r.sgpRepo as any, r.periodGradeRepo as any,
       r.finalGradeRepo as any, r.cvRepo as any, r.ccRepo as any,
-      r.teacherRepo as any, r.assignmentRepo as any,
+      auth as any,
     );
   }
   const AUTH = { userId: 'user-teacher-1', userRoles: ['TEACHER'] as string[] };
@@ -153,16 +155,14 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     const periods = [makePeriod(1), makePeriod(2)];
     repos = makeRepos({
       sgpRepoResult: periods,
-      periodGradeResult: [],  // no existing grades
+      periodGradeResult: [],
       enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
     });
     useCase = makeUseCase();
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
 
-    // C1 fix: saveMany must NOT be called on GET
     expect(repos.periodGradeRepo.saveMany).not.toHaveBeenCalled();
-    // Absent rows = empty periodGrades array for this student
     const res = result as any;
     expect(res.students[0].periodGrades).toEqual([]);
   });
@@ -172,14 +172,13 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     repos = makeRepos({
       sgpRepoResult: periods,
       periodGradeResult: [],
-      finalGradeResult: [],  // no FINAL rows yet
+      finalGradeResult: [],
       enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
     });
     useCase = makeUseCase();
 
     await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
 
-    // C1 fix: finalGradeRepo.saveMany must NOT be called on GET
     expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
   });
 
@@ -230,7 +229,6 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     const res = result as any;
     const student = res.students[0];
     const cv = student.competencyValuations[0];
-    // BOTH period valuations returned — no imprimible filter on entry screen
     expect(cv.periodValuations).toHaveLength(2);
     expect(cv.periodValuations[0].imprimible).toBe(true);
     expect(cv.periodValuations[1].imprimible).toBe(false);
@@ -255,7 +253,7 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
   });
 
   it('skips competency fetch when studyPlanSubjectId cannot be resolved', async () => {
-    mockClient.studyPlanSubject.findFirst.mockResolvedValue(null);  // no SPS found
+    mockClient.studyPlanSubject.findFirst.mockResolvedValue(null);
     const periods = [makePeriod(1)];
     const grade = SubjectPeriodGrade.create({ studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', periodOrdinal: 1 });
     repos = makeRepos({
@@ -263,13 +261,7 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
       periodGradeResult: [grade],
       enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
     });
-    repos.teacherRepo = { findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }) };
-    repos.assignmentRepo = { findByTeacher: vi.fn().mockResolvedValue([{ courseSectionId: 'cs-A', subjectId: 'subj-uuid-1' }]) };
-    useCase = new GetSubjectGradesBySubjectUseCase(
-      repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any, repos.ccRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
-    );
+    useCase = makeUseCase();
 
     const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', userId: 'user-1', userRoles: ['TEACHER'] });
 
@@ -279,62 +271,63 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     expect(res.students[0].competencyValuations).toEqual([]);
   });
 
-  // ── AUTHZ-C1: ownership checks ──────────────────────────────────────────────
+  // ── AUTHZ-C1: ownership checks via AssignmentAuthorizer ──────────────────────
 
-  it('AUTHZ-C1: unlinked userId (no Teacher record) returns { forbidden: true }', async () => {
+  it('AUTHZ-C1: authorizer.canWriteGrades retorna false → { forbidden: true }', async () => {
     repos = makeRepos({ sgpRepoResult: [makePeriod(1)], enrolledStudents: [] });
-    repos.teacherRepo = { findByUserId: vi.fn().mockResolvedValue(null) };  // unlinked
-    repos.assignmentRepo = { findByTeacher: vi.fn() };
-    useCase = new GetSubjectGradesBySubjectUseCase(
-      repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any, repos.ccRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
-    );
+    const auth = makeAuthorizer(false); // unauthorized
+    useCase = makeUseCase(repos, auth);
 
-    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', userId: 'unknown-user', userRoles: ['TEACHER'] });
+    const result = await useCase.execute({
+      courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1',
+      userId: 'unknown-user', userRoles: ['TEACHER'],
+    });
 
     expect(result).toEqual({ forbidden: true });
+    expect(auth.canWriteGrades).toHaveBeenCalledWith('unknown-user', ['TEACHER'], 'cc-uuid-1', 'subj-uuid-1');
   });
 
-  it('AUTHZ-C1: teacher with no assignment to (courseCycleId, subjectId) returns { forbidden: true }', async () => {
-    repos = makeRepos({ sgpRepoResult: [makePeriod(1)], enrolledStudents: [] });
-    repos.teacherRepo = { findByUserId: vi.fn().mockResolvedValue({ id: { get: () => 'teacher-1' } }) };
-    repos.assignmentRepo = {
-      findByTeacher: vi.fn().mockResolvedValue([
-        { courseSectionId: 'cs-OTHER', subjectId: 'subj-uuid-1' },  // wrong courseSection
-        { courseSectionId: 'cs-A', subjectId: 'subj-OTHER' },         // wrong subject
-      ]),
-    };
-    useCase = new GetSubjectGradesBySubjectUseCase(
-      repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any, repos.ccRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
-    );
-
-    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', userId: 'user-1', userRoles: ['TEACHER'] });
-
-    expect(result).toEqual({ forbidden: true });
-  });
-
-  it('AUTHZ-C1: ROOT bypasses ownership check and returns data', async () => {
+  it('AUTHZ-C1: authorizer.canWriteGrades retorna true → NO forbidden', async () => {
     repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
-    repos.teacherRepo = { findByUserId: vi.fn() };
-    repos.assignmentRepo = { findByTeacher: vi.fn() };
-    useCase = new GetSubjectGradesBySubjectUseCase(
-      repos.sgpRepo as any, repos.periodGradeRepo as any,
-      repos.finalGradeRepo as any, repos.cvRepo as any, repos.ccRepo as any,
-      repos.teacherRepo as any, repos.assignmentRepo as any,
-    );
+    const auth = makeAuthorizer(true);
+    useCase = makeUseCase(repos, auth);
 
-    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', userId: 'root-user', userRoles: ['ROOT'] });
+    const result = await useCase.execute({
+      courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1',
+      userId: 'user-teacher', userRoles: ['TEACHER'],
+    });
 
-    // Not forbidden
     expect(result).not.toEqual({ forbidden: true });
-    // teacherRepo never called for ROOT
-    expect(repos.teacherRepo.findByUserId).not.toHaveBeenCalled();
   });
 
-  // ── condicion in response (PR4-T3 [RED]) ─────────────────────────────────────
+  it('AUTHZ-C1: ROOT → authorizer.canWriteGrades devuelve true (bypass gestionado por el authorizer)', async () => {
+    repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
+    const auth = makeAuthorizer(true);
+    useCase = makeUseCase(repos, auth);
+
+    const result = await useCase.execute({
+      courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1',
+      userId: 'root-user', userRoles: ['ROOT'],
+    });
+
+    expect(result).not.toEqual({ forbidden: true });
+    expect(auth.canWriteGrades).toHaveBeenCalledWith('root-user', ['ROOT'], 'cc-uuid-1', 'subj-uuid-1');
+  });
+
+  it('AUTHZ-C1: authorizer.canWriteGrades es llamado con los parámetros correctos', async () => {
+    repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
+    const auth = makeAuthorizer(true);
+    useCase = makeUseCase(repos, auth);
+
+    await useCase.execute({
+      courseCycleId: 'cc-X', subjectId: 'subj-Y',
+      userId: 'user-Z', userRoles: ['TEACHER'],
+    });
+
+    expect(auth.canWriteGrades).toHaveBeenCalledWith('user-Z', ['TEACHER'], 'cc-X', 'subj-Y');
+  });
+
+  // ── condicion in response ─────────────────────────────────────────────────────
 
   describe('condicion in response', () => {
     it('COND-S9: finalGrades[] entries include condicion for a row with condicion=PREVIA', async () => {
@@ -399,7 +392,7 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
       const periods = [makePeriod(1)];
       repos = makeRepos({
         sgpRepoResult: periods,
-        finalGradeResult: [],  // no FINAL row
+        finalGradeResult: [],
         enrolledStudents: [{ studentId: 'student-1', firstName: 'Ana', lastName: 'López' }],
       });
       useCase = makeUseCase(repos);

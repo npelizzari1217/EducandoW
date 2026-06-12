@@ -169,6 +169,15 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
     return records.map((r) => this.toDomain(r));
   }
 
+  async findByUuids(uuids: string[]): Promise<CourseCycle[]> {
+    if (uuids.length === 0) return [];
+    const records = await this.client.courseCycle.findMany({
+      where: { uuid: { in: uuids }, deletedAt: null },
+      orderBy: { courseName: 'asc' },
+    });
+    return records.map((r) => this.toDomain(r));
+  }
+
   /**
    * Bulk variant of findGradingContextByUuid — one query for N course cycles.
    * Joins CourseCycle → StudyPlan in a single Prisma query (no N+1).
