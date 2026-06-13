@@ -13,7 +13,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Navigate, Link } from 'react-router-dom';
+import { useParams, Navigate, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth-context';
 import { useCan } from '../../hooks/use-can';
 import apiClient from '../../api/client';
@@ -23,6 +23,27 @@ import PremiumHeader from '../../components/ui/premium-header';
 import { GrupoSelector } from './components/GrupoSelector';
 import type { MateriaXCursoXCiclo, GrupoXCursoXMateriaXCiclo } from '../../types/materia-grupo';
 import { isManagementUser } from '../../types/materia-grupo';
+
+// ── Local types ───────────────────────────────────────────────────────────────
+
+interface AlumnoMateriaItem {
+  id: string;
+  studentId: string;
+  studentName: string;
+}
+
+interface AlumnoGrupoItem {
+  id: string;
+  grupoId: string;
+  alumnosXMateriaXCursoXCicloId: string;
+}
+
+interface TeacherOption {
+  id: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+}
 
 interface MateriaWithGrupos {
   materia: MateriaXCursoXCiclo;
@@ -35,6 +56,7 @@ export default function MateriasGruposPage() {
   const { ccId } = useParams<{ ccId: string }>();
   const { user } = useAuth();
   const { can } = useCan();
+  const navigate = useNavigate();
 
   // F7-N3: GRADES module required
   if (!can('GRADES', 'READ')) {
@@ -47,6 +69,20 @@ export default function MateriasGruposPage() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showAsignacionPanel, setShowAsignacionPanel] = useState(false);
+
+  // ── Teacher picker state ──────────────────────────────────────────────────
+  const [teacherPickerMateriaId, setTeacherPickerMateriaId] = useState<string | null>(null);
+  const [teachers, setTeachers] = useState<TeacherOption[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState('');
+  const [teacherPickerError, setTeacherPickerError] = useState<string | null>(null);
+  const [loadingTeachers, setLoadingTeachers] = useState(false);
+  const [creatingGrupo, setCreatingGrupo] = useState(false);
+
+  // ── Alumnos panel state ───────────────────────────────────────────────────
+  const [alumnosPanelState, setAlumnosPanelState] = useState<{ grupoId: string; materiaId: string } | null>(null);
+  const [grupoAlumnos, setGrupoAlumnos] = useState<
+    Record<string, { current: AlumnoGrupoItem[]; available: AlumnoMateriaItem[]; loading: boolean }>
+  >({});
 
   // Fetch grupos for a single materia
   const fetchGrupos = useCallback(
@@ -109,13 +145,39 @@ export default function MateriasGruposPage() {
       .finally(() => setLoading(false));
   }, [ccId, fetchGrupos]);
 
+  // ── Teacher picker logic ──────────────────────────────────────────────────
+
+  const openTeacherPicker = async (materiaId: string) => {
+    setTeacherPickerMateriaId(materiaId);
+    setSelectedTeacherId('');
+    setTeacherPickerError(null);
+
+    if (teachers.length > 0) return; // already loaded
+
+    setLoadingTeachers(true);
+    try {
+      const params = new URLSearchParams({ role: 'TEACHER' });
+      if (user?.institutionId) params.set('institutionId', user.institutionId);
+      const res = await apiClient.get<{ data: TeacherOption[] }>(`/users?${params.toString()}`);
+      setTeachers(res.data?.data ?? []);
+    } catch {
+      setTeacherPickerError('No se pudieron cargar los docentes.');
+    } finally {
+      setLoadingTeachers(false);
+    }
+  };
+
   const handleCreateGrupo = async (materiaId: string) => {
-    if (!ccId) return;
+    if (!ccId || !selectedTeacherId) return;
+    setCreatingGrupo(true);
+    setTeacherPickerError(null);
     try {
       await apiClient.post(`/course-cycles/${ccId}/materias/${materiaId}/grupos`, {
-        userId: user?.id,
+        userId: selectedTeacherId,
       });
       setToast({ message: 'Grupo creado exitosamente', type: 'success' });
+      setTeacherPickerMateriaId(null);
+      setSelectedTeacherId('');
       // Refresh grupos for this materia
       setRows((prev) =>
         prev.map((row) =>
@@ -123,10 +185,60 @@ export default function MateriasGruposPage() {
         ),
       );
       fetchGrupos(materiaId);
-    } catch {
-      setToast({ message: 'Error al crear el grupo', type: 'error' });
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Error al crear el grupo';
+      setTeacherPickerError(message);
+    } finally {
+      setCreatingGrupo(false);
     }
   };
+
+  // ── Alumnos panel logic ───────────────────────────────────────────────────
+
+  const openAlumnosPanel = async (grupoId: string, materiaId: string) => {
+    setAlumnosPanelState({ grupoId, materiaId });
+    setGrupoAlumnos((prev) => ({
+      ...prev,
+      [grupoId]: { current: [], available: [], loading: true },
+    }));
+
+    try {
+      const [currentRes, availableRes] = await Promise.all([
+        apiClient.get<{ data: AlumnoGrupoItem[] }>(`/grupos/${grupoId}/alumnos`),
+        apiClient.get<{ data: AlumnoMateriaItem[] }>(
+          `/course-cycles/${ccId}/materias/${materiaId}/alumnos`,
+        ),
+      ]);
+      const current: AlumnoGrupoItem[] = currentRes.data?.data ?? [];
+      const available: AlumnoMateriaItem[] = availableRes.data?.data ?? [];
+      setGrupoAlumnos((prev) => ({
+        ...prev,
+        [grupoId]: { current, available, loading: false },
+      }));
+    } catch {
+      setGrupoAlumnos((prev) => ({
+        ...prev,
+        [grupoId]: { current: [], available: [], loading: false },
+      }));
+    }
+  };
+
+  const handleAddAlumnoToGrupo = async (grupoId: string, alumnoMateriaId: string) => {
+    try {
+      await apiClient.post(`/grupos/${grupoId}/alumnos`, {
+        alumnosXMateriaXCursoXCicloId: alumnoMateriaId,
+      });
+      // Reload panel
+      const state = alumnosPanelState;
+      if (state) await openAlumnosPanel(grupoId, state.materiaId);
+    } catch {
+      setToast({ message: 'Error al agregar el alumno', type: 'error' });
+    }
+  };
+
+  // ── Styles ────────────────────────────────────────────────────────────────
 
   const labelStyle: React.CSSProperties = {
     fontSize: 'var(--text-xs)',
@@ -134,6 +246,15 @@ export default function MateriasGruposPage() {
     color: 'var(--color-text-muted)',
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.375rem 0.75rem',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    fontSize: 'var(--text-sm)',
   };
 
   return (
@@ -226,55 +347,101 @@ export default function MateriasGruposPage() {
 
             {/* Grupos list */}
             {!loadingGrupos && grupos.map((grupo) => (
-              <div
-                key={grupo.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: 'var(--space-sm) var(--space-md)',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-surface-2, #f8fafc)',
-                  marginBottom: 'var(--space-xs)',
-                }}
-              >
-                <div>
-                  <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
-                    {grupo.name ?? `Grupo de ${grupo.docenteName ?? 'docente'}`}
-                  </span>
-                  {grupo.docenteName && (
-                    <span style={{ marginLeft: 'var(--space-sm)', ...labelStyle }}>
-                      {grupo.docenteName}
+              <div key={grupo.id}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 'var(--space-sm) var(--space-md)',
+                    borderRadius: 'var(--radius-sm)',
+                    background: 'var(--color-surface-2, #f8fafc)',
+                    marginBottom: 'var(--space-xs)',
+                  }}
+                >
+                  <div>
+                    <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+                      {grupo.name ?? `Grupo de ${grupo.docenteName ?? 'docente'}`}
                     </span>
-                  )}
-                  {grupo.alumnosCount !== undefined && (
-                    <span style={{ marginLeft: 'var(--space-sm)', ...labelStyle }}>
-                      {grupo.alumnosCount} alumnos
-                    </span>
-                  )}
+                    {grupo.docenteName && (
+                      <span style={{ marginLeft: 'var(--space-sm)', ...labelStyle }}>
+                        {grupo.docenteName}
+                      </span>
+                    )}
+                    {grupo.alumnosCount !== undefined && (
+                      <span style={{ marginLeft: 'var(--space-sm)', ...labelStyle }}>
+                        {grupo.alumnosCount} alumnos
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                    {isManagement && (
+                      <Button
+                        variant="action"
+                        size="sm"
+                        data-testid="btn-agregar-alumnos"
+                        onClick={() => openAlumnosPanel(grupo.id, materia.id)}
+                      >
+                        Agregar alumnos
+                      </Button>
+                    )}
+                    <Button
+                      variant="action"
+                      size="sm"
+                      onClick={() => navigate('/competency-grading')}
+                    >
+                      Notas
+                    </Button>
+                    <Button
+                      variant="action"
+                      size="sm"
+                      onClick={() => navigate('/attendance')}
+                    >
+                      Ausencias
+                    </Button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
-                  <Button variant="action" size="sm">
-                    Notas
-                  </Button>
-                  <Button variant="action" size="sm">
-                    Ausencias
-                  </Button>
-                </div>
+
+                {/* Alumnos panel — inline below the grupo row */}
+                {alumnosPanelState?.grupoId === grupo.id && (
+                  <AlumnosPanelInline
+                    grupoId={grupo.id}
+                    state={grupoAlumnos[grupo.id]}
+                    onAdd={(alumnoId) => handleAddAlumnoToGrupo(grupo.id, alumnoId)}
+                    onClose={() => setAlumnosPanelState(null)}
+                  />
+                )}
               </div>
             ))}
 
             {/* F7-R3: Asignar docente button — hidden for TEACHER, visible for management */}
             {isManagement && !loadingGrupos && (
               <div style={{ marginTop: 'var(--space-sm)' }}>
-                <Button
-                  variant="action"
-                  size="sm"
-                  data-testid="btn-asignar-docente"
-                  onClick={() => handleCreateGrupo(materia.id)}
-                >
-                  + Asignar docente a grupo
-                </Button>
+                {teacherPickerMateriaId === materia.id ? (
+                  <TeacherPickerInline
+                    teachers={teachers}
+                    loading={loadingTeachers}
+                    selectedTeacherId={selectedTeacherId}
+                    onSelectTeacher={setSelectedTeacherId}
+                    onConfirm={() => handleCreateGrupo(materia.id)}
+                    onCancel={() => {
+                      setTeacherPickerMateriaId(null);
+                      setTeacherPickerError(null);
+                    }}
+                    error={teacherPickerError}
+                    creating={creatingGrupo}
+                    inputStyle={inputStyle}
+                  />
+                ) : (
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid="btn-asignar-docente"
+                    onClick={() => openTeacherPicker(materia.id)}
+                  >
+                    + Asignar docente a grupo
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -296,6 +463,163 @@ export default function MateriasGruposPage() {
           {toast.message}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── TeacherPickerInline ───────────────────────────────────────────────────────
+
+interface TeacherPickerInlineProps {
+  teachers: TeacherOption[];
+  loading: boolean;
+  selectedTeacherId: string;
+  onSelectTeacher: (id: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  error: string | null;
+  creating: boolean;
+  inputStyle: React.CSSProperties;
+}
+
+function TeacherPickerInline({
+  teachers,
+  loading,
+  selectedTeacherId,
+  onSelectTeacher,
+  onConfirm,
+  onCancel,
+  error,
+  creating,
+  inputStyle,
+}: TeacherPickerInlineProps) {
+  return (
+    <div
+      style={{
+        padding: 'var(--space-sm)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--color-surface-2, #f8fafc)',
+      }}
+      data-testid="teacher-picker"
+    >
+      {loading ? (
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+          Cargando docentes...
+        </p>
+      ) : (
+        <>
+          <select
+            value={selectedTeacherId}
+            onChange={(e) => onSelectTeacher(e.target.value)}
+            style={{ ...inputStyle, minWidth: '200px', marginRight: 'var(--space-xs)' }}
+            data-testid="teacher-select"
+          >
+            <option value="">— Seleccionar docente —</option>
+            {teachers.map((t) => (
+              <option key={t.id} value={t.id}>
+                {[t.firstName, t.lastName].filter(Boolean).join(' ') || t.name}
+              </option>
+            ))}
+          </select>
+          <Button
+            variant="action"
+            size="sm"
+            onClick={onConfirm}
+            disabled={!selectedTeacherId || creating}
+            style={{ marginRight: 'var(--space-xs)' }}
+          >
+            {creating ? 'Creando...' : 'Crear grupo'}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancelar
+          </Button>
+          {error && (
+            <p style={{ fontSize: 'var(--text-sm)', color: '#dc2626', marginTop: '0.25rem' }}>
+              {error}
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── AlumnosPanelInline ────────────────────────────────────────────────────────
+
+interface AlumnosPanelInlineProps {
+  grupoId: string;
+  state: { current: AlumnoGrupoItem[]; available: AlumnoMateriaItem[]; loading: boolean } | undefined;
+  onAdd: (alumnoMateriaId: string) => void;
+  onClose: () => void;
+}
+
+function AlumnosPanelInline({ state, onAdd, onClose }: AlumnosPanelInlineProps) {
+  if (!state) return null;
+
+  const assignedIds = new Set(state.current.map((c) => c.alumnosXMateriaXCursoXCicloId));
+  const unassigned = state.available.filter((a) => !assignedIds.has(a.id));
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 'var(--text-xs)',
+    fontWeight: 500,
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+  };
+
+  return (
+    <div
+      style={{
+        margin: '0.25rem 0 0.5rem 0',
+        padding: 'var(--space-sm)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-sm)',
+        background: 'var(--color-surface)',
+      }}
+      data-testid="alumnos-panel"
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+        <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+          Alumnos disponibles para agregar
+        </span>
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+
+      {state.loading && (
+        <p style={{ ...labelStyle }}>Cargando...</p>
+      )}
+
+      {!state.loading && unassigned.length === 0 && (
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+          Todos los alumnos de la materia ya están en este grupo.
+        </p>
+      )}
+
+      {!state.loading && unassigned.map((alumno) => (
+        <div
+          key={alumno.id}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0.25rem 0.5rem',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--color-surface-2, #f8fafc)',
+            marginBottom: '0.25rem',
+          }}
+        >
+          <span style={{ fontSize: 'var(--text-sm)' }}>{alumno.studentName}</span>
+          <Button
+            variant="action"
+            size="sm"
+            data-testid={`btn-add-alumno-${alumno.id}`}
+            onClick={() => onAdd(alumno.id)}
+          >
+            +
+          </Button>
+        </div>
+      ))}
     </div>
   );
 }

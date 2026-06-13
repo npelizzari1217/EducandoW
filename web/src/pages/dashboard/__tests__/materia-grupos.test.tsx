@@ -365,3 +365,200 @@ describe('CourseCyclesPage — regeneration warning (F7-D1/D2)', () => {
     ).toBeInTheDocument();
   });
 });
+
+// ═════════════════════════════════════════════════════════════════════════════
+// F7-T8 — Teacher picker inline
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('MateriasGruposPage — teacher picker', () => {
+  const mockTeachers = [
+    { id: 'teacher-1', name: 'Ana García', firstName: 'Ana', lastName: 'García', roles: ['TEACHER'] },
+    { id: 'teacher-2', name: 'Carlos López', firstName: 'Carlos', lastName: 'López', roles: ['TEACHER'] },
+  ];
+
+  beforeEach(() => {
+    mockUser = adminUser;
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/materias') {
+        return Promise.resolve({ data: { data: mockMaterias } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-1/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria1 } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-2/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria2 } });
+      }
+      if (url.startsWith('/users')) {
+        return Promise.resolve({ data: { data: mockTeachers } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  it('F7-T8: shows teacher dropdown inline when "Asignar docente" is clicked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    renderMateriasPage();
+
+    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
+
+    // Wait for grupos and asignar buttons to appear
+    await waitFor(() => {
+      expect(screen.getAllByTestId('btn-asignar-docente').length).toBeGreaterThan(0);
+    });
+
+    // Click the first "Asignar docente" button
+    await user.click(screen.getAllByTestId('btn-asignar-docente')[0]);
+
+    // Teacher picker should now be visible
+    await waitFor(() => {
+      expect(screen.getByTestId('teacher-picker')).toBeInTheDocument();
+    });
+
+    // Teacher select should contain teacher options
+    await waitFor(() => {
+      expect(screen.getByTestId('teacher-select')).toBeInTheDocument();
+    });
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// F7-T9 — Alumnos panel per grupo
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('MateriasGruposPage — alumnos per grupo', () => {
+  const mockAlumnosMateria = [
+    { id: 'axm-1', studentId: 'stu-1', studentName: 'Pedro Rodríguez' },
+    { id: 'axm-2', studentId: 'stu-2', studentName: 'Laura Sánchez' },
+  ];
+
+  const mockAlumnosGrupo = [
+    { id: 'axg-1', grupoId: 'g-1', alumnosXMateriaXCursoXCicloId: 'axm-1' },
+  ];
+
+  beforeEach(() => {
+    mockUser = adminUser;
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/materias') {
+        return Promise.resolve({ data: { data: mockMaterias } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-1/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria1 } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-2/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria2 } });
+      }
+      if (url === '/grupos/g-1/alumnos') {
+        return Promise.resolve({ data: { data: mockAlumnosGrupo } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-1/alumnos') {
+        return Promise.resolve({ data: { data: mockAlumnosMateria } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  it('F7-T9: shows available alumnos when "Agregar alumnos" is clicked', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    renderMateriasPage();
+
+    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('btn-agregar-alumnos').length).toBeGreaterThan(0);
+    });
+
+    // Click "Agregar alumnos" on the first grupo
+    await user.click(screen.getAllByTestId('btn-agregar-alumnos')[0]);
+
+    // Panel should appear
+    await waitFor(() => {
+      expect(screen.getByTestId('alumnos-panel')).toBeInTheDocument();
+    });
+
+    // axm-2 (Laura Sánchez) is not yet in the grupo — should be shown as available
+    await waitFor(() => {
+      expect(screen.getByText('Laura Sánchez')).toBeInTheDocument();
+    });
+
+    // axm-1 (Pedro Rodríguez) is already assigned — should NOT appear in available list
+    // (it was assigned via alumnosXMateriaXCursoXCicloId: 'axm-1')
+    expect(screen.queryByTestId('btn-add-alumno-axm-1')).not.toBeInTheDocument();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// F7-T10 — Navigation buttons
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('MateriasGruposPage — navigation', () => {
+  beforeEach(() => {
+    mockUser = adminUser;
+    setupDefaultMateriasApiMocks();
+  });
+
+  it('F7-T10: "Notas" button navigates to /competency-grading route', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/course-cycles/cc-1/materias']}>
+        <Routes>
+          <Route path="/course-cycles/:ccId/materias" element={<MateriasGruposPage />} />
+          <Route
+            path="/competency-grading"
+            element={<div data-testid="competency-grading-page">Notas Page</div>}
+          />
+          <Route path="/attendance" element={<div data-testid="attendance-page">Asistencia Page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
+
+    // Wait for grupos to load and "Notas" buttons to appear
+    await waitFor(() => {
+      expect(screen.getAllByText('Notas').length).toBeGreaterThan(0);
+    });
+
+    await user.click(screen.getAllByText('Notas')[0]);
+
+    // Should navigate to the competency-grading page
+    await waitFor(() => {
+      expect(screen.getByTestId('competency-grading-page')).toBeInTheDocument();
+    });
+  });
+
+  it('F7-T10b: "Ausencias" button navigates to /attendance route', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={['/course-cycles/cc-1/materias']}>
+        <Routes>
+          <Route path="/course-cycles/:ccId/materias" element={<MateriasGruposPage />} />
+          <Route
+            path="/competency-grading"
+            element={<div data-testid="competency-grading-page">Notas Page</div>}
+          />
+          <Route path="/attendance" element={<div data-testid="attendance-page">Asistencia Page</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Ausencias').length).toBeGreaterThan(0);
+    });
+
+    await user.click(screen.getAllByText('Ausencias')[0]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
+    });
+  });
+});

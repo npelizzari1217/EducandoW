@@ -112,6 +112,7 @@ export class ListUsersUseCase {
     creatorRoles: string[];
     institutionId?: string;
     includeInactive?: boolean;
+    role?: string;
   }) {
     const isRoot = options.creatorRoles.includes('ROOT');
     const client = this.prisma.getMasterClient();
@@ -139,7 +140,14 @@ export class ListUsersUseCase {
           return canViewUser(options.creatorRoles, targetRoles);
         });
 
-    return { data: filtered.map((r) => userToResponse(r)) };
+    // Filtrar por rol específico cuando se pasa el query param ?role=
+    const byRole = options.role
+      ? filtered.filter((u) =>
+          (u.userRoles ?? []).some((ur: { role: { name: string } }) => ur.role.name === options.role),
+        )
+      : filtered;
+
+    return { data: byRole.map((r) => userToResponse(r)) };
   }
 }
 

@@ -48,11 +48,13 @@ export class UsersController {
     @Req() req: Request,
     @Query('institutionId') institutionId?: string,
     @Query('includeInactive') includeInactive?: string,
+    @Query('role') role?: string,
   ) {
     return this.listUC.execute({
       creatorRoles: this.getCreatorRoles(req),
       institutionId,
       includeInactive: includeInactive === 'true',
+      role,
     });
   }
 

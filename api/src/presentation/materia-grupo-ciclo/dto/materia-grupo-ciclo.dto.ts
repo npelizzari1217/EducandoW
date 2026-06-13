@@ -11,8 +11,8 @@ export type AddStudentToMateriaDto = z.infer<typeof AddStudentToMateriaSchema>;
 
 export const CreateGrupoSchema = z.object({
   userId: z.string().uuid(),
-  /** AcademicCycle UUID — resolved from the CourseCycle by the client or controller. */
-  cycleId: z.string().uuid(),
+  /** AcademicCycle UUID — optional; controller resolves from CourseCycle when absent. */
+  cycleId: z.string().uuid().optional(),
   name: z.string().min(1).max(100).optional(),
 });
 export type CreateGrupoDto = z.infer<typeof CreateGrupoSchema>;
@@ -31,8 +31,9 @@ export interface MateriaResponse {
   courseCycleId: string;
   subjectId: string;
   studyPlanSubjectId?: string;
-  alumnoCount: number;
-  grupoCount: number;
+  subjectName: string;
+  alumnosCount: number;
+  gruposCount: number;
 }
 
 export interface GrupoResponse {
@@ -40,7 +41,15 @@ export interface GrupoResponse {
   materiaXCursoXCicloId: string;
   docenteXCicloId: string;
   name?: string;
-  alumnoCount: number;
+  alumnosCount: number;
+  userId: string;
+  docenteName: string | null;
+}
+
+export interface AlumnoMateriaItem {
+  id: string;
+  studentId: string;
+  studentName: string;
 }
 
 export interface AlumnoXMateriaResponse {

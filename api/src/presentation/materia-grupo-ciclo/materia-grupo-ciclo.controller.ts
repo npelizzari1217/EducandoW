@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
+  NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
@@ -23,15 +24,18 @@ import {
   type GrupoResponse,
   type AlumnoXMateriaResponse,
   type AlumnoXGrupoResponse,
+  type AlumnoMateriaItem,
 } from './dto/materia-grupo-ciclo.dto';
 import { AddStudentToMateriaUseCase } from '../../application/materia-grupo-ciclo/add-student-to-materia.use-case';
 import { CreateGrupoUseCase } from '../../application/materia-grupo-ciclo/create-grupo.use-case';
 import { AddStudentToGrupoUseCase } from '../../application/materia-grupo-ciclo/add-student-to-grupo.use-case';
 import { ListMateriasUseCase } from '../../application/materia-grupo-ciclo/list-materias.use-case';
 import { ListGruposUseCase } from '../../application/materia-grupo-ciclo/list-grupos.use-case';
+import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 /**
- * MateriasGruposController — Fase 3c (F3-P1..P7).
+ * MateriasGruposController — Fase 3c (F3-P1..P7) + F7 enrichment.
  *
  * Nested under /course-cycles for materia-level endpoints, and under /grupos
  * for group-level student management.
@@ -45,24 +49,38 @@ export class MateriasGruposController {
     private readonly createGrupoUC: CreateGrupoUseCase,
     private readonly listGruposUC: ListGruposUseCase,
     private readonly addStudentToGrupoUC: AddStudentToGrupoUseCase,
+    private readonly prismaService: PrismaService,
   ) {}
 
   /**
    * GET /course-cycles/:ccId/materias — F3-P2
-   * Lists materias for a CursoXCiclo with alumno and grupo counts.
+   * Lists materias for a CursoXCiclo with alumno and grupo counts + subjectName.
    */
   @Get('course-cycles/:ccId/materias')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listMaterias(@Param('ccId') ccId: string): Promise<{ data: MateriaResponse[] }> {
     const items = await this.listMateriasUC.execute(ccId);
+    const client = TenantContext.getClient();
+    const subjectIds = items.map((i) => i.materia.subjectId);
+    let subjectMap = new Map<string, string>();
+    if (client && subjectIds.length) {
+      const subjects = await client.subject.findMany({
+        where: { id: { in: subjectIds } },
+        select: { id: true, name: true },
+      });
+      subjectMap = new Map(
+        subjects.map((s: { id: string; name: string }) => [s.id, s.name]),
+      );
+    }
     return {
       data: items.map((item) => ({
         id: item.materia.id,
         courseCycleId: item.materia.courseCycleId,
         subjectId: item.materia.subjectId,
         studyPlanSubjectId: item.materia.studyPlanSubjectId,
-        alumnoCount: item.alumnoCount,
-        grupoCount: item.grupoCount,
+        subjectName: subjectMap.get(item.materia.subjectId) ?? item.materia.subjectId,
+        alumnosCount: item.alumnoCount,
+        gruposCount: item.grupoCount,
       })),
     };
   }
@@ -94,18 +112,32 @@ export class MateriasGruposController {
   /**
    * POST /course-cycles/:ccId/materias/:materiaId/grupos — F3-P3
    * Creates a group for a materia, assigning a docente.
+   * cycleId is optional in the body; when absent, resolved from CourseCycle.
    */
   @Post('course-cycles/:ccId/materias/:materiaId/grupos')
   @HttpCode(HttpStatus.CREATED)
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'CREATE' })
   async createGrupo(
+    @Param('ccId') ccId: string,
     @Param('materiaId') materiaId: string,
     @Body(new ZodValidationPipe(CreateGrupoSchema)) body: CreateGrupoDto,
   ): Promise<{ data: GrupoResponse }> {
+    let cycleId = body.cycleId;
+    if (!cycleId) {
+      const client = TenantContext.getClient();
+      if (!client) throw new NotFoundException(`No tenant client available`);
+      const cc = await client.courseCycle.findUnique({
+        where: { uuid: ccId },
+        select: { cycleId: true },
+      });
+      if (!cc) throw new NotFoundException(`CourseCycle ${ccId} not found`);
+      cycleId = cc.cycleId;
+    }
+
     const grupo = await this.createGrupoUC.execute({
       materiaXCursoXCicloId: materiaId,
       userId: body.userId,
-      cycleId: body.cycleId,
+      cycleId,
       name: body.name,
     });
     return {
@@ -114,26 +146,111 @@ export class MateriasGruposController {
         materiaXCursoXCicloId: grupo.materiaXCursoXCicloId,
         docenteXCicloId: grupo.docenteXCicloId,
         name: grupo.name,
-        alumnoCount: 0, // freshly created
+        alumnosCount: 0, // freshly created
+        userId: body.userId,
+        docenteName: null, // not resolved at creation time
       },
     };
   }
 
   /**
    * GET /course-cycles/:ccId/materias/:materiaId/grupos — F3-P4
-   * Lists groups of a materia with student counts.
+   * Lists groups of a materia with student counts + userId + docenteName.
    */
   @Get('course-cycles/:ccId/materias/:materiaId/grupos')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listGrupos(@Param('materiaId') materiaId: string): Promise<{ data: GrupoResponse[] }> {
     const items = await this.listGruposUC.execute(materiaId);
+    if (items.length === 0) return { data: [] };
+
+    const client = TenantContext.getClient();
+
+    // Resolve docenteXCicloId → userId from tenant DB
+    const docenteXCicloIds = items.map((i) => i.grupo.docenteXCicloId);
+    let userIdMap = new Map<string, string>(); // docenteXCicloId → userId
+    if (client && docenteXCicloIds.length) {
+      const docentes = await client.docenteXCiclo.findMany({
+        where: { id: { in: docenteXCicloIds } },
+        select: { id: true, userId: true },
+      });
+      userIdMap = new Map(
+        docentes.map((d: { id: string; userId: string }) => [d.id, d.userId]),
+      );
+    }
+
+    // Resolve userId → displayName from master DB
+    const userIds = [...userIdMap.values()];
+    let userNameMap = new Map<string, string>(); // userId → displayName
+    if (userIds.length) {
+      const masterClient = this.prismaService.getMasterClient();
+      const users = await masterClient.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, name: true },
+      });
+      userNameMap = new Map(
+        users.map(
+          (u: { id: string; firstName: string | null; lastName: string | null; name: string }) => [
+            u.id,
+            [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name,
+          ],
+        ),
+      );
+    }
+
     return {
-      data: items.map((item) => ({
-        id: item.grupo.id,
-        materiaXCursoXCicloId: item.grupo.materiaXCursoXCicloId,
-        docenteXCicloId: item.grupo.docenteXCicloId,
-        name: item.grupo.name,
-        alumnoCount: item.alumnos.length,
+      data: items.map((item) => {
+        const userId = userIdMap.get(item.grupo.docenteXCicloId) ?? '';
+        const docenteName = userId ? (userNameMap.get(userId) ?? null) : null;
+        return {
+          id: item.grupo.id,
+          materiaXCursoXCicloId: item.grupo.materiaXCursoXCicloId,
+          docenteXCicloId: item.grupo.docenteXCicloId,
+          name: item.grupo.name,
+          alumnosCount: item.alumnos.length,
+          userId,
+          docenteName,
+        };
+      }),
+    };
+  }
+
+  /**
+   * GET /course-cycles/:ccId/materias/:materiaId/alumnos — F7
+   * Lists all students enrolled in a materia (universe), enriched with studentName.
+   */
+  @Get('course-cycles/:ccId/materias/:materiaId/alumnos')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
+  async listAlumnosMateria(
+    @Param('materiaId') materiaId: string,
+  ): Promise<{ data: AlumnoMateriaItem[] }> {
+    const client = TenantContext.getClient();
+    if (!client) return { data: [] };
+
+    const alumnos = await client.alumnosXMateriaXCursoXCiclo.findMany({
+      where: { materiaXCursoXCicloId: materiaId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (alumnos.length === 0) return { data: [] };
+
+    const studentIds = alumnos.map((a: { studentId: string }) => a.studentId);
+    const students = await client.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const studentNameMap = new Map(
+      students.map(
+        (s: { id: string; firstName: string; lastName: string }) => [
+          s.id,
+          `${s.firstName} ${s.lastName}`.trim(),
+        ],
+      ),
+    );
+
+    return {
+      data: alumnos.map((a: { id: string; studentId: string }) => ({
+        id: a.id,
+        studentId: a.studentId,
+        studentName: studentNameMap.get(a.studentId) ?? a.studentId,
       })),
     };
   }
