@@ -46,6 +46,7 @@ import { UpdateGrupoUseCase } from '../../application/materia-grupo-ciclo/update
 import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete-grupo.use-case';
 import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
 import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
+import { ListAlumnosMateriaUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-materia.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -70,6 +71,7 @@ export class MateriasGruposController {
     private readonly deleteGrupoUC: DeleteGrupoUseCase,
     private readonly removeStudentFromGrupoUC: RemoveStudentFromGrupoUseCase,
     private readonly listAlumnosGrupoUC: ListAlumnosGrupoUseCase,
+    private readonly listAlumnosMateriaUC: ListAlumnosMateriaUseCase,
   ) {}
 
   /**
@@ -237,42 +239,16 @@ export class MateriasGruposController {
   /**
    * GET /course-cycles/:ccId/materias/:materiaId/alumnos — F7
    * Lists all students enrolled in a materia (universe), enriched with studentName.
+   * Resolution is delegated to ListAlumnosMateriaUseCase → PrismaAlumnosXMateriaRepository
+   * (Clean Arch: no raw Prisma in the controller).
    */
   @Get('course-cycles/:ccId/materias/:materiaId/alumnos')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listAlumnosMateria(
     @Param('materiaId') materiaId: string,
   ): Promise<{ data: AlumnoMateriaItem[] }> {
-    const client = TenantContext.getClient();
-    if (!client) return { data: [] };
-
-    const alumnos = await client.alumnosXMateriaXCursoXCiclo.findMany({
-      where: { materiaXCursoXCicloId: materiaId },
-      orderBy: { createdAt: 'asc' },
-    });
-    if (alumnos.length === 0) return { data: [] };
-
-    const studentIds = alumnos.map((a: { studentId: string }) => a.studentId);
-    const students = await client.student.findMany({
-      where: { id: { in: studentIds } },
-      select: { id: true, firstName: true, lastName: true },
-    });
-    const studentNameMap = new Map(
-      students.map(
-        (s: { id: string; firstName: string; lastName: string }) => [
-          s.id,
-          `${s.firstName} ${s.lastName}`.trim(),
-        ],
-      ),
-    );
-
-    return {
-      data: alumnos.map((a: { id: string; studentId: string }) => ({
-        id: a.id,
-        studentId: a.studentId,
-        studentName: studentNameMap.get(a.studentId) ?? a.studentId,
-      })),
-    };
+    const data = await this.listAlumnosMateriaUC.execute(materiaId);
+    return { data };
   }
 
   /**

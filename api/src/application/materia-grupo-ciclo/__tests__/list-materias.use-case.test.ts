@@ -55,6 +55,7 @@ describe('ListMateriasUseCase', () => {
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),
+      findByMateriaEnriched: vi.fn().mockResolvedValue([]),
     };
 
     const grupoRepo: GrupoRepository = {
@@ -95,6 +96,7 @@ describe('ListMateriasUseCase', () => {
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),
+      findByMateriaEnriched: vi.fn().mockResolvedValue([]),
     };
     const grupoRepo: GrupoRepository = {
       findById: vi.fn(),

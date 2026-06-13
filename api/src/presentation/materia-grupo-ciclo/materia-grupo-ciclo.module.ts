@@ -19,6 +19,7 @@ import { UpdateGrupoUseCase } from '../../application/materia-grupo-ciclo/update
 import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete-grupo.use-case';
 import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
 import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
+import { ListAlumnosMateriaUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-materia.use-case';
 import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
@@ -137,6 +138,13 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
       useFactory: (alumnosGrupoRepo: PrismaAlumnosXGrupoRepository) =>
         new ListAlumnosGrupoUseCase(alumnosGrupoRepo),
       inject: [PrismaAlumnosXGrupoRepository],
+    },
+
+    {
+      provide: ListAlumnosMateriaUseCase,
+      useFactory: (alumnosMateriaRepo: PrismaAlumnosXMateriaRepository) =>
+        new ListAlumnosMateriaUseCase(alumnosMateriaRepo),
+      inject: [PrismaAlumnosXMateriaRepository],
     },
   ],
   exports: [MaterializeMateriasUseCase, PrismaMateriaXCursoXCicloRepository],

@@ -49,6 +49,7 @@ function makeAlumnosRepo(): AlumnosXMateriaRepository {
     addStudent: vi.fn().mockResolvedValue(makeAlumnosXMateria()),
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),
+    findByMateriaEnriched: vi.fn().mockResolvedValue([]),
   };
 }
 

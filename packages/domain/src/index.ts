@@ -193,7 +193,7 @@ export type { MateriaXCursoXCicloRepository } from './materia-grupo-ciclo';
 
 export { AlumnosXMateriaXCursoXCiclo } from './materia-grupo-ciclo';
 export type { AlumnosXMateriaXCursoXCicloProps, CreateAlumnosXMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
-export type { AlumnosXMateriaRepository } from './materia-grupo-ciclo';
+export type { AlumnosXMateriaRepository, AlumnoMateriaEnriched } from './materia-grupo-ciclo';
 
 export { GrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
 export type { GrupoXCursoXMateriaXCicloProps, CreateGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';

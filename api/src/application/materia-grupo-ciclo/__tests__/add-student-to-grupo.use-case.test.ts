@@ -79,6 +79,7 @@ function makeAlumnosMateriaRepo(axm: AlumnosXMateriaXCursoXCiclo | null): Alumno
     addStudent: vi.fn().mockResolvedValue(axm ?? makeAlumnosXMateria()),
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),
+    findByMateriaEnriched: vi.fn().mockResolvedValue([]),
   };
 }
 

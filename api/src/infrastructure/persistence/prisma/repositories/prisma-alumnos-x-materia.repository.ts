@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AlumnosXMateriaXCursoXCiclo,
   AlumnosXMateriaRepository,
+  type AlumnoMateriaEnriched,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -63,6 +64,37 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
       where: { materiaXCursoXCicloId, studentId },
     });
     return count > 0;
+  }
+
+  /**
+   * Returns alumnos of a materia enriched with studentId + studentName.
+   * Resolution: AlumnosXMateria.studentId → Student name.
+   * Throws if no tenant client (surfaces the error instead of silently returning []).
+   */
+  async findByMateriaEnriched(materiaXCursoXCicloId: string): Promise<AlumnoMateriaEnriched[]> {
+    const axmRows = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+      where: { materiaXCursoXCicloId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (axmRows.length === 0) return [];
+
+    const studentIds = [...new Set(axmRows.map((r: { studentId: string }) => r.studentId))];
+    const students = await this.client.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const studentNameMap = new Map<string, string>(
+      students.map((s: { id: string; firstName: string; lastName: string }) => [
+        s.id,
+        `${s.firstName} ${s.lastName}`.trim(),
+      ]),
+    );
+
+    return axmRows.map((a: { id: string; studentId: string }) => ({
+      id: a.id,
+      studentId: a.studentId,
+      studentName: studentNameMap.get(a.studentId) ?? a.studentId,
+    }));
   }
 
   /**
