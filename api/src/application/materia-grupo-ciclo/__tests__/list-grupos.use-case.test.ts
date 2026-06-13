@@ -39,6 +39,9 @@ describe('ListGruposUseCase', () => {
       findByDocente: vi.fn(),
       findGroupsForDocente: vi.fn(),
       create: vi.fn(),
+      findAllGlobal: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
     };
 
     const alumnosGrupoRepo: AlumnosXGrupoRepository = {
@@ -67,6 +70,9 @@ describe('ListGruposUseCase', () => {
       findByDocente: vi.fn(),
       findGroupsForDocente: vi.fn(),
       create: vi.fn(),
+      findAllGlobal: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
     };
     const alumnosGrupoRepo: AlumnosXGrupoRepository = {
       findByGrupo: vi.fn(),

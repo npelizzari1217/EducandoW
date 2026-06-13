@@ -14,5 +14,5 @@ export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoX
 // Repository interfaces (ports)
 export type { MateriaXCursoXCicloRepository } from './repositories/materia-x-curso-x-ciclo-repository';
 export type { AlumnosXMateriaRepository } from './repositories/alumnos-x-materia-repository';
-export type { GrupoRepository } from './repositories/grupo-repository';
+export type { GrupoRepository, GrupoGlobalFilters, GrupoGlobalRow } from './repositories/grupo-repository';
 export type { AlumnosXGrupoRepository } from './repositories/alumnos-x-grupo-repository';

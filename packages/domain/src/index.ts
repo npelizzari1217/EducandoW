@@ -197,7 +197,7 @@ export type { AlumnosXMateriaRepository } from './materia-grupo-ciclo';
 
 export { GrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
 export type { GrupoXCursoXMateriaXCicloProps, CreateGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';
-export type { GrupoRepository } from './materia-grupo-ciclo';
+export type { GrupoRepository, GrupoGlobalFilters, GrupoGlobalRow } from './materia-grupo-ciclo';
 
 export { AlumnosXGrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
 export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';

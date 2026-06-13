@@ -3,6 +3,7 @@ import {
   GrupoXCursoXMateriaXCiclo,
   GrupoRepository,
 } from '@educandow/domain';
+import type { GrupoGlobalFilters, GrupoGlobalRow } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
@@ -77,6 +78,79 @@ export class PrismaGrupoRepository implements GrupoRepository {
       },
     });
     return this.toDomain(row);
+  }
+
+  async findAllGlobal(filters: GrupoGlobalFilters): Promise<GrupoGlobalRow[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: Record<string, any> = {};
+
+    // Build courseCycle filter nested under materia relation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const courseCycleWhere: Record<string, any> = {};
+    if (filters.courseCycleId) courseCycleWhere.uuid = filters.courseCycleId;
+    if (filters.levelIn && filters.levelIn.length > 0) {
+      courseCycleWhere.level = { in: filters.levelIn };
+    } else if (filters.level !== undefined) {
+      courseCycleWhere.level = filters.level;
+    }
+
+    if (Object.keys(courseCycleWhere).length > 0) {
+      where.materia = { courseCycle: courseCycleWhere };
+    }
+
+    if (filters.materiaId) where.materiaXCursoXCicloId = filters.materiaId;
+
+    if (filters.docenteXCicloIds && filters.docenteXCicloIds.length > 0) {
+      where.docenteXCicloId = { in: filters.docenteXCicloIds };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows = await (this.client as any).grupoXCursoXMateriaXCiclo.findMany({
+      where,
+      include: {
+        materia: {
+          include: {
+            courseCycle: { select: { uuid: true, courseName: true, level: true } },
+            subject: { select: { id: true, name: true } },
+          },
+        },
+        docenteXCiclo: { select: { id: true, userId: true } },
+        alumnos: { select: { id: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return rows.map((row: any): GrupoGlobalRow => ({
+      id: row.id,
+      name: row.name ?? undefined,
+      docenteXCicloId: row.docenteXCicloId,
+      docenteUserId: row.docenteXCiclo.userId,
+      materiaId: row.materiaXCursoXCicloId,
+      subjectId: row.materia.subjectId,
+      subjectName: row.materia.subject.name,
+      courseCycleId: row.materia.courseCycle.uuid,
+      courseName: row.materia.courseCycle.courseName,
+      level: row.materia.courseCycle.level,
+      alumnosCount: row.alumnos.length,
+    }));
+  }
+
+  async update(id: string, data: { name?: string; docenteXCicloId?: string }): Promise<GrupoXCursoXMateriaXCiclo> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updateData: Record<string, any> = { updatedAt: new Date() };
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.docenteXCicloId !== undefined) updateData.docenteXCicloId = data.docenteXCicloId;
+
+    const row = await this.client.grupoXCursoXMateriaXCiclo.update({
+      where: { id },
+      data: updateData,
+    });
+    return this.toDomain(row);
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.client.grupoXCursoXMateriaXCiclo.delete({ where: { id } });
   }
 
   private toDomain(row: GrupoRow): GrupoXCursoXMateriaXCiclo {

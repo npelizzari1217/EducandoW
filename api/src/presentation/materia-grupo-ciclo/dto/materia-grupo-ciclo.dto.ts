@@ -63,3 +63,37 @@ export interface AlumnoXGrupoResponse {
   grupoId: string;
   alumnosXMateriaXCursoXCicloId: string;
 }
+
+// ── GET /grupos query params ───────────────────────────────────────────────────
+
+export const ListGruposGlobalQuerySchema = z.object({
+  level: z.coerce.number().int().optional(),
+  courseCycleId: z.string().uuid().optional(),
+  materiaId: z.string().uuid().optional(),
+});
+export type ListGruposGlobalQueryDto = z.infer<typeof ListGruposGlobalQuerySchema>;
+
+// ── PATCH /grupos/:id body ─────────────────────────────────────────────────────
+
+export const UpdateGrupoSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  userId: z.string().uuid().optional(),
+}).refine((d) => d.name !== undefined || d.userId !== undefined, {
+  message: 'At least name or userId must be provided',
+});
+export type UpdateGrupoDto = z.infer<typeof UpdateGrupoSchema>;
+
+// ── GET /grupos response item ──────────────────────────────────────────────────
+
+export interface GrupoGlobalResponse {
+  id: string;
+  name?: string;
+  docenteName: string | null;
+  docenteUserId: string;
+  materiaId: string;
+  subjectName: string;
+  courseCycleId: string;
+  courseName: string;
+  level: number;
+  alumnosCount: number;
+}

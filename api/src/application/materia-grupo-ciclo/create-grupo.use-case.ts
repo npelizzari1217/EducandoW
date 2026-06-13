@@ -4,10 +4,10 @@ import type {
   GrupoRepository,
   GrupoXCursoXMateriaXCiclo,
 } from '@educandow/domain';
-import { NotFoundError, ValidationError } from '@educandow/domain';
+import { NotFoundError } from '@educandow/domain';
 import { DocenteXCicloService } from '../docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
-import { TenantContext } from '../../infrastructure/auth/tenant.context';
+import { validateTeacherLevel } from './validate-teacher-level';
 
 /**
  * CreateGrupoUseCase — Fase 3c (F3-A3).
@@ -49,7 +49,7 @@ export class CreateGrupoUseCase {
     }
 
     // Validate teacher's level matches the materia's course-cycle level
-    await this.validateTeacherLevel(input.userId, materia.courseCycleId);
+    await validateTeacherLevel(this.prisma, input.userId, materia.courseCycleId);
 
     // Get or create the DocenteXCiclo for this user in this cycle (idempotent)
     const docenteXCiclo = await this.docenteService.getOrCreateForCycle(input.userId, input.cycleId);
@@ -62,43 +62,4 @@ export class CreateGrupoUseCase {
     });
   }
 
-  /**
-   * Validates that the user's composite levels include the course-cycle's composite level.
-   * ROOT and ADMIN have allLevels=true and bypass the check.
-   * If user or CC are not found (edge cases), the check is skipped (other errors will surface).
-   */
-  private async validateTeacherLevel(userId: string, courseCycleId: string): Promise<void> {
-    // Look up the user in master DB (roles + levels)
-    const user = await this.prisma.getMasterClient().user.findUnique({
-      where: { id: userId },
-      select: {
-        userRoles: { select: { role: { select: { name: true } } } },
-        userLevels: { select: { level: true, modality: true } },
-      },
-    });
-    if (!user) return; // User not found — let downstream throw if needed
-
-    // ROOT and ADMIN see all levels — no restriction
-    const roleNames = user.userRoles.map((ur: { role: { name: string } }) => ur.role.name);
-    if (roleNames.includes('ROOT') || roleNames.includes('ADMIN')) return;
-
-    // Resolve the CC's composite level from tenant DB
-    const client = TenantContext.getClient();
-    if (!client) return;
-
-    const cc = await client.courseCycle.findUnique({
-      where: { uuid: courseCycleId },
-      select: { level: true },
-    });
-    if (!cc) return; // CC not found — let other logic handle it
-
-    // Check if teacher's composite levels include the CC's composite level
-    // Composite level = level * 10 + modality (stored in CourseCycle.level)
-    const compositeLevels = user.userLevels.map(
-      (ul: { level: number; modality: number }) => ul.level * 10 + ul.modality,
-    );
-    if (!compositeLevels.includes(cc.level)) {
-      throw new ValidationError('La materia no pertenece al nivel del docente');
-    }
-  }
 }

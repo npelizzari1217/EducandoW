@@ -65,6 +65,9 @@ describe('ListMateriasUseCase', () => {
       findByDocente: vi.fn(),
       findGroupsForDocente: vi.fn(),
       create: vi.fn(),
+      findAllGlobal: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
     };
 
     const uc = new ListMateriasUseCase(materiaRepo, alumnosRepo, grupoRepo);
@@ -99,6 +102,9 @@ describe('ListMateriasUseCase', () => {
       findByDocente: vi.fn(),
       findGroupsForDocente: vi.fn(),
       create: vi.fn(),
+      findAllGlobal: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
     };
 
     const uc = new ListMateriasUseCase(materiaRepo, alumnosRepo, grupoRepo);

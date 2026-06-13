@@ -108,6 +108,9 @@ function makeRepos(overrides: {
       findByDocente: vi.fn().mockResolvedValue([]),
       findGroupsForDocente: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
+      findAllGlobal: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
     docenteRepo: {
       findById: vi.fn().mockResolvedValue(docente),

@@ -55,6 +55,9 @@ function makeGrupoRepo(grupo: GrupoXCursoXMateriaXCiclo | null): GrupoRepository
     findByDocente: vi.fn().mockResolvedValue([]),
     findGroupsForDocente: vi.fn().mockResolvedValue([]),
     create: vi.fn().mockResolvedValue(grupo),
+    findAllGlobal: vi.fn().mockResolvedValue([]),
+    update: vi.fn(),
+    delete: vi.fn(),
   };
 }
 

@@ -2,16 +2,21 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
   NotFoundException,
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   AddStudentToMateriaSchema,
@@ -20,8 +25,13 @@ import {
   CreateGrupoDto,
   AddStudentToGrupoSchema,
   AddStudentToGrupoDto,
+  ListGruposGlobalQuerySchema,
+  UpdateGrupoSchema,
+  type ListGruposGlobalQueryDto,
+  type UpdateGrupoDto,
   type MateriaResponse,
   type GrupoResponse,
+  type GrupoGlobalResponse,
   type AlumnoXMateriaResponse,
   type AlumnoXGrupoResponse,
   type AlumnoMateriaItem,
@@ -31,6 +41,9 @@ import { CreateGrupoUseCase } from '../../application/materia-grupo-ciclo/create
 import { AddStudentToGrupoUseCase } from '../../application/materia-grupo-ciclo/add-student-to-grupo.use-case';
 import { ListMateriasUseCase } from '../../application/materia-grupo-ciclo/list-materias.use-case';
 import { ListGruposUseCase } from '../../application/materia-grupo-ciclo/list-grupos.use-case';
+import { ListGruposGlobalUseCase } from '../../application/materia-grupo-ciclo/list-grupos-global.use-case';
+import { UpdateGrupoUseCase } from '../../application/materia-grupo-ciclo/update-grupo.use-case';
+import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete-grupo.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -50,6 +63,9 @@ export class MateriasGruposController {
     private readonly listGruposUC: ListGruposUseCase,
     private readonly addStudentToGrupoUC: AddStudentToGrupoUseCase,
     private readonly prismaService: PrismaService,
+    private readonly listGruposGlobalUC: ListGruposGlobalUseCase,
+    private readonly updateGrupoUC: UpdateGrupoUseCase,
+    private readonly deleteGrupoUC: DeleteGrupoUseCase,
   ) {}
 
   /**
@@ -296,5 +312,106 @@ export class MateriasGruposController {
         alumnosXMateriaXCursoXCicloId: a.alumnosXMateriaXCursoXCicloId,
       })),
     };
+  }
+
+  /**
+   * GET /grupos — Lista global de grupos con filtros opcionales + scope por rol.
+   * - ROOT/ADMIN (allLevels): sin restricción de nivel
+   * - DIRECTOR/SECRETARIO: solo sus compositeLevels
+   * - TEACHER: solo sus grupos (por sus DocenteXCiclo records)
+   */
+  @Get('grupos')
+  @Roles('ROOT', 'TEACHER', { module: 'COURSE_CYCLES', action: 'READ' })
+  async listGruposGlobal(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(ListGruposGlobalQuerySchema)) query: ListGruposGlobalQueryDto,
+  ): Promise<{ data: GrupoGlobalResponse[] }> {
+    const grupos = await this.listGruposGlobalUC.execute(
+      { roles: user.roles, levels: user.levels, userId: user.userId },
+      { level: query.level, courseCycleId: query.courseCycleId, materiaId: query.materiaId },
+    );
+
+    if (grupos.length === 0) return { data: [] };
+
+    // Enrich with docenteName from master DB
+    const userIds = [...new Set(grupos.map((g) => g.docenteUserId).filter(Boolean))];
+    let userNameMap = new Map<string, string>();
+    if (userIds.length) {
+      const masterClient = this.prismaService.getMasterClient();
+      const users = await masterClient.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, firstName: true, lastName: true, name: true },
+      });
+      userNameMap = new Map(
+        users.map((u: { id: string; firstName: string | null; lastName: string | null; name: string }) => [
+          u.id,
+          [u.firstName, u.lastName].filter(Boolean).join(' ') || u.name,
+        ]),
+      );
+    }
+
+    return {
+      data: grupos.map((g) => ({
+        id: g.id,
+        name: g.name,
+        docenteName: userNameMap.get(g.docenteUserId) ?? null,
+        docenteUserId: g.docenteUserId,
+        materiaId: g.materiaId,
+        subjectName: g.subjectName,
+        courseCycleId: g.courseCycleId,
+        courseName: g.courseName,
+        level: g.level,
+        alumnosCount: g.alumnosCount,
+      })),
+    };
+  }
+
+  /**
+   * PATCH /grupos/:id — Editar nombre y/o reasignar docente.
+   * Si userId cambia → valida nivel del docente y crea/obtiene DocenteXCiclo.
+   */
+  @Patch('grupos/:id')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async updateGrupo(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(UpdateGrupoSchema)) body: UpdateGrupoDto,
+  ): Promise<{ data: GrupoResponse }> {
+    const grupo = await this.updateGrupoUC.execute({ id, name: body.name, userId: body.userId });
+
+    // Resolve userId for response (use body.userId if provided, else look up from tenant)
+    let userId = body.userId ?? '';
+    if (!userId) {
+      const client = TenantContext.getClient();
+      if (client) {
+        const dxc = await client.docenteXCiclo.findUnique({
+          where: { id: grupo.docenteXCicloId },
+          select: { userId: true },
+        });
+        userId = dxc?.userId ?? '';
+      }
+    }
+
+    return {
+      data: {
+        id: grupo.id,
+        materiaXCursoXCicloId: grupo.materiaXCursoXCicloId,
+        docenteXCicloId: grupo.docenteXCicloId,
+        name: grupo.name,
+        alumnosCount: 0,
+        userId,
+        docenteName: null,
+      },
+    };
+  }
+
+  /**
+   * DELETE /grupos/:id — Elimina un grupo (hard delete).
+   * Cascade en Prisma elimina AlumnosXGrupo y AusenciasXGrupo automáticamente.
+   */
+  @Delete('grupos/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
+  async deleteGrupo(@Param('id') id: string): Promise<void> {
+    await this.deleteGrupoUC.execute(id);
   }
 }
