@@ -32,10 +32,11 @@ interface AlumnoMateriaItem {
   studentName: string;
 }
 
+// Shape returned by GET /grupos/:grupoId/alumnos (after F3-P6 enrichment)
 interface AlumnoGrupoItem {
   id: string;
-  grupoId: string;
-  alumnosXMateriaXCursoXCicloId: string;
+  studentId: string;
+  studentName: string;
 }
 
 interface TeacherOption {
@@ -556,8 +557,9 @@ interface AlumnosPanelInlineProps {
 function AlumnosPanelInline({ state, onAdd, onClose }: AlumnosPanelInlineProps) {
   if (!state) return null;
 
-  const assignedIds = new Set(state.current.map((c) => c.alumnosXMateriaXCursoXCicloId));
-  const unassigned = state.available.filter((a) => !assignedIds.has(a.id));
+  // Compare by studentId: GET /grupos/:grupoId/alumnos now returns {id, studentId, studentName}
+  const assignedStudentIds = new Set(state.current.map((c) => c.studentId));
+  const unassigned = state.available.filter((a) => !assignedStudentIds.has(a.studentId));
 
   const labelStyle: React.CSSProperties = {
     fontSize: 'var(--text-xs)',

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AlumnosXGrupoXCursoXMateriaXCiclo,
   AlumnosXGrupoRepository,
+  type AlumnoGrupoEnriched,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -66,6 +67,60 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
       where: { grupoId, alumnosXMateriaXCursoXCicloId },
     });
     return count > 0;
+  }
+
+  /**
+   * Remove a student from a group, scoped to grupoId.
+   * deleteMany is idempotent (returns count=0 when not found) and prevents IDOR:
+   * if alumnoXGrupoId belongs to a different grupo, where{id,grupoId} won't match.
+   */
+  async removeStudent(grupoId: string, id: string): Promise<void> {
+    await this.client.alumnosXGrupoXCursoXMateriaXCiclo.deleteMany({
+      where: { id, grupoId },
+    });
+  }
+
+  /**
+   * Returns alumnos of a group enriched with studentId + studentName.
+   * Resolution: AlumnosXGrupo → AlumnosXMateriaXCursoXCiclo.studentId → Student name.
+   * Throws if no tenant client (surfaces the error instead of silently returning []).
+   */
+  async findByGrupoEnriched(grupoId: string): Promise<AlumnoGrupoEnriched[]> {
+    const axgRows = await this.client.alumnosXGrupoXCursoXMateriaXCiclo.findMany({
+      where: { grupoId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (axgRows.length === 0) return [];
+
+    const axmIds = axgRows.map((r: { alumnosXMateriaXCursoXCicloId: string }) => r.alumnosXMateriaXCursoXCicloId);
+    const axmRows = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+      where: { id: { in: axmIds } },
+      select: { id: true, studentId: true },
+    });
+    const axmToStudentId = new Map<string, string>(
+      axmRows.map((r: { id: string; studentId: string }) => [r.id, r.studentId]),
+    );
+
+    const studentIds = [...new Set(axmToStudentId.values())];
+    const students = await this.client.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const studentNameMap = new Map<string, string>(
+      students.map((s: { id: string; firstName: string; lastName: string }) => [
+        s.id,
+        `${s.firstName} ${s.lastName}`.trim(),
+      ]),
+    );
+
+    return axgRows.map((a: { id: string; alumnosXMateriaXCursoXCicloId: string }) => {
+      const studentId = axmToStudentId.get(a.alumnosXMateriaXCursoXCicloId) ?? '';
+      return {
+        id: a.id,
+        studentId,
+        studentName: studentNameMap.get(studentId) ?? studentId,
+      };
+    });
   }
 
   /**

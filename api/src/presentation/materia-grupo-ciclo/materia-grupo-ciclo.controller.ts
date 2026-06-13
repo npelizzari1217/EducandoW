@@ -44,6 +44,8 @@ import { ListGruposUseCase } from '../../application/materia-grupo-ciclo/list-gr
 import { ListGruposGlobalUseCase } from '../../application/materia-grupo-ciclo/list-grupos-global.use-case';
 import { UpdateGrupoUseCase } from '../../application/materia-grupo-ciclo/update-grupo.use-case';
 import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete-grupo.use-case';
+import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
+import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -66,6 +68,8 @@ export class MateriasGruposController {
     private readonly listGruposGlobalUC: ListGruposGlobalUseCase,
     private readonly updateGrupoUC: UpdateGrupoUseCase,
     private readonly deleteGrupoUC: DeleteGrupoUseCase,
+    private readonly removeStudentFromGrupoUC: RemoveStudentFromGrupoUseCase,
+    private readonly listAlumnosGrupoUC: ListAlumnosGrupoUseCase,
   ) {}
 
   /**
@@ -297,21 +301,17 @@ export class MateriasGruposController {
 
   /**
    * GET /grupos/:grupoId/alumnos — F3-P6
-   * Lists students of a group.
+   * Lists students of a group, enriched with studentId + studentName.
+   * Resolution is delegated to ListAlumnosGrupoUseCase → PrismaAlumnosXGrupoRepository
+   * (Clean Arch: no raw Prisma in the controller).
    */
   @Get('grupos/:grupoId/alumnos')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listAlumnosGrupo(
     @Param('grupoId') grupoId: string,
-  ): Promise<{ data: AlumnoXGrupoResponse[] }> {
-    const alumnos = await this.listGruposUC.getAlumnosForGrupo(grupoId);
-    return {
-      data: alumnos.map((a) => ({
-        id: a.id,
-        grupoId: a.grupoId,
-        alumnosXMateriaXCursoXCicloId: a.alumnosXMateriaXCursoXCicloId,
-      })),
-    };
+  ): Promise<{ data: AlumnoMateriaItem[] }> {
+    const data = await this.listAlumnosGrupoUC.execute(grupoId);
+    return { data };
   }
 
   /**
@@ -413,5 +413,19 @@ export class MateriasGruposController {
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
   async deleteGrupo(@Param('id') id: string): Promise<void> {
     await this.deleteGrupoUC.execute(id);
+  }
+
+  /**
+   * DELETE /grupos/:grupoId/alumnos/:alumnoXGrupoId — Quitar alumno de un grupo.
+   * Espejo exacto del POST /grupos/:grupoId/alumnos.
+   */
+  @Delete('grupos/:grupoId/alumnos/:alumnoXGrupoId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
+  async removeStudentFromGrupo(
+    @Param('grupoId') grupoId: string,
+    @Param('alumnoXGrupoId') alumnoXGrupoId: string,
+  ): Promise<void> {
+    await this.removeStudentFromGrupoUC.execute({ grupoId, alumnoXGrupoId });
   }
 }

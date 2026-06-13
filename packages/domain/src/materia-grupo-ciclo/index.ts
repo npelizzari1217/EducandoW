@@ -15,4 +15,4 @@ export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoX
 export type { MateriaXCursoXCicloRepository } from './repositories/materia-x-curso-x-ciclo-repository';
 export type { AlumnosXMateriaRepository } from './repositories/alumnos-x-materia-repository';
 export type { GrupoRepository, GrupoGlobalFilters, GrupoGlobalRow } from './repositories/grupo-repository';
-export type { AlumnosXGrupoRepository } from './repositories/alumnos-x-grupo-repository';
+export type { AlumnosXGrupoRepository, AlumnoGrupoEnriched } from './repositories/alumnos-x-grupo-repository';

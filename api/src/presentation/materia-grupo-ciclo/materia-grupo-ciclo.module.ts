@@ -17,6 +17,8 @@ import { ListGruposUseCase } from '../../application/materia-grupo-ciclo/list-gr
 import { ListGruposGlobalUseCase } from '../../application/materia-grupo-ciclo/list-grupos-global.use-case';
 import { UpdateGrupoUseCase } from '../../application/materia-grupo-ciclo/update-grupo.use-case';
 import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete-grupo.use-case';
+import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
+import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
 import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
@@ -119,6 +121,22 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
       provide: DeleteGrupoUseCase,
       useFactory: (grupoRepo: PrismaGrupoRepository) => new DeleteGrupoUseCase(grupoRepo),
       inject: [PrismaGrupoRepository],
+    },
+
+    {
+      provide: RemoveStudentFromGrupoUseCase,
+      useFactory: (
+        grupoRepo: PrismaGrupoRepository,
+        alumnosGrupoRepo: PrismaAlumnosXGrupoRepository,
+      ) => new RemoveStudentFromGrupoUseCase(grupoRepo, alumnosGrupoRepo),
+      inject: [PrismaGrupoRepository, PrismaAlumnosXGrupoRepository],
+    },
+
+    {
+      provide: ListAlumnosGrupoUseCase,
+      useFactory: (alumnosGrupoRepo: PrismaAlumnosXGrupoRepository) =>
+        new ListAlumnosGrupoUseCase(alumnosGrupoRepo),
+      inject: [PrismaAlumnosXGrupoRepository],
     },
   ],
   exports: [MaterializeMateriasUseCase, PrismaMateriaXCursoXCicloRepository],

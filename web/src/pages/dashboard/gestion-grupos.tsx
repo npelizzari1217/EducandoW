@@ -312,17 +312,37 @@ export default function GestionGruposPage() {
     setPrintGrupo(grupo);
   }
 
+  async function reloadGrupoAndMateriaAlumnos(grupoId: string, courseCycleId: string, materiaId: string) {
+    const [grupoR, materiaR] = await Promise.all([
+      apiClient.get(`/grupos/${grupoId}/alumnos`, { params: tenantParams }),
+      apiClient.get(`/course-cycles/${courseCycleId}/materias/${materiaId}/alumnos`, { params: tenantParams }),
+    ]);
+    const grupoAlumnos: AlumnoItem[] = grupoR.data?.data ?? grupoR.data ?? [];
+    const materiaAlumnos: AlumnoItem[] = materiaR.data?.data ?? materiaR.data ?? [];
+    setFormState(f => f ? { ...f, grupoAlumnos, materiaAlumnos } : null);
+  }
+
   async function handleAddAlumno(alumnoXMateriaId: string) {
     if (!formState?.grupoId) return;
-    await apiClient.post(`/grupos/${formState.grupoId}/alumnos`, { alumnosXMateriaXCursoXCicloId: alumnoXMateriaId }, { params: tenantParams });
-    if (formState.formMateriaId && formState.formCourseCycleId) {
-      const [grupoR, materiaR] = await Promise.all([
-        apiClient.get(`/grupos/${formState.grupoId}/alumnos`, { params: tenantParams }),
-        apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/alumnos`, { params: tenantParams }),
-      ]);
-      const grupoAlumnos: AlumnoItem[] = grupoR.data?.data ?? grupoR.data ?? [];
-      const materiaAlumnos: AlumnoItem[] = materiaR.data?.data ?? materiaR.data ?? [];
-      setFormState(f => f ? { ...f, grupoAlumnos, materiaAlumnos } : null);
+    try {
+      await apiClient.post(`/grupos/${formState.grupoId}/alumnos`, { alumnosXMateriaXCursoXCicloId: alumnoXMateriaId }, { params: tenantParams });
+      if (formState.formMateriaId && formState.formCourseCycleId) {
+        await reloadGrupoAndMateriaAlumnos(formState.grupoId, formState.formCourseCycleId, formState.formMateriaId);
+      }
+    } catch (err: unknown) {
+      setFormState(f => f ? { ...f, saveError: extractErrorMessage(err) } : null);
+    }
+  }
+
+  async function handleRemoveAlumno(alumnoXGrupoId: string) {
+    if (!formState?.grupoId) return;
+    try {
+      await apiClient.delete(`/grupos/${formState.grupoId}/alumnos/${alumnoXGrupoId}`, { params: tenantParams });
+      if (formState.formMateriaId && formState.formCourseCycleId) {
+        await reloadGrupoAndMateriaAlumnos(formState.grupoId, formState.formCourseCycleId, formState.formMateriaId);
+      }
+    } catch (err: unknown) {
+      setFormState(f => f ? { ...f, saveError: extractErrorMessage(err) } : null);
     }
   }
 
@@ -365,8 +385,9 @@ export default function GestionGruposPage() {
 
   // ── Alumnos no asignados (form) ───────────────────────────────────────────
 
-  const assignedIds = new Set((formState?.grupoAlumnos ?? []).map((a: AlumnoItem) => a.id));
-  const unassignedAlumnos = (formState?.materiaAlumnos ?? []).filter((a: AlumnoItem) => !assignedIds.has(a.id));
+  // Filter by studentId (not id) — grupoAlumnos.id = AlumnosXGrupo.id, materiaAlumnos.id = AlumnosXMateriaXCursoXCiclo.id; different spaces.
+  const assignedStudentIds = new Set((formState?.grupoAlumnos ?? []).map((a: AlumnoItem) => a.studentId));
+  const unassignedAlumnos = (formState?.materiaAlumnos ?? []).filter((a: AlumnoItem) => !assignedStudentIds.has(a.studentId));
 
   // ── CC label helper ───────────────────────────────────────────────────────
 
@@ -672,11 +693,29 @@ export default function GestionGruposPage() {
                 )}
 
                 {!formState.loadingAlumnos && (formState.grupoAlumnos ?? []).length > 0 && (
-                  <ul style={{ margin: '0 0 0.5rem 0', padding: '0 0 0 1rem', fontSize: 'var(--text-sm)' }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
                     {(formState.grupoAlumnos ?? []).map((a: AlumnoItem) => (
-                      <li key={a.id}>{a.studentName}</li>
+                      <div
+                        key={a.id}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
+                          background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
+                          border: '1px solid var(--color-border)',
+                        }}
+                      >
+                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>{a.studentName}</span>
+                        <Button
+                          size="sm"
+                          variant="action"
+                          data-testid={`btn-remove-alumno-${a.id}`}
+                          onClick={() => handleRemoveAlumno(a.id)}
+                        >
+                          −
+                        </Button>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
 
                 {!formState.loadingAlumnos && unassignedAlumnos.length > 0 && (
@@ -690,10 +729,11 @@ export default function GestionGruposPage() {
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                           padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
-                          background: 'var(--color-surface-2, #f8fafc)', marginBottom: '0.25rem',
+                          background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
+                          border: '1px solid var(--color-border)',
                         }}
                       >
-                        <span style={{ fontSize: 'var(--text-sm)' }}>{a.studentName}</span>
+                        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>{a.studentName}</span>
                         <Button
                           size="sm"
                           variant="action"

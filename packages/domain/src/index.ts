@@ -201,7 +201,7 @@ export type { GrupoRepository, GrupoGlobalFilters, GrupoGlobalRow } from './mate
 
 export { AlumnosXGrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';
 export type { AlumnosXGrupoXCursoXMateriaXCicloProps, CreateAlumnosXGrupoXCursoXMateriaXCicloInput } from './materia-grupo-ciclo';
-export type { AlumnosXGrupoRepository } from './materia-grupo-ciclo';
+export type { AlumnosXGrupoRepository, AlumnoGrupoEnriched } from './materia-grupo-ciclo';
 
 // Asignacion Curso x Ciclo (Fase 4)
 export { AsignacionCursoXCiclo, RolCurso, TurnoCurso } from './asignacion-curso-ciclo';

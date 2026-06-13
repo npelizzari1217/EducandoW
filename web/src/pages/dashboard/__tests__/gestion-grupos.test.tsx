@@ -187,4 +187,62 @@ describe('GG — Gestión de Grupos', () => {
 
     await waitFor(() => expect(mockApiDelete).toHaveBeenCalledWith('/grupos/g-1', { params: { institutionId: 'inst-1' } }));
   });
+
+  it('GG-T8: botón "−" en alumnos del grupo llama DELETE /grupos/:grupoId/alumnos/:alumnoXGrupoId y recarga listas', async () => {
+    // g-1 tiene courseCycleId:'cc-1' y materiaId:'m-1' → el form los pre-llena
+    // y el useEffect dispara la carga de alumnos automáticamente al abrir edit.
+    const mockGrupoAlumnos = [
+      { id: 'axg-1', studentId: 's-1', studentName: 'Juan Pérez' },
+    ];
+    const mockMateriaAlumnos = [
+      { id: 'axm-1', studentId: 's-1', studentName: 'Juan Pérez' },
+    ];
+
+    // Track calls to /grupos/g-1/alumnos: 1st returns data, 2nd (reload after delete) returns empty
+    let grupoAlumnosCallCount = 0;
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/grupos') return Promise.resolve({ data: mockGrupos });
+      if (url === '/grupos/g-1/alumnos') {
+        grupoAlumnosCallCount++;
+        const payload = grupoAlumnosCallCount > 1 ? [] : mockGrupoAlumnos;
+        return Promise.resolve({ data: { data: payload } });
+      }
+      if (url === '/institutions') return Promise.resolve({ data: { data: [{ id: 'inst-1', name: 'Escuela Test' }] } });
+      if (url === '/course-cycles') return Promise.resolve({ data: { data: mockCourseCycles } });
+      if (url.includes('/materias') && url.includes('/alumnos')) return Promise.resolve({ data: { data: mockMateriaAlumnos } });
+      if (url.includes('/materias')) return Promise.resolve({ data: { data: mockMaterias } });
+      if (url.includes('/users')) return Promise.resolve({ data: { data: mockTeachers } });
+      return Promise.resolve({ data: [] });
+    });
+    mockApiDelete.mockResolvedValue({ data: {} });
+
+    renderPage();
+    await waitFor(() => screen.getByText('Grupo A'));
+
+    // Abrir form de edición — g-1 ya tiene cc-1 y m-1 seteados, el useEffect carga alumnos
+    await userEvent.click(screen.getByTestId('btn-editar-g-1'));
+    await waitFor(() => expect(screen.getByTestId('form-grupo')).toBeInTheDocument());
+
+    // Esperar que aparezca el botón "−" (carga automática por useEffect)
+    await waitFor(() => expect(screen.getByTestId('btn-remove-alumno-axg-1')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTestId('btn-remove-alumno-axg-1'));
+
+    // 1. Verifica el DELETE
+    await waitFor(() =>
+      expect(mockApiDelete).toHaveBeenCalledWith(
+        '/grupos/g-1/alumnos/axg-1',
+        { params: { institutionId: 'inst-1' } },
+      )
+    );
+
+    // 2. Verifica que se recargó: GET /grupos/g-1/alumnos llamado al menos 2 veces
+    //    (1ra: carga inicial del useEffect, 2da: reload tras el DELETE)
+    await waitFor(() => expect(grupoAlumnosCallCount).toBeGreaterThanOrEqual(2));
+
+    // 3. Verifica que el alumno desaparece del DOM tras el reload
+    await waitFor(() =>
+      expect(screen.queryByTestId('btn-remove-alumno-axg-1')).not.toBeInTheDocument()
+    );
+  });
 });

@@ -433,8 +433,9 @@ describe('MateriasGruposPage — alumnos per grupo', () => {
     { id: 'axm-2', studentId: 'stu-2', studentName: 'Laura Sánchez' },
   ];
 
+  // GET /grupos/g-1/alumnos now returns {id, studentId, studentName} (enriched)
   const mockAlumnosGrupo = [
-    { id: 'axg-1', grupoId: 'g-1', alumnosXMateriaXCursoXCicloId: 'axm-1' },
+    { id: 'axg-1', studentId: 'stu-1', studentName: 'Pedro Rodríguez' },
   ];
 
   beforeEach(() => {
@@ -484,9 +485,11 @@ describe('MateriasGruposPage — alumnos per grupo', () => {
       expect(screen.getByText('Laura Sánchez')).toBeInTheDocument();
     });
 
-    // axm-1 (Pedro Rodríguez) is already assigned — should NOT appear in available list
-    // (it was assigned via alumnosXMateriaXCursoXCicloId: 'axm-1')
+    // Pedro Rodríguez (studentId:'stu-1') is already assigned — must NOT appear in available list.
+    // The filter compares by studentId: assignedStudentIds = {'stu-1'}.
+    // available[0].studentId='stu-1' is in the set → filtered out.
     expect(screen.queryByTestId('btn-add-alumno-axm-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pedro Rodríguez')).not.toBeInTheDocument();
   });
 });
 

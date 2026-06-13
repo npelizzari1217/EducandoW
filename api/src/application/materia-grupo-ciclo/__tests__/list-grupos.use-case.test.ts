@@ -48,9 +48,11 @@ describe('ListGruposUseCase', () => {
       findByGrupo: vi.fn()
         .mockResolvedValueOnce([makeAxg('axg-1', 'g-1', 'axm-1'), makeAxg('axg-2', 'g-1', 'axm-2')]) // g-1: 2 alumnos
         .mockResolvedValueOnce([makeAxg('axg-3', 'g-2', 'axm-3')]),                                    // g-2: 1 alumno
+      findByGrupoEnriched: vi.fn().mockResolvedValue([]),
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),
+      removeStudent: vi.fn().mockResolvedValue(undefined), // (grupoId, id)
     };
 
     const uc = new ListGruposUseCase(grupoRepo, alumnosGrupoRepo);
@@ -76,9 +78,11 @@ describe('ListGruposUseCase', () => {
     };
     const alumnosGrupoRepo: AlumnosXGrupoRepository = {
       findByGrupo: vi.fn(),
+      findByGrupoEnriched: vi.fn().mockResolvedValue([]),
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),
+      removeStudent: vi.fn().mockResolvedValue(undefined), // (grupoId, id)
     };
 
     const uc = new ListGruposUseCase(grupoRepo, alumnosGrupoRepo);
