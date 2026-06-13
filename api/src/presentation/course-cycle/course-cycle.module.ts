@@ -26,6 +26,8 @@ import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
 import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
 import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
+import { ListAdminSubjectsInCourseCycleUseCase } from '../../application/grading/list-admin-subjects-in-course-cycle.use-case';
+import { PrismaMateriaXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-x-curso-x-ciclo.repository';
 import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, EnrollmentRepository } from '@educandow/domain';
 
 // Tokens exported by PedagogyModule
@@ -129,6 +131,12 @@ const EnrollmentRepo = 'EnrollmentRepository';
         grupoRepo: PrismaGrupoRepository,
       ) => new ListTeacherSubjectsInCourseCycleUseCase(docenteRepo, grupoRepo),
       inject: [PrismaDocenteXCicloRepository, PrismaGrupoRepository],
+    },
+    {
+      provide: ListAdminSubjectsInCourseCycleUseCase,
+      useFactory: (materiaRepo: PrismaMateriaXCursoXCicloRepository) =>
+        new ListAdminSubjectsInCourseCycleUseCase(materiaRepo),
+      inject: [PrismaMateriaXCursoXCicloRepository],
     },
   ],
   exports: [PrismaCourseCycleRepository],

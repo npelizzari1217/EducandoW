@@ -14,6 +14,7 @@ import { AddStudentToGrupoUseCase } from '../../application/materia-grupo-ciclo/
 import { ListMateriasUseCase } from '../../application/materia-grupo-ciclo/list-materias.use-case';
 import { ListGruposUseCase } from '../../application/materia-grupo-ciclo/list-grupos.use-case';
 import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-ciclo.service';
+import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
 /**
  * MateriasGruposModule — Fase 3c (F3-I5).
@@ -33,6 +34,7 @@ import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-
     PrismaAlumnosXMateriaRepository,
     PrismaGrupoRepository,
     PrismaAlumnosXGrupoRepository,
+    PrismaService,
 
     // ── Use-cases ─────────────────────────────────────────────────────────────
 
@@ -57,8 +59,9 @@ import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-
         materiaRepo: PrismaMateriaXCursoXCicloRepository,
         grupoRepo: PrismaGrupoRepository,
         docenteService: DocenteXCicloService,
-      ) => new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService),
-      inject: [PrismaMateriaXCursoXCicloRepository, PrismaGrupoRepository, DocenteXCicloService],
+        prisma: PrismaService,
+      ) => new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma),
+      inject: [PrismaMateriaXCursoXCicloRepository, PrismaGrupoRepository, DocenteXCicloService, PrismaService],
     },
 
     {

@@ -44,6 +44,7 @@ import {
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
 import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
 import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
+import { ListAdminSubjectsInCourseCycleUseCase } from '../../application/grading/list-admin-subjects-in-course-cycle.use-case';
 
 @Controller('course-cycles')
 @UseGuards(AuthGuard, RolesGuard)
@@ -62,6 +63,7 @@ export class CourseCycleController {
     // PR4-T19 + PR4a-SEC W1: teacher-filter use cases (required — module always wires them)
     private readonly listTeacherCCsUC: ListTeacherCourseCyclesUseCase,
     private readonly listTeacherSubjectsUC: ListTeacherSubjectsInCourseCycleUseCase,
+    private readonly listAdminSubjectsUC: ListAdminSubjectsInCourseCycleUseCase,
   ) {}
 
   @Post()
@@ -157,11 +159,25 @@ export class CourseCycleController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(TeacherSubjectsQuerySchema)) query: TeacherSubjectsQueryDto,
   ) {
-    // C2: non-ROOT always use JWT userId; ROOT may supply teacherUserId for admin lookup
-    const effectiveUserId =
-      user.roles.includes('ROOT') && query.teacherUserId ? query.teacherUserId : user.userId;
+    const scope = resolveAccessScope(user);
+
+    if (scope.isAdministrative) {
+      // ROOT admin override: lookup subjects for a specific teacher
+      if (user.roles.includes('ROOT') && query.teacherUserId) {
+        const subjects = await this.listTeacherSubjectsUC.execute({
+          userId: query.teacherUserId,
+          courseCycleId: uuid,
+        });
+        return { data: subjects };
+      }
+      // All admin roles (ROOT/ADMIN/DIRECTOR/SECRETARIO): all subjects of the CC
+      const subjects = await this.listAdminSubjectsUC.execute(uuid);
+      return { data: subjects };
+    }
+
+    // Non-administrative (TEACHER, etc.): only their subjects
     const subjects = await this.listTeacherSubjectsUC.execute({
-      userId: effectiveUserId,
+      userId: user.userId,
       courseCycleId: uuid,
     });
     return { data: subjects };
