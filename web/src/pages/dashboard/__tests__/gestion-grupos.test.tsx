@@ -185,6 +185,6 @@ describe('GG — Gestión de Grupos', () => {
 
     await userEvent.click(screen.getByTestId('btn-confirm-delete'));
 
-    await waitFor(() => expect(mockApiDelete).toHaveBeenCalledWith('/grupos/g-1'));
+    await waitFor(() => expect(mockApiDelete).toHaveBeenCalledWith('/grupos/g-1', { params: { institutionId: 'inst-1' } }));
   });
 });

@@ -97,6 +97,11 @@ export default function GestionGruposPage() {
   const [institutionId, setInstitutionId] = useState(userInstitutionId);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
 
+  // Helper: agrega institutionId como query param en llamadas tenant-scoped.
+  // Para ROOT sin institución seleccionada queda undefined → el middleware devuelve 403
+  // de forma visible (no silenciosa).
+  const tenantParams = institutionId ? { institutionId } : undefined;
+
   useEffect(() => {
     apiClient.get('/institutions').then(r => setInstitutions(r.data?.data ?? [])).catch(() => {});
   }, []);
@@ -141,11 +146,12 @@ export default function GestionGruposPage() {
     if (filterLevel) params.level = filterLevel;
     if (filterCourseCycleId) params.courseCycleId = filterCourseCycleId;
     if (filterMateriaId) params.materiaId = filterMateriaId;
+    if (institutionId) params.institutionId = institutionId;
     apiClient.get('/grupos', { params })
       .then(r => setGrupos(r.data?.data ?? r.data ?? []))
-      .catch(() => setGrupos([]))
+      .catch((err) => { console.error('[reloadGrupos] GET /grupos:', err); setGrupos([]); })
       .finally(() => setLoadingGrupos(false));
-  }, [filterLevel, filterCourseCycleId, filterMateriaId]);
+  }, [filterLevel, filterCourseCycleId, filterMateriaId, institutionId]);
 
   // ── Filter handlers ───────────────────────────────────────────────────────
 
@@ -176,10 +182,10 @@ export default function GestionGruposPage() {
 
   useEffect(() => {
     if (!filterCourseCycleId) { setFilterMaterias([]); return; }
-    apiClient.get(`/course-cycles/${filterCourseCycleId}/materias`)
+    apiClient.get(`/course-cycles/${filterCourseCycleId}/materias`, { params: tenantParams })
       .then(r => setFilterMaterias(r.data?.data ?? r.data ?? []))
-      .catch(() => {});
-  }, [filterCourseCycleId]);
+      .catch((err) => console.error('[filter materias] GET:', err));
+  }, [filterCourseCycleId, institutionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Effect: cargar grupos cuando cambia un filtro ─────────────────────────
 
@@ -189,9 +195,10 @@ export default function GestionGruposPage() {
     if (filterLevel) params.level = filterLevel;
     if (filterCourseCycleId) params.courseCycleId = filterCourseCycleId;
     if (filterMateriaId) params.materiaId = filterMateriaId;
+    if (institutionId) params.institutionId = institutionId;
     apiClient.get('/grupos', { params })
       .then(r => setGrupos(r.data?.data ?? r.data ?? []))
-      .catch(() => setGrupos([]))
+      .catch((err) => { console.error('[grupos effect] GET /grupos:', err); setGrupos([]); })
       .finally(() => setLoadingGrupos(false));
   }, [filterLevel, filterCourseCycleId, filterMateriaId, institutionId]);
 
@@ -210,10 +217,10 @@ export default function GestionGruposPage() {
   // Materias del form
   useEffect(() => {
     if (!formState?.formCourseCycleId) { setFormMaterias([]); return; }
-    apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias`)
+    apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias`, { params: tenantParams })
       .then(r => setFormMaterias(r.data?.data ?? r.data ?? []))
-      .catch(() => {});
-  }, [formState?.formCourseCycleId]);
+      .catch((err) => console.error('[form materias] GET:', err));
+  }, [formState?.formCourseCycleId, institutionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Teachers del form
   useEffect(() => {
@@ -230,16 +237,17 @@ export default function GestionGruposPage() {
     if (!formState?.grupoId || !formState?.formMateriaId || !formState?.formCourseCycleId) return;
     setFormState(f => f ? { ...f, loadingAlumnos: true } : null);
     Promise.all([
-      apiClient.get(`/grupos/${formState.grupoId}/alumnos`),
-      apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/alumnos`),
+      apiClient.get(`/grupos/${formState.grupoId}/alumnos`, { params: tenantParams }),
+      apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/alumnos`, { params: tenantParams }),
     ]).then(([grupoR, materiaR]) => {
       const grupoAlumnos: AlumnoItem[] = grupoR.data?.data ?? grupoR.data ?? [];
       const materiaAlumnos: AlumnoItem[] = materiaR.data?.data ?? materiaR.data ?? [];
       setFormState(f => f ? { ...f, grupoAlumnos, materiaAlumnos, loadingAlumnos: false } : null);
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[form alumnos] GET:', err);
       setFormState(f => f ? { ...f, loadingAlumnos: false } : null);
     });
-  }, [formState?.grupoId, formState?.formMateriaId, formState?.formCourseCycleId]);
+  }, [formState?.grupoId, formState?.formMateriaId, formState?.formCourseCycleId, institutionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Form handlers ─────────────────────────────────────────────────────────
 
@@ -268,7 +276,8 @@ export default function GestionGruposPage() {
       if (formState.mode === 'create') {
         const res = await apiClient.post(
           `/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/grupos`,
-          { userId: formState.docenteUserId, ...(formState.name ? { name: formState.name } : {}) }
+          { userId: formState.docenteUserId, ...(formState.name ? { name: formState.name } : {}) },
+          { params: tenantParams }
         );
         const newId = res.data?.id ?? res.data?.data?.id;
         if (newId) {
@@ -281,7 +290,7 @@ export default function GestionGruposPage() {
         await apiClient.patch(`/grupos/${formState.grupoId}`, {
           ...(formState.name ? { name: formState.name } : {}),
           userId: formState.docenteUserId,
-        });
+        }, { params: tenantParams });
         setFormState(null);
         reloadGrupos();
       }
@@ -291,13 +300,13 @@ export default function GestionGruposPage() {
   }
 
   async function handleDelete(id: string) {
-    await apiClient.delete(`/grupos/${id}`);
+    await apiClient.delete(`/grupos/${id}`, { params: tenantParams });
     reloadGrupos();
     setDeleteConfirmId(null);
   }
 
   async function handlePrint(grupo: Grupo) {
-    const r = await apiClient.get(`/grupos/${grupo.id}/alumnos`);
+    const r = await apiClient.get(`/grupos/${grupo.id}/alumnos`, { params: tenantParams });
     const alumnos: AlumnoItem[] = r.data?.data ?? r.data ?? [];
     setPrintAlumnos(alumnos);
     setPrintGrupo(grupo);
@@ -305,11 +314,11 @@ export default function GestionGruposPage() {
 
   async function handleAddAlumno(alumnoXMateriaId: string) {
     if (!formState?.grupoId) return;
-    await apiClient.post(`/grupos/${formState.grupoId}/alumnos`, { alumnosXMateriaXCursoXCicloId: alumnoXMateriaId });
+    await apiClient.post(`/grupos/${formState.grupoId}/alumnos`, { alumnosXMateriaXCursoXCicloId: alumnoXMateriaId }, { params: tenantParams });
     if (formState.formMateriaId && formState.formCourseCycleId) {
       const [grupoR, materiaR] = await Promise.all([
-        apiClient.get(`/grupos/${formState.grupoId}/alumnos`),
-        apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/alumnos`),
+        apiClient.get(`/grupos/${formState.grupoId}/alumnos`, { params: tenantParams }),
+        apiClient.get(`/course-cycles/${formState.formCourseCycleId}/materias/${formState.formMateriaId}/alumnos`, { params: tenantParams }),
       ]);
       const grupoAlumnos: AlumnoItem[] = grupoR.data?.data ?? grupoR.data ?? [];
       const materiaAlumnos: AlumnoItem[] = materiaR.data?.data ?? materiaR.data ?? [];
@@ -383,6 +392,7 @@ export default function GestionGruposPage() {
             onChange={e => setInstitutionId(e.target.value)}
             style={selectStyle}
           >
+            <option value="">— Seleccioná institución —</option>
             {institutions.map(i => (
               <option key={i.id} value={i.id}>{i.name}</option>
             ))}
