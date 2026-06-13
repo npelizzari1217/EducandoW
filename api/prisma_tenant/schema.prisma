@@ -255,7 +255,6 @@ model GrupoXCursoXMateriaXCiclo {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([materiaXCursoXCicloId, docenteXCicloId], map: "grupos_x_curso_x_materia_x_ciclo_materia_docente_key")
   @@index([materiaXCursoXCicloId])
   @@index([docenteXCicloId])
   @@map("grupos_x_curso_x_materia_x_ciclo")
