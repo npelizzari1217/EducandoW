@@ -12,7 +12,10 @@
  * Filter: Math.floor(level/10) ∈ {2, 3}  (levels 20-39 — Primario + Secundario)
  * Specs: ESS-R1, ESS-R2, ESS-R5, ESS-R6, C-R3, D3
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import apiClient from '../../api/client';
+import { useAuth } from '../../context/auth-context';
+import { isManagementUser } from '../../types/materia-grupo';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { TeacherFilteredSelector } from './components/TeacherFilteredSelector';
@@ -81,13 +84,23 @@ const emptyStyle: React.CSSProperties = {
   color: 'var(--color-text-secondary)',
 };
 
+// ── Grupo types ────────────────────────────────────────────────────────────────
+
+interface GrupoItem {
+  id: string;
+  name: string | null;
+  docenteName: string | null;
+}
+
 // ── Grading grid inner component ───────────────────────────────────────────────
 
 interface SubjectGradingGridProps {
   context: TeacherFilteredSelectionContext;
+  /** null = show all students; Set<studentId> = show only those students. */
+  allowedStudentIds: Set<string> | null;
 }
 
-function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
+function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridProps) {
   const grid = useGradingGrid({
     courseCycleId: context.courseCycleId,
     studyPlanSubjectId: context.studyPlanSubjectId ?? '',
@@ -96,6 +109,11 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
     subjectId: context.subjectId,
     institutionId: context.institutionId,
   });
+
+  // Client-side grupo filter: null = show all, Set = show only those studentIds
+  const visibleStudents = allowedStudentIds === null
+    ? grid.students
+    : grid.students.filter(s => allowedStudentIds.has(s.studentId));
 
   if (grid.loading) {
     return (
@@ -146,7 +164,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
                 </tr>
               </thead>
               <tbody>
-                {grid.students.map(student => (
+                {visibleStudents.map(student => (
                   <tr key={student.studentId}>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>
                       {student.firstName} {student.lastName}
@@ -233,7 +251,7 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
                 </tr>
               </thead>
               <tbody>
-                {grid.students.map(student => (
+                {visibleStudents.map(student => (
                   <tr key={student.studentId}>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>
                       {student.firstName} {student.lastName}
@@ -305,10 +323,118 @@ function SubjectGradingGrid({ context }: SubjectGradingGridProps) {
   );
 }
 
+// ── Grupo selector styles ──────────────────────────────────────────────────────
+
+const grupoLabelStyle: React.CSSProperties = {
+  fontSize: 'var(--text-sm)',
+  fontWeight: 500,
+  marginBottom: '0.25rem',
+  display: 'block',
+};
+
+const grupoSelectStyle: React.CSSProperties = {
+  padding: '0.5rem',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--color-border)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text)',
+  fontSize: 'var(--text-sm)',
+  width: '100%',
+  maxWidth: '300px',
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SubjectGradingBySubjectPage() {
+  const { user } = useAuth();
+  const isManagement = isManagementUser(user?.roles);
+
   const [context, setContext] = useState<TeacherFilteredSelectionContext | null>(null);
+
+  // ── Grupo state ───────────────────────────────────────────────────────────
+  const [grupos, setGrupos] = useState<GrupoItem[]>([]);
+  const [loadingGrupos, setLoadingGrupos] = useState(false);
+  const [selectedGrupoId, setSelectedGrupoId] = useState('');
+  const [allowedStudentIds, setAllowedStudentIds] = useState<Set<string> | null>(null);
+
+  // ── Resolve materiaId → fetch grupos on context change ────────────────────
+  useEffect(() => {
+    if (!context) {
+      setGrupos([]);
+      setSelectedGrupoId('');
+      setAllowedStudentIds(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingGrupos(true);
+    setGrupos([]);
+    setSelectedGrupoId('');
+    setAllowedStudentIds(null);
+
+    const tenantParams = context.institutionId ? { institutionId: context.institutionId } : {};
+
+    async function fetchGrupos() {
+      try {
+        // Step 1: resolve MateriaXCursoXCiclo.id from /materias endpoint
+        const materiasRes = await apiClient.get(
+          `/course-cycles/${context!.courseCycleId}/materias`,
+          { params: tenantParams },
+        );
+        const materias: Array<{ id: string; subjectId: string }> =
+          materiasRes.data?.data ?? [];
+        const materia = materias.find(m => m.subjectId === context!.subjectId);
+
+        if (cancelled || !materia) return;
+
+        // Step 2: fetch grupos (endpoint filters by role on the backend)
+        const gruposRes = await apiClient.get(
+          `/course-cycles/${context!.courseCycleId}/materias/${materia.id}/grupos`,
+          { params: tenantParams },
+        );
+
+        if (cancelled) return;
+
+        const gruposData: GrupoItem[] = gruposRes.data?.data ?? [];
+        setGrupos(gruposData);
+
+        // Docente with exactly one grupo → auto-select it
+        if (!isManagement && gruposData.length === 1) {
+          setSelectedGrupoId(gruposData[0].id);
+        }
+      } catch {
+        if (!cancelled) setGrupos([]);
+      } finally {
+        if (!cancelled) setLoadingGrupos(false);
+      }
+    }
+
+    fetchGrupos();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context?.courseCycleId, context?.subjectId, context?.institutionId, isManagement]);
+
+  // ── Fetch grupo alumnos → build allowedStudentIds filter ──────────────────
+  useEffect(() => {
+    if (!selectedGrupoId) {
+      setAllowedStudentIds(null);
+      return;
+    }
+
+    const tenantParams = context?.institutionId ? { institutionId: context.institutionId } : {};
+
+    apiClient
+      .get(`/grupos/${selectedGrupoId}/alumnos`, { params: tenantParams })
+      .then(r => {
+        const alumnos: Array<{ id: string; studentId: string; studentName: string }> =
+          r.data?.data ?? r.data ?? [];
+        setAllowedStudentIds(new Set(alumnos.map(a => a.studentId)));
+      })
+      .catch(() => {
+        setAllowedStudentIds(null);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGrupoId, context?.institutionId]);
 
   return (
     <div>
@@ -321,12 +447,42 @@ export default function SubjectGradingBySubjectPage() {
       {/* Teacher-filtered selector — Primario + Secundario CCs */}
       <Card className="mt-md">
         <TeacherFilteredSelector onSelect={setContext} filterCourseCycle={isStudentLevel} />
+
+        {/* Grupo selector — shown after materia is selected and grupos are loaded */}
+        {context && !loadingGrupos && grupos.length > 0 && (
+          <div
+            data-testid="sbs-grupo-filter"
+            style={{
+              marginTop: 'var(--space-md)',
+              paddingTop: 'var(--space-md)',
+              borderTop: '1px solid var(--color-border)',
+            }}
+          >
+            <label htmlFor="sbs-grupo-select" style={grupoLabelStyle}>Grupo</label>
+            <select
+              id="sbs-grupo-select"
+              aria-label="Grupo"
+              data-testid="sbs-grupo-select"
+              value={selectedGrupoId}
+              onChange={e => setSelectedGrupoId(e.target.value)}
+              style={grupoSelectStyle}
+            >
+              {/* Management roles: "Todos" shows all students (no filter) */}
+              {isManagement && <option value="">Todos</option>}
+              {grupos.map(g => (
+                <option key={g.id} value={g.id}>
+                  {g.name ?? g.docenteName ?? `Grupo ${g.id.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </Card>
 
       {/* Grid or placeholder */}
       {context ? (
         <div data-testid="grading-grid-slot" style={{ marginTop: 'var(--space-lg)' }}>
-          <SubjectGradingGrid context={context} />
+          <SubjectGradingGrid context={context} allowedStudentIds={allowedStudentIds} />
         </div>
       ) : (
         <Card className="mt-lg">
