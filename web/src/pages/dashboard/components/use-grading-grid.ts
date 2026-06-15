@@ -545,10 +545,15 @@ export function useGradingGrid({
 
     // Optimistic update
     setSubjectPeriodGradeCells((prev) => {
-      const cell = prev.get(cellKey);
-      if (!cell) return prev;
+      // Create the cell if the student had no prior grade for this period — otherwise
+      // the optimistic update is dropped and the change only shows after a refetch.
+      const base: SubjectPeriodGradeCell = prev.get(cellKey) ?? {
+        studentId, periodOrdinal,
+        gradeScaleValueId: null, gradeCode: null, internalStatus: null,
+        pa: false, ppi: false, pp: false, saveState: 'idle',
+      };
       const next = new Map(prev);
-      next.set(cellKey, { ...cell, ...updates, saveState: 'saving' });
+      next.set(cellKey, { ...base, ...updates, saveState: 'saving' });
       return next;
     });
 
@@ -573,11 +578,14 @@ export function useGradingGrid({
       .then((res) => {
         const data = res.data?.data;
         setSubjectPeriodGradeCells((prev) => {
-          const cell = prev.get(cellKey);
-          if (!cell) return prev;
+          const base: SubjectPeriodGradeCell = prev.get(cellKey) ?? {
+            studentId, periodOrdinal,
+            gradeScaleValueId: null, gradeCode: null, internalStatus: null,
+            pa: false, ppi: false, pp: false, saveState: 'idle',
+          };
           const next = new Map(prev);
           next.set(cellKey, {
-            ...cell,
+            ...base,
             gradeScaleValueId: data?.gradeScaleValueId ?? merged.gradeScaleValueId ?? null,
             gradeCode: data?.gradeCode ?? merged.gradeCode ?? null,
             internalStatus: data?.internalStatus ?? merged.internalStatus ?? null,
@@ -608,10 +616,15 @@ export function useGradingGrid({
 
     // Optimistic update
     setSubjectFinalGradeCells((prev) => {
-      const cell = prev.get(cellKey);
-      if (!cell) return prev;
+      // Create the cell if there was no prior final grade — otherwise the optimistic
+      // update is dropped and the change only shows after a refetch.
+      const base: SubjectFinalGradeCell = prev.get(cellKey) ?? {
+        studentId, type,
+        gradeScaleValueId: null, gradeCode: null, internalStatus: null,
+        passed: null, saveState: 'idle',
+      };
       const next = new Map(prev);
-      next.set(cellKey, { ...cell, ...updates, saveState: 'saving' });
+      next.set(cellKey, { ...base, ...updates, saveState: 'saving' });
       return next;
     });
 
@@ -636,11 +649,14 @@ export function useGradingGrid({
       .then((res) => {
         const data = res.data?.data;
         setSubjectFinalGradeCells((prev) => {
-          const cell = prev.get(cellKey);
-          if (!cell) return prev;
+          const base: SubjectFinalGradeCell = prev.get(cellKey) ?? {
+            studentId, type,
+            gradeScaleValueId: null, gradeCode: null, internalStatus: null,
+            passed: null, saveState: 'idle',
+          };
           const next = new Map(prev);
           next.set(cellKey, {
-            ...cell,
+            ...base,
             gradeScaleValueId: data?.gradeScaleValueId ?? merged.gradeScaleValueId ?? null,
             gradeCode: data?.gradeCode ?? merged.gradeCode ?? null,
             internalStatus: data?.internalStatus ?? merged.internalStatus ?? null,

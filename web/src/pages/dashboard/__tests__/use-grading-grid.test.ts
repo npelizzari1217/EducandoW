@@ -554,6 +554,49 @@ describe('useGradingGrid - subject-grade channels', () => {
       expect.objectContaining({ params: expect.anything() }),
     );
   });
+
+  // SGC-11: refresh bug — loading a grade for a student/period with NO prior record
+  // must CREATE the cell optimistically (was: guard `if (!cell) return prev` dropped it,
+  // so the grid only showed the change after leaving and re-entering).
+  it('SGC-11: updateSubjectPeriodGrade creates a NEW cell when the period had no prior grade', async () => {
+    const { result } = renderHook(() => useGradingGrid(optionsWithSubjectId));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // s-2 only has periodGrades for ordinal 1 → s-2:2 is absent from the Map
+    expect(result.current.subjectPeriodGradeCells.has('s-2:2')).toBe(false);
+
+    act(() => {
+      result.current.updateSubjectPeriodGrade('s-2:2', { gradeScaleValueId: 'gsv-1' });
+    });
+
+    await waitFor(() => {
+      const cell = result.current.subjectPeriodGradeCells.get('s-2:2');
+      expect(cell).toBeDefined();
+      expect(cell?.studentId).toBe('s-2');
+      expect(cell?.periodOrdinal).toBe(2);
+      expect(cell?.gradeScaleValueId).toBe('gsv-1');
+    });
+  });
+
+  // SGC-12: same refresh bug for final grades (s-2 has finalGrades: [])
+  it('SGC-12: updateSubjectFinalGrade creates a NEW cell when there was no prior final grade', async () => {
+    const { result } = renderHook(() => useGradingGrid(optionsWithSubjectId));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.subjectFinalGradeCells.has('s-2:FINAL')).toBe(false);
+
+    act(() => {
+      result.current.updateSubjectFinalGrade('s-2:FINAL', { gradeScaleValueId: 'gsv-1' });
+    });
+
+    await waitFor(() => {
+      const cell = result.current.subjectFinalGradeCells.get('s-2:FINAL');
+      expect(cell).toBeDefined();
+      expect(cell?.studentId).toBe('s-2');
+      expect(cell?.type).toBe('FINAL');
+      expect(cell?.gradeScaleValueId).toBe('gsv-1');
+    });
+  });
 });
 
 // ── ROOT institutionId threading (ROOT-1, ROOT-2) ─────────────────────────────
