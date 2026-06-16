@@ -22,7 +22,10 @@ Esta spec describe el estado que DEBE ser verdadero una vez aplicado el cambio. 
 
 ### Fuera del alcance
 
-- Grilla mensual de presentismo / toma de asistencia diaria
+- ~~Grilla mensual de presentismo / toma de asistencia diaria~~ → ahora en
+  `openspec/specs/attendance-recording/spec.md` (ATR-R1 ausentes por materia,
+  ATR-R2 presente diario, ATR-R3 modelo de acceso). Resuelto: DEFERRED-1 de
+  `docente-ciclo-grupos` (2026-06-16).
 - Cómputo de inasistencias ni reportes de presentismo
 - Cualquier modificación al modelo `Attendance` (asistencias históricas)
 

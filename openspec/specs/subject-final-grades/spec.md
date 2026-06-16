@@ -199,3 +199,56 @@ are identical; only the target entity (`SubjectFinalGrade` vs `SubjectPeriodGrad
 - WHEN D1 calls GET final grades for subject M in CC1
 - THEN HTTP 200 is returned with `{ data: [] }`
 - AND the response MUST NOT be HTTP 403 — an assigned teacher with an empty grupo is not forbidden
+
+---
+
+### SFG-R12 — Co-docencia: one shared final grade record per (student, subject, type)
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: One Record per (Student, Subject, Period) Shared Across Group Teachers")
+> Change: docente-ciclo-grupos · Fase 5
+
+There SHALL be at most one `SubjectFinalGrade` row per
+`(institutionId, studentId, courseCycleId, subjectId, type)` tuple, regardless of the
+number of teachers assigned to the group via `GrupoXCursoXMateriaXCiclo`. ANY teacher
+assigned to the group MAY create or overwrite that shared record. This shared-edit behavior
+is intentional and MUST NOT be blocked.
+
+#### SFG-S16 — Co-docencia: second teacher overwrites the shared final grade record
+
+- GIVEN a GrupoXCursoXMateriaXCiclo G with teachers D1 and D2 (co-docencia)
+- AND D1 has already saved a FINAL grade with gradeCode = "MB" for student S
+- WHEN D2 saves a FINAL grade with gradeCode = "B" for the same student S
+- THEN the row is updated to gradeCode = "B"; no duplicate FINAL row is created
+- AND the operation is accepted without error
+
+---
+
+### SFG-R13 — Write authorization validates group assignment
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: Write Operations Validate Group Assignment")
+> Change: docente-ciclo-grupos · Fase 5
+
+`upsert-subject-final-grades` MUST verify that the authenticated user is assigned as
+teacher to the `GrupoXCursoXMateriaXCiclo` being written to, BEFORE persisting any data.
+If the user is NOT assigned to that group, the write MUST be rejected with HTTP 403 and
+NO record is written or modified. Administrative roles (SECRETARIO, DIRECTOR, ADMIN, ROOT)
+with GRADES:CREATE access bypass this group-assignment check.
+
+#### SFG-S17 — Assigned teacher writes final grades successfully
+
+- GIVEN teacher D1 is assigned to GrupoXCursoXMateriaXCiclo G1 for subject M in cycle C1
+- WHEN D1 submits an upsert for a final grade for a student in G1
+- THEN the grade is persisted and the response is HTTP 200
+
+#### SFG-S18 — Unassigned teacher is rejected on final grade write
+
+- GIVEN teacher D2 is NOT assigned to any group for subject M in CursoXCiclo CC1
+- WHEN D2 attempts to upsert a final grade for a student in CC1's subject M
+- THEN the system returns HTTP 403 Forbidden
+- AND no final grade record is written or modified
+
+#### SFG-S19 — Secretario / Directivo can write final grades without group assignment
+
+- GIVEN user U has SECRETARIO role and GRADES:CREATE module access
+- WHEN U submits an upsert for any final grade in their institution and level scope
+- THEN the system accepts the write (management scope overrides the group-assignment gate)

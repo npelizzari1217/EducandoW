@@ -298,7 +298,7 @@
 - [x] F4-D2: Interface `AsignacionCursoXCicloRepository`:
   `assign(data)`, `findByCourseId(courseCycleId)`,
   `findByCourseAndDocente(courseCycleId, docenteXCicloId)`,
-  `isPreceptor(userId, courseCycleId): Promise<boolean>`,
+  `isPreceptor(docenteXCicloId, courseCycleId): Promise<boolean>`,
   `remove(id)`
 
 ### Infraestructura
@@ -423,7 +423,7 @@
   - Rechaza si teacher no está en el grupo → HTTP 403 (asistencia delta escena 2)
 - [x] F6-A2: `RecordDailyAttendanceUseCase`:
   - Door 1: módulo `ATTENDANCE:CREATE`
-  - Door 2: `AsignacionCursoXCicloRepository.isPreceptor(userId, courseCycleId)`
+  - Door 2: `AsignacionCursoXCicloRepository.isPreceptor(docenteXCicloId, courseCycleId)`
   - D3: SECRETARIO/DIRECTOR bypass Door 2
   - Rechaza si user no es preceptor del CC → HTTP 403 (asistencia delta escena 5)
   - Los registros de asistencia diaria son independientes de los de ausencias por materia (asistencia delta escena "independientes")
