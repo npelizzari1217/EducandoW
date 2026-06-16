@@ -1,5 +1,9 @@
 # Evaluation Frontend Specification
 
+> **RETIRED** — All requirements in this spec are superseded by change `retiro-evaluaciones-legacy-s1` (archived 2026-06-16).
+> The four legacy grading pages (EvaluacionesPage, NotasPage, PeriodosPage, NotasTrimestralesPage) and their backing endpoints have been removed from the application surface. Data is preserved in the DB schema (SubjectAssignment, Evaluacion, NotaTrimestral models intact; no migration). Boletin PDF generation is unaffected (reads via raw Prisma client, not these pages/endpoints).
+> Remaining work: S2 (boletin lookup migration to DocenteXCiclo), S3 (data archival + schema drop) — see umbrella `openspec/changes/retiro-teacher-legacy/explore.md`.
+
 ## Purpose
 
 Replaces broken GradesPage with four pages on existing endpoints.
