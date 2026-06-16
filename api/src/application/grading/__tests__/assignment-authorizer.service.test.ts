@@ -7,6 +7,10 @@
  *   F5-T4: TEACHER with assigned group → permitted
  *   F5-T1: TEACHER not assigned to any group for the subject → rejected (bug closed)
  *   F5-T3: TEACHER assigned to different subject (no group for this materia) → rejected
+ *
+ * notas-get-authz-grupo:
+ *   getAllowedStudentIds — all branches (ADR-1, ADR-6)
+ *   canWriteGrades regression — ADR-3 equivalence table
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AssignmentAuthorizer } from '../assignment-authorizer.service';
@@ -27,6 +31,9 @@ interface MockRepos {
   grupoRepo: {
     findGroupsForDocente: ReturnType<typeof vi.fn>;
   };
+  alumnosXGrupoRepo: {
+    findStudentIdsByGrupoIds: ReturnType<typeof vi.fn>;
+  };
   mockClient: {
     courseCycle: { findUnique: ReturnType<typeof vi.fn> };
     materiaXCursoXCiclo: { findFirst: ReturnType<typeof vi.fn> };
@@ -38,6 +45,7 @@ function makeRepos(overrides: Partial<{
   grupos: { id: string; materiaXCursoXCicloId: string; docenteXCicloId: string }[];
   courseCycle: { cycleId: string } | null;
   materia: { id: string } | null;
+  studentIds: string[];
 }> = {}): MockRepos {
   const dxc = overrides.docenteXCiclo !== undefined
     ? overrides.docenteXCiclo
@@ -55,12 +63,19 @@ function makeRepos(overrides: Partial<{
     ? overrides.materia
     : { id: 'materia-1' };
 
+  const studentIds = overrides.studentIds !== undefined
+    ? overrides.studentIds
+    : ['s1', 's2'];
+
   return {
     docenteRepo: {
       findByUserAndCycle: vi.fn().mockResolvedValue(dxc),
     },
     grupoRepo: {
       findGroupsForDocente: vi.fn().mockResolvedValue(grupos),
+    },
+    alumnosXGrupoRepo: {
+      findStudentIdsByGrupoIds: vi.fn().mockResolvedValue(studentIds),
     },
     mockClient: {
       courseCycle: {
@@ -77,11 +92,13 @@ function makeAuthorizer(repos: MockRepos): AssignmentAuthorizer {
   return new AssignmentAuthorizer(
     repos.docenteRepo as any,
     repos.grupoRepo as any,
+    repos.alumnosXGrupoRepo as any,
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// AssignmentAuthorizer
+// canWriteGrades — regression suite (ADR-3)
+// Validates that the resolveAssignedGrupos refactor preserves byte-for-byte behaviour.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('AssignmentAuthorizer', () => {
@@ -194,5 +211,128 @@ describe('AssignmentAuthorizer', () => {
     const auth = makeAuthorizer(repos);
     const result = await auth.canWriteGrades('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
     expect(result).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// getAllowedStudentIds — new method (ADR-1, ADR-6)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('AssignmentAuthorizer.getAllowedStudentIds', () => {
+  let repos: MockRepos;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+  });
+
+  it('SECRETARIO → returns "all" without any repo calls', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-sec', ['SECRETARIO'], 'cc-1', 'subj-1');
+    expect(result).toBe('all');
+    expect(repos.docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+    expect(repos.alumnosXGrupoRepo.findStudentIdsByGrupoIds).not.toHaveBeenCalled();
+  });
+
+  it('DIRECTOR → returns "all" without any repo calls', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-dir', ['DIRECTOR'], 'cc-1', 'subj-1');
+    expect(result).toBe('all');
+    expect(repos.docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+  });
+
+  it('ADMIN → returns "all" without any repo calls', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-admin', ['ADMIN'], 'cc-1', 'subj-1');
+    expect(result).toBe('all');
+    expect(repos.docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+  });
+
+  it('ROOT → returns "all" without any repo calls', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-root', ['ROOT'], 'cc-1', 'subj-1');
+    expect(result).toBe('all');
+    expect(repos.docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+    expect(repos.alumnosXGrupoRepo.findStudentIdsByGrupoIds).not.toHaveBeenCalled();
+  });
+
+  it('no TenantContext client → returns null', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toBeNull();
+  });
+
+  it('client found but no CourseCycle for courseCycleId → returns null', async () => {
+    repos = makeRepos({ courseCycle: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-unknown', 'subj-1');
+    expect(result).toBeNull();
+  });
+
+  it('CC found but no DocenteXCiclo for (userId, cycleId) → returns null', async () => {
+    repos = makeRepos({ docenteXCiclo: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toBeNull();
+  });
+
+  it('dxc found but no MateriaXCursoXCiclo for (courseCycleId, subjectId) → returns null', async () => {
+    repos = makeRepos({ materia: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toBeNull();
+  });
+
+  it('materia found, findGroupsForDocente returns [] → returns null', async () => {
+    repos = makeRepos({ grupos: [] });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toBeNull();
+  });
+
+  it('grupos > 0, findStudentIdsByGrupoIds returns ["s1","s2"] → returns ["s1","s2"]', async () => {
+    repos = makeRepos({
+      grupos: [{ id: 'grupo-1', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' }],
+      studentIds: ['s1', 's2'],
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toEqual(['s1', 's2']);
+    expect(repos.alumnosXGrupoRepo.findStudentIdsByGrupoIds).toHaveBeenCalledWith(['grupo-1']);
+  });
+
+  it('grupos > 0, findStudentIdsByGrupoIds returns [] → returns [] (distinct from null)', async () => {
+    repos = makeRepos({
+      grupos: [{ id: 'grupo-vacío', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' }],
+      studentIds: [],
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toEqual([]);
+    expect(result).not.toBeNull();
+  });
+
+  it('co-docencia: same studentId from 2 grupos → deduped ["s1"] (dedup is repo responsibility)', async () => {
+    // The repo implementation deduplicates; we verify the authorizer passes both grupoIds
+    repos = makeRepos({
+      grupos: [
+        { id: 'grupo-1', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' },
+        { id: 'grupo-2', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' },
+      ],
+      studentIds: ['s1'], // repo already deduped
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.getAllowedStudentIds('user-teacher', ['TEACHER'], 'cc-1', 'subj-1');
+    expect(result).toEqual(['s1']);
+    // Both grupoIds must be passed to the repo
+    expect(repos.alumnosXGrupoRepo.findStudentIdsByGrupoIds).toHaveBeenCalledWith(['grupo-1', 'grupo-2']);
   });
 });
