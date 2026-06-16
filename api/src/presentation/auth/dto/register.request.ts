@@ -119,48 +119,6 @@ export const CreateCourseSectionSchema = z.object({
 });
 export type CreateCourseSectionDTO = z.infer<typeof CreateCourseSectionSchema>;
 
-export const CreateSubjectAssignmentSchema = z.object({
-  subjectId: uuidField,
-  teacherId: uuidField,
-  courseSectionId: uuidField,
-});
-export type CreateSubjectAssignmentDTO = z.infer<typeof CreateSubjectAssignmentSchema>;
-
-export const CreateEvaluacionSchema = z.object({
-  assignmentId: uuidField,
-  title: nameField,
-  description: z.string().max(500).optional(),
-  evaluationDate: z.string(),
-  weight: z.number().min(0).max(10).optional().default(1),
-});
-export type CreateEvaluacionDTO = z.infer<typeof CreateEvaluacionSchema>;
-
-export const CreateNotaSchema = z.object({
-  evaluationId: uuidField,
-  studentId: uuidField,
-  numericValue: z.number().optional(),
-  qualitativeValue: z.string().max(100).optional(),
-  comments: z.string().max(500).optional(),
-  gradeScaleValueId: uuidField.optional(),
-});
-export type CreateNotaDTO = z.infer<typeof CreateNotaSchema>;
-
-export const CreatePeriodoSchema = z.object({
-  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
-  name: nameField,
-  startDate: z.string(),
-  endDate: z.string(),
-});
-export type CreatePeriodoDTO = z.infer<typeof CreatePeriodoSchema>;
-
-export const CreateNotaTrimestralSchema = z.object({
-  studentId: uuidField,
-  assignmentId: uuidField,
-  periodId: uuidField,
-  finalGrade: z.number(),
-  attendancePct: z.number().min(0).max(100).optional(),
-});
-export type CreateNotaTrimestralDTO = z.infer<typeof CreateNotaTrimestralSchema>;
 
 export const CreateAttendanceSchema = z.object({
   studentId: uuidField,
