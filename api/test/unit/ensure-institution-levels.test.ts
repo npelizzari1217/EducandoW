@@ -7,16 +7,21 @@ const { mockFindMany, mockUpsert } = vi.hoisted(() => ({
 }));
 
 vi.mock('@prisma/client', () => ({
-  PrismaClient: vi.fn().mockImplementation(() => ({
-    $disconnect: vi.fn().mockResolvedValue(undefined),
-    $queryRawUnsafe: vi.fn(),
-    institution: {
-      findMany: mockFindMany,
-    },
-    institutionLevel: {
-      upsert: mockUpsert,
-    },
-  })),
+  // The seed constructs `new PrismaClient()`, so the mock implementation must be
+  // a regular function (constructable). Vitest 4 rejects arrow functions as mock
+  // constructors ("did not use 'function' or 'class'").
+  PrismaClient: vi.fn().mockImplementation(function () {
+    return {
+      $disconnect: vi.fn().mockResolvedValue(undefined),
+      $queryRawUnsafe: vi.fn(),
+      institution: {
+        findMany: mockFindMany,
+      },
+      institutionLevel: {
+        upsert: mockUpsert,
+      },
+    };
+  }),
 }));
 
 import { ensureInstitutionLevels } from '../../prisma/seed';
