@@ -17,6 +17,14 @@
 
 export const ASSIGNMENT_AUTHORIZER = 'AssignmentAuthorizerPort' as const;
 
+/**
+ * Tri-state read scope:
+ *   'all'    → administrative bypass (SECRETARIO / DIRECTOR / ADMIN / ROOT)
+ *   string[] → allowed studentIds (may be empty for an assigned-but-empty grupo)
+ *   null     → forbidden (broken link in the authz chain)
+ */
+export type StudentScope = string[] | 'all' | null;
+
 export interface AssignmentAuthorizerPort {
   canWriteGrades(
     userId: string,
@@ -40,4 +48,19 @@ export interface AssignmentAuthorizerPort {
     userRoles: string[],
     courseCycleId: string,
   ): Promise<boolean>;
+
+  /**
+   * Returns the read scope for a (user, courseCycle, subject) tuple:
+   *   'all'     → administrative bypass (SECRETARIO / DIRECTOR / ADMIN / ROOT)
+   *   string[]  → allowed studentIds (may be empty for an assigned-but-empty grupo)
+   *   null      → forbidden (any broken link in the authz chain)
+   *
+   * Satisfies: spec "Scope Resolution Returns an Access Scope Value" (notas-get-authz-grupo)
+   */
+  getAllowedStudentIds(
+    userId: string,
+    userRoles: string[],
+    courseCycleId: string,
+    subjectId: string,
+  ): Promise<StudentScope>;
 }

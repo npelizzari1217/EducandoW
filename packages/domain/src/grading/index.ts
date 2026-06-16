@@ -68,4 +68,4 @@ export type {
 
 // Ports (Fase 5)
 export { ASSIGNMENT_AUTHORIZER } from './ports/assignment-authorizer.port';
-export type { AssignmentAuthorizerPort } from './ports/assignment-authorizer.port';
+export type { AssignmentAuthorizerPort, StudentScope } from './ports/assignment-authorizer.port';
