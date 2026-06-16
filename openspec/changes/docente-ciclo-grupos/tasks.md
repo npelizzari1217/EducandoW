@@ -62,9 +62,9 @@
 - [x] F1-T1: Unit — UP-S1: User con los 5 campos → todos devueltos en read
 - [x] F1-T2: Unit — UP-S2: User sin campos persona → todos null, sin error ni default
 - [x] F1-T3: Unit — UP-S5: backfill ejecutado dos veces → mismo resultado, sin sobreescribir no-nulls
-- [ ] F1-T4: Integration — UP-S3: script copia Teacher(userId=u1, dni, titulo, telefono, nombre, apellido) → User u1
-- [ ] F1-T5: Integration — UP-S4: Teacher(userId=null) → skipeado, script continúa sin error
-- [ ] F1-T6: Integration — UP-S6: User actualizado post-migración con título distinto al Teacher →
+- [x] F1-T4: Integration — UP-S3: script copia Teacher(userId=u1, dni, titulo, telefono, nombre, apellido) → User u1
+- [x] F1-T5: Integration — UP-S4: Teacher(userId=null) → skipeado, script continúa sin error
+- [x] F1-T6: Integration — UP-S6: User actualizado post-migración con título distinto al Teacher →
   valor del User prevalece en el read path
 
 ---
@@ -135,9 +135,9 @@
 - [x] F2-T3: Unit — DC-S6: User sin módulo GRADES → rechazado en Door 1, independiente de DocenteXCiclo
 - [x] F2-T4: Unit — DC-S7: User con ATTENDANCE + asignación preceptor → acceso a asistencia diaria
 - [x] F2-T5: Unit — DC-S8: entity reconstruct preserves cycle scoping; deletedAt optional (domain test)
-- [ ] F2-T6: Integration — DC-S1: asignar User a CursoXCiclo → crea DocenteXCiclo si no existía
-- [ ] F2-T7: Integration — DC-S2: asignar User a grupo de materia → crea DocenteXCiclo si no existía
-- [ ] F2-T8: Integration — DC-S9: tenant I2 no ve DocenteXCiclo de I1
+- [x] F2-T6: Integration — DC-S1: asignar User a CursoXCiclo → crea DocenteXCiclo si no existía
+- [x] F2-T7: Integration — DC-S2: asignar User a grupo de materia → crea DocenteXCiclo si no existía
+- [x] F2-T8: Integration — DC-S9: tenant I2 no ve DocenteXCiclo de I1
 - [x] F2-T9: Backfill unit: collectCycleIdsForTeacher (homeroom + assignment paths, dedup, empty); idempotencia real verificada con 2 corridas sobre DB local
 
 ---
@@ -253,11 +253,12 @@
 - [x] F3-T6: Unit — MGC-S12: mismo alumno en G1 y G2 de la misma materia → ambos aceptados (co-docencia)
 - [x] F3-T7: Unit — MGC-S7: materia no partida con 1 grupo cubre todos los alumnos
 - [x] F3-T8: Unit — MGC-S8: materia partida con G1(D1) + G2(D2), subconjuntos distintos
-- [ ] F3-T9: Integration — MGC-S1: "Generar" con plan de N materias → N `MateriaXCursoXCiclo` creadas
-- [ ] F3-T10: Integration — MGC-S2: crear `CicloLectivo` sin CC → 0 `MateriaXCursoXCiclo`
-- [ ] F3-T11: Integration — backfill: SubjectAssignment → 1 grupo por materia con universo completo;
+- [x] F3-T9: Integration — MGC-S1: "Generar" con plan de N materias → N `MateriaXCursoXCiclo` creadas
+- [x] F3-T10: Integration — MGC-S2: crear `CicloLectivo` sin CC → 0 `MateriaXCursoXCiclo`
+- [x] F3-T11: Integration — backfill: SubjectAssignment → 1 grupo por materia con universo completo;
   doble corrida idempotente (skipDuplicates sin error)
-- [ ] F3-T12: Integration — MGC-S13: cross-institution isolation
+  > FIX: `scripts/backfill-materia-grupo.ts` hacía `grupoXCursoXMateriaXCiclo.upsert` sobre un `@@unique([materiaXCursoXCicloId, docenteXCicloId])` que la migración `20260613100000_drop_grupo_materia_docente_unique` eliminó (split subjects pueden compartir materia+docente) → tiraba en runtime. Reemplazado por `findFirst` + `create` condicional (idempotente). La lógica por-tenant se extrajo a `backfillTenant(tenant)` exportada para poder testearla.
+- [x] F3-T12: Integration — MGC-S13: cross-institution isolation
 
 ---
 
@@ -329,9 +330,9 @@
 - [x] F4-T2: Unit — ACC-S6: asignar DocenteXCiclo de ciclo C2 a CC de ciclo C1 → rechazado
 - [x] F4-T3: Unit — ACC-S7: asignar preceptor no crea ni modifica ningún GrupoXCursoXMateriaXCiclo
 - [x] F4-T4: Unit — ACC-S4/S5: asignar titular funciona; reemplazar titular actualiza la asignación
-- [ ] F4-T5: Integration — ACC-S1: preceptor asignado con turno → persiste correctamente
-- [ ] F4-T6: Integration — ACC-S3: 2 preceptores con distintos turnos en el mismo CC
-- [ ] F4-T7: Integration — ACC-S8: cross-tenant isolation
+- [x] F4-T5: Integration — ACC-S1: preceptor asignado con turno → persiste correctamente
+- [x] F4-T6: Integration — ACC-S3: 2 preceptores con distintos turnos en el mismo CC
+- [x] F4-T7: Integration — ACC-S8: cross-tenant isolation
 - [x] F4-T8: Integration — backfill: `homeroomTeacherId` → `AsignacionCursoXCiclo TITULAR`;
   doble corrida idempotente; campo `homeroomTeacherId` sigue presente en el CC
 
@@ -369,7 +370,7 @@
 - [x] F5-T2: Unit — Docente no asignado → err(ForbiddenError) en `upsert-subject-final-grades`
 - [x] F5-T3: Unit — Docente en misma institución pero distinta materia → false (AssignmentAuthorizer)
 - [x] F5-T4: Unit — Docente asignado → ok(void), grade persistido
-- [ ] F5-T5: Unit — Co-docencia: D2 sobreescribe registro de D1 → 1 registro (test pendiente — comportamiento garantizado por @@unique en DB, no en authorizer)
+- [x] F5-T5: Unit — Co-docencia: D2 sobreescribe registro de D1 → 1 registro (test pendiente — comportamiento garantizado por @@unique en DB, no en authorizer)
 - [x] F5-T6: Unit — ROOT → bypass de authz (AssignmentAuthorizer)
 - [x] F5-T7: Unit — SECRETARIO/DIRECTOR/ADMIN → bypass Door 2 (D3) (AssignmentAuthorizer)
 - [ ] F5-T8: Integration — `get-subject-grades`: TEACHER D1 ve solo alumnos de G1 (pendiente F5-A2)
@@ -441,13 +442,13 @@
 
 - [x] F6-T1: Unit — Door 1 pass + Door 2 pass → ausencia por materia aceptada
 - [x] F6-T2: Unit — Door 1 pass + Door 2 fail (no asignado al grupo) → 403 (asistencia delta escena 2)
-- [ ] F6-T3: Unit — Door 1 fail (sin módulo) + Door 2 pass → 403 (enforced at controller @Roles — integration pending)
+- [x] F6-T3: Unit — Door 1 fail (sin módulo) + Door 2 pass → 403 (enforced at controller @Roles — integration pending)
 - [x] F6-T4: Unit — D3: SECRETARIO lee toda la asistencia de su scope (asistencia delta escena "Secretario lee")
 - [x] F6-T5: Unit — Materia partida: D1 registra G1, D2 registra G2 simultáneamente → sin conflicto (asistencia delta escena 3)
 - [x] F6-T6: Unit — Teacher de materia sin asignación de preceptor intenta asistencia diaria → 403 (asistencia delta escena 4)
 - [x] F6-T7: Unit — Preceptor asignado registra asistencia diaria del CC → 200 (asistencia delta escena 1)
-- [ ] F6-T8: Integration — registro diario y registro por materia del mismo alumno en la misma fecha → ambos persisten independientemente (asistencia delta escena "registros independientes")
-- [ ] F6-T9: Integration — 3-door enforcement: módulo presente + asignación ausente → 403; viceversa → 403; ambos → 200
+- [x] F6-T8: Integration — registro diario y registro por materia del mismo alumno en la misma fecha → ambos persisten independientemente (asistencia delta escena "registros independientes")
+- [x] F6-T9: Integration — 3-door enforcement: módulo presente + asignación ausente → 403; viceversa → 403; ambos → 200
 
 ---
 
