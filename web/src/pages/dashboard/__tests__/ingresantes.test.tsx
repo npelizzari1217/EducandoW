@@ -37,6 +37,10 @@ vi.mock('../../../api/adapters/index', () => ({
 // ── Auth mock ─────────────────────────────────────────────────────────────────
 
 let mockModules: { moduleCode: string; actions: string[] }[] = [];
+// Mutable so individual test suites can switch user roles and userLevels.
+// Defaults to ADMIN (allLevels) so existing tests are unaffected.
+let mockUserRoles: string[] = ['ADMIN'];
+let mockUserUserLevels: { level: number; modality: number }[] | undefined = undefined;
 
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
@@ -45,9 +49,10 @@ vi.mock('../../../context/auth-context', () => ({
       email: 'admin@test.com',
       name: 'Admin',
       role: 'ADMIN',
-      roles: ['ADMIN'],
+      get roles() { return mockUserRoles; },
       get modules() { return mockModules; },
       levels: [],
+      get userLevels() { return mockUserUserLevels; },
     },
     logout: vi.fn(),
     isLoading: false,
@@ -130,6 +135,8 @@ function renderAceptadosPanel(onStudentAdded?: () => void) {
 describe('IngresantesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserRoles = ['ADMIN'];
+    mockUserUserLevels = undefined;
     mockModules = [
       { moduleCode: 'ENROLLMENTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
       { moduleCode: 'STUDENTS',    actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
@@ -255,6 +262,8 @@ describe('IngresantesPage', () => {
 describe('AceptadosPanel — Alumnos integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUserRoles = ['ADMIN'];
+    mockUserUserLevels = undefined;
     mockModules = [
       { moduleCode: 'STUDENTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
     ];
@@ -311,5 +320,77 @@ describe('AceptadosPanel — Alumnos integration', () => {
 
     const { container } = renderAceptadosPanel();
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Suite 3: IngresantesPage — DIRECTOR/SECRETARIO level-locked scenario
+// SUGGESTION-2: verify the F-1 fixed-level path renders a disabled input
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('IngresantesPage — DIRECTOR level-locked scenario (SUGGESTION-2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // DIRECTOR: not ROOT, not ADMIN → isAllLevels=false
+    // userLevels[0].level === 2 → levelCode 2 = PRIMARIO base → label 'Primario'
+    mockUserRoles = ['DIRECTOR'];
+    mockUserUserLevels = [{ level: 2, modality: 0 }];
+    mockModules = [
+      { moduleCode: 'ENROLLMENTS', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
+      { moduleCode: 'STUDENTS',    actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
+    ];
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/ingresantes') return Promise.resolve({ data: { data: [] } });
+      if (url === '/academic-cycles') return Promise.resolve({ data: { data: [MOCK_CYCLE] } });
+      return Promise.resolve({ data: { data: [] } }); // /institutions catch-all
+    });
+    mockApiPost.mockResolvedValue({ data: {} });
+  });
+
+  afterEach(() => {
+    mockUserRoles = ['ADMIN'];
+    mockUserUserLevels = undefined;
+    cleanup();
+  });
+
+  // ── ING-5: DIRECTOR sees a disabled level input (not a dropdown) ────────────
+
+  it('ING-5: DIRECTOR user — Nivel field is a disabled input auto-set to their level label', async () => {
+    const user = userEvent.setup();
+    renderIngresantesPage();
+
+    // Wait for the page to mount (button depends on modules, not async data)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /nuevo ingresante/i })).toBeInTheDocument();
+    });
+
+    // Open the create form
+    await user.click(screen.getByRole('button', { name: /nuevo ingresante/i }));
+
+    // Nivel field must be a disabled <input>, not a <select>
+    const nivelInput = screen.getByLabelText('Nivel') as HTMLInputElement;
+    expect(nivelInput.tagName).toBe('INPUT');
+    expect(nivelInput.disabled).toBe(true);
+
+    // Shows the human-readable label derived from userLevels[0].level === 2 (PRIMARIO base)
+    // LEVEL_CATALOG.find(e => e.levelCode === 2 && e.modalityCode === 0) → label: 'Primario'
+    expect(nivelInput).toHaveValue('Primario');
+  });
+
+  // ── ING-6: DIRECTOR — cannot change Nivel (disabled), can select cycle ──────
+
+  it('ING-6: DIRECTOR user — Nivel input is not interactive (disabled attribute present)', async () => {
+    const user = userEvent.setup();
+    renderIngresantesPage();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /nuevo ingresante/i })).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /nuevo ingresante/i }));
+
+    const nivelInput = screen.getByLabelText('Nivel') as HTMLInputElement;
+    // Disabled means the attribute is set — user cannot type or interact
+    expect(nivelInput).toBeDisabled();
   });
 });
