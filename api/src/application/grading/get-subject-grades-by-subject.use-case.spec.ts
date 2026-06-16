@@ -1,8 +1,9 @@
 /**
  * GetSubjectGradesBySubjectUseCase tests — authz via AssignmentAuthorizer (modelo nuevo).
  *
- * C1 authz ahora usa authorizer.canWriteGrades (misma fuente que el write path).
- * Specs: SPG-R8, ES-R1 (CORRECTED — all competencies), AD-5, AD-7
+ * notas-get-authz-grupo: migrated from canWriteGrades (boolean gate) to
+ * getAllowedStudentIds (tri-state scope filter). Adds F5-T8 and F5-T9 scenarios.
+ * Specs: SPG-R8, ES-R1 (CORRECTED), AD-5, AD-7, ADR-4, ADR-6
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetSubjectGradesBySubjectUseCase } from './get-subject-grades-by-subject.use-case';
@@ -26,11 +27,18 @@ function makePeriod(ordinal: number): SubjectGradingPeriod {
   });
 }
 
-/** Authorized authorizer (canWriteGrades returns true) */
-function makeAuthorizer(authorized = true) {
+/**
+ * Authorizer mock with tri-state getAllowedStudentIds.
+ *
+ * scope:
+ *   'all'   → administrative bypass (default for existing tests)
+ *   null    → forbidden
+ *   string[] → scoped student list
+ */
+function makeAuthorizer(scope: string[] | 'all' | null = 'all') {
   return {
-    canWriteGrades: vi.fn().mockResolvedValue(authorized),
-    canAccessCourseCycle: vi.fn().mockResolvedValue(authorized),
+    getAllowedStudentIds: vi.fn().mockResolvedValue(scope),
+    canAccessCourseCycle: vi.fn().mockResolvedValue(scope !== null),
   };
 }
 
@@ -106,7 +114,7 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    authorizer = makeAuthorizer(true); // authorized by default
+    authorizer = makeAuthorizer('all'); // 'all' scope by default (admin bypass)
   });
 
   function makeUseCase(r = repos, auth = authorizer) {
@@ -271,11 +279,11 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     expect(res.students[0].competencyValuations).toEqual([]);
   });
 
-  // ── AUTHZ-C1: ownership checks via AssignmentAuthorizer ──────────────────────
+  // ── AUTHZ-C1: scope gate via getAllowedStudentIds ────────────────────────────
 
-  it('AUTHZ-C1: authorizer.canWriteGrades retorna false → { forbidden: true }', async () => {
+  it('AUTHZ-C1: getAllowedStudentIds returns null → { forbidden: true }', async () => {
     repos = makeRepos({ sgpRepoResult: [makePeriod(1)], enrolledStudents: [] });
-    const auth = makeAuthorizer(false); // unauthorized
+    const auth = makeAuthorizer(null); // forbidden
     useCase = makeUseCase(repos, auth);
 
     const result = await useCase.execute({
@@ -284,12 +292,12 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     });
 
     expect(result).toEqual({ forbidden: true });
-    expect(auth.canWriteGrades).toHaveBeenCalledWith('unknown-user', ['TEACHER'], 'cc-uuid-1', 'subj-uuid-1');
+    expect(auth.getAllowedStudentIds).toHaveBeenCalledWith('unknown-user', ['TEACHER'], 'cc-uuid-1', 'subj-uuid-1');
   });
 
-  it('AUTHZ-C1: authorizer.canWriteGrades retorna true → NO forbidden', async () => {
+  it('AUTHZ-C1: getAllowedStudentIds returns "all" → success (not forbidden)', async () => {
     repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
-    const auth = makeAuthorizer(true);
+    const auth = makeAuthorizer('all');
     useCase = makeUseCase(repos, auth);
 
     const result = await useCase.execute({
@@ -300,9 +308,9 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     expect(result).not.toEqual({ forbidden: true });
   });
 
-  it('AUTHZ-C1: ROOT → authorizer.canWriteGrades devuelve true (bypass gestionado por el authorizer)', async () => {
+  it('AUTHZ-C1: ROOT → getAllowedStudentIds returns "all" (bypass managed by authorizer)', async () => {
     repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
-    const auth = makeAuthorizer(true);
+    const auth = makeAuthorizer('all');
     useCase = makeUseCase(repos, auth);
 
     const result = await useCase.execute({
@@ -311,12 +319,12 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     });
 
     expect(result).not.toEqual({ forbidden: true });
-    expect(auth.canWriteGrades).toHaveBeenCalledWith('root-user', ['ROOT'], 'cc-uuid-1', 'subj-uuid-1');
+    expect(auth.getAllowedStudentIds).toHaveBeenCalledWith('root-user', ['ROOT'], 'cc-uuid-1', 'subj-uuid-1');
   });
 
-  it('AUTHZ-C1: authorizer.canWriteGrades es llamado con los parámetros correctos', async () => {
+  it('AUTHZ-C1: getAllowedStudentIds es llamado con los parámetros correctos', async () => {
     repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
-    const auth = makeAuthorizer(true);
+    const auth = makeAuthorizer('all');
     useCase = makeUseCase(repos, auth);
 
     await useCase.execute({
@@ -324,7 +332,93 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
       userId: 'user-Z', userRoles: ['TEACHER'],
     });
 
-    expect(auth.canWriteGrades).toHaveBeenCalledWith('user-Z', ['TEACHER'], 'cc-X', 'subj-Y');
+    expect(auth.getAllowedStudentIds).toHaveBeenCalledWith('user-Z', ['TEACHER'], 'cc-X', 'subj-Y');
+  });
+
+  // ── F5-T8: scope filter — TEACHER sees only their grupo's students ───────────
+
+  it('F5-T8: getAllowedStudentIds returns ["s1","s2"] → students[] contains only s1 and s2', async () => {
+    const periods = [makePeriod(1)];
+    repos = makeRepos({
+      sgpRepoResult: periods,
+      enrolledStudents: [
+        { studentId: 's1', firstName: 'Ana', lastName: 'García' },
+        { studentId: 's2', firstName: 'Bob', lastName: 'Pérez' },
+        { studentId: 's3', firstName: 'Carlos', lastName: 'López' }, // outside scope
+      ],
+    });
+    const auth = makeAuthorizer(['s1', 's2']);
+    useCase = makeUseCase(repos, auth);
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    expect(result).not.toHaveProperty('forbidden');
+    const res = result as any;
+    const ids = res.students.map((s: any) => s.studentId);
+    expect(ids).toContain('s1');
+    expect(ids).toContain('s2');
+    expect(ids).not.toContain('s3');
+  });
+
+  // ── F5-T9: cross-scope exclusion ────────────────────────────────────────────
+
+  it('F5-T9: getAllowedStudentIds returns ["s1"] → s2 and s3 are absent', async () => {
+    const periods = [makePeriod(1)];
+    repos = makeRepos({
+      sgpRepoResult: periods,
+      enrolledStudents: [
+        { studentId: 's1', firstName: 'Ana', lastName: 'García' },
+        { studentId: 's2', firstName: 'Bob', lastName: 'Pérez' },
+        { studentId: 's3', firstName: 'Carlos', lastName: 'López' },
+      ],
+    });
+    const auth = makeAuthorizer(['s1']);
+    useCase = makeUseCase(repos, auth);
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    const res = result as any;
+    expect(res.students).toHaveLength(1);
+    expect(res.students[0].studentId).toBe('s1');
+  });
+
+  // ── Empty scope (grupo vacío) — 200 not 403 ──────────────────────────────────
+
+  it('GRUPO-VACÍO: getAllowedStudentIds returns [] → result is NOT forbidden; students[] = []', async () => {
+    const periods = [makePeriod(1)];
+    repos = makeRepos({
+      sgpRepoResult: periods,
+      enrolledStudents: [{ studentId: 's1', firstName: 'Ana', lastName: 'García' }],
+    });
+    const auth = makeAuthorizer([]);
+    useCase = makeUseCase(repos, auth);
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    expect(result).not.toHaveProperty('forbidden');
+    const res = result as any;
+    expect(res.students).toEqual([]);
+  });
+
+  // ── 'all' scope — no filtering, all enrolled students returned ───────────────
+
+  it('ALL-SCOPE: getAllowedStudentIds returns "all" → all enrolled students returned', async () => {
+    const periods = [makePeriod(1)];
+    repos = makeRepos({
+      sgpRepoResult: periods,
+      enrolledStudents: [
+        { studentId: 's1', firstName: 'A', lastName: 'B' },
+        { studentId: 's2', firstName: 'C', lastName: 'D' },
+        { studentId: 's3', firstName: 'E', lastName: 'F' },
+      ],
+    });
+    const auth = makeAuthorizer('all');
+    useCase = makeUseCase(repos, auth);
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', userId: 'admin', userRoles: ['SECRETARIO'] });
+
+    const res = result as any;
+    expect(res.students).toHaveLength(3);
   });
 
   // ── condicion in response ─────────────────────────────────────────────────────
