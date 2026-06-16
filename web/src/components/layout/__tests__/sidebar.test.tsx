@@ -144,7 +144,6 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
-    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed — verify it's NOT present
@@ -180,7 +179,6 @@ describe('Sidebar filtering', () => {
 
     // Generic items visible
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed
@@ -215,7 +213,6 @@ describe('Sidebar filtering', () => {
     renderSidebar();
 
     // Generic items visible
-    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed
@@ -317,7 +314,6 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Docentes')).toBeInTheDocument();
-    expect(screen.getByText('Notas y Calificaciones')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Perfiles')).toBeInTheDocument();

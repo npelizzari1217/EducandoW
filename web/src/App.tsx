@@ -20,12 +20,6 @@ import StudentsPage from './pages/dashboard/students';
 import TeachersPage from './pages/dashboard/teachers';
 import EnrollmentsPage from './pages/dashboard/enrollments';
 import { AttendancePage } from './pages/dashboard/pedagogy-pages';
-import {
-  EvaluacionesPage,
-  NotasPage,
-  PeriodosPage,
-  NotasTrimestralesPage,
-} from './pages/dashboard/evaluation-pages';
 import ModulesPage from './pages/dashboard/modules';
 import UsersPage from './pages/dashboard/users';
 import ProfilesPage from './pages/dashboard/profiles';
@@ -71,10 +65,6 @@ function App() {
               <Route path="/students" element={<StudentsPage />} />
               <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/enrollments" element={<EnrollmentsPage />} />
-              <Route path="/evaluaciones" element={<EvaluacionesPage />} />
-              <Route path="/evaluaciones/notas" element={<NotasPage />} />
-              <Route path="/periodos" element={<PeriodosPage />} />
-              <Route path="/notas-trimestrales" element={<NotasTrimestralesPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/modules" element={<ProtectedRoute moduleCode="MODULES" action="READ"><ModulesPage /></ProtectedRoute>} />
               <Route path="/profiles" element={<ProtectedRoute moduleCode="USERS" action="READ"><ProfilesPage /></ProtectedRoute>} />
