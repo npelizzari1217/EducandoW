@@ -279,6 +279,79 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
     expect(res.students[0].competencyValuations).toEqual([]);
   });
 
+  // ── resolveStudyPlanSubjectId null paths + final-grade map (SUGGESTION-1 branch coverage) ──
+
+  it('skips competency fetch when courseCycle row is not found (cc null)', async () => {
+    mockClient.courseCycle.findUnique.mockResolvedValue(null);
+    repos = makeRepos({
+      sgpRepoResult: [makePeriod(1)],
+      enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
+    });
+    useCase = makeUseCase();
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+    expect((result as any).students[0].competencyValuations).toEqual([]);
+  });
+
+  it('skips competency fetch when studyPlanCourse is not found (spc null)', async () => {
+    mockClient.studyPlanCourse.findFirst.mockResolvedValue(null);
+    repos = makeRepos({
+      sgpRepoResult: [makePeriod(1)],
+      enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
+    });
+    useCase = makeUseCase();
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+    expect((result as any).students[0].competencyValuations).toEqual([]);
+  });
+
+  it('skips competency fetch when tenant client is unavailable (client null)', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
+    repos = makeRepos({
+      sgpRepoResult: [makePeriod(1)],
+      enrolledStudents: [{ studentId: 'student-1', firstName: 'Juan', lastName: 'García' }],
+    });
+    useCase = makeUseCase();
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
+    expect((result as any).students[0].competencyValuations).toEqual([]);
+  });
+
+  it('groups multiple final-grade types under the same student (reuses existing map entry)', async () => {
+    const mkFinal = (type: SubjectFinalGradeType) =>
+      SubjectFinalGrade.reconstruct({
+        id: `sfg-${type}`,
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-uuid-1',
+        type,
+        gradeScaleValueId: null,
+        gradeCode: null,
+        internalStatus: null,
+        passed: null,
+        condicion: null,
+      });
+    repos = makeRepos({
+      sgpRepoResult: [makePeriod(1)],
+      finalGradeResult: [mkFinal(SubjectFinalGradeType.FINAL), mkFinal(SubjectFinalGradeType.DICIEMBRE)],
+      enrolledStudents: [{ studentId: 'student-1', firstName: 'Ana', lastName: 'López' }],
+    });
+    useCase = makeUseCase();
+
+    const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+    const student = (result as any).students[0];
+    const types = student.finalGrades.map((f: any) => f.type);
+    expect(types).toContain('FINAL');
+    expect(types).toContain('DICIEMBRE');
+  });
+
   // ── AUTHZ-C1: scope gate via getAllowedStudentIds ────────────────────────────
 
   it('AUTHZ-C1: getAllowedStudentIds returns null → { forbidden: true }', async () => {
