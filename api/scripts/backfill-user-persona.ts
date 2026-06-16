@@ -69,6 +69,79 @@ export function buildPersonaUpdate(
   return update;
 }
 
+export interface UserPersonaBackfillCounts {
+  updated: number;
+  skippedOrphan: number;
+  skippedAlreadyPopulated: number;
+}
+
+/**
+ * Backfills User persona (master) from Teacher persona (one tenant).
+ * - Teachers with userId=null are skipped (UP-S4).
+ * - Only null User fields are filled, never overwritten (UP-S5 idempotency).
+ * Pure w.r.t. the passed-in clients → callable from integration tests.
+ */
+export async function backfillUserPersonaForTenant(
+  master: MasterPrismaClient,
+  tenant: TenantPrismaClient,
+): Promise<UserPersonaBackfillCounts> {
+  const teachers = await tenant.teacher.findMany({
+    select: {
+      id: true,
+      userId: true,
+      firstName: true,
+      lastName: true,
+      dni: true,
+      title: true,
+      phone: true,
+    },
+    where: { deletedAt: null },
+  });
+
+  const linked = teachers.filter((t) => t.userId);
+  const skippedOrphan = teachers.length - linked.length; // UP-S4
+
+  let updated = 0;
+  let skippedAlreadyPopulated = 0;
+
+  for (const teacher of linked) {
+    const userId = teacher.userId!;
+
+    const user = (await master.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        institutionId: true,
+        firstName: true,
+        lastName: true,
+        dni: true,
+        title: true,
+        phone: true,
+      },
+    })) as UserPersonaRow | null;
+
+    if (!user) continue; // linked userId not present in master → skip
+
+    const updateData = buildPersonaUpdate(user, {
+      firstName: teacher.firstName,
+      lastName: teacher.lastName,
+      dni: teacher.dni,
+      title: teacher.title,
+      phone: teacher.phone,
+    });
+
+    if (Object.keys(updateData).length === 0) {
+      skippedAlreadyPopulated++; // UP-S5
+      continue;
+    }
+
+    await master.user.update({ where: { id: userId }, data: updateData });
+    updated++;
+  }
+
+  return { updated, skippedOrphan, skippedAlreadyPopulated };
+}
+
 async function main() {
   // ── Carga mínima de .env ────────────────────────────────
   const envPath = path.resolve(__dirname, '..', '.env');
@@ -117,77 +190,13 @@ async function main() {
     const tenant = new TenantPrismaClient({ datasources: { db: { url: tenantUrl } } });
 
     try {
-      // Fetch all teachers from this tenant
-      const teachers = await tenant.teacher.findMany({
-        select: {
-          id: true,
-          userId: true,
-          firstName: true,
-          lastName: true,
-          dni: true,
-          title: true,
-          phone: true,
-        },
-        where: { deletedAt: null },
-      });
-
-      const orphans = teachers.filter((t) => !t.userId);
-      const linked  = teachers.filter((t) =>  t.userId);
-
-      if (orphans.length > 0) {
-        console.log(
-          `  [${inst.db_name}] ${orphans.length} Teacher(s) con userId=null — se omiten (se borrarán en Fase 2).`,
-        );
-        totalSkippedOrphan += orphans.length;
-      }
-
-      for (const teacher of linked) {
-        const userId = teacher.userId!;
-
-        // Read current User persona state from master
-        const user = await master.user.findUnique({
-          where: { id: userId },
-          select: {
-            id: true,
-            institutionId: true,
-            firstName: true,
-            lastName: true,
-            dni: true,
-            title: true,
-            phone: true,
-          },
-        }) as UserPersonaRow | null;
-
-        if (!user) {
-          console.warn(
-            `  [${inst.db_name}] Teacher ${teacher.id}: userId=${userId} no encontrado en master — se omite.`,
-          );
-          continue;
-        }
-
-        // UP-S5: only update fields that are currently null in User
-        // Never overwrite an already-populated field with a value from Teacher.
-        const updateData = buildPersonaUpdate(user, {
-          firstName: teacher.firstName,
-          lastName:  teacher.lastName,
-          dni:       teacher.dni,
-          title:     teacher.title,
-          phone:     teacher.phone,
-        });
-
-        if (Object.keys(updateData).length === 0) {
-          totalSkippedAlreadyPopulated++;
-          continue;
-        }
-
-        await master.user.update({
-          where: { id: userId },
-          data: updateData,
-        });
-
-        console.log(`  [${inst.db_name}] User ${userId}: actualizado ${Object.keys(updateData).join(', ')}`);
-        totalUpdated++;
-      }
+      const c = await backfillUserPersonaForTenant(master, tenant);
+      totalUpdated += c.updated;
+      totalSkippedOrphan += c.skippedOrphan;
+      totalSkippedAlreadyPopulated += c.skippedAlreadyPopulated;
+      console.log(
+        `  [${inst.db_name}] updated=${c.updated} skippedOrphan=${c.skippedOrphan} alreadyPopulated=${c.skippedAlreadyPopulated}`,
+      );
     } catch (e) {
       console.error(`  [${inst.db_name}] ERROR:`, (e as Error).message);
     } finally {
@@ -205,7 +214,10 @@ Resumen:
   `);
 }
 
-main().catch((e) => {
-  console.error('Error inesperado:', e);
-  process.exit(1);
-});
+// Only run when executed directly (tsx scripts/...), not when imported by tests.
+if (typeof require !== 'undefined' && require.main === module) {
+  main().catch((e) => {
+    console.error('Error inesperado:', e);
+    process.exit(1);
+  });
+}
