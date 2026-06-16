@@ -124,6 +124,36 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
   }
 
   /**
+   * Returns deduplicated studentIds for a list of grupoIds.
+   * Two-hop resolution:
+   *   Hop 1: AlumnosXGrupo (no studentId) → alumnosXMateriaXCursoXCicloId
+   *   Hop 2: AlumnosXMateriaXCursoXCiclo → studentId
+   * Deduplicates via Set to handle co-docencia (same student in multiple grupos).
+   * Guard: returns [] immediately when grupoIds is empty (avoids empty IN query).
+   */
+  async findStudentIdsByGrupoIds(grupoIds: string[]): Promise<string[]> {
+    if (grupoIds.length === 0) return [];
+
+    // Hop 1: get alumnosXMateriaXCursoXCicloId references
+    const axg = await this.client.alumnosXGrupoXCursoXMateriaXCiclo.findMany({
+      where: { grupoId: { in: grupoIds } },
+      select: { alumnosXMateriaXCursoXCicloId: true },
+    });
+    if (axg.length === 0) return [];
+
+    // Dedup axmIds before hop-2 to minimize the IN clause
+    const axmIds = [...new Set(axg.map((r: { alumnosXMateriaXCursoXCicloId: string }) => r.alumnosXMateriaXCursoXCicloId))];
+
+    // Hop 2: resolve studentId from AlumnosXMateriaXCursoXCiclo
+    const axm = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+      where: { id: { in: axmIds } },
+      select: { studentId: true },
+    });
+
+    return [...new Set(axm.map((r: { studentId: string }) => r.studentId))];
+  }
+
+  /**
    * Bulk-upsert for backfill (skipDuplicates).
    */
   async upsertMany(

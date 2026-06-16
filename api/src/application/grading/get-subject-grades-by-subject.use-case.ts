@@ -2,8 +2,8 @@
  * GetSubjectGradesBySubjectUseCase — authz via AssignmentAuthorizer (modelo nuevo).
  *
  * Feeds the "Alumnos por materia" grid. For a (courseCycle, subject) pair:
- *   1. Authz: authorizer.canWriteGrades(userId, userRoles, courseCycleId, subjectId) — C1.
- *      Same source as the write path → GET y POST validan igual.
+ *   1. Scope: authorizer.getAllowedStudentIds → 'all' | string[] | null (C1, ADR-4).
+ *      null → {forbidden:true} (403); 'all' → all students; string[] → filtered set.
  *   2. Ensures SubjectGradingPeriod snapshot (AD-5) — idempotent, kept.
  *   3. Fetches existing SubjectPeriodGrade rows (absent = ungraded, grid renders empty cell).
  *   4. Fetches existing SubjectFinalGrade rows (all 4 types, absent = null values).
@@ -12,7 +12,7 @@
  * SCAFFOLD REMOVED (C1): saveMany of empty grade rows must NOT happen on GET.
  * Absent row = ungraded; rows are created on write (PR4b).
  * ROOT/management bypass is handled inside AssignmentAuthorizer (Door 2).
- * Specs: SPG-R8, ES-R1 (CORRECTED), AD-5, AD-7
+ * Specs: SPG-R8, ES-R1 (CORRECTED), AD-5, AD-7, notas-get-authz-grupo ADR-4
  */
 import { Injectable } from '@nestjs/common';
 import {
@@ -89,9 +89,10 @@ export class GetSubjectGradesBySubjectUseCase {
   }): Promise<GetSubjectGradesBySubjectResponse> {
     const { courseCycleId, subjectId, userId, userRoles } = input;
 
-    // ── C1: Ownership check via AssignmentAuthorizer (same source as write path) ─
-    const canAccess = await this.authorizer.canWriteGrades(userId, userRoles, courseCycleId, subjectId);
-    if (!canAccess) return { forbidden: true };
+    // ── C1: Scope resolution via AssignmentAuthorizer (tri-state gate) ──────────
+    // null → forbidden (403); 'all' → all students; string[] → scoped set
+    const scope = await this.authorizer.getAllowedStudentIds(userId, userRoles, courseCycleId, subjectId);
+    if (scope === null) return { forbidden: true };
 
     // ── 1. Ensure snapshot (AD-5) — idempotent period-structure snapshot ──────
     const periods = await this.sgpRepo.ensureSnapshot(courseCycleId, subjectId);
@@ -100,8 +101,11 @@ export class GetSubjectGradesBySubjectUseCase {
       return { courseCycleId, subjectId, periods: [], students: [] };
     }
 
-    // ── 2. Get enrolled students ──────────────────────────────────────────────
-    const students = await this.ccRepo.findEnrolledStudents(courseCycleId);
+    // ── 2. Get enrolled students (scoped by group assignment for teachers) ─────
+    const allStudents = await this.ccRepo.findEnrolledStudents(courseCycleId);
+    const students = scope === 'all'
+      ? allStudents
+      : allStudents.filter((s) => (scope as string[]).includes(s.studentId));
 
     if (students.length === 0) {
       return {

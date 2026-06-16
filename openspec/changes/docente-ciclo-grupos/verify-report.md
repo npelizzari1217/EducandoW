@@ -114,8 +114,8 @@ El campo lleva `/// @deprecated — migrado a AsignacionCursoXCiclo rol=TITULAR 
 
 ### Deuda registrada para follow-up SDD
 
-1. Migrar GET de notas a authz grupo-based (F5-A2 + F5-T8/T9)
+1. ~~Migrar GET de notas a authz grupo-based (F5-A2 + F5-T8/T9)~~ **RESUELTO** por `notas-get-authz-grupo` (2026-06-16). F5-T8/T9 cerrados a nivel unit; DB integration sigue diferida (ver ítem 4).
 2. Retiro de `Teacher` y `SubjectAssignment` (D5)
 3. Optativas: asignación de subconjunto de alumnos a materia (diferido)
-4. Tests de integración multi-tenant (F1-T4..T6, F2-T6..T8, F3-T9..T12, F4-T5..T7, F6-T8/T9)
+4. Tests de integración multi-tenant (F1-T4..T6, F2-T6..T8, F3-T9..T12, F4-T5..T7, F6-T8/T9). Nota: F5-T8/T9 cerrados a nivel unit por `notas-get-authz-grupo`; los tests de integración DB para esos escenarios siguen pendientes.
 5. Actualizar `smart-course-creation/delta.md` para reflejar D1

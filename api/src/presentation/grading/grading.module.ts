@@ -37,6 +37,7 @@ import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
+import { PrismaAlumnosXGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-grupo.repository';
 import { AssignmentAuthorizer } from '../../application/grading/assignment-authorizer.service';
 import { GetSubjectGradesBySubjectUseCase } from '../../application/grading/get-subject-grades-by-subject.use-case';
 import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-subject-grades-by-student.use-case';
@@ -174,13 +175,18 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
     { provide: 'DocenteXCicloRepository', useExisting: PrismaDocenteXCicloRepository },
     PrismaGrupoRepository,
     { provide: 'GrupoRepository', useExisting: PrismaGrupoRepository },
+    // AlumnosXGrupo repo — needed by AssignmentAuthorizer for getAllowedStudentIds (T9)
+    // Note: also provided in materia-grupo-ciclo.module but that module is NOT imported here
+    PrismaAlumnosXGrupoRepository,
+    { provide: 'AlumnosXGrupoRepository', useExisting: PrismaAlumnosXGrupoRepository },
     {
       provide: AssignmentAuthorizer,
       useFactory: (
         docenteRepo: PrismaDocenteXCicloRepository,
         grupoRepo: PrismaGrupoRepository,
-      ) => new AssignmentAuthorizer(docenteRepo, grupoRepo),
-      inject: [PrismaDocenteXCicloRepository, PrismaGrupoRepository],
+        alumnosXGrupoRepo: PrismaAlumnosXGrupoRepository,
+      ) => new AssignmentAuthorizer(docenteRepo, grupoRepo, alumnosXGrupoRepo),
+      inject: [PrismaDocenteXCicloRepository, PrismaGrupoRepository, PrismaAlumnosXGrupoRepository],
     },
     {
       provide: GetSubjectGradesBySubjectUseCase,

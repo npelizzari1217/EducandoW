@@ -42,4 +42,11 @@ export interface AlumnosXGrupoRepository {
   upsertMany(
     data: Array<{ grupoId: string; alumnosXMateriaXCursoXCicloId: string }>
   ): Promise<void>;
+  /**
+   * Returns the deduplicated set of studentIds for a list of grupo IDs.
+   * Two-hop resolution: AlumnosXGrupo → AlumnosXMateria.studentId.
+   * Returns [] when grupoIds is empty or no memberships exist.
+   * Satisfies: MGC-GET-AUTHZ / F5-T8 (multi-grupo dedup).
+   */
+  findStudentIdsByGrupoIds(grupoIds: string[]): Promise<string[]>;
 }

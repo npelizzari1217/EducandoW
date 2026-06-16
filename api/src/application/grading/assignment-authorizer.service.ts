@@ -13,7 +13,7 @@
  *     userId → DocenteXCiclo(cycleId of CC) → GrupoXCursoXMateriaXCiclo(materia)
  *     and checks that at least one group exists for the docente in that materia.
  *
- * canWriteGrades internal steps (teacher path):
+ * resolveAssignedGrupos internal steps (teacher path, shared):
  *   1. Fetch cycleId from CourseCycle via TenantContext (raw Prisma).
  *   2. findByUserAndCycle(userId, cycleId) → DocenteXCiclo.
  *   3. findFirst MateriaXCursoXCiclo for (courseCycleId, subjectId).
@@ -28,7 +28,13 @@
  */
 import { Injectable } from '@nestjs/common';
 import { resolveAccessScope } from '@educandow/domain';
-import type { DocenteXCicloRepository, GrupoRepository, AssignmentAuthorizerPort } from '@educandow/domain';
+import type {
+  DocenteXCicloRepository,
+  GrupoRepository,
+  AlumnosXGrupoRepository,
+  AssignmentAuthorizerPort,
+  StudentScope,
+} from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 @Injectable()
@@ -36,7 +42,42 @@ export class AssignmentAuthorizer implements AssignmentAuthorizerPort {
   constructor(
     private readonly docenteRepo: DocenteXCicloRepository,
     private readonly grupoRepo: GrupoRepository,
+    private readonly alumnosXGrupoRepo: AlumnosXGrupoRepository,
   ) {}
+
+  /**
+   * Resolves the assigned grupos for a (teacher, courseCycle, subject) tuple.
+   * Returns the grupo list (may be []) when all authz links are valid.
+   * Returns null when any link in the chain is missing:
+   *   no tenant client, no CourseCycle, no DocenteXCiclo, no MateriaXCursoXCiclo.
+   *
+   * Used by both canWriteGrades and getAllowedStudentIds — ADR-3.
+   */
+  private async resolveAssignedGrupos(
+    userId: string,
+    courseCycleId: string,
+    subjectId: string,
+  ): Promise<{ id: string; materiaXCursoXCicloId: string; docenteXCicloId: string }[] | null> {
+    const client = TenantContext.getClient();
+    if (!client) return null;
+
+    const cc = await client.courseCycle.findUnique({
+      where: { uuid: courseCycleId },
+      select: { cycleId: true },
+    });
+    if (!cc) return null;
+
+    const dxc = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
+    if (!dxc) return null;
+
+    const materia = await client.materiaXCursoXCiclo.findFirst({
+      where: { courseCycleId, subjectId },
+      select: { id: true },
+    });
+    if (!materia) return null;
+
+    return this.grupoRepo.findGroupsForDocente(dxc.id, materia.id);
+  }
 
   async canWriteGrades(
     userId: string,
@@ -50,31 +91,28 @@ export class AssignmentAuthorizer implements AssignmentAuthorizerPort {
       return true;
     }
 
-    // ── Door 3: teacher group-assignment check ───────────────────────────────
-    const client = TenantContext.getClient();
-    if (!client) return false;
+    // ── Door 3: teacher group-assignment check (via shared resolver) ──────────
+    const grupos = await this.resolveAssignedGrupos(userId, courseCycleId, subjectId);
+    return grupos !== null && grupos.length > 0;
+  }
 
-    // Step 1: Resolve cycleId from CourseCycle
-    const cc = await client.courseCycle.findUnique({
-      where: { uuid: courseCycleId },
-      select: { cycleId: true },
-    });
-    if (!cc) return false;
+  async getAllowedStudentIds(
+    userId: string,
+    userRoles: string[],
+    courseCycleId: string,
+    subjectId: string,
+  ): Promise<StudentScope> {
+    // ── Door 2: administrative bypass → all students visible ─────────────────
+    const scope = resolveAccessScope({ roles: userRoles });
+    if (scope.isAdministrative) {
+      return 'all';
+    }
 
-    // Step 2: Find DocenteXCiclo for (userId, cycleId)
-    const dxc = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
-    if (!dxc) return false;
+    // ── Door 3: teacher path → resolve grupos, then fetch student IDs ─────────
+    const grupos = await this.resolveAssignedGrupos(userId, courseCycleId, subjectId);
+    if (grupos === null || grupos.length === 0) return null;
 
-    // Step 3: Find MateriaXCursoXCiclo for (courseCycleId, subjectId)
-    const materia = await client.materiaXCursoXCiclo.findFirst({
-      where: { courseCycleId, subjectId },
-      select: { id: true },
-    });
-    if (!materia) return false;
-
-    // Step 4: Check group assignment
-    const grupos = await this.grupoRepo.findGroupsForDocente(dxc.id, materia.id);
-    return grupos.length > 0;
+    return this.alumnosXGrupoRepo.findStudentIdsByGrupoIds(grupos.map((g) => g.id));
   }
 
   async canAccessCourseCycle(

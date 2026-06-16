@@ -153,10 +153,49 @@ Cross-tenant data access → HTTP 404.
 
 `GET /subject-final-grades?courseCycleId=:id&subjectId=:id` MUST return all
 existing `SubjectFinalGrade` rows (all types, all students) for that combination,
-wrapped in `{ data: [...] }`.
+wrapped in `{ data: [...] }`. For TEACHER-role callers, the returned rows are
+further filtered to the teacher's assigned group(s). See SFG-R11.
 
 #### SFG-S12 — GET returns all types for all students
 
 - GIVEN 5 students, each with a FINAL row and 2 with a DICIEMBRE row
 - WHEN GET is called for that courseCycle+subject
 - THEN response is `{ data: [7 rows total] }`
+
+---
+
+### SFG-R11 — Group-scoped read for TEACHER role
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: Grade Scope Narrowed to Group")
+> Implemented (read path) by: `notas-get-authz-grupo` · 2026-06-16
+> Change: notas-get-authz-grupo · IDs: SFG-R11 / SFG-S13–S15
+
+A TEACHER MUST see only the `SubjectFinalGrade` rows for students in their
+assigned `GrupoXCursoXMateriaXCiclo`(s). Administrative roles (SECRETARIO, DIRECTOR,
+ADMIN, ROOT) with GRADES:READ access MUST see all rows across all groups.
+
+Scope resolution follows the same `getAllowedStudentIds` tri-state model as SPG-R10
+(`'all'` / `string[]` / `null`). The behavior, edge cases, and deduplication rules
+are identical; only the target entity (`SubjectFinalGrade` vs `SubjectPeriodGrade`) differs.
+
+#### SFG-S13 — TEACHER sees only their grupo's students (final grades)
+
+- GIVEN a course-cycle CC1 with subject M split into G1 (teacher D1, students S1–S15)
+  and G2 (teacher D2, students S16–S30) and FINAL rows for all students
+- WHEN D1 calls GET final grades for subject M in CC1
+- THEN response includes only rows for S1–S15 (all types)
+- AND rows for S16–S30 are absent
+
+#### SFG-S14 — TEACHER with no assignment is forbidden (final grades)
+
+- GIVEN teacher D3 has no group assignment for subject M in CC1
+- WHEN D3 calls GET final grades for subject M in CC1
+- THEN HTTP 403 is returned and no grade data is included
+
+#### SFG-S15 — Empty grupo → HTTP 200 with empty data (not forbidden)
+
+- GIVEN teacher D1 is assigned to GrupoXCursoXMateriaXCiclo G1 for subject M in CC1
+- AND G1 has zero enrolled students
+- WHEN D1 calls GET final grades for subject M in CC1
+- THEN HTTP 200 is returned with `{ data: [] }`
+- AND the response MUST NOT be HTTP 403 — an assigned teacher with an empty grupo is not forbidden
