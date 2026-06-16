@@ -376,7 +376,7 @@ export class PedagogyController {
     @Param('periodItemId') periodItemId: string,
     @Body(new ZodValidationPipe(CDTO.UpdatePeriodGradeSchema)) body: CDTO.UpdatePeriodGradeDto,
   ) {
-    // Pre-resolve studentId for boletin invalidation (same pattern as deleteNotaTrimestral)
+    // Pre-resolve studentId for boletin invalidation
     const client = TenantContext.getClient();
     let studentId: string | undefined;
     if (client) {
