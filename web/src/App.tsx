@@ -3,6 +3,13 @@ import { ErrorBoundary } from './components/error-boundary';
 import { AuthProvider } from './context/auth-context';
 import { InstitutionProvider } from './context/institution-context';
 import { ThemeApplier } from './components/theme/theme-applier';
+import { ReloginModal } from './components/auth/relogin-modal';
+import { useIdleTimer } from './hooks/use-idle-timer';
+
+function IdleTimerMount() {
+  useIdleTimer();
+  return null;
+}
 import { ProtectedRoute } from './components/layout/protected-route';
 import { DashboardLayout } from './components/layout/dashboard-layout';
 import LoginPage from './pages/auth/login';
@@ -53,6 +60,8 @@ function App() {
       <AuthProvider>
         <InstitutionProvider>
           <ThemeApplier />
+          <IdleTimerMount />
+          <ReloginModal />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />

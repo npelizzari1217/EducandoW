@@ -99,6 +99,24 @@ describe('CreateInstitutionUseCase — multi-tenant flow', () => {
       expect(result.isOk()).toBe(true);
       expect(mockAdminUseCase.execute).not.toHaveBeenCalled();
     });
+
+    it('uses default sessionTimeoutMinutes of 20 when not provided', async () => {
+      const result = await useCase.execute(validInput);
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.unwrap().institution.sessionTimeoutMinutes).toBe(20);
+      }
+    });
+
+    it('uses provided session_timeout_minutes', async () => {
+      const result = await useCase.execute({ ...validInput, session_timeout_minutes: 60 });
+
+      expect(result.isOk()).toBe(true);
+      if (result.isOk()) {
+        expect(result.unwrap().institution.sessionTimeoutMinutes).toBe(60);
+      }
+    });
   });
 
   describe('rollback on DB creation failure', () => {

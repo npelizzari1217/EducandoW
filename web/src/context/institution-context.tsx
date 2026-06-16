@@ -30,6 +30,7 @@ export interface InstitutionConfig {
   send_messages: boolean;
   socket_host: string | null;
   socket_port: number | null;
+  session_timeout_minutes: number;
   active: boolean;
   db_name: string | null;
   levels: number[];
@@ -64,6 +65,7 @@ const DEFAULT_CONFIG: InstitutionConfig = {
   send_messages: false,
   socket_host: null,
   socket_port: null,
+  session_timeout_minutes: 20,
   active: true,
   db_name: null,
   levels: [],

@@ -38,6 +38,7 @@ export interface InstitutionProps {
   sendMessages?: boolean;
   socketHost?: string;
   socketPort?: number;
+  sessionTimeoutMinutes?: number;
   active?: boolean;
   deletedAt?: Date;
   dbName?: string;
@@ -84,6 +85,7 @@ export class Institution {
       smtpPort: props.smtpPort,
       socketHost: props.socketHost,
       socketPort: props.socketPort,
+      sessionTimeoutMinutes: props.sessionTimeoutMinutes ?? 20,
       dbName: props.dbName ?? `educandow_${id.get()}`,
       createdAt: now,
       updatedAt: now,
@@ -212,6 +214,10 @@ export class Institution {
 
   get socketPort(): number | undefined {
     return this.props.socketPort;
+  }
+
+  get sessionTimeoutMinutes(): number {
+    return this.props.sessionTimeoutMinutes ?? 20;
   }
 
   // ── Config ─────────────────────────────────────────────

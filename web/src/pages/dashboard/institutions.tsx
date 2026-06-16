@@ -53,6 +53,7 @@ interface InstitutionForm {
   send_messages: boolean;
   socket_host: string;
   socket_port: string;
+  session_timeout_minutes: string;
   active: boolean;
   // Track selected level options by their index in PEDAGOGICAL_LEVELS
   selectedLevels: Set<number>; // indexes into PEDAGOGICAL_LEVELS
@@ -119,6 +120,7 @@ const EMPTY_FORM: InstitutionForm = {
   send_messages: false,
   socket_host: '',
   socket_port: '',
+  session_timeout_minutes: '20',
   active: true,
   selectedLevels: new Set<number>([0]), // Default: INICIAL (index 0)
 };
@@ -227,6 +229,7 @@ export default function InstitutionsPage() {
     if (form.footer_text_color && !HEX_REGEX.test(form.footer_text_color)) errs.footer_text_color = 'Debe ser un hex válido (#RRGGBB)';
     if (form.smtp_port && (isNaN(Number(form.smtp_port)) || Number(form.smtp_port) < 1 || Number(form.smtp_port) > 65535)) errs.smtp_port = 'Debe ser entre 1 y 65535';
     if (form.socket_port && (isNaN(Number(form.socket_port)) || Number(form.socket_port) < 1 || Number(form.socket_port) > 65535)) errs.socket_port = 'Debe ser entre 1 y 65535';
+    if (form.session_timeout_minutes && (isNaN(Number(form.session_timeout_minutes)) || Number(form.session_timeout_minutes) < 1 || Number(form.session_timeout_minutes) > 1440)) errs.session_timeout_minutes = 'Debe ser entre 1 y 1440 minutos';
     setFieldErrors(errs);
     return Object.keys(errs).length === 0;
   }, [form]);
@@ -281,6 +284,7 @@ export default function InstitutionsPage() {
     }
     if (form.smtp_port.trim()) p['smtp_port'] = Number(form.smtp_port);
     if (form.socket_port.trim()) p['socket_port'] = Number(form.socket_port);
+    if (form.session_timeout_minutes.trim()) p['session_timeout_minutes'] = Number(form.session_timeout_minutes);
     return p;
   }, [form]);
 
@@ -353,6 +357,7 @@ export default function InstitutionsPage() {
           send_messages: inst.send_messages ?? false,
           socket_host: inst.socket_host ?? '',
           socket_port: inst.socket_port != null ? String(inst.socket_port) : '',
+          session_timeout_minutes: inst.session_timeout_minutes != null ? String(inst.session_timeout_minutes) : '20',
           active: inst.active ?? true,
           selectedLevels: selectedIndices,
         });
@@ -768,6 +773,13 @@ export default function InstitutionsPage() {
                 <Input label="Host WebSocket" value={form.socket_host} onChange={(e) => update('socket_host', e.target.value)} />
                 <Input label="Puerto WebSocket" value={form.socket_port} onChange={(e) => update('socket_port', e.target.value)} type="number" error={fieldErrors.socket_port} />
               </div>
+              <Input
+                label="Tiempo de inactividad (minutos)"
+                value={form.session_timeout_minutes}
+                onChange={(e) => update('session_timeout_minutes', e.target.value)}
+                type="number"
+                error={fieldErrors.session_timeout_minutes}
+              />
             </div>
           )}
 

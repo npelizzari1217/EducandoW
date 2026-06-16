@@ -49,6 +49,7 @@ function toResponse(inst: Institution) {
     send_messages: inst.sendMessages ?? false,
     socket_host: inst.socketHost ?? null,
     socket_port: inst.socketPort ?? null,
+    session_timeout_minutes: inst.sessionTimeoutMinutes ?? 20,
     active: inst.active ?? true,
     db_name: inst.dbName ?? null,
     levels: inst.levels.map((l) => l.toCode()),

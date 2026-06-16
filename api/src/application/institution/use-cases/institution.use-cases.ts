@@ -42,6 +42,7 @@ export interface CreateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
+  session_timeout_minutes?: number;
   admin_email?: string;
   institution_levels?: InstitutionLevelInput[];
   // Legacy — still accepted for backward compat
@@ -83,6 +84,7 @@ export interface UpdateInstitutionInput {
   send_messages?: boolean;
   socket_host?: string;
   socket_port?: number;
+  session_timeout_minutes?: number;
   active?: boolean;
   institution_levels?: InstitutionLevelInput[];
   // Legacy
@@ -182,6 +184,7 @@ export class CreateInstitutionUseCase {
       sendMessages: input.send_messages,
       socketHost: input.socket_host,
       socketPort: input.socket_port,
+      sessionTimeoutMinutes: input.session_timeout_minutes,
       institutionLevels,
     });
 
@@ -474,6 +477,7 @@ export class UpdateInstitutionUseCase {
       sendMessages: input.send_messages !== undefined ? input.send_messages : existing.sendMessages,
       socketHost: input.socket_host !== undefined ? input.socket_host : existing.socketHost,
       socketPort: input.socket_port !== undefined ? input.socket_port : existing.socketPort,
+      sessionTimeoutMinutes: input.session_timeout_minutes !== undefined ? input.session_timeout_minutes : existing.sessionTimeoutMinutes,
       active: input.active !== undefined ? input.active : existing.active,
       dbName: existing.dbName,
       institutionLevels,
