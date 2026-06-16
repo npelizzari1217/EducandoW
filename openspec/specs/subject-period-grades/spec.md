@@ -183,3 +183,56 @@ returned set is the deduplicated union of all assigned grupos' students.
 - AND teacher D1 is assigned to both G1 and G2
 - WHEN D1 calls GET grades for subject M in CC1
 - THEN response contains rows for S1–S15 with no duplicate rows (S8, S9, S10 appear once)
+
+---
+
+### SPG-R11 — Co-docencia: one shared grade record per (student, subject, period)
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: One Record per (Student, Subject, Period) Shared Across Group Teachers")
+> Change: docente-ciclo-grupos · Fase 5
+
+There SHALL be at most one `SubjectPeriodGrade` row per
+`(studentId, materiaXCursoXCicloId, periodOrdinal)` tuple, regardless of the number
+of teachers assigned to the group via `GrupoXCursoXMateriaXCiclo`. ANY teacher assigned
+to the group MAY create or overwrite that shared record. This shared-edit behavior is
+intentional and MUST NOT be blocked.
+
+#### SPG-S14 — Co-docencia: second teacher overwrites the shared record
+
+- GIVEN a GrupoXCursoXMateriaXCiclo G with teachers D1 and D2 (co-docencia)
+- AND D1 has already saved gradeCode = "MB" for student S in period 1
+- WHEN D2 saves gradeCode = "B" for the same student S in period 1
+- THEN the row is updated to gradeCode = "B"; no duplicate row is created
+- AND the operation is accepted without error
+
+---
+
+### SPG-R12 — Write authorization validates group assignment
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: Write Operations Validate Group Assignment")
+> Change: docente-ciclo-grupos · Fase 5
+
+`upsert-subject-period-grades` MUST verify that the authenticated user is assigned as
+teacher to the `GrupoXCursoXMateriaXCiclo` being written to, BEFORE persisting any data.
+If the user is NOT assigned to that group, the write MUST be rejected with HTTP 403 and
+NO record is written or modified. Administrative roles (SECRETARIO, DIRECTOR, ADMIN, ROOT)
+with GRADES:CREATE access bypass this group-assignment check (Door 2 is scope, not group).
+
+#### SPG-S15 — Assigned teacher writes period grades successfully
+
+- GIVEN teacher D1 is assigned to GrupoXCursoXMateriaXCiclo G1 for subject M in cycle C1
+- WHEN D1 submits an upsert for a student in G1
+- THEN the grade is persisted and the response is HTTP 200
+
+#### SPG-S16 — Unassigned teacher is rejected on write
+
+- GIVEN teacher D2 is NOT assigned to any group for subject M in CursoXCiclo CC1
+- WHEN D2 attempts to upsert a period grade for a student in CC1's subject M
+- THEN the system returns HTTP 403 Forbidden
+- AND no grade record is written or modified
+
+#### SPG-S17 — Secretario / Directivo can write without group assignment
+
+- GIVEN user U has SECRETARIO role and GRADES:CREATE module access
+- WHEN U submits an upsert for any period grade in their institution and level scope
+- THEN the system accepts the write (management scope overrides the group-assignment gate)

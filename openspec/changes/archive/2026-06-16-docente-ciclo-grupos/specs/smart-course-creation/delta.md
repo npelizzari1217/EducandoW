@@ -26,18 +26,15 @@ Creating a `CicloLectivo` alone MUST NOT produce subject rows.
 - WHEN the CicloLectivo is saved
 - THEN zero MateriaXCursoXCiclo records are created
 
-#### Scenario: Re-generating with no linked data replaces subject rows
+#### Scenario: Re-generating a CursoXCiclo is always additive (D1)
 
-- GIVEN CursoXCiclo CC1 was generated with PlanA (5 subjects)
-- AND no grades, groups, or student-subject records are linked to CC1
-- WHEN CC1 is regenerated selecting PlanB (7 subjects)
-- THEN the 5 original MateriaXCursoXCiclo rows are removed and 7 new ones are created
-
-#### Scenario: Re-generation blocked when graded data exists
-
-- GIVEN CursoXCiclo CC1 was generated with PlanA and at least one grade record exists
-- WHEN CC1 is regenerated with a different plan
-- THEN the operation is rejected to protect existing grade data
+- GIVEN CursoXCiclo CC1 was already generated with PlanA (5 subjects)
+- WHEN CC1 is regenerated (selecting the same or a different plan)
+- THEN the system creates MateriaXCursoXCiclo records for any subjects not yet present,
+  using createMany skipDuplicates — it NEVER removes existing rows
+- AND grades, groups, student-subject records, and docente assignments are NEVER touched
+- AND the operation is accepted without error regardless of whether grades exist
+  (D1 correction: prior assumption of "reject if graded data exists" is superseded)
 
 ---
 
