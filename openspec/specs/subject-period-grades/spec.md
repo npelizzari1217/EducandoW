@@ -111,7 +111,8 @@ A grade belonging to a different institution MUST NOT be returned or modified.
 
 `GET /subject-period-grades?courseCycleId=:id&subjectId=:id` MUST return all
 `SubjectPeriodGrade` rows for every enrolled student in that combination,
-wrapped in `{ data: [...] }`.
+wrapped in `{ data: [...] }`. For TEACHER-role callers, the returned rows are
+further filtered to the teacher's assigned group(s). See SPG-R10.
 
 #### SPG-S8 — GET returns grades for all students
 
@@ -132,3 +133,53 @@ or `gradeScaleValueId` MUST return HTTP 400.
 - GIVEN a request body without gradeScaleValueId
 - WHEN submitted to the create/upsert endpoint
 - THEN response is HTTP 400
+
+---
+
+### SPG-R10 — Group-scoped read for TEACHER role
+
+> Declared by: `docente-ciclo-grupos/specs/notas/delta.md` ("Requirement: Grade Scope Narrowed to Group")
+> Implemented (read path) by: `notas-get-authz-grupo` · 2026-06-16
+> Change: notas-get-authz-grupo · IDs: SPG-R10 / SPG-S10–S13
+
+A TEACHER MUST see only the `SubjectPeriodGrade` rows for students in their
+assigned `GrupoXCursoXMateriaXCiclo`(s). Administrative roles (SECRETARIO, DIRECTOR,
+ADMIN, ROOT) with GRADES:READ access MUST see all rows across all groups.
+
+The scope is resolved via `AssignmentAuthorizerPort.getAllowedStudentIds(userId, roles, courseCycleId, subjectId)`:
+- Returns `'all'` for administrative roles → no filtering applied.
+- Returns `string[]` for teachers → rows filtered to students whose `studentId` is in the set; an empty array is valid (teacher has a group with no enrolled students).
+- Returns `null` if the caller has no valid assignment → HTTP 403, no data returned.
+
+When a TEACHER is assigned to multiple grupos for the same (courseCycle, subject), the
+returned set is the deduplicated union of all assigned grupos' students.
+
+#### SPG-S10 — TEACHER sees only their grupo's students
+
+- GIVEN a course-cycle CC1 with subject M split into G1 (teacher D1, students S1–S15)
+  and G2 (teacher D2, students S16–S30)
+- WHEN D1 calls GET grades for subject M in CC1
+- THEN response includes only rows for S1–S15
+- AND rows for S16–S30 are absent
+
+#### SPG-S11 — Administrative user sees all groups
+
+- GIVEN a split subject with G1 and G2
+- AND user U has SECRETARIO role with GRADES:READ access
+- WHEN U calls GET grades for that subject and course-cycle
+- THEN response includes rows for all students across G1 and G2
+- AND the response shape is identical to a teacher's response — only row count differs
+
+#### SPG-S12 — TEACHER with no assignment is forbidden
+
+- GIVEN teacher D3 has no group assignment for subject M in CC1
+- WHEN D3 calls GET grades for subject M in CC1
+- THEN HTTP 403 is returned and no grade data is included in the response
+
+#### SPG-S13 — TEACHER assigned to multiple grupos receives deduplicated union
+
+- GIVEN course-cycle CC1 with subject M having G1 (students S1–S10) and G2
+  (students S8–S15), where S8, S9, S10 appear in both grupos
+- AND teacher D1 is assigned to both G1 and G2
+- WHEN D1 calls GET grades for subject M in CC1
+- THEN response contains rows for S1–S15 with no duplicate rows (S8, S9, S10 appear once)
