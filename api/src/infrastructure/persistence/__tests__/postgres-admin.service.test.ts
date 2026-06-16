@@ -6,10 +6,12 @@ const mockPoolEnd = vi.fn();
 const mockExec = vi.fn();
 
 vi.mock('pg', () => ({
-  Pool: vi.fn().mockImplementation(() => ({
-    query: mockQuery,
-    end: mockPoolEnd,
-  })),
+  // The service calls `new Pool(...)`, so the mock implementation must be a
+  // regular function (constructable). Vitest 4 rejects arrow functions as mock
+  // constructors ("did not use 'function' or 'class'").
+  Pool: vi.fn().mockImplementation(function () {
+    return { query: mockQuery, end: mockPoolEnd };
+  }),
 }));
 
 vi.mock('child_process', () => ({
