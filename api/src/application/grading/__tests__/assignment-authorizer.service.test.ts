@@ -30,6 +30,7 @@ interface MockRepos {
   };
   grupoRepo: {
     findGroupsForDocente: ReturnType<typeof vi.fn>;
+    findByDocente: ReturnType<typeof vi.fn>;
   };
   alumnosXGrupoRepo: {
     findStudentIdsByGrupoIds: ReturnType<typeof vi.fn>;
@@ -73,6 +74,7 @@ function makeRepos(overrides: Partial<{
     },
     grupoRepo: {
       findGroupsForDocente: vi.fn().mockResolvedValue(grupos),
+      findByDocente: vi.fn().mockResolvedValue(grupos),
     },
     alumnosXGrupoRepo: {
       findStudentIdsByGrupoIds: vi.fn().mockResolvedValue(studentIds),
@@ -334,5 +336,84 @@ describe('AssignmentAuthorizer.getAllowedStudentIds', () => {
     expect(result).toEqual(['s1']);
     // Both grupoIds must be passed to the repo
     expect(repos.alumnosXGrupoRepo.findStudentIdsByGrupoIds).toHaveBeenCalledWith(['grupo-1', 'grupo-2']);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// canAccessCourseCycle — coverage (pre-existing method, not changed, covering for ≥80%)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('AssignmentAuthorizer.canAccessCourseCycle', () => {
+  let repos: MockRepos;
+
+  beforeEach(() => {
+    repos = makeRepos();
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+  });
+
+  it('ROOT → permitted without DB lookups', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-root', ['ROOT'], 'cc-1');
+    expect(result).toBe(true);
+    expect(repos.docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+  });
+
+  it('SECRETARIO → permitted (D3 bypass)', async () => {
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-sec', ['SECRETARIO'], 'cc-1');
+    expect(result).toBe(true);
+  });
+
+  it('no TenantContext client → rejected', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-1');
+    expect(result).toBe(false);
+  });
+
+  it('TEACHER: no CourseCycle → rejected', async () => {
+    repos = makeRepos({ courseCycle: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-unknown');
+    expect(result).toBe(false);
+  });
+
+  it('TEACHER: no DocenteXCiclo → rejected', async () => {
+    repos = makeRepos({ docenteXCiclo: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-1');
+    expect(result).toBe(false);
+  });
+
+  it('TEACHER: no grupos for dxc → rejected', async () => {
+    repos = makeRepos({ grupos: [] });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-1');
+    expect(result).toBe(false);
+  });
+
+  it('TEACHER: grupos found but no materia in CC → rejected', async () => {
+    repos = makeRepos({
+      grupos: [{ id: 'grupo-1', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' }],
+      materia: null, // materia in different CC
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-1');
+    expect(result).toBe(false);
+  });
+
+  it('TEACHER: grupos found and materia in CC → permitted', async () => {
+    repos = makeRepos({
+      grupos: [{ id: 'grupo-1', materiaXCursoXCicloId: 'materia-1', docenteXCicloId: 'dxc-1' }],
+      materia: { id: 'materia-1' },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const auth = makeAuthorizer(repos);
+    const result = await auth.canAccessCourseCycle('user-teacher', ['TEACHER'], 'cc-1');
+    expect(result).toBe(true);
   });
 });
