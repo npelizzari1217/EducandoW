@@ -35,7 +35,6 @@ const navGroups: NavGroupDef[] = [
     icon: '📁',
     items: [
       { label: 'Estudiantes', path: '/students', moduleCode: 'STUDENTS', requiresLevel: true },
-      { label: 'Docentes', path: '/teachers', moduleCode: 'TEACHERS', requiresLevel: true },
       { label: 'Inscripciones', path: '/enrollments', moduleCode: 'ENROLLMENTS', requiresLevel: true },
       { label: 'Ingresantes', path: '/ingresantes', moduleCode: 'ENROLLMENTS', requiresLevel: true },
       { label: 'Legajos', path: '/legajos', moduleCode: 'STUDENTS', requiresLevel: true },
