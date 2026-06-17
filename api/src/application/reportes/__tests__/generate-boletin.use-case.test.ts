@@ -378,6 +378,8 @@ describe('GenerateBoletinUseCase.buildMaterias — PR7-T1 regression: non-Primar
       courseCycle: {
         findMany: vi.fn().mockResolvedValue([{ uuid: 'cc-ini', courseId: 'sec-ini', level: 10 }]),
       },
+      // S2: resolveDocentesForStudentCC is called for Inicial; returns [] → resolver exits early
+      materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
       subjectAssignment: { findMany: vi.fn().mockResolvedValue([]) },
       periodoEvaluacion: { findMany: vi.fn().mockResolvedValue([]) },
       notaTrimestral: { findMany: notaTrimestralFindMany },
