@@ -33,6 +33,8 @@ The system MUST persist each `CourseCycle` with the following fields:
 The system MUST enforce a unique constraint on `(courseId, cycleId)`.
 (Previously: all 8 bimester date fields were required — non-nullable; `activeGradingPeriod` field did not exist)
 
+> **S3b-0 removal (2026-06-17):** The `homeroomTeacherId` column (FK `course_cycles_homeroom_teacher_id_fkey` SetNull → teachers, index `course_cycles_homeroom_teacher_id_idx`) was removed from `course_cycles` by migration `20260617120000_drop_homeroom_teacher_id`. The field is absent from the data model table above. Homeroom teacher resolution is now exclusively via `AsignacionCursoXCiclo(rol=TITULAR)` (see `teacher-identity-authz/spec.md` TIA-R5). Archive: `openspec/changes/archive/2026-06-17-retiro-homeroom-column-s3b0/`.
+
 #### Scenario: Create a valid CourseCycle
 
 - GIVEN a valid `courseId`, `studyPlanId`, `cycleId`, and all required fields

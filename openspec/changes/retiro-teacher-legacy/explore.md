@@ -75,6 +75,7 @@ Consumidores REALES restantes de `Teacher` (verificado 2026-06-17; los refs en u
 
 Slices sugeridos (cada uno su propio SDD; el drop final de Teacher requiere TODOS):
 - **S3b-0** (seguro, sin decisión): drop columna `homeroomTeacherId` + FK + índice + campo deprecado.
+  **STATUS: DONE ✔ — Archivado 2026-06-17 como `retiro-homeroom-column-s3b0`.** Verify: PASS WITH WARNINGS (0 CRITICAL; WARNING-1 = baseline tsc pre-existente sin relación; WARNING-2 = rollback DDL, corregido en commit `9e3deb3`). Tests 1204/1204, prisma:generate OK, build PASS, sweep ZERO. Eliminados: columna `homeroom_teacher_id` + FK `course_cycles_homeroom_teacher_id_fkey` + index `course_cycles_homeroom_teacher_id_idx` + 2 backfill scripts obsoletos (`backfill-asignacion-curso.ts`, `backfill-docente-x-ciclo.ts`) + sus tests. Recuperables de git history. Deploy precondición: backfill Fase 4 TITULAR completo por tenant antes de `migrate-tenants`.
 - **S3b-1**: migrar `Sala/Grado/Curso.teacherId` a DocenteXCiclo/User (necesita exploración propia).
 - **S3b-2**: retirar `/teachers` admin (gestión vía User+DocenteXCiclo).
 - **S3b-3**: migrar `MesaExamen/ActaExamen.presidenteId` a User/DocenteXCiclo + backfill (Restrict).
@@ -89,4 +90,4 @@ Slices sugeridos (cada uno su propio SDD; el drop final de Teacher requiere TODO
 - R5 (MEDIO): Sala/Grado/Curso teacherId quedan en null (SetNull) — pérdida de asignación.
 
 ## Siguiente paso (2026-06-17)
-S1, S2, S3a DONE. Decisions #2/#3/#4 resueltas (retiro total de Teacher). Orden de ejecución recomendado: **S3b-0** (drop homeroomTeacherId, seguro) → **S3b-1** (Sala/Grado/Curso, explorar) → **S3b-2** (/teachers) → **S3b-3** (exámenes, Restrict+backfill) → **S3-pre** (NotaTrimestral, pendiente Decision #1) → **S3b-final** (drop tabla Teacher). Cada slice = su propio SDD.
+S1, S2, S3a, **S3b-0** DONE. Decisions #2/#3/#4 resueltas (retiro total de Teacher). Orden de ejecución recomendado: **S3b-1** (Sala/Grado/Curso, explorar primero) → **S3b-2** (/teachers) → **S3b-3** (exámenes, Restrict+backfill) → **S3-pre** (NotaTrimestral, pendiente Decision #1) → **S3b-final** (drop tabla Teacher). Cada slice = su propio SDD. Consumidores Teacher remanentes: (a) `/teachers` admin, (b) `Sala/Grado/Curso.teacherId`, (c) `MesaExamen/ActaExamen.presidente`. `CourseCycle.homeroomTeacherId` ya no existe.

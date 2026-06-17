@@ -70,15 +70,15 @@ in that CourseCycle to which the teacher has a `SubjectAssignment`.
 
 ### TIA-R5 — "Alumnos por curso" resolves via AsignacionCursoXCiclo(rol=TITULAR)
 
-_(Supersedes legacy `homeroomTeacherId` path — updated by S3a `retiro-homeroom-titular-s3a`, 2026-06-17)_
+_(Supersedes legacy `homeroomTeacherId` path — updated by S3a `retiro-homeroom-titular-s3a`, 2026-06-17; column dropped by S3b-0 `retiro-homeroom-column-s3b0`, 2026-06-17)_
 
 `GET /course-cycles?teacherUserId=:userId&role=homeroom` MUST return only the CourseCycles
 for which the authenticated user is the homeroom titular, resolved via:
 `userId → DocenteXCiclo(active=true) → AsignacionCursoXCiclo(rol=TITULAR) → courseCycleId[]`.
 The `Teacher` table MUST NOT be queried during this resolution.
 Results MUST pass the Primario decade filter (`Math.floor(level / 10) === 2`).
-The `CourseCycle.homeroomTeacherId` column remains in the schema but is no longer read for this query;
-its drop is deferred to a subsequent slice (S3b).
+The `CourseCycle.homeroomTeacherId` column and its FK/index no longer exist in the schema
+(dropped by migration `20260617120000_drop_homeroom_teacher_id`).
 
 #### TIA-S5 — Only TITULAR CourseCycles returned for homeroom mode
 

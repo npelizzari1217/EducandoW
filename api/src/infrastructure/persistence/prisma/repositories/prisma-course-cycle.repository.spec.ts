@@ -37,7 +37,6 @@ function makeCCRow(overrides: Record<string, unknown> = {}) {
     fourthBimStart: null,
     fourthBimEnd: null,
     activeGradingPeriod: null,
-    homeroomTeacherId: null,
     lastModifiedAt: new Date('2026-01-01'),
     deletedAt: null,
     createdAt: new Date('2026-01-01'),

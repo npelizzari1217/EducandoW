@@ -248,7 +248,6 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       thirdBimonth,
       fourthBimonth,
       activeGradingPeriod: record.activeGradingPeriod ?? null,
-      homeroomTeacherId: record.homeroomTeacherId ?? undefined,
       createdAt: record.lastModifiedAt, // using lastModifiedAt as createdAt for now; Prisma manages both
       lastModifiedAt: record.lastModifiedAt,
       deletedAt: record.deletedAt ?? null,
@@ -274,7 +273,6 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       fourthBimStart: courseCycle.fourthBimonth?.start ?? null,
       fourthBimEnd: courseCycle.fourthBimonth?.end ?? null,
       activeGradingPeriod: courseCycle.activeGradingPeriod,
-      homeroomTeacherId: courseCycle.homeroomTeacherId ?? null,
     };
   }
 }
