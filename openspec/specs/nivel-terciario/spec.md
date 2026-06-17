@@ -34,7 +34,7 @@ Manage pedagogical operations for Tertiary Education level: careers (carreras), 
 
 ### Requirement: Acta de Examen
 
-`POST /v1/terciario/actas-examen` MUST create an exam record with `subjectId`, `date`, `presidenteId`, `vocales` (Teacher[]), `libro`, `folio`. Only ADMIN, DIRECTOR MAY access. When a nota with `condicion = APROBADO` is recorded, the system MUST update the corresponding `InscripcionMateria.estado` to `APROBADA`. If no matching `InscripcionMateria` exists, the system MUST return HTTP 422.
+`POST /v1/terciario/actas-examen` MUST create an exam record with `subjectId`, `date`, `presidenteId` (User.id — AD-6 cross-DB ref, no FK), `vocales` (free-form strings, no FK), `libro`, `folio`. Only ADMIN, DIRECTOR MAY access. When a nota with `condicion = APROBADO` is recorded, the system MUST update the corresponding `InscripcionMateria.estado` to `APROBADA`. If no matching `InscripcionMateria` exists, the system MUST return HTTP 422.
 
 #### Scenario: Register exam grade
 

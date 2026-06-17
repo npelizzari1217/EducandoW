@@ -105,8 +105,6 @@ model Teacher {
   deletedAt DateTime?
 
   subjectAssignments   SubjectAssignment[]
-  mesasExamen          MesaExamen[]
-  actasExamen          ActaExamen[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1032,7 +1030,6 @@ model MesaExamen {
   deletedAt   DateTime? @map("deleted_at")
 
   subject    Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  presidente Teacher               @relation(fields: [presidenteId], references: [id], onDelete: Restrict)
   inscripciones MesaExamenInscripcion[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1179,7 +1176,6 @@ model ActaExamen {
   deletedAt       DateTime? @map("deleted_at")
 
   materiaCarrera MateriaCarrera  @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
-  presidente     Teacher         @relation(fields: [presidenteId],     references: [id], onDelete: Restrict)
   notas          ActaExamenNota[]
 
   createdAt DateTime @default(now()) @map("created_at")
