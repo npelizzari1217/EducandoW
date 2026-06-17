@@ -4,9 +4,13 @@
 -- Drop del FK → teachers.id (SetNull), su índice, y la columna.
 -- PRECONDICIÓN: backfill Fase 4 TITULAR completo en todos los tenants (data ya en
 --   AsignacionCursoXCiclo). CCs skippeados pierden la data de esta columna de forma permanente.
--- Reversibilidad: re-crear vía ALTER TABLE ADD COLUMN + ADD CONSTRAINT + CREATE INDEX
---   (ver 20260609140000_grading_primario_add_teacher_user_and_homeroom). La DATA no es
---   recuperable desde aquí — vive en AsignacionCursoXCiclo(TITULAR).
+-- Reversibilidad (DDL autocontenido — la estructura, NO la data; la data vive en
+--   AsignacionCursoXCiclo(TITULAR)):
+--   ALTER TABLE "course_cycles" ADD COLUMN "homeroom_teacher_id" TEXT;
+--   ALTER TABLE "course_cycles" ADD CONSTRAINT "course_cycles_homeroom_teacher_id_fkey"
+--     FOREIGN KEY ("homeroom_teacher_id") REFERENCES "teachers"("id")
+--     ON DELETE SET NULL ON UPDATE CASCADE;
+--   CREATE INDEX "course_cycles_homeroom_teacher_id_idx" ON "course_cycles"("homeroom_teacher_id");
 
 -- DropForeignKey
 ALTER TABLE "course_cycles" DROP CONSTRAINT IF EXISTS "course_cycles_homeroom_teacher_id_fkey";
