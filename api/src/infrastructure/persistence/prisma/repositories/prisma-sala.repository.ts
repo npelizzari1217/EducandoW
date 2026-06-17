@@ -23,7 +23,6 @@ export class PrismaSalaRepository implements SalaRepository {
     if (filters?.academicYear) where.academicYear = filters.academicYear;
     if (filters?.ageGroup !== undefined) where.ageGroup = filters.ageGroup;
     if (filters?.turno) where.turno = filters.turno;
-    if (filters?.teacherId) where.teacherId = filters.teacherId;
     if (filters?.active !== undefined) {
       where.active = filters.active;
     } else {
@@ -46,7 +45,6 @@ export class PrismaSalaRepository implements SalaRepository {
         ageGroup: sala.ageGroup.get(),
         turno: sala.turno.get(),
         capacity: sala.capacity,
-        teacherId: sala.teacherId ?? null,
         academicYear: sala.academicYear,
         active: sala.active,
         deletedAt: sala.deletedAt ?? null,
@@ -56,7 +54,6 @@ export class PrismaSalaRepository implements SalaRepository {
         ageGroup: sala.ageGroup.get(),
         turno: sala.turno.get(),
         capacity: sala.capacity,
-        teacherId: sala.teacherId ?? null,
         academicYear: sala.academicYear,
         active: sala.active,
         deletedAt: sala.deletedAt ?? null,
@@ -78,7 +75,6 @@ export class PrismaSalaRepository implements SalaRepository {
       ageGroup: AgeGroup.reconstruct(record.ageGroup as number),
       turno: Turno.reconstruct(record.turno as string),
       capacity: record.capacity as number,
-      teacherId: record.teacherId as string | undefined,
       academicYear: record.academicYear as string,
       active: record.active as boolean,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,

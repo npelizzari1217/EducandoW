@@ -8,7 +8,9 @@ Manage pedagogical operations for Initial Education level (ages 3-5): salas (cla
 
 ### Requirement: Sala CRUD
 
-`POST /v1/inicial/salas` MUST create a sala with `name` (required), `ageGroup` (required, enum: 3|4|5), `turno` (required, enum: MAÑANA|TARDE), `capacity` (required, positive integer), `teacherId` (optional FK), and `academicYear` (required). Only ADMIN, DIRECTOR, SECRETARIO MAY access.
+`POST /v1/inicial/salas` MUST create a sala with `name` (required), `ageGroup` (required, enum: 3|4|5), `turno` (required, enum: MAÑANA|TARDE), `capacity` (required, positive integer), and `academicYear` (required). Only ADMIN, DIRECTOR, SECRETARIO MAY access.
+
+> **S3b-1 (2026-06-17):** `teacherId` (optional FK → teachers) was removed from Sala (Approach A — pure DROP). The field was a primitive raw-UUID input with no downstream consumers after S2. See archived change `retiro-sala-grado-curso-teacher-s3b1`.
 
 #### Scenario: Create sala with valid data
 

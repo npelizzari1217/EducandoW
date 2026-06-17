@@ -10,7 +10,6 @@ export interface SalaProps {
   ageGroup: AgeGroup;
   turno: Turno;
   capacity: number;
-  teacherId?: string;
   academicYear: string;
   active: boolean;
   deletedAt?: Date;
@@ -21,7 +20,6 @@ export interface CreateSalaProps {
   ageGroup: number;
   turno: string;
   capacity: number;
-  teacherId?: string;
   academicYear: string;
 }
 
@@ -58,7 +56,6 @@ export class Sala {
         ageGroup: ageGroupResult.unwrap(),
         turno: turnoResult.unwrap(),
         capacity: input.capacity,
-        teacherId: input.teacherId,
         academicYear: input.academicYear,
         active: true,
       }),
@@ -74,7 +71,6 @@ export class Sala {
   get ageGroup(): AgeGroup { return this.props.ageGroup; }
   get turno(): Turno { return this.props.turno; }
   get capacity(): number { return this.props.capacity; }
-  get teacherId(): string | undefined { return this.props.teacherId; }
   get academicYear(): string { return this.props.academicYear; }
   get active(): boolean { return this.props.active; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }

@@ -9,7 +9,6 @@ export interface GradoProps {
   courseSectionId?: string;
   grade: GradoNumero;
   division: Division;
-  teacherId?: string;
   academicYear: string;
   active: boolean;
   deletedAt?: Date;
@@ -19,7 +18,6 @@ export interface CreateGradoInput {
   courseSectionId?: string;
   grade: number;
   division: string;
-  teacherId?: string;
   academicYear: string;
 }
 
@@ -42,7 +40,6 @@ export class Grado {
       courseSectionId: input.courseSectionId,
       grade: gradeResult.unwrap(),
       division: divisionResult.unwrap(),
-      teacherId: input.teacherId,
       academicYear: input.academicYear.trim(),
       active: true,
     }));
@@ -56,14 +53,12 @@ export class Grado {
   get courseSectionId(): string | undefined { return this.props.courseSectionId; }
   get grade(): GradoNumero { return this.props.grade; }
   get division(): Division { return this.props.division; }
-  get teacherId(): string | undefined { return this.props.teacherId; }
   get academicYear(): string { return this.props.academicYear; }
   get active(): boolean { return this.props.active; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
 
-  update(fields: Partial<Pick<CreateGradoInput, 'courseSectionId' | 'teacherId' | 'academicYear'>>): void {
+  update(fields: Partial<Pick<CreateGradoInput, 'courseSectionId' | 'academicYear'>>): void {
     if (fields.courseSectionId !== undefined) this.props.courseSectionId = fields.courseSectionId;
-    if (fields.teacherId !== undefined) this.props.teacherId = fields.teacherId;
     if (fields.academicYear !== undefined) this.props.academicYear = fields.academicYear;
   }
 

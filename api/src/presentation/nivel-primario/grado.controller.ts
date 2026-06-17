@@ -26,7 +26,6 @@ function toDto(g: Grado) {
     courseSectionId: g.courseSectionId,
     grade: g.grade.value,
     division: g.division.value,
-    teacherId: g.teacherId,
     academicYear: g.academicYear,
     active: g.active,
     deletedAt: g.deletedAt?.toISOString(),

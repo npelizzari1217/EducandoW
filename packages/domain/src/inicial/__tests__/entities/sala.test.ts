@@ -25,19 +25,12 @@ describe('Sala', () => {
       expect(sala.capacity).toBe(25);
       expect(sala.academicYear).toBe('2026');
       expect(sala.active).toBe(true);
-      expect(sala.teacherId).toBeUndefined();
     });
 
     it('trims name whitespace', () => {
       const r = Sala.create({ ...validInput, name: '  Sala Verde  ' });
       expect(r.isOk()).toBe(true);
       expect(r.unwrap().name).toBe('Sala Verde');
-    });
-
-    it('creates sala with optional teacherId', () => {
-      const r = Sala.create({ ...validInput, teacherId: 'teacher-1' });
-      expect(r.isOk()).toBe(true);
-      expect(r.unwrap().teacherId).toBe('teacher-1');
     });
 
     it('creates sala with turno TARDE', () => {

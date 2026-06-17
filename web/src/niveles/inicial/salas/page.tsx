@@ -12,7 +12,6 @@ interface Sala {
   ageGroup: number;
   turno: string;
   capacity: number;
-  teacherId?: string;
   academicYear: string;
   active: boolean;
 }

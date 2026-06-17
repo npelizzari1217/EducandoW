@@ -12,7 +12,6 @@ interface Grado {
   grade: number;
   division: string;
   academicYear: string;
-  teacherId?: string;
   courseSectionId?: string;
   active: boolean;
 }
@@ -29,14 +28,12 @@ export default function GradosPage() {
     grade: number;
     division: string;
     academicYear: string;
-    teacherId: string;
     courseSectionId: string;
   }) => {
     const payload = {
       grade: formData.grade,
       division: formData.division,
       academicYear: formData.academicYear,
-      ...(formData.teacherId ? { teacherId: formData.teacherId } : {}),
       ...(formData.courseSectionId ? { courseSectionId: formData.courseSectionId } : {}),
     };
     const ok = await create(payload);
@@ -86,7 +83,6 @@ export default function GradosPage() {
             { key: 'grade', header: 'Grado', render: (g: Record<string, unknown>) => `${g.grade}°` },
             { key: 'division', header: 'División' },
             { key: 'academicYear', header: 'Año lectivo' },
-            { key: 'teacherId', header: 'Docente', render: (g: Record<string, unknown>) => (g.teacherId as string) || '-' },
             { key: 'active', header: 'Estado', render: (g: Record<string, unknown>) => (g.active ? '✅ Activo' : '❌ Inactivo') },
             {
               key: 'actions',

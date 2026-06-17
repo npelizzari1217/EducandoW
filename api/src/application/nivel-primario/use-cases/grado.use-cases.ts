@@ -6,13 +6,11 @@ export interface CreateGradoInput {
   courseSectionId?: string;
   grade: number;
   division: string;
-  teacherId?: string;
   academicYear: string;
 }
 
 export interface UpdateGradoInput {
   courseSectionId?: string;
-  teacherId?: string;
   academicYear?: string;
 }
 
