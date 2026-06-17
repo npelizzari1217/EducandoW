@@ -202,6 +202,49 @@ injected into `PedagogyController` and called after `postNotaTrimestral` and
 
 ---
 
+### Requirement: INICIAL Boletín Data Source
+
+> Added: informe-avance-inicial · 2026-06-17
+> Applies to: INICIAL level only (`Math.floor(enrollment.student.level / 10) === 1`)
+
+For INICIAL students, `GenerateBoletinUseCase` MUST NOT read `NotaTrimestral` or
+`SubjectAssignment`. The data source is `InformeEvolutivo` (existing entity).
+
+`buildMaterias()` MUST route Inicial students to a dedicated `buildMateriasInicial`
+method as the first arm (before Primario, Secundario, and Terciario branches).
+
+The lookup path is: `SalaEnrollment.findFirst({ studentId, academicYear, active: true }) → salaId
+→ InformeRepository.findAll({ studentId, salaId })`. If no SalaEnrollment or no
+InformeEvolutivo records exist, the method MUST return `informesInicial: []` without
+throwing. The boletín MUST still be generated (empty state — "Sin informes cargados"
+placeholder).
+
+`DatosBoletin` carries `informesInicial?: InformeInicialBoletin[]` — one element per
+available trimestre (1T/2T/3T), sorted ascending. `MateriaBoletin` is NOT extended
+with Inicial fields (ADR-3: dedicated structure, zero impact on other levels).
+
+The `boletin-inicial.hbs` template renders one section per trimestre with:
+Área / Observación / Valoración columns; no Docente column; no numeric grades.
+The top-level `{{periodo}}` shows the academic year labelled "Ciclo lectivo".
+
+See full spec: `openspec/specs/boletin-inicial/spec.md`.
+
+#### Scenario: INICIAL — boletín reads InformeEvolutivo, not NotaTrimestral
+
+- GIVEN a student enrolled at INICIAL level with one InformeEvolutivo per trimestre
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN the PDF includes one section per available trimestre with area narratives
+- AND no numeric grades appear in the document
+- AND the `NotaTrimestral` / `SubjectAssignment` tables are NOT queried
+
+#### Scenario: INICIAL — no InformeEvolutivo → valid empty boletín
+
+- GIVEN an INICIAL student with no InformeEvolutivo records
+- WHEN the boletín is generated
+- THEN the response is HTTP 2xx with a valid PDF containing the "Sin informes" placeholder
+
+---
+
 ### Requirement: Docente Name Source in Generated PDFs
 
 > Added: retiro-boletin-docente-s2 · 2026-06-17

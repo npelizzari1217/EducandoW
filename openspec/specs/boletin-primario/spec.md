@@ -32,9 +32,13 @@ All other levels use the existing `NotaTrimestral`-based path.
 
 ### BP-R2 — Non-Primario levels unaffected (regression requirement)
 
-Calling the boletín use case for Inicial, Secundario, or Terciario level students
+Calling the boletín use case for Secundario or Terciario level students
 MUST produce output identical to the pre-change behavior.
 The legacy `NotaTrimestral` path MUST NOT be modified by this change.
+
+> **Update (informe-avance-inicial · 2026-06-17):** Inicial students are no longer
+> in the legacy path. They route to `buildMateriasInicial` (reads `InformeEvolutivo`).
+> See `openspec/specs/boletin-inicial/spec.md` for Inicial boletín requirements.
 
 #### BP-S2 — Secundario boletín still uses legacy path
 
@@ -43,11 +47,15 @@ The legacy `NotaTrimestral` path MUST NOT be modified by this change.
 - THEN `buildMaterias()` uses the legacy NotaTrimestral path and the output is
   identical to what it produced before this change was introduced
 
-#### BP-S3 — Inicial boletín uses legacy path
+#### BP-S3 — Inicial boletín uses InformeEvolutivo path (updated)
 
-- GIVEN a student enrolled in an Inicial CourseCycle (level = 10)
+> **Changed in informe-avance-inicial (2026-06-17).** Inicial no longer uses the
+> legacy NotaTrimestral path. See `openspec/specs/boletin-inicial/spec.md`.
+
+- GIVEN a student enrolled in an Inicial CourseCycle (level = 10..19)
 - WHEN the boletín use case is called
-- THEN the legacy path is used; no regression in output
+- THEN `buildMaterias()` routes to `buildMateriasInicial` (InformeEvolutivo path)
+- AND the legacy `NotaTrimestral` query is NOT executed for this student
 
 ---
 

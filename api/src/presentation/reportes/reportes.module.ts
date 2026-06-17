@@ -11,6 +11,7 @@ import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persi
 import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
 import { PrismaSubjectFinalGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-final-grade.repository';
 import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
+import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-informe.repository';
 
 @Module({
   imports: [AuthModule],
@@ -26,6 +27,9 @@ import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/
     PrismaSubjectFinalGradeRepository,
     PrismaCompetencyValuationRepo,
 
+    // ── Inicial branch repository ──────────────────────────────────────────────
+    PrismaInformeRepository,
+
     // ── Use cases ──────────────────────────────────────────────────────────────
     {
       provide: GenerateBoletinUseCase,
@@ -37,7 +41,8 @@ import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/
         pgRepo: PrismaSubjectPeriodGradeRepository,
         fgRepo: PrismaSubjectFinalGradeRepository,
         cvRepo: PrismaCompetencyValuationRepo,
-      ) => new GenerateBoletinUseCase(pdfGen, pdfStorage, prisma, sgpRepo, pgRepo, fgRepo, cvRepo),
+        informeRepo: PrismaInformeRepository,
+      ) => new GenerateBoletinUseCase(pdfGen, pdfStorage, prisma, sgpRepo, pgRepo, fgRepo, cvRepo, undefined, informeRepo),
       inject: [
         PdfGeneratorService,
         PdfStorageService,
@@ -46,6 +51,7 @@ import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/
         PrismaSubjectPeriodGradeRepository,
         PrismaSubjectFinalGradeRepository,
         PrismaCompetencyValuationRepo,
+        PrismaInformeRepository,
       ],
     },
     GenerateBoletinBatchUseCase,

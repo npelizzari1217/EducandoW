@@ -37,12 +37,15 @@ All other levels continue on the legacy `NotaTrimestral`-based path.
 
 ---
 
-### BSS-R2 — Terciario and Inicial use legacy path unchanged (regression requirement)
+### BSS-R2 — Terciario uses legacy path unchanged (regression requirement)
 
-Calling the boletín use case for Terciario (`Math.floor(level / 10) === 4`) or
-Inicial (`Math.floor(level / 10) === 1`) students MUST produce output identical to
-the pre-change behavior. The legacy `NotaTrimestral` path MUST NOT be modified by
-this change.
+Calling the boletín use case for Terciario (`Math.floor(level / 10) === 4`) students
+MUST produce output identical to the pre-change behavior. The legacy `NotaTrimestral`
+path MUST NOT be modified by this change.
+
+> **Update (informe-avance-inicial · 2026-06-17):** Inicial students are no longer
+> in the legacy path. They now route to `buildMateriasInicial` (reads `InformeEvolutivo`).
+> See `openspec/specs/boletin-inicial/spec.md`.
 
 #### BSS-S2 — Terciario boletín still uses legacy NotaTrimestral path
 

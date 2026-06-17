@@ -28,6 +28,12 @@ Manage pedagogical operations for Initial Education level (ages 3-5): salas (cla
 
 `POST /v1/inicial/informes` MUST create an evolutionary report for a student in a specific sala and period. The report contains multiple development areas. Only TEACHER (of the sala), ADMIN, DIRECTOR MAY access.
 
+> **informe-avance-inicial (2026-06-17):** `InformeEvolutivo` is now the data source
+> for the Inicial boletín PDF. `GenerateBoletinUseCase` reads all available informes
+> for the student's sala and renders them ordered 1T→2T→3T. The boletín no longer
+> touches `NotaTrimestral` for Inicial students. See canonical boletín spec:
+> `openspec/specs/boletin-inicial/spec.md`.
+
 #### Scenario: Teacher creates report for their sala
 
 - GIVEN a TEACHER assigned to sala "Sala Azul"
