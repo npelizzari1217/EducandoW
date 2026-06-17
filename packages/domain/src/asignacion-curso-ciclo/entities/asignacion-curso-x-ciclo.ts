@@ -3,7 +3,7 @@ import { Id } from '../../shared/value-objects/id';
 /**
  * RolCurso — functional role of a DocenteXCiclo within a CursoXCiclo.
  * PRECEPTOR: daily attendance (presente diario).
- * TITULAR: homeroom teacher (matches CourseCycle.homeroomTeacherId, deprecated).
+ * TITULAR: homeroom teacher — replaces the dropped CourseCycle FK column (S3b-0).
  */
 export enum RolCurso {
   PRECEPTOR = 'PRECEPTOR',
