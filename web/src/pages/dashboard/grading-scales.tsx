@@ -568,7 +568,7 @@ export default function GradingScalesPage() {
                   header: '',
                   render: (row: Record<string, unknown>) => {
                     const r = row as unknown as GradeScaleRow;
-                    const canEdit = hasModuleAction('GRADING_CONFIG', 'READ', 'UPDATE');
+                    const canEdit = hasModuleAction('GRADING_CONFIG', 'UPDATE');
                     const canDelete = hasModuleAction('GRADING_CONFIG', 'DELETE');
                     return (
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
@@ -625,7 +625,7 @@ export default function GradingScalesPage() {
               {/* Value creation form */}
               {showValueForm && (
                 <div style={{
-                  background: 'var(--color-surface-alt, #f8fafc)',
+                  background: 'var(--color-surface-secondary)',
                   border: '1px solid var(--color-border)',
                   borderRadius: 'var(--radius-md)',
                   padding: 'var(--space-md)',
@@ -735,7 +735,7 @@ export default function GradingScalesPage() {
                     header: '',
                     render: (row: Record<string, unknown>) => {
                       const v = row as unknown as GradeScaleValueRow;
-                      const canEditValue = hasModuleAction('GRADING_CONFIG', 'READ', 'UPDATE');
+                      const canEditValue = hasModuleAction('GRADING_CONFIG', 'UPDATE');
                       const canDeleteValue = hasModuleAction('GRADING_CONFIG', 'DELETE');
                       return (
                         <div style={{ display: 'flex', gap: '0.25rem' }}>
