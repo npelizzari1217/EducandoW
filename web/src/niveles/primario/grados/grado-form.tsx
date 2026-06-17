@@ -7,7 +7,6 @@ interface GradoFormData {
   grade: number;
   division: string;
   academicYear: string;
-  teacherId: string;
   courseSectionId: string;
 }
 
@@ -26,14 +25,12 @@ export function GradoForm({ onSubmit, onCancel, loading, error }: GradoFormProps
     grade: 1,
     division: 'A',
     academicYear: String(new Date().getFullYear()),
-    teacherId: '',
     courseSectionId: '',
   });
 
   const handleSubmit = async () => {
     await onSubmit({
       ...form,
-      teacherId: form.teacherId.trim() || '',
       courseSectionId: form.courseSectionId.trim() || '',
     });
   };
@@ -73,11 +70,6 @@ export function GradoForm({ onSubmit, onCancel, loading, error }: GradoFormProps
           value={form.academicYear}
           onChange={e => setForm({ ...form, academicYear: e.target.value })}
           required
-        />
-        <Input
-          label="Docente ID (opcional)"
-          value={form.teacherId}
-          onChange={e => setForm({ ...form, teacherId: e.target.value })}
         />
         <Input
           label="Sección ID (opcional)"

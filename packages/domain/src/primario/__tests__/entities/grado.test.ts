@@ -37,12 +37,6 @@ describe('Grado', () => {
       expect(r.unwrap().division.value).toBe(d);
     });
 
-    it('creates grado with optional teacherId', () => {
-      const r = Grado.create({ ...validInput, teacherId: 'teacher-1' });
-      expect(r.isOk()).toBe(true);
-      expect(r.unwrap().teacherId).toBe('teacher-1');
-    });
-
     it('creates grado without courseSectionId', () => {
       const r = Grado.create({ ...validInput, courseSectionId: undefined });
       expect(r.isOk()).toBe(true);
@@ -104,8 +98,7 @@ describe('Grado', () => {
   describe('update()', () => {
     it('updates allowed fields', () => {
       const grado = Grado.create(validInput).unwrap();
-      grado.update({ teacherId: 'new-teacher', academicYear: '2027' });
-      expect(grado.teacherId).toBe('new-teacher');
+      grado.update({ academicYear: '2027' });
       expect(grado.academicYear).toBe('2027');
     });
 

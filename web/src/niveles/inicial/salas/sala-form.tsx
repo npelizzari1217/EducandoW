@@ -11,7 +11,6 @@ interface SalaFormProps {
     ageGroup: number;
     turno: string;
     capacity: number;
-    teacherId?: string;
     academicYear: string;
   };
   onSaved: () => void;
@@ -27,7 +26,6 @@ export default function SalaForm({ initial, onSaved, onCancel }: SalaFormProps) 
     ageGroup: initial?.ageGroup ?? 3,
     turno: initial?.turno ?? 'MAÑANA',
     capacity: initial?.capacity ?? 20,
-    teacherId: initial?.teacherId ?? '',
     academicYear: initial?.academicYear ?? String(new Date().getFullYear()),
   });
   const [saving, setSaving] = useState(false);
@@ -45,7 +43,6 @@ export default function SalaForm({ initial, onSaved, onCancel }: SalaFormProps) 
         ageGroup: Number(form.ageGroup),
         turno: form.turno,
         capacity: Number(form.capacity),
-        teacherId: form.teacherId || undefined,
         academicYear: form.academicYear,
       };
 
@@ -120,12 +117,6 @@ export default function SalaForm({ initial, onSaved, onCancel }: SalaFormProps) 
           required
         />
       </div>
-
-      <Input
-        label="ID del docente (opcional)"
-        value={form.teacherId}
-        onChange={(e) => setForm({ ...form, teacherId: e.target.value })}
-      />
 
       <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
         <Button variant="success-soft" onClick={handleSave} loading={saving}>
