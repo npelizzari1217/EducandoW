@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { InformeEvolutivo, Periodo, Id } from '@educandow/domain';
 import type { InformeRepository } from '@educandow/domain';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
-import type { InformeInicialBoletin } from '../templates/boletin.template';
 
 // ── Shared mock factories ─────────────────────────────────────────────────────
 
