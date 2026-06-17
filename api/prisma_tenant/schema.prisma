@@ -105,9 +105,6 @@ model Teacher {
   deletedAt DateTime?
 
   subjectAssignments   SubjectAssignment[]
-  salas                Sala[]
-  grados               Grado[]
-  cursos               Curso[]
   mesasExamen          MesaExamen[]
   actasExamen          ActaExamen[]
 
@@ -818,12 +815,10 @@ model Sala {
   ageGroup     Int                    @map("age_group")   // 3, 4 o 5
   turno        String                 @map("turno")       // "MAÑANA" | "TARDE"
   capacity     Int
-  teacherId    String?                @map("teacher_id")
   academicYear String                 @map("academic_year")
   active       Boolean  @default(true)
   deletedAt    DateTime?              @map("deleted_at")
 
-  teacher     Teacher?         @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   enrollments SalaEnrollment[]
   informes    InformeEvolutivo[]
   planificaciones Planificacion[]
@@ -833,7 +828,6 @@ model Sala {
 
   @@index([academicYear])
   @@index([ageGroup])
-  @@index([teacherId])
   @@map("salas")
 }
 
@@ -940,20 +934,17 @@ model Grado {
   courseSectionId String?  @map("course_section_id")
   grade           Int                              // 1..6
   division        String                           // "A"|"B"|"C"
-  teacherId       String?  @map("teacher_id")
   academicYear    String   @map("academic_year")
   active          Boolean  @default(true)
   deletedAt       DateTime? @map("deleted_at")
 
   courseSection CourseSection?        @relation(fields: [courseSectionId], references: [id], onDelete: SetNull)
-  teacher       Teacher?              @relation(fields: [teacherId], references: [id], onDelete: SetNull)
   calificaciones CalificacionPrimario[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
   @@index([academicYear])
-  @@index([teacherId])
   @@index([courseSectionId])
   @@map("grados")
 }
@@ -995,8 +986,6 @@ model Curso {
   deletedAt       DateTime? @map("deleted_at")
 
   courseSection    CourseSection?           @relation(fields: [courseSectionId], references: [id], onDelete: SetNull)
-  teacher          Teacher?                 @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  teacherId        String?                  @map("teacher_id")
   calificaciones   CalificacionSecundario[]
   regimenAcademico RegimenAcademico[]
 
