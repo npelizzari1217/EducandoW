@@ -141,7 +141,6 @@ describe('Sidebar filtering', () => {
 
     // Generic items visible (any level exists)
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
@@ -257,7 +256,6 @@ describe('Sidebar filtering', () => {
 
     // ROOT sees all nav items even without levels
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Docentes')).toBeInTheDocument();
     // ROOT bypasses level filtering — all level items visible
     expect(screen.getByText('Salas')).toBeInTheDocument();
     expect(screen.getByText('Grados')).toBeInTheDocument();
@@ -313,7 +311,6 @@ describe('Sidebar filtering', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Docentes')).toBeInTheDocument();
     expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Perfiles')).toBeInTheDocument();

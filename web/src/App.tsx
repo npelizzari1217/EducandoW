@@ -17,7 +17,6 @@ import RegisterPage from './pages/auth/register';
 import DashboardPage from './pages/dashboard/dashboard';
 import InstitutionsPage from './pages/dashboard/institutions';
 import StudentsPage from './pages/dashboard/students';
-import TeachersPage from './pages/dashboard/teachers';
 import EnrollmentsPage from './pages/dashboard/enrollments';
 import { AttendancePage } from './pages/dashboard/pedagogy-pages';
 import ModulesPage from './pages/dashboard/modules';
@@ -63,7 +62,6 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/institutions" element={<ProtectedRoute moduleCode="INSTITUTIONS" action="READ"><InstitutionsPage /></ProtectedRoute>} />
               <Route path="/students" element={<StudentsPage />} />
-              <Route path="/teachers" element={<TeachersPage />} />
               <Route path="/enrollments" element={<EnrollmentsPage />} />
               <Route path="/attendance" element={<AttendancePage />} />
               <Route path="/modules" element={<ProtectedRoute moduleCode="MODULES" action="READ"><ModulesPage /></ProtectedRoute>} />

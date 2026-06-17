@@ -140,3 +140,58 @@ with level indicating Primario (`Math.floor(level / 10) === 2`).
 - GIVEN teacher T has SubjectAssignments in both a PRIMARIO CourseCycle and a SECUNDARIO CourseCycle
 - WHEN the Primario entry screen requests teacher-filtered CourseCycles
 - THEN only the PRIMARIO CourseCycle is returned
+
+---
+
+### TIA-R10 — `/teachers` admin CRUD retired; docente persona management via `/users` + `/docentes-x-ciclo`
+
+_(Added by S3b-2 `retiro-teachers-admin-s3b2`, 2026-06-17 — Decision #3)_
+
+The five `/teachers` REST endpoints (POST, GET collection, GET/:id, PATCH, DELETE) MUST NOT
+be registered in the NestJS application. All associated source files — controller, module, DTOs,
+use-cases, Prisma repository, and repository spec — MUST NOT exist under `api/src/`.
+
+**Docente persona management is served exclusively by:**
+- `POST /users`, `GET /users`, `PATCH /users/:id` — create and update docente persona (UP-R1)
+- `GET /docentes-x-ciclo?cycleId=` — list enrolled docentes per cycle
+
+**Preserved intentionally (not retired in this change):**
+- Prisma `Teacher` model — FK target for `MesaExamen.presidenteId`, `ActaExamen.presidenteId`,
+  and `SubjectAssignment.teacherId`. No schema migration was applied.
+- Domain `Teacher` entity and `TeacherRepository` interface — retained as dead code (build-safe);
+  removal deferred to S3b-final.
+- `TEACHERS` module-permission record in the master database — consumed by the
+  `GET /docentes-x-ciclo` guard (`@Roles('ROOT', { module: 'TEACHERS', action: 'READ' })`).
+  This record MUST NOT be deleted.
+
+**R-GAP (accepted operational window, closes in S3b-3):** After S3b-2 no code path
+creates new `Teacher` table rows. Creating a `MesaExamen` or `ActaExamen` with a
+`presidenteId` that has no existing `Teacher` row will be rejected by Postgres (FK Restrict
+violation). This affects only new docentes created via `/users` after S3b-2 is deployed
+when acting as `presidente`. Existing `Teacher` rows continue to work. The gap closes when
+S3b-3 migrates `presidenteId` from FK → Teacher to a User reference.
+
+**Deferred:**
+- S3b-3: migrate `MesaExamen.presidenteId` and `ActaExamen.presidenteId` FK → User/DocenteXCiclo
+  (closes R-GAP)
+- S3b-final: drop `Teacher` table, domain entity, and `TeacherRepository` interface
+
+#### TIA-S10 — `/teachers` endpoints return 404
+
+- GIVEN the NestJS application has started successfully after S3b-2
+- WHEN a client sends any of POST/GET/GET/:id/PATCH/DELETE to `/teachers`
+- THEN the server MUST respond with HTTP 404
+- AND no controller handler for `/teachers` MUST be reached
+
+#### TIA-S11 — Docente persona management via `/users` unaffected
+
+- GIVEN S3b-2 has been applied
+- WHEN `POST /users`, `GET /users`, or `PATCH /users/:id` are called
+- THEN those endpoints MUST continue to respond with the same HTTP status codes and payload
+  shapes as before S3b-2
+
+#### TIA-S12 — `/docentes-x-ciclo` guard still enforces TEACHERS:READ
+
+- GIVEN a user with `TEACHERS:READ` permission
+- WHEN `GET /docentes-x-ciclo?cycleId=<valid-id>` is called
+- THEN the server MUST respond with HTTP 200 and the expected payload
