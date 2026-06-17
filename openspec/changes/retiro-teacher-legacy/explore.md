@@ -59,10 +59,27 @@
 
 Big-bang descartado: ~1000-1200 líneas, riesgo muy alto, pérdida de datos fácil de provocar.
 
-## Decisiones de producto requeridas ANTES de proponer
-1. **Evaluacion / NotaTrimestral** (historial de notas legacy): ¿borrar, archivar, o conservar SubjectAssignment permanentemente para niveles legacy?
-2. **MesaExamen / ActaExamen** `presidenteId`: ¿migrar a User/DocenteXCiclo, o mantener `Teacher` como registro permanente solo para mesas de examen?
-3. **Página /teachers**: ¿se retira (reemplazada por gestión basada en User) o se mantiene como vista legacy?
+## Decisiones de producto (RESUELTAS 2026-06-17)
+1. **Evaluacion / NotaTrimestral** (historial de notas legacy): PENDIENTE — define el destino del histórico (gate de S3-pre / B4). Aún sin resolver.
+2. **MesaExamen / ActaExamen** `presidenteId`: **RESUELTO → migrar a User/DocenteXCiclo** (+ backfill de datos). Habilita dropear Teacher.
+3. **Página /teachers**: **RESUELTO → retirar** (gestión de docentes vía User + DocenteXCiclo).
+4. **Sala/Grado/Curso.teacherId** (NUEVO consumidor hallado post-S3a, faltaba en el análisis original): **RESUELTO → migrar a DocenteXCiclo/User**. Probablemente requiere su propia exploración (puede no haber equivalente 1:1).
+
+## S3b — Epic de retiro de la tabla Teacher (intención confirmada: retiro total)
+Consumidores REALES restantes de `Teacher` (verificado 2026-06-17; los refs en users.use-cases / upsert-subject-final-grades / list-teacher-* / course-cycle.module son solo comentarios/labels, NO leen la tabla):
+- (a) `/teachers` admin CRUD (use-cases + controller + prisma-teacher.repository + teachers.tsx + sidebar + ruta) → **retirar** (#3)
+- (b) `MesaExamen.presidente` + `ActaExamen.presidente` (FK **Restrict**) → **migrar presidenteId a User/DocenteXCiclo** + backfill (#2)
+- (c) `Sala`/`Grado`/`Curso.teacherId` (FK SetNull, formularios web vivos) → **migrar a DocenteXCiclo/User** (#4)
+- (d) `CourseCycle.homeroomTeacherId` (FK SetNull) → ya nadie la lee post-S3a → **drop de columna sin decisión** (slice chico)
+- (e) `SubjectAssignment.teacherId` (FK **Cascade**) → gate de datos: dropear Teacher cascadea a SubjectAssignment, bloqueado por Evaluacion/NotaTrimestral Restrict → requiere **S3-pre** (migrar grading Inicial/Terciario fuera de NotaTrimestral, Decision #1).
+
+Slices sugeridos (cada uno su propio SDD; el drop final de Teacher requiere TODOS):
+- **S3b-0** (seguro, sin decisión): drop columna `homeroomTeacherId` + FK + índice + campo deprecado.
+- **S3b-1**: migrar `Sala/Grado/Curso.teacherId` a DocenteXCiclo/User (necesita exploración propia).
+- **S3b-2**: retirar `/teachers` admin (gestión vía User+DocenteXCiclo).
+- **S3b-3**: migrar `MesaExamen/ActaExamen.presidenteId` a User/DocenteXCiclo + backfill (Restrict).
+- **S3-pre**: migrar grading Inicial/Terciario fuera de NotaTrimestral (Decision #1 pendiente) → habilita drop de SubjectAssignment.
+- **S3b-final**: drop tabla `Teacher` + entidad de dominio + repo, una vez (a)-(e) resueltos.
 
 ## Risk register (resumen)
 - R1 (CRÍTICO): pérdida de Evaluacion/NotaTrimestral al dropear SubjectAssignment sin archivar.
@@ -71,5 +88,5 @@ Big-bang descartado: ~1000-1200 líneas, riesgo muy alto, pérdida de datos fác
 - R4 (ALTO): nav homeroom se rompe si el backfill Fase 4 está incompleto en algún tenant.
 - R5 (MEDIO): Sala/Grado/Curso teacherId quedan en null (SetNull) — pérdida de asignación.
 
-## Siguiente paso
-NO proponer aún. Resolver las 3 decisiones de producto. PR B1 (código muerto) es seguro y se puede arrancar ya, independiente de esas decisiones.
+## Siguiente paso (2026-06-17)
+S1, S2, S3a DONE. Decisions #2/#3/#4 resueltas (retiro total de Teacher). Orden de ejecución recomendado: **S3b-0** (drop homeroomTeacherId, seguro) → **S3b-1** (Sala/Grado/Curso, explorar) → **S3b-2** (/teachers) → **S3b-3** (exámenes, Restrict+backfill) → **S3-pre** (NotaTrimestral, pendiente Decision #1) → **S3b-final** (drop tabla Teacher). Cada slice = su propio SDD.
