@@ -84,6 +84,17 @@ export class PrismaAsignacionCursoXCicloRepository
     });
   }
 
+  async findTitularCourseIdsByUser(userId: string): Promise<string[]> {
+    const rows = await this.client.asignacionCursoXCiclo.findMany({
+      where: {
+        rol: RolCurso.TITULAR,
+        docenteXCiclo: { userId, active: true },
+      },
+      select: { courseCycleId: true },
+    });
+    return [...new Set(rows.map((r) => r.courseCycleId))];
+  }
+
   private toDomain(row: AsignacionRow): AsignacionCursoXCiclo {
     return AsignacionCursoXCiclo.reconstruct({
       id: row.id,
