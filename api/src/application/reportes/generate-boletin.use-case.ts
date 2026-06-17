@@ -218,11 +218,22 @@ export class GenerateBoletinUseCase {
       return { materias: [] };
     }
 
-    // Get subject assignments for the course sections
+    // Resolve docente for Inicial via new-model resolver (Approach B, per CourseCycle).
+    // Terciario does not render docente → resolver is gated to Inicial only (D1).
+    const isInicial = Math.floor(enrollment.level / 10) === 1;
+    const docenteBySubjectId = new Map<string, string>();
+    if (isInicial) {
+      for (const cc of courseCycles) {
+        const m = await this.resolveDocentesForStudentCC(client, enrollment.studentId, cc.uuid);
+        for (const [sid, name] of m) docenteBySubjectId.set(sid, name);
+      }
+    }
+
+    // Get subject assignments for the course sections (backbone: subjects + NotaTrimestral join)
     const courseSectionIds = courseCycles.map(cc => cc.courseId);
     const assignments = await client.subjectAssignment.findMany({
       where: { courseSectionId: { in: courseSectionIds }, active: true },
-      include: { subject: true, teacher: true },
+      include: { subject: true },
     });
 
     if (assignments.length === 0) {
@@ -272,7 +283,7 @@ export class GenerateBoletinUseCase {
 
       materias.push({
         nombre: assignment.subject.name,
-        docente: `${assignment.teacher.lastName}, ${assignment.teacher.firstName}`,
+        docente: docenteBySubjectId.get(assignment.subjectId) ?? '',
         notas,
         promedio,
         valoracion: aprobado ? 'Aprobado' : 'Desaprobado',
@@ -320,20 +331,7 @@ export class GenerateBoletinUseCase {
       const subjectEntries = await this.resolveSubjectsForCC(client, cc);
       if (subjectEntries.length === 0) continue;
 
-      // 3. Teacher lookup (bulk, no N+1)
-      const assignments = await client.subjectAssignment.findMany({
-        where: { courseSectionId: cc.courseId, active: true },
-        select: {
-          subjectId: true,
-          teacher: { select: { firstName: true, lastName: true } },
-        },
-      });
-      const teacherBySubjectId = new Map(
-        assignments.map((a) => [
-          a.subjectId,
-          a.teacher as { firstName: string; lastName: string },
-        ]),
-      );
+      // 3. (teacher lookup removed — S2: Primario does not render docente)
 
       // 4. Bulk fetch period grades for student × CC (avoids N+1)
       const allPeriodGrades = await this.periodGradeRepo!.findByStudentAndCourseCycle(
@@ -426,9 +424,8 @@ export class GenerateBoletinUseCase {
         const ppi = subjectPeriodGrades.some((g) => g.ppi);
         const pp  = subjectPeriodGrades.some((g) => g.pp);
 
-        // 6e. Teacher name (legacy required field)
-        const teacher = teacherBySubjectId.get(subjectId);
-        const docente = teacher ? `${teacher.lastName}, ${teacher.firstName}` : '';
+        // 6e. Primario does not render docente (S2)
+        const docente = '';
 
         materias.push({
           nombre:    subjectName,
@@ -521,20 +518,7 @@ export class GenerateBoletinUseCase {
       const subjectEntries = await this.resolveSubjectsForCC(client, cc);
       if (subjectEntries.length === 0) continue;
 
-      // 4. Teacher lookup (bulk, no N+1)
-      const assignments = await client.subjectAssignment.findMany({
-        where: { courseSectionId: cc.courseId, active: true },
-        select: {
-          subjectId: true,
-          teacher: { select: { firstName: true, lastName: true } },
-        },
-      });
-      const teacherBySubjectId = new Map(
-        assignments.map((a) => [
-          a.subjectId,
-          a.teacher as { firstName: string; lastName: string },
-        ]),
-      );
+      // 4. (teacher lookup removed — S2: Secundario does not render docente)
 
       // 5. Bulk fetch period grades for student × CC (avoids N+1)
       const allPeriodGrades = await this.periodGradeRepo!.findByStudentAndCourseCycle(
@@ -624,9 +608,8 @@ export class GenerateBoletinUseCase {
           }
         }
 
-        // 7e. Teacher name
-        const teacher = teacherBySubjectId.get(subjectId);
-        const docente = teacher ? `${teacher.lastName}, ${teacher.firstName}` : '';
+        // 7e. Secundario does not render docente (S2)
+        const docente = '';
 
         materias.push({
           nombre:    subjectName,
@@ -653,6 +636,113 @@ export class GenerateBoletinUseCase {
     }
 
     return { materias, previas };
+  }
+
+  /**
+   * Resolves docente display names for ONE student within ONE CourseCycle,
+   * via the new model (DocenteXCiclo → master User). Student-scoped (Approach B):
+   * only the docentes of the grupos the student actually belongs to.
+   * Co-docencia → names joined " / " alphabetically. docenteXCicloId deduped
+   * (dropped @@unique on GrupoXCursoXMateriaXCiclo).
+   * Returns subjectId → "Apellido, Nombre[ / Apellido2, Nombre2]". Missing key = no docente found.
+   * 5 tenant IN-queries + 1 master IN-query. Zero per-subject queries (no N+1).
+   */
+  private async resolveDocentesForStudentCC(
+    client: TenantPrismaClient,
+    studentId: string,
+    courseCycleId: string,
+  ): Promise<Map<string, string>> {
+    // 1. materiaXCursoXCiclo — subject list for this CC
+    const materias = await client.materiaXCursoXCiclo.findMany({
+      where: { courseCycleId },
+      select: { id: true, subjectId: true },
+    });
+    if (materias.length === 0) return new Map();
+
+    const subjectIdByMateriaId = new Map(materias.map((m) => [m.id, m.subjectId]));
+    const materiaIds = materias.map((m) => m.id);
+
+    // 2. alumnosXMateriaXCursoXCiclo — student's memberships
+    const alumnoMaterias = await client.alumnosXMateriaXCursoXCiclo.findMany({
+      where: { materiaXCursoXCicloId: { in: materiaIds }, studentId },
+      select: { id: true, materiaXCursoXCicloId: true },
+    });
+    if (alumnoMaterias.length === 0) return new Map();
+
+    const materiaIdByAlumnoMateriaId = new Map(alumnoMaterias.map((a) => [a.id, a.materiaXCursoXCicloId]));
+    const alumnoMateriaIds = alumnoMaterias.map((a) => a.id);
+
+    // 3. alumnosXGrupoXCursoXMateriaXCiclo — grupo memberships
+    const alumnoGrupos = await client.alumnosXGrupoXCursoXMateriaXCiclo.findMany({
+      where: { alumnosXMateriaXCursoXCicloId: { in: alumnoMateriaIds } },
+      select: { grupoId: true, alumnosXMateriaXCursoXCicloId: true },
+    });
+    if (alumnoGrupos.length === 0) return new Map();
+
+    const grupoIds = [...new Set(alumnoGrupos.map((ag) => ag.grupoId))];
+
+    // 4. grupoXCursoXMateriaXCiclo — docente for each grupo
+    const grupos = await client.grupoXCursoXMateriaXCiclo.findMany({
+      where: { id: { in: grupoIds } },
+      select: { id: true, docenteXCicloId: true },
+    });
+
+    const docenteXCicloIdByGrupoId = new Map(grupos.map((g) => [g.id, g.docenteXCicloId]));
+
+    // Build subjectId → Set<docenteXCicloId> (Set deduplicates co-docencia with same docenteXCicloId)
+    const docIdsBySubjectId = new Map<string, Set<string>>();
+    for (const { grupoId, alumnosXMateriaXCursoXCicloId } of alumnoGrupos) {
+      const materiaId = materiaIdByAlumnoMateriaId.get(alumnosXMateriaXCursoXCicloId);
+      if (!materiaId) continue;
+      const subjectId = subjectIdByMateriaId.get(materiaId);
+      if (!subjectId) continue;
+      const docId = docenteXCicloIdByGrupoId.get(grupoId);
+      if (!docId) continue;
+      if (!docIdsBySubjectId.has(subjectId)) docIdsBySubjectId.set(subjectId, new Set());
+      docIdsBySubjectId.get(subjectId)!.add(docId);
+    }
+
+    if (docIdsBySubjectId.size === 0) return new Map();
+
+    // 5. docenteXCiclo — userId for each deduplicated docenteXCicloId
+    const allDocIds = [...new Set([...docIdsBySubjectId.values()].flatMap((s) => [...s]))];
+    const docentes = await client.docenteXCiclo.findMany({
+      where: { id: { in: allDocIds } },
+      select: { id: true, userId: true },
+    });
+    const userIdByDocId = new Map(docentes.map((d) => [d.id, d.userId]));
+
+    // 6. master User — names (cross-DB, mirrors ListDocentesXCicloUseCase pattern)
+    const userIds = [...new Set(docentes.map((d) => d.userId).filter(Boolean))];
+    if (userIds.length === 0) return new Map();
+
+    const users = await this.prisma.getMasterClient().user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const nameByUserId = new Map(
+      (users as Array<{ id: string; firstName: string; lastName: string }>).map((u) => [
+        u.id,
+        `${u.lastName}, ${u.firstName}`,
+      ]),
+    );
+
+    // Assembly: subjectId → sorted joined names (alphabetical = stable PDF output)
+    const result = new Map<string, string>();
+    for (const [subjectId, docIds] of docIdsBySubjectId) {
+      const names: string[] = [];
+      for (const docId of docIds) {
+        const userId = userIdByDocId.get(docId);
+        if (!userId) continue;
+        const name = nameByUserId.get(userId);
+        if (name) names.push(name);
+      }
+      if (names.length === 0) continue;
+      names.sort();
+      result.set(subjectId, names.join(' / '));
+    }
+
+    return result;
   }
 
   /**
