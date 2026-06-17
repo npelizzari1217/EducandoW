@@ -1,8 +1,8 @@
 /**
- * PR3-T9 [RED] — PrismaCourseCycleRepository new method tests:
- *   findByHomeroomTeacher, findByCourseSectionIds
+ * PR3-T9 — PrismaCourseCycleRepository method tests:
+ *   findByCourseSectionIds, findGradingContextsByUuids
  * Mocks TenantContext; no real DB.
- * Specs: TIA-R5, TIA-R7, AD-6
+ * Specs: TIA-R7, AD-6
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaCourseCycleRepository } from './prisma-course-cycle.repository';
@@ -63,67 +63,6 @@ function makeMockClient() {
     },
   };
 }
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// findByHomeroomTeacher
-// ═══════════════════════════════════════════════════════════════════════════════
-
-describe('PrismaCourseCycleRepository — findByHomeroomTeacher', () => {
-  let repo: PrismaCourseCycleRepository;
-  let mockClient: ReturnType<typeof makeMockClient>;
-
-  beforeEach(() => {
-    mockClient = makeMockClient();
-    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    repo = new PrismaCourseCycleRepository();
-  });
-
-  it('returns empty array when no CourseCycle has that homeroomTeacherId', async () => {
-    mockClient.courseCycle.findMany.mockResolvedValue([]);
-
-    const result = await repo.findByHomeroomTeacher('teacher-not-homeroom');
-
-    expect(result).toHaveLength(0);
-  });
-
-  it('returns CourseCycle entities for the given teacher', async () => {
-    mockClient.courseCycle.findMany.mockResolvedValue([
-      makeCCRow({ uuid: 'cc-uuid-1', homeroomTeacherId: 'teacher-uuid-1' }),
-      makeCCRow({ id: 2, uuid: 'cc-uuid-2', homeroomTeacherId: 'teacher-uuid-1' }),
-    ]);
-
-    const result = await repo.findByHomeroomTeacher('teacher-uuid-1');
-
-    expect(result).toHaveLength(2);
-    expect(result[0].uuid).toBe('cc-uuid-1');
-    expect(result[1].uuid).toBe('cc-uuid-2');
-  });
-
-  it('queries by homeroomTeacherId and excludes soft-deleted rows', async () => {
-    mockClient.courseCycle.findMany.mockResolvedValue([]);
-
-    await repo.findByHomeroomTeacher('teacher-uuid-1');
-
-    expect(mockClient.courseCycle.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          homeroomTeacherId: 'teacher-uuid-1',
-          deletedAt: null,
-        }),
-      }),
-    );
-  });
-
-  it('returns empty array for a different tenant (different client returns empty)', async () => {
-    const otherClient = makeMockClient();
-    otherClient.courseCycle.findMany.mockResolvedValue([]);
-    vi.mocked(TenantContext.getClient).mockReturnValue(otherClient as any);
-
-    const result = await repo.findByHomeroomTeacher('teacher-uuid-1');
-
-    expect(result).toHaveLength(0);
-  });
-});
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // findGradingContextsByUuids

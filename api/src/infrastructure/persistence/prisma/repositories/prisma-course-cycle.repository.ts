@@ -144,18 +144,6 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
   }
 
   /**
-   * Returns CourseCycles where homeroomTeacherId = teacherId (AD-6 "por curso" path).
-   * Empty array when no match — caller returns HTTP 200 with empty data, never 404.
-   */
-  async findByHomeroomTeacher(teacherId: string): Promise<CourseCycle[]> {
-    const records = await this.client.courseCycle.findMany({
-      where: { homeroomTeacherId: teacherId, deletedAt: null },
-      orderBy: { courseName: 'asc' },
-    });
-    return records.map((r) => this.toDomain(r));
-  }
-
-  /**
    * Returns CourseCycles whose courseId (CourseSection FK) is in the provided set.
    * Used for "por materia": SubjectAssignment.courseSectionId → CourseCycle.courseId.
    * Returns empty array immediately for an empty input (no DB query).
