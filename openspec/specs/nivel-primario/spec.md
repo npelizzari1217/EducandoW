@@ -8,7 +8,9 @@ Manage pedagogical operations for Primary Education level (grades 1-6): grados (
 
 ### Requirement: Grado CRUD
 
-`POST /v1/primario/grados` MUST create a grado with `grade` (required, 1-6), `division` (required, A|B|C), `teacherId` (optional), `academicYear` (required). Only ADMIN, DIRECTOR, SECRETARIO MAY access.
+`POST /v1/primario/grados` MUST create a grado with `grade` (required, 1-6), `division` (required, A|B|C), and `academicYear` (required). Only ADMIN, DIRECTOR, SECRETARIO MAY access.
+
+> **S3b-1 (2026-06-17):** `teacherId` (optional FK → teachers) was removed from Grado (Approach A — pure DROP). The field was a primitive raw-UUID input with no downstream consumers after S2. The Grado list "Docente" column was also removed from the web UI. See archived change `retiro-sala-grado-curso-teacher-s3b1`.
 
 #### Scenario: Create grado
 
