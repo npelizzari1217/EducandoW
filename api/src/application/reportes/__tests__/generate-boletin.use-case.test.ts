@@ -417,7 +417,7 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — PR7-T2', () => {
       },
       subjectAssignment: {
         findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID, teacher: { firstName: 'Juan', lastName: 'López' } },
+          { subjectId: SUBJECT_ID },
         ]),
       },
       // W2: gradingPeriodTemplateItem lookup for periodItemId → sortOrder alignment
@@ -590,7 +590,7 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — W2: per-period compet
       },
       subjectAssignment: {
         findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID, teacher: { firstName: 'Juan', lastName: 'López' } },
+          { subjectId: SUBJECT_ID },
         ]),
       },
       gradingPeriodTemplateItem: {
@@ -710,7 +710,6 @@ describe('GenerateBoletinUseCase.buildMaterias — PR6-T1 regression: Terciario'
             id: 'sa-ter-1',
             subjectId: 'subj-ter',
             subject: { name: 'Análisis Matemático' },
-            teacher: { firstName: 'María', lastName: 'Rodríguez' },
           },
         ]),
       },
@@ -774,7 +773,7 @@ describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
       },
       subjectAssignment: {
         findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID, teacher: { firstName: 'Ana', lastName: 'García' } },
+          { subjectId: SUBJECT_ID },
         ]),
       },
       gradingPeriodTemplateItem: {
@@ -933,8 +932,8 @@ describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
       },
       subjectAssignment: {
         findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID,  teacher: { firstName: 'Ana', lastName: 'García' } },
-          { subjectId: SUBJECT_ID2, teacher: { firstName: 'Juan', lastName: 'López' } },
+          { subjectId: SUBJECT_ID },
+          { subjectId: SUBJECT_ID2 },
         ]),
       },
     });
