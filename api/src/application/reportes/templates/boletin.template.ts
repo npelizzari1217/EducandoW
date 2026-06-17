@@ -45,6 +45,26 @@ export interface PreviaBoletin {
   status: string;
 }
 
+// ── Inicial-specific sub-types ─────────────────────────────────────────────────
+
+/** One área de desarrollo inside an InformeEvolutivo (Inicial only). */
+export interface AreaInicialBoletin {
+  /** Free string — enum deferred (P1). E.g. "SOCIO_AFECTIVA". */
+  nombre: string;
+  /** Qualitative narrative — the key Inicial field. */
+  observacion: string;
+  /** "DESTACADO" | "LOGRADO" | "EN_PROCESO" | "NO_LOGRADO" (free string — VO deferred P3). */
+  valoracion: string;
+}
+
+/** One trimestre informe evolutivo for the Inicial boletín. */
+export interface InformeInicialBoletin {
+  periodo: string;                  // "1T" | "2T" | "3T"
+  fecha: string;                    // dd/mm/aaaa
+  observacionesGenerales?: string;  // optional
+  areas: AreaInicialBoletin[];
+}
+
 export interface DatosBoletin {
   alumnoNombre: string;
   alumnoApellido: string;
@@ -64,6 +84,12 @@ export interface DatosBoletin {
    * Undefined for Primario / Terciario / Inicial — {{#if previas}} guards no-op.
    */
   previas?: PreviaBoletin[];
+  /**
+   * Informes evolutivos del alumno (todos los trimestres disponibles), ordenados 1T→2T→3T.
+   * Only populated by buildMateriasInicial (level decade 1).
+   * Undefined for Primario/Secundario/Terciario — {{#if informesInicial}} no-ops cleanly.
+   */
+  informesInicial?: InformeInicialBoletin[];
 }
 
 // ── Primario-specific sub-types (optional fields on MateriaBoletin) ────────────

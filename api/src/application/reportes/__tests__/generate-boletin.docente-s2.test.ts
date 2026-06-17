@@ -342,46 +342,29 @@ describe('INV-1 — no Teacher-table read in any branch (SC-6 full guard)', () =
 // They MUST PASS after T8.
 
 describe('legacy branch — subjects + notas regression (INV-2)', () => {
-  it('Inicial: subject name + notas + promedio preserved; docente blank when resolver returns empty', async () => {
-    const { uc } = makeUCWithRepos();
+  it('Inicial (level 10): routes to buildMateriasInicial — materias:[], informesInicial:[] when no informeRepo injected', async () => {
+    // This test confirms the Inicial dispatch arm (buildMateriasInicial) is active and
+    // does NOT fall through to the legacy NotaTrimestral path.
+    // The old assertion (materias has Lengua with notas) was testing the pre-fix buggy behavior.
+    const { uc } = makeUCWithRepos(); // no informeRepo (9th arg) → buildMateriasInicial returns empty
+    const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
     const client = makeTenantClient({
       courseCycle: {
         findMany: vi.fn().mockResolvedValue([{
           uuid: 'cc-ini-reg', courseId: 'section-ini', level: 10,
         }]),
       },
-      // materiaXCursoXCiclo returns [] → resolver exits early (early-exit SC-3 path)
-      materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{
-          id: 'sa-ini-1', subjectId: 'subj-lengua',
-          subject: { name: 'Lengua' },
-        }]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'p-1', name: '1° Cuatrimestre', startDate: new Date('2026-03-01') },
-        ]),
-      },
-      notaTrimestral: {
-        findMany: vi.fn().mockResolvedValue([{
-          assignmentId: 'sa-ini-1', periodId: 'p-1',
-          finalGrade: 8, studentId: 'stu-ini-reg', active: true,
-        }]),
-      },
+      notaTrimestral: { findMany: notaTrimestralFindMany },
+      // salaEnrollment NOT needed: informeRepo absent → buildMateriasInicial returns early
     });
 
     const enrollment = { id: 'e-ini-reg', studentId: 'stu-ini-reg', level: 10, cycleId: 'cyc-ini-reg', academicYear: '2026' };
     const result = await (uc as any).buildMaterias(client, enrollment);
 
-    expect(result.materias).toHaveLength(1);
-    const m = result.materias[0];
-    expect(m.nombre).toBe('Lengua');
-    expect(m.notas).toHaveLength(1);
-    expect(m.notas[0].periodo).toBe('1° Cuatrimestre');
-    expect(m.notas[0].valor).toBe('8');
-    expect(m.promedio).toBe('8.00');
-    expect(m.docente).toBe(''); // resolver empty → blank
+    // Inicial now uses buildMateriasInicial — legacy NotaTrimestral path is NOT called
+    expect(notaTrimestralFindMany).not.toHaveBeenCalled();
+    expect(result.informesInicial).toEqual([]);
+    expect(result.materias).toEqual([]);
   });
 
   it('Terciario: subject + notas + promedio + valoracion + aprobado preserved; docente blank', async () => {

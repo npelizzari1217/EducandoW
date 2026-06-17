@@ -7,14 +7,24 @@ import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
-import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin } from './templates/boletin.template';
+import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin } from './templates/boletin.template';
 import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
   SubjectFinalGradeRepository,
   CompetencyValuationRepository,
   MateriaPreviaRepository,
+  InformeRepository,
 } from '@educandow/domain';
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function formatFecha(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
 
 // ── Primario constants ─────────────────────────────────────────────────────────
 const ALL_FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
@@ -51,6 +61,7 @@ export class GenerateBoletinUseCase {
     private readonly finalGradeRepo?: SubjectFinalGradeRepository,
     private readonly cvRepo?: CompetencyValuationRepository,
     private readonly materiaPreviaRepo?: MateriaPreviaRepository,
+    private readonly informeRepo?: InformeRepository,
   ) {
     // Pre-compile all Handlebars templates at construction time
     this.templates = new Map();
@@ -115,7 +126,7 @@ export class GenerateBoletinUseCase {
     const levelName = this.resolveLevelName(enrollment.level);
 
     // 6. Fetch grades and build materias
-    const { materias, previas } = await this.buildMaterias(client, enrollment);
+    const { materias, previas, informesInicial } = await this.buildMaterias(client, enrollment);
 
     // 7. Build attendance summary
     const asistencia = await this.buildAsistencia(client, enrollment.studentId, enrollment.cycleId ?? null);
@@ -139,6 +150,7 @@ export class GenerateBoletinUseCase {
       asistencia,
       mesasExamen,
       previas,
+      informesInicial,
     };
 
     // 9. Choose and render template
@@ -178,7 +190,12 @@ export class GenerateBoletinUseCase {
   private async buildMaterias(
     client: TenantPrismaClient,
     enrollment: { id: string; studentId: string; level: number; cycleId: string | null; academicYear: string },
-  ): Promise<{ materias: MateriaBoletin[]; previas?: PreviaBoletin[] }> {
+  ): Promise<{ materias: MateriaBoletin[]; previas?: PreviaBoletin[]; informesInicial?: InformeInicialBoletin[] }> {
+    // ── Inicial path ─────────────────────────────────────────────────────────
+    if (Math.floor(enrollment.level / 10) === 1) {
+      return this.buildMateriasInicial(client, enrollment);
+    }
+
     // ── Primario path ────────────────────────────────────────────────────────
     if (
       Math.floor(enrollment.level / 10) === 2
@@ -292,6 +309,50 @@ export class GenerateBoletinUseCase {
     }
 
     return { materias };
+  }
+
+  // ── Inicial branch ────────────────────────────────────────────────────────
+
+  /**
+   * Builds InformeInicialBoletin[] for an Inicial enrollment.
+   * ADR-2: Resolves sala via SalaEnrollment(studentId, academicYear, active:true) → salaId.
+   * ADR-3: Returns dedicated informesInicial field, materias is always empty for Inicial.
+   * Empty state (no SalaEnrollment, no informes, no repo) → informesInicial:[] — never throws.
+   */
+  private async buildMateriasInicial(
+    client: TenantPrismaClient,
+    enrollment: { studentId: string; academicYear: string },
+  ): Promise<{ materias: MateriaBoletin[]; informesInicial: InformeInicialBoletin[] }> {
+    if (!this.informeRepo) return { materias: [], informesInicial: [] };
+
+    const salaEnrollment = await client.salaEnrollment.findFirst({
+      where: { studentId: enrollment.studentId, academicYear: enrollment.academicYear, active: true },
+    });
+    if (!salaEnrollment) return { materias: [], informesInicial: [] };
+
+    const informes = await this.informeRepo.findAll({
+      studentId: enrollment.studentId,
+      salaId: salaEnrollment.salaId,
+    });
+    if (informes.length === 0) return { materias: [], informesInicial: [] };
+
+    const order: Record<string, number> = { '1T': 1, '2T': 2, '3T': 3 };
+    const sorted = [...informes].sort(
+      (a, b) => (order[a.periodo.get()] ?? 99) - (order[b.periodo.get()] ?? 99),
+    );
+
+    const informesInicial: InformeInicialBoletin[] = sorted.map((inf) => ({
+      periodo: inf.periodo.get(),
+      fecha: formatFecha(inf.fecha),
+      observacionesGenerales: inf.observacionesGenerales,
+      areas: inf.areas.map((a): AreaInicialBoletin => ({
+        nombre: a.area,
+        observacion: a.observacion,
+        valoracion: a.valoracion,
+      })),
+    }));
+
+    return { materias: [], informesInicial };
   }
 
   // ── PR7: Primario branch ───────────────────────────────────────────────────
