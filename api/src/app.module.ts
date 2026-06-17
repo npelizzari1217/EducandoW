@@ -5,7 +5,6 @@ import { AuthModule } from './presentation/auth/auth.module';
 import { EventBusModule } from './infrastructure/event-bus/event-bus.module';
 import { InstitutionModule } from './presentation/institution/institution.module';
 import { StudentModule } from './presentation/student/student.module';
-import { TeacherModule } from './presentation/teacher/teacher.module';
 import { EnrollmentModule } from './presentation/enrollment/enrollment.module';
 import { IngresanteModule } from './presentation/ingresante/ingresante.module';
 import { PedagogyModule } from './presentation/pedagogy/pedagogy.module';
@@ -45,7 +44,6 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     EventBusModule,
     InstitutionModule,
     StudentModule,
-    TeacherModule,
     EnrollmentModule,
     IngresanteModule,
     PedagogyModule,
