@@ -4,7 +4,6 @@ export interface SalaFilters {
   academicYear?: string;
   ageGroup?: number;
   turno?: string;
-  teacherId?: string;
   active?: boolean;
 }
 

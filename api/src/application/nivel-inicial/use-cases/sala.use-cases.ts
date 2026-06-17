@@ -7,7 +7,6 @@ export interface CreateSalaInput {
   ageGroup: number;
   turno: string;
   capacity: number;
-  teacherId?: string;
   academicYear: string;
 }
 
@@ -16,7 +15,6 @@ export interface UpdateSalaInput {
   ageGroup?: number;
   turno?: string;
   capacity?: number;
-  teacherId?: string | null;
   academicYear?: string;
 }
 
@@ -74,7 +72,6 @@ export class UpdateSalaUseCase {
       ageGroup: ageGroupVal,
       turno: turnoVal,
       capacity: capacityVal,
-      teacherId: input.teacherId !== undefined ? (input.teacherId ?? undefined) : existing.teacherId,
       academicYear: academicYearVal,
     });
 
@@ -86,7 +83,6 @@ export class UpdateSalaUseCase {
       ageGroup: result.unwrap().ageGroup,
       turno: result.unwrap().turno,
       capacity: result.unwrap().capacity,
-      teacherId: result.unwrap().teacherId,
       academicYear: result.unwrap().academicYear,
       active: existing.active,
       deletedAt: existing.deletedAt,

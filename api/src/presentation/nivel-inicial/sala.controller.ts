@@ -70,11 +70,7 @@ export class SalaController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateSalaSchema)) body: UpdateSalaDTO,
   ) {
-    const input = {
-      ...body,
-      teacherId: body.teacherId === null ? undefined : body.teacherId,
-    };
-    const result = await this.updateUC.execute(id, input);
+    const result = await this.updateUC.execute(id, body);
     if (result.isErr()) throw result.unwrapErr();
     return { data: this.mapSala(result.unwrap()) };
   }
@@ -87,14 +83,13 @@ export class SalaController {
     if (result.isErr()) throw result.unwrapErr();
   }
 
-  private mapSala(sala: { id: { get(): string }; name: string; ageGroup: { get(): number }; turno: { get(): string }; capacity: number; teacherId?: string; academicYear: string; active: boolean; deletedAt?: Date }) {
+  private mapSala(sala: { id: { get(): string }; name: string; ageGroup: { get(): number }; turno: { get(): string }; capacity: number; academicYear: string; active: boolean; deletedAt?: Date }) {
     return {
       id: sala.id.get(),
       name: sala.name,
       ageGroup: sala.ageGroup.get(),
       turno: sala.turno.get(),
       capacity: sala.capacity,
-      teacherId: sala.teacherId,
       academicYear: sala.academicYear,
       active: sala.active,
       deletedAt: sala.deletedAt,
