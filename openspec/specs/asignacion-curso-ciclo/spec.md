@@ -103,3 +103,33 @@ institution I1 MUST NOT be visible from institution I2's tenant.
 - GIVEN DocenteXCiclo D1 is assigned as preceptor to CC1 in institution I1
 - WHEN institution I2's tenant queries preceptor assignments for its CursoXCiclo records
 - THEN D1 does not appear in the result
+
+---
+
+### ACC-R6 — Homeroom navigation: `findTitularCourseIdsByUser`
+
+_(Added by S3a `retiro-homeroom-titular-s3a`, 2026-06-17)_
+
+`AsignacionCursoXCicloRepository` MUST expose `findTitularCourseIdsByUser(userId: string): Promise<string[]>`.
+The method MUST return deduplicated `courseCycleId` UUIDs for all `AsignacionCursoXCiclo` records
+where `rol=TITULAR` AND `docenteXCiclo.userId=userId` AND `docenteXCiclo.active=true`.
+It MUST return `[]` (not throw) when no matching rows exist.
+All queries MUST be scoped to the tenant Prisma client (no cross-tenant access).
+Deduplication is the method's responsibility — a user who is TITULAR of the same CC via two distinct
+`turno` values MUST receive only one entry for that CC.
+
+#### ACC-S9 — findTitularCourseIdsByUser returns deduplicated TITULAR course-cycle IDs
+
+- GIVEN user U has DocenteXCiclo D1 (active=true) linked to two AsignacionCursoXCiclo rows
+  both with rol=TITULAR and courseCycleId=CC1 (different turno values)
+  AND DocenteXCiclo D2 (active=true) linked to AsignacionCursoXCiclo(rol=TITULAR, courseCycleId=CC2)
+- WHEN findTitularCourseIdsByUser(U) is called
+- THEN the result is ['CC1', 'CC2'] (CC1 deduplicated to one entry)
+- AND no cross-tenant data is included
+
+#### ACC-S10 — findTitularCourseIdsByUser returns [] for inactive or unassigned user
+
+- GIVEN user U has DocenteXCiclo D1 with active=false linked to AsignacionCursoXCiclo(rol=TITULAR)
+  OR user U has active DocenteXCiclo records but none linked to AsignacionCursoXCiclo(rol=TITULAR)
+- WHEN findTitularCourseIdsByUser(U) is called
+- THEN the result is [] with no error thrown
