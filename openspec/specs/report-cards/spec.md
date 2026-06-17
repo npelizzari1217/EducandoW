@@ -199,3 +199,90 @@ injected into `PedagogyController` and called after `postNotaTrimestral` and
 - WHEN a grade record (NotaTrimestral) for that student is created or deleted
 - THEN the stored PDF MUST be invalidated via `BoletinInvalidationService`
 - AND the next request triggers a fresh generation
+
+---
+
+### Requirement: Docente Name Source in Generated PDFs
+
+> Added: retiro-boletin-docente-s2 · 2026-06-17
+> Applies to: all boletín levels (INICIAL, PRIMARIO, SECUNDARIO, TERCIARIO)
+
+The boletín generation pipeline MUST NOT read the `Teacher` table in any branch or helper.
+This applies to `generate-boletin.use-case.ts` and every method it calls — including the
+Primario, Secundario, and legacy Inicial/Terciario branches.
+
+For INICIAL, the `docente` name displayed per subject MUST be sourced from the
+`DocenteXCiclo` / grupo chain (tenant Prisma client) resolved to `User.firstName` /
+`User.lastName` (master Prisma client). This is a documented behavioral change: if a
+`Teacher` record was manually edited after the materia-grupo backfill and diverges from
+the master `User`, the boletín shows the `User` value.
+
+For PRIMARIO and SECUNDARIO, `MateriaBoletin.docente` MUST equal `""` (empty string)
+directly — zero queries against `SubjectAssignment` or the DocenteXCiclo chain.
+
+For TERCIARIO, `docente` is not rendered in the template; the value MUST also be `""`
+with no teacher-related query.
+
+`MateriaBoletin.docente` MUST remain typed as `string`. No template changes.
+
+The `SubjectAssignment` table and its rows MUST remain intact. The legacy
+Inicial/Terciario branch still queries `SubjectAssignment` for the subject list
+and as the join key to `NotaTrimestral` grades (`NotaTrimestral.assignmentId`;
+`NotaTrimestral` has no `subjectId`). Removing `SubjectAssignment` from this branch
+requires a separate migration stage.
+
+**Tenant/master client separation (mandatory):** queries to the DocenteXCiclo/grupo chain
+(MateriaXCursoXCiclo → AlumnosXMateriaXCursoXCiclo → AlumnosXGrupo →
+GrupoXCursoXMateriaXCiclo → DocenteXCiclo) MUST use the tenant Prisma client.
+The `User` name lookup MUST use the master Prisma client (`PrismaService`).
+These two clients MUST NOT be swapped.
+
+**Deploy precondition (operational):** the materia-grupo backfill MUST be verified for each
+tenant before deploying. If it has not run, INICIAL boletines degrade to `docente = ""`
+(silent, not a crash). PRIMARIO/SECUNDARIO/TERCIARIO are unaffected.
+
+#### Scenario: INICIAL — single docente resolved from master User
+
+- GIVEN an INICIAL student's boletín is being generated
+- AND the DocenteXCiclo chain resolves exactly one docente for a given (student, subject)
+- WHEN the use-case builds `MateriaBoletin` for that subject
+- THEN `docente` MUST equal `"${User.lastName}, ${User.firstName}"` (last name first, comma-space)
+- AND the value MUST be sourced from the master `User` record, not from the tenant `Teacher` record
+
+#### Scenario: INICIAL — co-docencia (N ≥ 2 docentes)
+
+- GIVEN the chain resolves N ≥ 2 distinct DocenteXCiclo records after deduplication by `docenteXCicloId`
+- WHEN the use-case builds `MateriaBoletin` for that subject
+- THEN `docente` MUST equal names joined with `" / "` in alphabetical order
+  (e.g. `"Apellido1, Nombre1 / Apellido2, Nombre2"`)
+- AND duplicate `docenteXCicloId` values MUST be collapsed before building the string
+
+#### Scenario: INICIAL — zero docentes resolved (accepted degradation)
+
+- GIVEN the DocenteXCiclo chain resolves zero records for a (student, subject) combination
+- WHEN the use-case builds `MateriaBoletin` for that subject
+- THEN `docente` MUST equal `""` (empty string)
+- AND the boletín MUST be generated without error (no throw, no partial document)
+
+#### Scenario: PRIMARIO — docente always blank, no query issued
+
+- GIVEN a PRIMARIO student's boletín is being generated
+- WHEN the use-case builds `MateriaBoletin` for any subject
+- THEN `docente` MUST equal `""` directly
+- AND zero queries against `SubjectAssignment` MUST be issued for this branch
+- AND zero queries against the DocenteXCiclo chain MUST be issued for this branch
+
+#### Scenario: SECUNDARIO — docente always blank, no query issued
+
+- GIVEN a SECUNDARIO student's boletín is being generated
+- WHEN the use-case builds `MateriaBoletin` for any subject
+- THEN `docente` MUST equal `""` directly
+- AND zero queries against `SubjectAssignment` MUST be issued for this branch
+- AND zero queries against the DocenteXCiclo chain MUST be issued for this branch
+
+#### Scenario: No Teacher-table read in any level (integration guard)
+
+- GIVEN the boletín generation is triggered for a student of any level
+- WHEN the full execution of `generate-boletin.use-case.ts` completes
+- THEN zero reads of the `Teacher` table MUST have been issued (no `teacher` include/select)
+- AND this MUST be verifiable via test-level Prisma mock/spy assertions
