@@ -18,7 +18,7 @@ Manage pedagogical operations for Secondary Education level: cursos with orienta
 
 ### Requirement: Mesa de Examen
 
-`POST /v1/secundario/mesas-examen` MUST create an exam board with `subjectId`, `date`, `turno` (DICIEMBRE|FEBRERO), `presidenteId` (FK→Teacher). Only ADMIN, DIRECTOR MAY access.
+`POST /v1/secundario/mesas-examen` MUST create an exam board with `subjectId`, `date`, `turno` (DICIEMBRE|FEBRERO), `presidenteId` (User.id — AD-6 cross-DB ref, no FK). Only ADMIN, DIRECTOR MAY access.
 
 #### Scenario: Create exam board
 
