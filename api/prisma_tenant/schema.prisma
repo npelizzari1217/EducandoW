@@ -110,7 +110,6 @@ model Teacher {
   cursos               Curso[]
   mesasExamen          MesaExamen[]
   actasExamen          ActaExamen[]
-  courseCyclesHomeroom CourseCycle[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -347,15 +346,12 @@ model CourseCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
-  /// @deprecated — migrado a AsignacionCursoXCiclo rol=TITULAR (Fase 4 backfill). FK → Teacher.id. NOT DROPPED (D5).
-  homeroomTeacherId String? @map("homeroom_teacher_id")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
   course          CourseSection  @relation(fields: [courseId], references: [id])
   studyPlan       StudyPlan      @relation(fields: [studyPlanId], references: [id])
   cycle           AcademicCycle  @relation(fields: [cycleId], references: [uuid])
-  homeroomTeacher Teacher?       @relation(fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
 
   competencyValuations  CompetencyValuation[]
   subjectGradingPeriods SubjectGradingPeriod[]
@@ -370,7 +366,6 @@ model CourseCycle {
   @@index([cycleId])
   @@index([studyPlanId])
   @@index([level])
-  @@index([homeroomTeacherId])
   @@map("course_cycles")
 }
 

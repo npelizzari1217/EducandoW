@@ -23,8 +23,6 @@ export interface CourseCycleProps {
   thirdBimonth: BimonthPeriod | null;
   fourthBimonth: BimonthPeriod | null;
   activeGradingPeriod: number | null;
-  /** FK → Teacher.id (nullable, settable via assignHomeroomTeacher). AD-6. */
-  homeroomTeacherId?: string;
   createdAt: Date;
   lastModifiedAt: Date;
   deletedAt?: Date | null;
@@ -143,15 +141,6 @@ export class CourseCycle {
 
   get activeGradingPeriod(): number | null {
     return this.props.activeGradingPeriod;
-  }
-
-  get homeroomTeacherId(): string | undefined {
-    return this.props.homeroomTeacherId;
-  }
-
-  /** Sets the homeroom teacher for this CourseCycle. Idempotent — can overwrite. */
-  assignHomeroomTeacher(teacherId: string): void {
-    this.props.homeroomTeacherId = teacherId;
   }
 
   get createdAt(): Date {
