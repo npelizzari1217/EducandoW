@@ -31,4 +31,11 @@ export interface AsignacionCursoXCicloRepository {
 
   /** Remove all TITULAR assignments for a CursoXCiclo (used by ACC-S5 replace). */
   removeTitularesForCourse(courseCycleId: string): Promise<void>;
+
+  /**
+   * Returns deduplicated CourseCycle UUIDs where the given master User is the
+   * homeroom titular (rol=TITULAR) via an active DocenteXCiclo. AD-6 "por curso"
+   * path on the new model. Empty array when none. Tenant scoping via TenantContext.
+   */
+  findTitularCourseIdsByUser(userId: string): Promise<string[]>;
 }

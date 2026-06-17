@@ -63,6 +63,7 @@ function makeAsignacionRepo(
     isPreceptor: vi.fn().mockResolvedValue(false),
     remove: vi.fn().mockResolvedValue(undefined),
     removeTitularesForCourse: vi.fn().mockResolvedValue(undefined),
+    findTitularCourseIdsByUser: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }

@@ -68,16 +68,25 @@ in that CourseCycle to which the teacher has a `SubjectAssignment`.
 
 ---
 
-### TIA-R5 — "Alumnos por curso" filters by homeroomTeacherId
+### TIA-R5 — "Alumnos por curso" resolves via AsignacionCursoXCiclo(rol=TITULAR)
 
-`GET /course-cycles?homeroomTeacherUserId=:userId` MUST return only the CourseCycles
-where `CourseCycle.homeroomTeacherId` equals the resolved Teacher.id.
+_(Supersedes legacy `homeroomTeacherId` path — updated by S3a `retiro-homeroom-titular-s3a`, 2026-06-17)_
 
-#### TIA-S5 — Only homeroom CourseCycles returned for por-curso
+`GET /course-cycles?teacherUserId=:userId&role=homeroom` MUST return only the CourseCycles
+for which the authenticated user is the homeroom titular, resolved via:
+`userId → DocenteXCiclo(active=true) → AsignacionCursoXCiclo(rol=TITULAR) → courseCycleId[]`.
+The `Teacher` table MUST NOT be queried during this resolution.
+Results MUST pass the Primario decade filter (`Math.floor(level / 10) === 2`).
+The `CourseCycle.homeroomTeacherId` column remains in the schema but is no longer read for this query;
+its drop is deferred to a subsequent slice (S3b).
 
-- GIVEN teacher T is homeroom of CourseCycle C but not CourseCycle D
-- WHEN GET /course-cycles?homeroomTeacherUserId=T is called
-- THEN response contains CourseCycle C only
+#### TIA-S5 — Only TITULAR CourseCycles returned for homeroom mode
+
+- GIVEN user U has AsignacionCursoXCiclo(rol=TITULAR, docenteXCiclo.userId=U, docenteXCiclo.active=true) for CourseCycle C
+  AND no TITULAR assignment for CourseCycle D
+- WHEN GET /course-cycles?teacherUserId=U&role=homeroom is called
+- THEN response contains CourseCycle C only; CourseCycle D is absent
+- AND the Teacher table is not queried
 
 ---
 
