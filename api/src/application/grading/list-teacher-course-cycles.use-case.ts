@@ -1,21 +1,21 @@
 /**
- * ListTeacherCourseCyclesUseCase — modelo NUEVO (DocenteXCiclo + grupos).
+ * ListTeacherCourseCyclesUseCase — modelo NUEVO (DocenteXCiclo + grupos + AsignacionCursoXCiclo).
  *
  * mode='subject': resolver CCs vía DocenteXCiclo → GrupoXCursoXMateriaXCiclo
  *   → MateriaXCursoXCiclo.courseCycleId.
  *   Includes Primario (decade=2) AND Secundario (decade=3). Terciario (4) and Inicial (1) excluded.
  *
- * mode='homeroom': sin cambios — usa Teacher.homeroomTeacherId (modelo viejo).
- *   Primario only (decade=2). Homeroom mode is Primario-specific.
+ * mode='homeroom': modelo NUEVO — userId → AsignacionCursoXCiclo(rol=TITULAR) → courseCycleId[].
+ *   Teacher table NOT read (REQ-02). Primario only (decade=2). Homeroom mode is Primario-specific.
  *
  * userId sin DocenteXCiclo (subject mode) → empty array, never an error.
- * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R9, ESS-R1, ESS-R2, AD-6, D3
+ * Specs: TIA-R2, TIA-R3, TIA-R5, TIA-R6, TIA-R9, ESS-R1, ESS-R2, AD-6, D3, REQ-01, REQ-02
  */
 import { Injectable } from '@nestjs/common';
 import type {
   CourseCycle,
   CourseCycleRepository,
-  TeacherRepository,
+  AsignacionCursoXCicloRepository,
   DocenteXCicloRepository,
   GrupoRepository,
 } from '@educandow/domain';
@@ -29,9 +29,9 @@ const HOMEROOM_DECADE = 2;
 @Injectable()
 export class ListTeacherCourseCyclesUseCase {
   constructor(
-    private readonly teacherRepo: TeacherRepository,           // homeroom only
-    private readonly docenteRepo: DocenteXCicloRepository,     // subject mode (new model)
-    private readonly grupoRepo: GrupoRepository,               // subject mode (new model)
+    private readonly asignacionRepo: AsignacionCursoXCicloRepository, // homeroom mode (new model)
+    private readonly docenteRepo: DocenteXCicloRepository,             // subject mode (new model)
+    private readonly grupoRepo: GrupoRepository,                       // subject mode (new model)
     private readonly courseCycleRepo: CourseCycleRepository,
   ) {}
 
@@ -42,10 +42,10 @@ export class ListTeacherCourseCyclesUseCase {
     let courseCycles: CourseCycle[];
 
     if (input.mode === 'homeroom') {
-      // AD-6 "por curso" path: Teacher.homeroomTeacherId (modelo viejo, sin cambios)
-      const teacher = await this.teacherRepo.findByUserId(input.userId);
-      if (!teacher) return [];
-      courseCycles = await this.courseCycleRepo.findByHomeroomTeacher(teacher.id.get());
+      // AD-6 "por curso" path — modelo NUEVO: userId → AsignacionCursoXCiclo(TITULAR)
+      const ccUuids = await this.asignacionRepo.findTitularCourseIdsByUser(input.userId);
+      if (ccUuids.length === 0) return [];
+      courseCycles = await this.courseCycleRepo.findByUuids(ccUuids);
     } else {
       // AD-6 "por materia" path — modelo NUEVO:
       // userId → DocenteXCiclo[] → GrupoXCursoXMateriaXCiclo[] → MateriaXCursoXCiclo.courseCycleId

@@ -95,6 +95,7 @@ function makeRepos(overrides: {
       isPreceptor: vi.fn().mockResolvedValue(isPreceptor),
       remove: vi.fn().mockResolvedValue(undefined),
       removeTitularesForCourse: vi.fn().mockResolvedValue(undefined),
+      findTitularCourseIdsByUser: vi.fn().mockResolvedValue([]),
     },
     mockClient,
   };

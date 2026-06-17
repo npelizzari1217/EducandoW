@@ -21,7 +21,7 @@ import {
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
 import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
-import { PrismaTeacherRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-teacher.repository';
+import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asignacion-curso-x-ciclo.repository';
 import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
 import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
@@ -106,10 +106,8 @@ const EnrollmentRepo = 'EnrollmentRepository';
       inject: [PrismaCourseCycleRepository],
     },
 
-    // Teacher-filter use cases — modelo NUEVO (DocenteXCiclo + grupos)
-    // teacherRepo kept for homeroom mode only
-    PrismaTeacherRepository,
-    { provide: 'TeacherRepository', useExisting: PrismaTeacherRepository },
+    // Teacher-filter use cases — modelo NUEVO (DocenteXCiclo + grupos + AsignacionCursoXCiclo TITULAR)
+    PrismaAsignacionCursoXCicloRepository,
     PrismaDocenteXCicloRepository,
     { provide: 'DocenteXCicloRepository', useExisting: PrismaDocenteXCicloRepository },
     PrismaGrupoRepository,
@@ -117,12 +115,12 @@ const EnrollmentRepo = 'EnrollmentRepository';
     {
       provide: ListTeacherCourseCyclesUseCase,
       useFactory: (
-        teacherRepo: PrismaTeacherRepository,
+        asignacionRepo: PrismaAsignacionCursoXCicloRepository,
         docenteRepo: PrismaDocenteXCicloRepository,
         grupoRepo: PrismaGrupoRepository,
         ccRepo: PrismaCourseCycleRepository,
-      ) => new ListTeacherCourseCyclesUseCase(teacherRepo, docenteRepo, grupoRepo, ccRepo),
-      inject: [PrismaTeacherRepository, PrismaDocenteXCicloRepository, PrismaGrupoRepository, PrismaCourseCycleRepository],
+      ) => new ListTeacherCourseCyclesUseCase(asignacionRepo, docenteRepo, grupoRepo, ccRepo),
+      inject: [PrismaAsignacionCursoXCicloRepository, PrismaDocenteXCicloRepository, PrismaGrupoRepository, PrismaCourseCycleRepository],
     },
     {
       provide: ListTeacherSubjectsInCourseCycleUseCase,

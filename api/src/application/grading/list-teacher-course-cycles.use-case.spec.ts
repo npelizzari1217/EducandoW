@@ -2,7 +2,8 @@
  * ListTeacherCourseCyclesUseCase tests — model NUEVO (DocenteXCiclo + grupos).
  *
  * Subject mode: resolves CCs via DocenteXCiclo → GrupoXCursoXMateriaXCiclo → MateriaXCursoXCiclo.courseCycleId.
- * Homeroom mode: unchanged — still uses Teacher.homeroomTeacherId.
+ * Homeroom mode: NEW model — userId → AsignacionCursoXCiclo(rol=TITULAR) → courseCycleId[].
+ *   Teacher table MUST NOT be read. REQ-02.
  *
  * New model scenarios:
  *   - Docente con grupo (modelo nuevo) → ve su CC.
@@ -10,14 +11,12 @@
  *   - Docente con DocenteXCiclo pero sin grupos → no la ve.
  *   - Gestión (ROOT/ADMIN/SECRETARIO/DIRECTOR) not tested here — they use ListCourseCyclesUseCase (scope).
  *
- * Homeroom mode tests keep the old Teacher model (homeroomTeacherId on CC is still Teacher.id).
- *
- * Specs: TIA-R2 (new), TIA-R3 (new), TIA-R5, TIA-R9, ESS-R1/R2 (new), AD-6
+ * Specs: TIA-R2 (new), TIA-R3 (new), TIA-R5, TIA-R9, ESS-R1/R2 (new), AD-6, REQ-01, REQ-02, REQ-04, REQ-05, REQ-06
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ListTeacherCourseCyclesUseCase } from './list-teacher-course-cycles.use-case';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
-import { Teacher, Id, Dni, Email, CourseCycle, CourseName, PassingGrade, Level, DocenteXCiclo, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
+import { Id, CourseCycle, CourseName, PassingGrade, Level, DocenteXCiclo, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -26,19 +25,6 @@ vi.mock('../../infrastructure/auth/tenant.context', () => ({
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-function makeTeacher(id = 'teacher-uuid-1', userId = 'user-abc'): Teacher {
-  return Teacher.reconstruct({
-    id: Id.reconstruct(id),
-    firstName: 'Juan',
-    lastName: 'García',
-    dni: Dni.reconstruct('12345678'),
-    email: Email.reconstruct('juan@school.edu'),
-    userId,
-    institutionId: Id.reconstruct('inst-1'),
-    active: true,
-  });
-}
 
 function makeDocente(id = 'dxc-1', userId = 'user-abc', cycleId = 'cycle-1'): DocenteXCiclo {
   return DocenteXCiclo.reconstruct({
@@ -93,15 +79,15 @@ function makeMockClient(materias: { id: string; courseCycleId: string }[] = []) 
 }
 
 function makeRepos(overrides: Partial<{
+  asignacionRepo: Record<string, unknown>;
   docenteRepo: Record<string, unknown>;
   grupoRepo: Record<string, unknown>;
-  teacherRepo: Record<string, unknown>;
   courseCycleRepo: Record<string, unknown>;
 }> = {}) {
   return {
-    teacherRepo: {
-      findByUserId: vi.fn().mockResolvedValue(null),
-      ...(overrides.teacherRepo ?? {}),
+    asignacionRepo: {
+      findTitularCourseIdsByUser: vi.fn().mockResolvedValue([]),
+      ...(overrides.asignacionRepo ?? {}),
     },
     docenteRepo: {
       findByUserId: vi.fn().mockResolvedValue([]),
@@ -113,7 +99,6 @@ function makeRepos(overrides: Partial<{
       ...(overrides.grupoRepo ?? {}),
     },
     courseCycleRepo: {
-      findByHomeroomTeacher: vi.fn().mockResolvedValue([]),
       findByUuids: vi.fn().mockResolvedValue([]),
       findGradingContextsByUuids: vi.fn().mockResolvedValue(new Map()),
       ...(overrides.courseCycleRepo ?? {}),
@@ -135,7 +120,7 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject (modelo nuevo DocenteX
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
     repos = makeRepos();
     useCase = new ListTeacherCourseCyclesUseCase(
-      repos.teacherRepo as any,
+      repos.asignacionRepo as any,
       repos.docenteRepo as any,
       repos.grupoRepo as any,
       repos.courseCycleRepo as any,
@@ -348,10 +333,10 @@ describe('ListTeacherCourseCyclesUseCase — mode=subject (modelo nuevo DocenteX
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ListTeacherCourseCyclesUseCase — homeroom mode (Teacher model, unchanged)
+// ListTeacherCourseCyclesUseCase — homeroom mode (AsignacionCursoXCiclo TITULAR, modelo NUEVO)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe('ListTeacherCourseCyclesUseCase — mode=homeroom (Teacher model, sin cambios)', () => {
+describe('ListTeacherCourseCyclesUseCase — mode=homeroom (AsignacionCursoXCiclo TITULAR, modelo nuevo)', () => {
   let repos: ReturnType<typeof makeRepos>;
   let useCase: ListTeacherCourseCyclesUseCase;
 
@@ -359,63 +344,65 @@ describe('ListTeacherCourseCyclesUseCase — mode=homeroom (Teacher model, sin c
     vi.mocked(TenantContext.getClient).mockReturnValue(makeMockClient() as any);
     repos = makeRepos();
     useCase = new ListTeacherCourseCyclesUseCase(
-      repos.teacherRepo as any,
+      repos.asignacionRepo as any,
       repos.docenteRepo as any,
       repos.grupoRepo as any,
       repos.courseCycleRepo as any,
     );
   });
 
-  it('TIA-R2: userId sin Teacher record → empty array', async () => {
-    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(null);
-
-    const result = await useCase.execute({ userId: 'user-xyz', mode: 'homeroom' });
-
-    expect(result).toEqual([]);
-  });
-
-  it('TIA-R5: teacher con homeroomTeacherId → ve sus CCs', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([
-      makeCC('cc-homeroom', 20, 'cs-A'),
-    ]);
+  it('Scenario A / REQ-05: TITULAR de 1+ CCs → findTitularCourseIdsByUser llamado con userId correcto; retorna [{cycle, modality}]', async () => {
+    const cc = makeCC('cc-homeroom', 20, 'cs-A');
+    repos.asignacionRepo.findTitularCourseIdsByUser = vi.fn().mockResolvedValue(['cc-homeroom']);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([cc]);
     repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
       new Map([['cc-homeroom', { level: 20, modality: 0 }]]),
     );
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
+    expect(repos.asignacionRepo.findTitularCourseIdsByUser).toHaveBeenCalledWith('user-abc');
+    expect(repos.courseCycleRepo.findByUuids).toHaveBeenCalledWith(['cc-homeroom']);
     expect(result).toHaveLength(1);
     expect(result[0].cycle.uuid).toBe('cc-homeroom');
-    expect(repos.courseCycleRepo.findByHomeroomTeacher).toHaveBeenCalledWith(teacher.id.get());
   });
 
-  it('TIA-R9: filtra non-Primario homeroom CCs', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([
-      makeCC('cc-primario',  20, 'cs-A'),
-      makeCC('cc-terciario', 40, 'cs-B'),
-    ]);
-    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(
-      new Map([['cc-primario', { level: 20, modality: 0 }]]),
-    );
+  it('Scenario B / REQ-06: sin asignación TITULAR → findTitularCourseIdsByUser devuelve []; use-case retorna []; no throw', async () => {
+    repos.asignacionRepo.findTitularCourseIdsByUser = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({ userId: 'user-no-titular', mode: 'homeroom' });
+
+    expect(result).toEqual([]);
+    expect(repos.courseCycleRepo.findByUuids).not.toHaveBeenCalled();
+  });
+
+  it('Scenario D / REQ-04 / TIA-R9: CC TITULAR con nivel no-Primario → filtro de decada lo excluye → []', async () => {
+    const ccTerciario = makeCC('cc-terciario', 40, 'cs-B');
+    repos.asignacionRepo.findTitularCourseIdsByUser = vi.fn().mockResolvedValue(['cc-terciario']);
+    repos.courseCycleRepo.findByUuids = vi.fn().mockResolvedValue([ccTerciario]);
+    repos.courseCycleRepo.findGradingContextsByUuids = vi.fn().mockResolvedValue(new Map());
 
     const result = await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
-    expect(result).toHaveLength(1);
-    expect(result[0].cycle.uuid).toBe('cc-primario');
+    expect(result).toEqual([]);
   });
 
-  it('homeroom mode NO llama a docenteRepo ni grupoRepo', async () => {
-    const teacher = makeTeacher();
-    repos.teacherRepo.findByUserId = vi.fn().mockResolvedValue(teacher);
-    repos.courseCycleRepo.findByHomeroomTeacher = vi.fn().mockResolvedValue([]);
+  it('REQ-02: Teacher NO leído — asignacionRepo.findTitularCourseIdsByUser llamado; docenteRepo y grupoRepo NO llamados', async () => {
+    repos.asignacionRepo.findTitularCourseIdsByUser = vi.fn().mockResolvedValue([]);
 
     await useCase.execute({ userId: 'user-abc', mode: 'homeroom' });
 
+    expect(repos.asignacionRepo.findTitularCourseIdsByUser).toHaveBeenCalledWith('user-abc');
     expect(repos.docenteRepo.findByUserId).not.toHaveBeenCalled();
     expect(repos.grupoRepo.findByDocente).not.toHaveBeenCalled();
+  });
+
+  it('Scenario E: docenteXCiclo inactivo (repo devuelve []) → use-case devuelve []', async () => {
+    // inactive docenteXCiclo is handled at repo level — repo returns [] in this case
+    repos.asignacionRepo.findTitularCourseIdsByUser = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({ userId: 'user-inactive', mode: 'homeroom' });
+
+    expect(result).toEqual([]);
   });
 });
