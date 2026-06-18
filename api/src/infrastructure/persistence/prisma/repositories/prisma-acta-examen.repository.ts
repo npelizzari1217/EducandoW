@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ActaExamenRepository, ActaExamen, CondicionExamen, Id } from '@educandow/domain';
+import { ActaExamenRepository, ActaExamen, CondicionExamen, IntentoFinal, Id } from '@educandow/domain';
 import type { ActaExamenNota as ActaExamenNotaDomain } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -23,6 +23,7 @@ interface ActaExamenNotaRow {
   studentId: string;
   nota: number;
   condicion: string;
+  intento: number;
 }
 
 @Injectable()
@@ -86,11 +87,21 @@ export class PrismaActaExamenRepository implements ActaExamenRepository {
     });
   }
 
-  async saveNota(actaId: string, studentId: string, nota: number, condicion: string): Promise<void> {
+  async saveNota(actaId: string, studentId: string, nota: number, condicion: string, intento: number): Promise<void> {
     await this.client.actaExamenNota.upsert({
       where: { actaId_studentId: { actaId, studentId } },
-      create: { actaId, studentId, nota, condicion },
-      update: { nota, condicion },
+      create: { actaId, studentId, nota, condicion, intento },
+      update: { nota, condicion, intento },
+    });
+  }
+
+  async countIntentosFinal(studentId: string, materiaCarreraId: string): Promise<number> {
+    return this.client.actaExamenNota.count({
+      where: {
+        studentId,
+        condicion: { in: ['DESAPROBADO', 'AUSENTE'] },
+        acta: { materiaCarreraId },
+      },
     });
   }
 
@@ -101,6 +112,7 @@ export class PrismaActaExamenRepository implements ActaExamenRepository {
       studentId: n.studentId,
       nota: n.nota,
       condicion: CondicionExamen.create(n.condicion),
+      intento: IntentoFinal.create(n.intento ?? 1),
     }));
 
     return ActaExamen.reconstruct({

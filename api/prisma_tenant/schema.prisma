@@ -1148,12 +1148,13 @@ model InscripcionMateria {
   materiaCarreraId String @map("materia_carrera_id")
   cuatrimestre    String
   anioAcademico   String  @map("anio_academico")
-  estado          String                           // "INSCRIPTO"|"CURSANDO"|"REGULAR"|"APROBADO"|"LIBRE"
+  estado          String                           // "INSCRIPTO"|"CURSANDO"|"REGULAR"|"APROBADO"|"LIBRE" — PROMOCIONAL valid value — see ADR-1
   notaCursada     Float?  @map("nota_cursada")
   notaFinal       Float?  @map("nota_final")
 
   student       Student        @relation(fields: [studentId],        references: [id], onDelete: Cascade)
   materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
+  notasCursada   NotaCursadaTerciario[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -1193,6 +1194,7 @@ model ActaExamenNota {
   studentId String  @map("student_id")
   nota      Float
   condicion String                   // "APROBADO"|"DESAPROBADO"|"AUSENTE"
+  intento   Int     @default(1)      // 1|2|3 (validated in domain) — backfilled to 1 for existing rows
 
   acta    ActaExamen @relation(fields: [actaId],    references: [id], onDelete: Cascade)
   student Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -1204,6 +1206,22 @@ model ActaExamenNota {
   @@index([actaId])
   @@index([studentId])
   @@map("acta_examen_notas")
+}
+
+model NotaCursadaTerciario {
+  id                   String   @id @default(uuid())
+  inscripcionMateriaId String   @map("inscripcion_materia_id")
+  slot                 String                       // SlotCursadaTerciario
+  nota                 Float?
+  condicion            String                       // CondicionCursada
+  fecha                String?                      // ISO date, fechas libres
+  inscripcion          InscripcionMateria @relation(fields: [inscripcionMateriaId], references: [id], onDelete: Cascade)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt      @map("updated_at")
+
+  @@unique([inscripcionMateriaId, slot])
+  @@index([inscripcionMateriaId])
+  @@map("nota_cursada_terciario")
 }
 
 model Titulo {
