@@ -107,20 +107,21 @@ Un alumno MUST tener `InscripcionMateria.estado = REGULAR` para poder rendir el 
 
 ---
 
-### Requirement: Guard — PROMOCIONAL bypassa final [SUPUESTO — validar contra reglamento]
+### Requirement: Guard — PROMOCIONAL bypassa final
 
 > Introduced by change: evaluacion-terciario (2026-06-18)
 > ADR-1: `condicion` en payload mapea a `InscripcionMateria.estado`.
+> [CONFIRMADO 2026-06-18]
 
 Un alumno con `InscripcionMateria.estado = PROMOCIONAL` SHOULD estar exento de rendir el examen final. El sistema MUST permitir que la secretaría registre el resultado final de ese alumno como APROBADO por promoción sin que exista una `ActaExamenNota`.
 
-#### Scenario: PROMOCIONAL aprobado sin rendir [SUPUESTO — validar contra reglamento]
+#### Scenario: PROMOCIONAL aprobado sin rendir
 
 - GIVEN `InscripcionMateria.estado = PROMOCIONAL` para el alumno
 - WHEN secretaría registra el resultado final como APROBADO por promoción (fuera del flujo de acta)
 - THEN el sistema MUST aceptar la operación sin requerir una `ActaExamenNota` asociada
 
-#### Scenario: PROMOCIONAL no consume intento [SUPUESTO — validar contra reglamento]
+#### Scenario: PROMOCIONAL no consume intento
 
 - GIVEN un alumno con `InscripcionMateria.estado = PROMOCIONAL`
 - WHEN la secretaría registra aprobación por promoción
@@ -128,27 +129,32 @@ Un alumno con `InscripcionMateria.estado = PROMOCIONAL` SHOULD estar exento de r
 
 ---
 
-### Requirement: Guard — TP obligatorio bloquea final [SUPUESTO — validar contra reglamento]
+### Requirement: Guard — TP obligatorio bloquea final
 
 > Introduced by change: evaluacion-terciario (2026-06-18)
+> [CONFIRMADO 2026-06-18]
 
-Un alumno MUST tener un slot `TP` registrado (con `condicion != AUSENTE`) en `NotaCursadaTerciario` para ser elegible a rendir el examen final.
+Un alumno MUST tener un slot `TP` registrado con `condicion = APROBADO` en `NotaCursadaTerciario` para ser elegible a rendir el examen final. Tanto `DESAPROBADO` como `AUSENTE` bloquean el acceso al final.
 
-> **W1 (open)**: La implementación actual bloquea también `condicion = DESAPROBADO` (guard usa `!= APROBADO`). Si DESAPROBADO debería habilitar el final, cambiar la policy a `=== 'AUSENTE'`. Validar contra reglamento antes de deploy.
-
-#### Scenario: Sin TP bloqueado [SUPUESTO — validar contra reglamento]
+#### Scenario: Sin TP bloqueado
 
 - GIVEN el alumno no tiene `NotaCursadaTerciario(slot=TP)` para esa `InscripcionMateria`
 - WHEN secretaría intenta registrar nota de final
 - THEN el sistema MUST retornar HTTP 422 con código `TP_OBLIGATORIO_FALTANTE`
 
-#### Scenario: Con TP AUSENTE bloqueado [SUPUESTO — validar contra reglamento]
+#### Scenario: Con TP AUSENTE bloqueado
 
 - GIVEN existe `NotaCursadaTerciario(slot=TP, condicion=AUSENTE)` para esa `InscripcionMateria`
 - WHEN secretaría intenta registrar nota de final
 - THEN el sistema MUST retornar HTTP 422 con código `TP_OBLIGATORIO_FALTANTE`
 
-#### Scenario: Con TP APROBADO permitido [SUPUESTO — validar contra reglamento]
+#### Scenario: Con TP DESAPROBADO bloqueado
+
+- GIVEN existe `NotaCursadaTerciario(slot=TP, condicion=DESAPROBADO)` para esa `InscripcionMateria`
+- WHEN secretaría intenta registrar nota de final
+- THEN el sistema MUST retornar HTTP 422 con código `TP_OBLIGATORIO_FALTANTE`
+
+#### Scenario: Con TP APROBADO permitido
 
 - GIVEN existe `NotaCursadaTerciario(slot=TP, condicion=APROBADO)` para esa `InscripcionMateria`
 - AND el alumno cumple los demás guards

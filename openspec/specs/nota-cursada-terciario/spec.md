@@ -76,31 +76,33 @@ El sistema MUST conservar el eje de período `ANUAL / 1C / 2C` ya existente en `
 
 ---
 
-### Requirement: Elegibilidad de recuperatorio [SUPUESTO — validar contra reglamento]
+### Requirement: Elegibilidad de recuperatorio
+
+> [CONFIRMADO 2026-06-18]
 
 Un slot `RECUPERATORIO_PARCIAL_1` MUST validar que exista un `NotaCursadaTerciario` previo con `slot = PARCIAL_1` y `condicion IN (DESAPROBADO, AUSENTE)` para la misma `InscripcionMateria`. El mismo criterio aplica para `RECUPERATORIO_PARCIAL_2` respecto de `PARCIAL_2`.
 
 El sistema MUST rechazar la creación del slot recuperatorio si no se cumple el prerequisito.
 
-#### Scenario: Recuperatorio habilitado por desaprobado [SUPUESTO — validar contra reglamento]
+#### Scenario: Recuperatorio habilitado por desaprobado
 
 - GIVEN existe `NotaCursadaTerciario(inscripcionMateriaId, slot=PARCIAL_1, condicion=DESAPROBADO)`
 - WHEN secretaría crea `{ slot: "RECUPERATORIO_PARCIAL_1", condicion: "APROBADO", fecha: "2026-07-01" }`
 - THEN el sistema MUST retornar HTTP 201
 
-#### Scenario: Recuperatorio habilitado por ausente [SUPUESTO — validar contra reglamento]
+#### Scenario: Recuperatorio habilitado por ausente
 
 - GIVEN existe `NotaCursadaTerciario(inscripcionMateriaId, slot=PARCIAL_1, condicion=AUSENTE)`
 - WHEN secretaría crea `{ slot: "RECUPERATORIO_PARCIAL_1", condicion: "APROBADO" }`
 - THEN el sistema MUST retornar HTTP 201
 
-#### Scenario: Recuperatorio bloqueado sin parcial previo [SUPUESTO — validar contra reglamento]
+#### Scenario: Recuperatorio bloqueado sin parcial previo
 
 - GIVEN NO existe ningún `NotaCursadaTerciario` para `PARCIAL_1` de esa `InscripcionMateria`
 - WHEN secretaría intenta crear `{ slot: "RECUPERATORIO_PARCIAL_1", ... }`
 - THEN el sistema MUST retornar HTTP 422 con código `PREREQUISITE_SLOT_MISSING`
 
-#### Scenario: Recuperatorio bloqueado si parcial fue aprobado [SUPUESTO — validar contra reglamento]
+#### Scenario: Recuperatorio bloqueado si parcial fue aprobado
 
 - GIVEN existe `NotaCursadaTerciario(inscripcionMateriaId, slot=PARCIAL_1, condicion=APROBADO)`
 - WHEN secretaría intenta crear `{ slot: "RECUPERATORIO_PARCIAL_1", ... }`
@@ -164,10 +166,10 @@ Los endpoints de `NotaCursadaTerciario` y confirmación de `notaCursada` MUST re
 
 ---
 
-## Open questions (carry-forward)
+## Decisions (resolved)
 
-| ID | Item |
-|---|---|
-| #3 | TP obligatorio: ¿realmente bloquea rendir el final? Implementado como supuesto (guard: `condicion != AUSENTE`). W1: la implementación actual también bloquea DESAPROBADO — validar contra reglamento. |
-| #4 | Elegibilidad de recuperatorio: ¿DESAPROBADO y/o AUSENTE? Implementado como ambos. |
-| W1 | TP guard implementado como `condicion !== 'APROBADO'` (bloquea DESAPROBADO). Si DESAPROBADO debe habilitar final, cambiar a `=== 'AUSENTE'`. Archivo: `packages/domain/src/terciario/policies/final-eligibility-policy.ts` línea 41. |
+| ID | Resolved | Detail |
+|---|---|---|
+| #3 | CONFIRMADO 2026-06-18 | TP obligatorio bloquea el final. Guard correcto: `condicion = APROBADO`. DESAPROBADO y AUSENTE ambos bloquean. |
+| #4 | CONFIRMADO 2026-06-18 | Elegibilidad de recuperatorio: tanto DESAPROBADO como AUSENTE habilitan el recuperatorio. |
+| W1 | RESUELTO 2026-06-18 | TP guard usa `condicion !== 'APROBADO'` — correcto. Spec actualizada para reflejar que solo APROBADO habilita el final. |
