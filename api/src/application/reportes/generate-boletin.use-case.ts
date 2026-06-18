@@ -184,9 +184,11 @@ export class GenerateBoletinUseCase {
    * Aggregates subject grades for the enrollment's level.
    *
    * Level dispatch:
+   *   Math.floor(level/10) === 1 → Inicial branch (buildMateriasInicial)
+   *   Math.floor(level/10) === 4 → Terciario branch (buildMateriasTerciario)
    *   Math.floor(level/10) === 2 → Primario branch (buildMateriasPrimario)
    *   Math.floor(level/10) === 3 → Secundario branch (buildMateriasSecundario) [PR6]
-   *   Otherwise → legacy NotaTrimestral path (Terciario, Inicial — unchanged)
+   *   Otherwise → legacy NotaTrimestral path (levels with no repo injection)
    *
    * Returns { materias, previas? } — previas is populated only by the Secundario branch.
    */
@@ -239,7 +241,7 @@ export class GenerateBoletinUseCase {
       return this.buildMateriasSecundario(client, enrollment);
     }
 
-    // ── Legacy NotaTrimestral path (Terciario, Inicial) ───────────────────────
+    // ── Legacy NotaTrimestral path (levels with no repo injection) ────────────
     // Get the course section(s) for this enrollment via the cycle
     if (!enrollment.cycleId) {
       // No cycle => no grades yet
