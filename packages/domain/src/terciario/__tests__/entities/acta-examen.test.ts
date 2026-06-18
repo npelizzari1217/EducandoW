@@ -47,7 +47,7 @@ describe('ActaExamen', () => {
       const acta = ActaExamen.create(validProps);
       const condicion = CondicionExamen.create('APROBADO');
 
-      acta.registrarNota('student-1', 8, condicion);
+      acta.registrarNota('student-1', 8, condicion, IntentoFinal.create(1));
 
       expect(acta.notas).toHaveLength(1);
       expect(acta.notas[0].studentId).toBe('student-1');
@@ -58,9 +58,9 @@ describe('ActaExamen', () => {
 
     it('overwrites existing grade for same student (re-register)', () => {
       const acta = ActaExamen.create(validProps);
-      acta.registrarNota('student-1', 4, CondicionExamen.create('DESAPROBADO'));
+      acta.registrarNota('student-1', 4, CondicionExamen.create('DESAPROBADO'), IntentoFinal.create(1));
       // Student retakes, now approved
-      acta.registrarNota('student-1', 7, CondicionExamen.create('APROBADO'));
+      acta.registrarNota('student-1', 7, CondicionExamen.create('APROBADO'), IntentoFinal.create(2));
 
       expect(acta.notas).toHaveLength(1);
       expect(acta.notas[0].nota).toBe(7);
@@ -69,9 +69,9 @@ describe('ActaExamen', () => {
 
     it('can register multiple grades for different students', () => {
       const acta = ActaExamen.create(validProps);
-      acta.registrarNota('s1', 9, CondicionExamen.create('APROBADO'));
-      acta.registrarNota('s2', 3, CondicionExamen.create('DESAPROBADO'));
-      acta.registrarNota('s3', 0, CondicionExamen.create('AUSENTE'));
+      acta.registrarNota('s1', 9, CondicionExamen.create('APROBADO'), IntentoFinal.create(1));
+      acta.registrarNota('s2', 3, CondicionExamen.create('DESAPROBADO'), IntentoFinal.create(1));
+      acta.registrarNota('s3', 0, CondicionExamen.create('AUSENTE'), IntentoFinal.create(1));
 
       expect(acta.notas).toHaveLength(3);
       expect(acta.notas.map((n) => n.studentId)).toEqual(['s1', 's2', 's3']);
