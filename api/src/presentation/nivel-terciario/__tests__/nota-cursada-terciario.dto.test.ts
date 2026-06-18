@@ -78,17 +78,18 @@ describe('ConfirmarNotaCursadaSchema', () => {
 });
 
 describe('RegistrarNotaFinalSchema', () => {
-  it('parses valid input with all fields', () => {
+  it('parses valid input with all fields including intento', () => {
     const result = RegistrarNotaFinalSchema.safeParse({
       studentId: 'abc',
       nota: 5.0,
       condicion: 'DESAPROBADO',
+      intento: 2,
     });
     expect(result.success).toBe(true);
   });
 
   it('fails when studentId is missing', () => {
-    const result = RegistrarNotaFinalSchema.safeParse({ nota: 5.0, condicion: 'DESAPROBADO' });
+    const result = RegistrarNotaFinalSchema.safeParse({ nota: 5.0, condicion: 'DESAPROBADO', intento: 1 });
     expect(result.success).toBe(false);
   });
 
@@ -97,6 +98,28 @@ describe('RegistrarNotaFinalSchema', () => {
       studentId: 'abc',
       nota: 5.0,
       condicion: 'INVALIDO',
+      intento: 1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  // T32 — intento range validation
+  it('fails when intento = 0', () => {
+    const result = RegistrarNotaFinalSchema.safeParse({
+      studentId: 'abc',
+      nota: 5.0,
+      condicion: 'DESAPROBADO',
+      intento: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails when intento = 4', () => {
+    const result = RegistrarNotaFinalSchema.safeParse({
+      studentId: 'abc',
+      nota: 5.0,
+      condicion: 'DESAPROBADO',
+      intento: 4,
     });
     expect(result.success).toBe(false);
   });

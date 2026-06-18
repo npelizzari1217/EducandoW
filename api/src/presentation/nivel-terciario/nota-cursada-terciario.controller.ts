@@ -45,6 +45,7 @@ export const RegistrarNotaFinalSchema = z.object({
   studentId: z.string().min(1),
   nota: z.number().min(0).max(10),
   condicion: z.enum(['APROBADO', 'DESAPROBADO', 'AUSENTE']),
+  intento: z.number().int().min(1).max(3),
 });
 export type RegistrarNotaFinalDTO = z.infer<typeof RegistrarNotaFinalSchema>;
 

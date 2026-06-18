@@ -7,6 +7,7 @@ import {
   FinalEligibilityPolicy,
   DomainError,
   CursadaNoConfirmadaError,
+  InvalidIntentoError,
 } from '@educandow/domain';
 import type { TenantTransactionRunner } from '../../shared/ports/tenant-transaction-runner';
 
@@ -29,6 +30,7 @@ export interface RegistrarNotaFinalInput {
   studentId: string;
   nota: number;
   condicion: string;
+  intento: number;
 }
 
 export interface RegistrarPromocionalInput {
@@ -146,7 +148,12 @@ export class RegistrarNotaFinalUC {
     // Step 4: load TP slot
     const tpSlot = await this.notaCursadaRepo.findSlot(inscripcion.id.get(), 'TP');
 
-    // Step 5-6: FinalEligibilityPolicy guards
+    // Step 5: validate incoming intento in [1,3] (design §4.2 step 5; spec: MUST reject out-of-range)
+    if (!Number.isInteger(input.intento) || input.intento < 1 || input.intento > 3) {
+      return err(new InvalidIntentoError(input.intento));
+    }
+
+    // Step 6: FinalEligibilityPolicy guards (returns assigned IntentoFinal = intentosPrevios + 1)
     const policyResult = FinalEligibilityPolicy.check({
       estado: inscripcion.estado,
       tpSlot,

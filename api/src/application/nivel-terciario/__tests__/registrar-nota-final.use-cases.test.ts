@@ -109,6 +109,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -128,10 +129,54 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().code).toBe('NOT_FOUND');
+  });
+
+  // T27 — intento range validation (spec: MUST reject intento outside [1,3])
+  it('returns Err(INVALID_INTENTO) when intento = 0', async () => {
+    const acta = makeActa();
+    const inscripcion = makeInscripcion('REGULAR');
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({ findById: vi.fn().mockResolvedValue(acta) }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 5,
+      condicion: 'DESAPROBADO',
+      intento: 0,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().code).toBe('INVALID_INTENTO');
+  });
+
+  it('returns Err(INVALID_INTENTO) when intento = 4', async () => {
+    const acta = makeActa();
+    const inscripcion = makeInscripcion('REGULAR');
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({ findById: vi.fn().mockResolvedValue(acta) }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 5,
+      condicion: 'DESAPROBADO',
+      intento: 4,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().code).toBe('INVALID_INTENTO');
   });
 
   it('returns Err(CURSADA_NO_CONFIRMADA) when estado = INSCRIPTO', async () => {
@@ -148,6 +193,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -168,6 +214,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -188,6 +235,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -208,6 +256,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 5,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -228,6 +277,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 0,
       condicion: 'AUSENTE',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -251,6 +301,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 4,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isErr()).toBe(true);
@@ -276,6 +327,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 3,
       condicion: 'DESAPROBADO',
+      intento: 1,
     });
 
     expect(result.isOk()).toBe(true);
@@ -299,6 +351,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 0,
       condicion: 'AUSENTE',
+      intento: 2,
     });
 
     expect(result.isOk()).toBe(true);
@@ -325,6 +378,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 2,
       condicion: 'DESAPROBADO',
+      intento: 3,
     });
 
     expect(result.isOk()).toBe(true);
@@ -352,6 +406,7 @@ describe('RegistrarNotaFinalUC', () => {
       studentId: 'student-1',
       nota: 8,
       condicion: 'APROBADO',
+      intento: 3,
     });
 
     expect(result.isOk()).toBe(true);
