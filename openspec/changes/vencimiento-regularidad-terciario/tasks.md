@@ -22,19 +22,19 @@
 
 ### A — RegularidadVencidaError (foundational; required by C-group)
 
-**T-01 [TEST]** Write failing test for `RegularidadVencidaError`
+**T-01 [x] [TEST]** Write failing test for `RegularidadVencidaError`
 - File (new): `packages/domain/src/terciario/__tests__/errors/regularidad-vencida.test.ts`
 - Asserts: instance of `DomainError`; `.code === 'REGULARIDAD_VENCIDA'`; message non-empty
 - Satisfies: FR-6.1, FR-6.2
 - Done-criteria: test file exists; `pnpm test` reports 1 failing suite (RED)
 
-**T-02 [IMPL]** Create `RegularidadVencidaError`
+**T-02 [x] [IMPL]** Create `RegularidadVencidaError`
 - File (new): `packages/domain/src/terciario/errors/regularidad-vencida.error.ts`
 - Extends `DomainError`; code `REGULARIDAD_VENCIDA`
 - Satisfies: FR-6.1, FR-6.2
 - Done-criteria: T-01 is green
 
-**T-03 [IMPL]** Export `RegularidadVencidaError` from both index files
+**T-03 [x] [IMPL]** Export `RegularidadVencidaError` from both index files
 - Files: `packages/domain/src/terciario/index.ts`, `packages/domain/src/index.ts`
 - Add `export { RegularidadVencidaError } from './errors/regularidad-vencida.error'`
   (and mirror in the root domain index)
@@ -45,7 +45,7 @@
 
 ### B — InscripcionMateria.fechaRegularidad + setFechaRegularidad
 
-**T-04 [TEST]** Extend `inscripcion-materia.test.ts` with fechaRegularidad cases
+**T-04 [x] [TEST]** Extend `inscripcion-materia.test.ts` with fechaRegularidad cases
 - File: `packages/domain/src/terciario/__tests__/entities/inscripcion-materia.test.ts`
 - Add tests:
   - `reconstruct()` with `fechaRegularidad` set → getter returns the date (FR-1.1, FR-1.3)
@@ -56,7 +56,7 @@
 - Satisfies: FR-1.1–FR-1.4, FR-2.4
 - Done-criteria: new tests RED
 
-**T-05 [IMPL]** Update `InscripcionMateria` entity
+**T-05 [x] [IMPL]** Update `InscripcionMateria` entity
 - File: `packages/domain/src/terciario/entities/inscripcion-materia.ts`
 - Changes:
   - Add `fechaRegularidad?: Date` to `InscripcionMateriaProps`
@@ -72,7 +72,7 @@
 
 ### C — Carrera.llamadosVencimiento
 
-**T-06 [TEST]** Extend `carrera.test.ts` with llamadosVencimiento cases
+**T-06 [x] [TEST]** Extend `carrera.test.ts` with llamadosVencimiento cases
 - File: `packages/domain/src/terciario/__tests__/entities/carrera.test.ts`
 - Add tests:
   - `create()` without `llamadosVencimiento` → getter returns `5` (Scenario M)
@@ -84,7 +84,7 @@
 - Satisfies: FR-3.1–FR-3.5
 - Done-criteria: new tests RED
 
-**T-07 [IMPL]** Update `Carrera` entity
+**T-07 [x] [IMPL]** Update `Carrera` entity
 - File: `packages/domain/src/terciario/entities/carrera.ts`
 - Changes:
   - Add `llamadosVencimiento: number` to `CarreraProps`
@@ -103,13 +103,13 @@
 > T-08 and T-09 are independent of each other (parallel).
 > Both depend on Phase 1 entities being done (T-05, T-07).
 
-**T-08 [IMPL]** Add `countAfter` to `LlamadoExamenRepository` port
+**T-08 [x] [IMPL]** Add `countAfter` to `LlamadoExamenRepository` port
 - File: `packages/domain/src/terciario/repositories/llamado-examen-repository.ts`
 - Add to interface: `countAfter(anioAcademico: string, afterDate: Date): Promise<number>`
 - Satisfies: FR-4 (ADR-1 count strategy for guard path)
 - Done-criteria: interface updated; `pnpm build` passes (infra impl is in Phase 4)
 
-**T-09 [IMPL]** Add `findByMateriaCarreraId` to `CarreraRepository` port
+**T-09 [x] [IMPL]** Add `findByMateriaCarreraId` to `CarreraRepository` port
 - File: `packages/domain/src/terciario/repositories/carrera-repository.ts`
 - Add to interface: `findByMateriaCarreraId(materiaCarreraId: string): Promise<Carrera | null>`
 - Satisfies: FR-7.4 (ADR-3 carrera resolution from materiaCarreraId)
@@ -124,7 +124,7 @@
 > The test file update (T-10 part b) and production caller update (T-11b) are
 > gates before this batch can be merged.
 
-**T-10 [TEST]** Update existing + add new FinalEligibilityPolicy tests
+**T-10 [x] [TEST]** Update existing + add new FinalEligibilityPolicy tests
 - File: `packages/domain/src/terciario/__tests__/policies/final-eligibility-policy.test.ts`
 - Part (a) — NEW test cases (write BEFORE implementing):
   - `estado = REGULAR, llamadosTranscurridos = 0, llamadosVencimiento = 5`
@@ -149,7 +149,7 @@
 - Done-criteria: new cases in part (a) are RED; existing cases in part (b) compile with
   the NEW fields present (they will stay green after T-11 because their values are non-expiring)
 
-**T-11 [IMPL]** Extend `FinalEligibilityPolicy.check()` — signature + guard step 2
+**T-11 [x] [IMPL]** Extend `FinalEligibilityPolicy.check()` — signature + guard step 2
 - File: `packages/domain/src/terciario/policies/final-eligibility-policy.ts`
 - Changes:
   - Add `llamadosTranscurridos: number` and `llamadosVencimiento: number` to the `input` type
@@ -174,7 +174,7 @@
 > D2 (migration) must follow D1.
 > D3/D4/D5 (repos) can run in parallel after D2.
 
-**T-12 [IMPL]** Update Prisma tenant schema
+**T-12 [x] [IMPL]** Update Prisma tenant schema
 - File: `api/prisma_tenant/schema.prisma`
 - Changes:
   - In `model InscripcionMateria`: add `fechaRegularidad  DateTime? @map("fecha_regularidad")`
@@ -184,7 +184,7 @@
 - Satisfies: FR-1.2, FR-3.2, NFR-6 (backward-compatible: nullable / has default)
 - Done-criteria: `npx prisma validate --schema api/prisma_tenant/schema.prisma` passes
 
-**T-13 [RUN]** Run migration and regenerate Prisma client
+**T-13 [x] [RUN]** Run migration and regenerate Prisma client
 - Commands (from repo root):
   ```
   pnpm --filter api prisma:migrate:tenant   # creates migration file in api/prisma_tenant/migrations/
@@ -193,7 +193,7 @@
 - Satisfies: NFR-4 (tenant client updated), NFR-6 (non-breaking migration)
 - Done-criteria: migration file created; `pnpm build` passes after regeneration
 
-**T-14 [IMPL]** `PrismaInscripcionMateriaRepository` — map `fechaRegularidad`
+**T-14 [x] [IMPL]** `PrismaInscripcionMateriaRepository` — map `fechaRegularidad`
 - File: `api/src/infrastructure/persistence/prisma/repositories/prisma-inscripcion-materia.repository.ts`
 - Changes:
   - Add `fechaRegularidad?: Date | null` to `InscripcionRow` interface
@@ -204,7 +204,7 @@
 - Satisfies: FR-1.2, FR-2.1 (persistence of fechaRegularidad)
 - Done-criteria: `pnpm build` passes; fechaRegularidad round-trips through save→toDomain
 
-**T-15 [IMPL]** `PrismaCarreraRepository` — map `llamadosVencimiento` + `findByMateriaCarreraId`
+**T-15 [x] [IMPL]** `PrismaCarreraRepository` — map `llamadosVencimiento` + `findByMateriaCarreraId`
 - File: `api/src/infrastructure/persistence/prisma/repositories/prisma-carrera.repository.ts`
 - Changes:
   - Add `llamadosVencimiento: number` to `CarreraRow` interface
@@ -222,7 +222,7 @@
 - Satisfies: FR-3.2 (persistence), FR-7.4 (ADR-3 single join)
 - Done-criteria: `pnpm build` passes; `PrismaCarreraRepository` implements full `CarreraRepository` interface
 
-**T-16 [IMPL]** `PrismaLlamadoExamenRepository` — implement `countAfter`
+**T-16 [x] [IMPL]** `PrismaLlamadoExamenRepository` — implement `countAfter`
 - File: `api/src/infrastructure/persistence/prisma/repositories/prisma-llamado-examen.repository.ts`
 - Add method:
   ```ts
@@ -249,7 +249,7 @@
 
 ### E1 — ConfirmarNotaCursadaUC writes fechaRegularidad
 
-**T-17 [TEST]** Write tests for `ConfirmarNotaCursadaUC` fechaRegularidad behavior
+**T-17 [x] [TEST]** Write tests for `ConfirmarNotaCursadaUC` fechaRegularidad behavior
 - File (new or extended): e.g. `api/src/application/nivel-terciario/__tests__/confirmar-nota-cursada.uc.test.ts`
 - Tests (mock `InscripcionRepository`):
   - condicion = REGULAR, `inscripcion.fechaRegularidad == null` →
@@ -262,7 +262,7 @@
 - Satisfies: FR-2.1–FR-2.4
 - Done-criteria: new tests RED
 
-**T-18 [IMPL]** `ConfirmarNotaCursadaUC` — call `setFechaRegularidad` when REGULAR
+**T-18 [x] [IMPL]** `ConfirmarNotaCursadaUC` — call `setFechaRegularidad` when REGULAR
 - File: `api/src/application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases.ts`
 - Change: after `inscripcion.updateEstado(...)`, add:
   ```ts
@@ -279,7 +279,7 @@
 
 ### E2 — RegistrarNotaFinalUC loads expiry data and passes to policy
 
-**T-19 [TEST]** Write tests for `RegistrarNotaFinalUC` expiry path
+**T-19 [x] [TEST]** Write tests for `RegistrarNotaFinalUC` expiry path
 - File (new): e.g. `api/src/application/nivel-terciario/__tests__/registrar-nota-final.uc.test.ts`
 - Tests (mock all repos + policy via spies or manual stubs):
   - `inscripcion.fechaRegularidad = T0`, `llamadosTranscurridos = 3 >= llamadosVencimiento = 3`
@@ -292,7 +292,7 @@
 - Satisfies: FR-7.1–FR-7.4, Scenarios H/I
 - Done-criteria: new tests RED
 
-**T-20 [IMPL]** `RegistrarNotaFinalUC` — inject repos + compute expiry inputs + pass to policy
+**T-20 [x] [IMPL]** `RegistrarNotaFinalUC` — inject repos + compute expiry inputs + pass to policy
 - File: `api/src/application/nivel-terciario/use-cases/acta-examen.use-cases.ts`
 - Constructor: add two new dependencies after `txRunner`:
   ```ts
@@ -331,7 +331,7 @@
 
 ### E3 — buildMateriasTerciario expiry filter
 
-**T-21 [TEST]** Write tests for `buildMateriasTerciario` expiry filter
+**T-21 [x] [TEST]** Write tests for `buildMateriasTerciario` expiry filter
 - File (new or extended): test for `GenerateBoletinUseCase.buildMateriasTerciario` (unit with
   mocked `client` using in-memory data)
 - Tests:
@@ -345,7 +345,7 @@
 - Satisfies: FR-8.1–FR-8.5, Scenarios J/K/L
 - Done-criteria: new tests RED
 
-**T-22 [IMPL]** `buildMateriasTerciario` — Q3 bulk llamados + post-DB expiry filter
+**T-22 [x] [IMPL]** `buildMateriasTerciario` — Q3 bulk llamados + post-DB expiry filter
 - File: `api/src/application/reportes/generate-boletin.use-case.ts`
 - Changes inside `buildMateriasTerciario`:
   1. After Q1 (inscripciones query), add Q3 (bulk llamados — once for the year):
@@ -386,7 +386,7 @@
 > F1 can run at any time after T-02/T-03 (error class exists).
 > F2 must follow T-20 (RegistrarNotaFinalUC constructor change).
 
-**T-23 [IMPL]** `AppExceptionFilter` — add `REGULARIDAD_VENCIDA: 422`
+**T-23 [x] [IMPL]** `AppExceptionFilter` — add `REGULARIDAD_VENCIDA: 422`
 - File: `api/src/presentation/shared/filters/exception.filter.ts`
 - Add to `DOMAIN_STATUS`:
   ```ts
@@ -396,7 +396,7 @@
 - Satisfies: FR-6.3
 - Done-criteria: filter maps `REGULARIDAD_VENCIDA` → HTTP 422 (Scenario H)
 
-**T-24 [IMPL]** `NivelTerciarioModule` — update `RegistrarNotaFinalUC` factory
+**T-24 [x] [IMPL]** `NivelTerciarioModule` — update `RegistrarNotaFinalUC` factory
 - File: `api/src/presentation/nivel-terciario/nivel-terciario.module.ts`
 - Update the `RegistrarNotaFinalUC` provider factory:
   ```ts
