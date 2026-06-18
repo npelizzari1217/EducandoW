@@ -23,6 +23,9 @@ const DOMAIN_STATUS: Record<string, number> = {
   VALUE_CODE_DUPLICATE: 409,
   VALUE_NOT_FOUND: 404,
   INVALID_INTERNAL_STATUS: 422,
+  // Terciario — llamados-examen-terciario
+  INVALID_LLAMADO_RANGE: 422,
+  LLAMADO_OVERLAP: 409,
   // Terciario — evaluacion-terciario (T31)
   SLOT_ALREADY_EXISTS: 409,
   PREREQUISITE_SLOT_MISSING: 422,
