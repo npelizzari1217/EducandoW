@@ -2,8 +2,14 @@ import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError,
   ActaExamen, CondicionExamen, ActaExamenRepository,
-  InscripcionRepository, EstadoInscripcion,
+  InscripcionRepository, EstadoInscripcion, IntentoFinal,
+  NotaCursadaTerciarioRepository,
+  FinalEligibilityPolicy,
+  DomainError,
+  CursadaNoConfirmadaError,
+  InvalidIntentoError,
 } from '@educandow/domain';
+import type { TenantTransactionRunner } from '../../shared/ports/tenant-transaction-runner';
 
 export interface CreateActaExamenInput {
   materiaCarreraId: string;
@@ -18,6 +24,17 @@ export interface RegistrarNotaInput {
   studentId: string;
   nota: number;
   condicion: string;
+}
+
+export interface RegistrarNotaFinalInput {
+  studentId: string;
+  nota: number;
+  condicion: string;
+  intento: number;
+}
+
+export interface RegistrarPromocionalInput {
+  notaFinal: number;
 }
 
 @Injectable()
@@ -75,8 +92,9 @@ export class RegistrarNotaUC {
       return err(new ValidationError((e as Error).message));
     }
 
-    acta.registrarNota(input.studentId, input.nota, condicion);
-    await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get());
+    // Backward compat: existing RegistrarNotaUC defaults to intento=1 (backfill convention)
+    acta.registrarNota(input.studentId, input.nota, condicion, IntentoFinal.create(1));
+    await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get(), 1);
 
     // Spec: when condicion = APROBADO, update InscripcionMateria.estado to APROBADO
     if (condicion.get() === 'APROBADO') {
@@ -90,6 +108,110 @@ export class RegistrarNotaUC {
       inscripcion.updateEstado(EstadoInscripcion.create('APROBADO'));
       await this.inscripcionRepo.save(inscripcion);
     }
+
+    return ok(undefined);
+  }
+}
+
+/**
+ * RegistrarNotaFinalUC — Terciario use case for recording a final exam grade.
+ * Applies FinalEligibilityPolicy guards (design §4.2, §5).
+ * Atomically transitions student to LIBRE on 3rd failure via TenantTransactionRunner (design §6.5).
+ */
+@Injectable()
+export class RegistrarNotaFinalUC {
+  constructor(
+    private readonly repo: ActaExamenRepository,
+    private readonly inscripcionRepo: InscripcionRepository,
+    private readonly notaCursadaRepo: NotaCursadaTerciarioRepository,
+    private readonly txRunner: TenantTransactionRunner,
+  ) {}
+
+  async execute(
+    actaId: string,
+    input: RegistrarNotaFinalInput,
+  ): Promise<Result<{ libreTransicion: boolean }, DomainError>> {
+    // Step 1: load acta
+    const acta = await this.repo.findById(actaId);
+    if (!acta) return err(new NotFoundError('ActaExamen', actaId));
+
+    // Step 2: load inscripcion
+    const inscripcion = await this.inscripcionRepo.findByStudentAndMateria(
+      input.studentId,
+      acta.materiaCarreraId,
+    );
+    if (!inscripcion) return err(new NotFoundError('InscripcionMateria', input.studentId));
+
+    // Step 3: count previous attempts (DESAPROBADO + AUSENTE)
+    const intentosPrevios = await this.repo.countIntentosFinal(input.studentId, acta.materiaCarreraId);
+
+    // Step 4: load TP slot
+    const tpSlot = await this.notaCursadaRepo.findSlot(inscripcion.id.get(), 'TP');
+
+    // Step 5: validate incoming intento in [1,3] (design §4.2 step 5; spec: MUST reject out-of-range)
+    if (!Number.isInteger(input.intento) || input.intento < 1 || input.intento > 3) {
+      return err(new InvalidIntentoError(input.intento));
+    }
+
+    // Step 6: FinalEligibilityPolicy guards (returns assigned IntentoFinal = intentosPrevios + 1)
+    const policyResult = FinalEligibilityPolicy.check({
+      estado: inscripcion.estado,
+      tpSlot,
+      intentosPrevios,
+    });
+    if (policyResult.isErr()) return err(policyResult.unwrapErr());
+
+    const intentoAsignado = policyResult.unwrap();
+
+    // Step 7: create condicion
+    let condicionFinal: CondicionExamen;
+    try {
+      condicionFinal = CondicionExamen.create(input.condicion);
+    } catch (e) {
+      return err(new ValidationError((e as Error).message));
+    }
+
+    // Step 8: check LIBRE transition
+    const transicionar = FinalEligibilityPolicy.shouldTransitionToLibre(intentoAsignado, condicionFinal);
+
+    // Step 9: persist atomically
+    await this.txRunner.run(async () => {
+      acta.registrarNota(input.studentId, input.nota, condicionFinal, intentoAsignado);
+      await this.repo.saveNota(actaId, input.studentId, input.nota, condicionFinal.get(), intentoAsignado.get());
+      if (transicionar) {
+        inscripcion.updateEstado(EstadoInscripcion.create('LIBRE'));
+        await this.inscripcionRepo.save(inscripcion);
+      }
+    });
+
+    // Step 10: return
+    return ok({ libreTransicion: transicionar });
+  }
+}
+
+/**
+ * RegistrarPromocionalUC — PROMOCIONAL bypass: skips ActaExamenNota creation.
+ * [SUPUESTO] — requires estado=PROMOCIONAL; sets notaFinal + estado=APROBADO.
+ */
+@Injectable()
+export class RegistrarPromocionalUC {
+  constructor(private readonly inscripcionRepo: InscripcionRepository) {}
+
+  async execute(
+    inscripcionMateriaId: string,
+    input: RegistrarPromocionalInput,
+  ): Promise<Result<void, DomainError>> {
+    // [SUPUESTO]
+    const inscripcion = await this.inscripcionRepo.findById(inscripcionMateriaId);
+    if (!inscripcion) return err(new NotFoundError('InscripcionMateria', inscripcionMateriaId));
+
+    if (!inscripcion.estado.esPromocional()) {
+      return err(new CursadaNoConfirmadaError());
+    }
+
+    inscripcion.updateEstado(EstadoInscripcion.create('APROBADO'));
+    inscripcion.updateNotas(undefined, input.notaFinal);
+    await this.inscripcionRepo.save(inscripcion);
 
     return ok(undefined);
   }

@@ -1,5 +1,6 @@
 import { Id } from '../../shared/value-objects/id';
 import { CondicionExamen } from '../value-objects/condicion-examen';
+import { IntentoFinal } from '../value-objects/intento-final';
 
 export interface ActaExamenNota {
   id: string;
@@ -7,6 +8,7 @@ export interface ActaExamenNota {
   studentId: string;
   nota: number;
   condicion: CondicionExamen;
+  intento: IntentoFinal;
 }
 
 export interface ActaExamenProps {
@@ -44,7 +46,7 @@ export class ActaExamen {
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
   get notas(): ActaExamenNota[] { return this.props.notas; }
 
-  registrarNota(studentId: string, nota: number, condicion: CondicionExamen): void {
+  registrarNota(studentId: string, nota: number, condicion: CondicionExamen, intento: IntentoFinal): void {
     const existing = this.props.notas.findIndex((n) => n.studentId === studentId);
     const newNota: ActaExamenNota = {
       id: Id.create().get(),
@@ -52,6 +54,7 @@ export class ActaExamen {
       studentId,
       nota,
       condicion,
+      intento,
     };
 
     if (existing >= 0) {

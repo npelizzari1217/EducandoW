@@ -8,6 +8,11 @@ describe('EstadoInscripcion', () => {
       expect(ei.get()).toBe(e);
     });
 
+    it('creates PROMOCIONAL', () => {
+      const ei = EstadoInscripcion.create('PROMOCIONAL');
+      expect(ei.get()).toBe('PROMOCIONAL');
+    });
+
     it('throws on invalid estado', () => {
       expect(() => EstadoInscripcion.create('PENDIENTE')).toThrow('EstadoInscripcion inválido');
     });
@@ -28,6 +33,36 @@ describe('EstadoInscripcion', () => {
       const a = EstadoInscripcion.create('INSCRIPTO');
       const b = EstadoInscripcion.create('LIBRE');
       expect(a.equals(b)).toBe(false);
+    });
+  });
+
+  describe('helpers', () => {
+    it('esRegular() returns true only for REGULAR', () => {
+      expect(EstadoInscripcion.create('REGULAR').esRegular()).toBe(true);
+      expect(EstadoInscripcion.create('PROMOCIONAL').esRegular()).toBe(false);
+      expect(EstadoInscripcion.create('LIBRE').esRegular()).toBe(false);
+    });
+
+    it('esLibre() returns true only for LIBRE', () => {
+      expect(EstadoInscripcion.create('LIBRE').esLibre()).toBe(true);
+      expect(EstadoInscripcion.create('REGULAR').esLibre()).toBe(false);
+    });
+
+    it('esPromocional() returns true only for PROMOCIONAL', () => {
+      expect(EstadoInscripcion.create('PROMOCIONAL').esPromocional()).toBe(true);
+      expect(EstadoInscripcion.create('REGULAR').esPromocional()).toBe(false);
+    });
+
+    it('esConfirmada() returns true for REGULAR, PROMOCIONAL, LIBRE, APROBADO', () => {
+      expect(EstadoInscripcion.create('REGULAR').esConfirmada()).toBe(true);
+      expect(EstadoInscripcion.create('PROMOCIONAL').esConfirmada()).toBe(true);
+      expect(EstadoInscripcion.create('LIBRE').esConfirmada()).toBe(true);
+      expect(EstadoInscripcion.create('APROBADO').esConfirmada()).toBe(true);
+    });
+
+    it('esConfirmada() returns false for INSCRIPTO, CURSANDO', () => {
+      expect(EstadoInscripcion.create('INSCRIPTO').esConfirmada()).toBe(false);
+      expect(EstadoInscripcion.create('CURSANDO').esConfirmada()).toBe(false);
     });
   });
 });

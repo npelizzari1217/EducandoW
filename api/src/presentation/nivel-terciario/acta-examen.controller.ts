@@ -10,11 +10,12 @@ import { Levels } from '../../infrastructure/auth/decorators/levels.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   CreateActaExamenSchema, CreateActaExamenDTO,
-  RegistrarNotaSchema, RegistrarNotaDTO,
 } from '../auth/dto/register.request';
 import {
-  CreateActaExamenUC, ListActasExamenUC, GetActaExamenUC, RegistrarNotaUC,
+  CreateActaExamenUC, ListActasExamenUC, GetActaExamenUC,
+  RegistrarNotaFinalUC,
 } from '../../application/nivel-terciario/use-cases/acta-examen.use-cases';
+import { RegistrarNotaFinalSchema, RegistrarNotaFinalDTO } from './nota-cursada-terciario.controller';
 import type { ActaExamen } from '@educandow/domain';
 
 @Controller('terciario/actas-examen')
@@ -25,7 +26,7 @@ export class ActaExamenController {
     private readonly createUC: CreateActaExamenUC,
     private readonly listUC: ListActasExamenUC,
     private readonly getUC: GetActaExamenUC,
-    private readonly registrarNotaUC: RegistrarNotaUC,
+    private readonly registrarNotaFinalUC: RegistrarNotaFinalUC,
   ) {}
 
   @Post()
@@ -55,11 +56,11 @@ export class ActaExamenController {
   @Roles('ROOT', { module: 'GRADES', action: 'CREATE' })
   async registrarNota(
     @Param('id') id: string,
-    @Body(new ZodValidationPipe(RegistrarNotaSchema)) body: RegistrarNotaDTO,
+    @Body(new ZodValidationPipe(RegistrarNotaFinalSchema)) body: RegistrarNotaFinalDTO,
   ) {
-    const result = await this.registrarNotaUC.execute(id, body);
+    const result = await this.registrarNotaFinalUC.execute(id, body);
     if (result.isErr()) throw result.unwrapErr();
-    return { data: { message: 'Nota registrada' } };
+    return { data: { message: 'Nota registrada', libreTransicion: result.unwrap().libreTransicion } };
   }
 
   private map(a: ActaExamen) {
@@ -77,6 +78,7 @@ export class ActaExamenController {
         studentId: n.studentId,
         nota: n.nota,
         condicion: n.condicion.get(),
+        intento: n.intento.get(),
       })),
     };
   }

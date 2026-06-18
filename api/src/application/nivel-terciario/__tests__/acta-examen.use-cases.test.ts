@@ -21,6 +21,7 @@ function mockActaRepo(overrides: Partial<ActaExamenRepository> = {}): ActaExamen
     findAll: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
     saveNota: vi.fn().mockResolvedValue(undefined),
+    countIntentosFinal: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
 }

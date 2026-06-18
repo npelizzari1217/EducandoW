@@ -111,11 +111,15 @@ export { MATERIA_PREVIA_REPOSITORY } from './secundario';
 export type { MateriaPreviaRepository } from './secundario';
 
 // Terciario
-export { Carrera, InscripcionMateria, ActaExamen, Titulo } from './terciario';
-export type { CarreraProps, InscripcionMateriaProps, CorrelativaRequerida, ActaExamenProps, ActaExamenNota, TituloProps } from './terciario';
-export { RegimenMateria, EstadoInscripcion, EstadoTitulo, CondicionExamen } from './terciario';
-export type { RegimenMateriaValue, EstadoInscripcionValue, EstadoTituloValue, CondicionExamenValue } from './terciario';
-export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, TituloRepository } from './terciario';
+export { Carrera, InscripcionMateria, ActaExamen, Titulo, NotaCursadaTerciario } from './terciario';
+export type { CarreraProps, InscripcionMateriaProps, CorrelativaRequerida, ActaExamenProps, ActaExamenNota, TituloProps, NotaCursadaTerciarioProps } from './terciario';
+export { RegimenMateria, EstadoInscripcion, EstadoTitulo, CondicionExamen, SlotCursadaTerciario, CondicionCursada, IntentoFinal } from './terciario';
+export type { RegimenMateriaValue, EstadoInscripcionValue, EstadoTituloValue, CondicionExamenValue, SlotCursadaTerciarioValue, CondicionCursadaValue, IntentoFinalValue } from './terciario';
+export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, TituloRepository, NotaCursadaTerciarioRepository } from './terciario';
+// Terciario — Errors
+export { SlotAlreadyExistsError, PrerequisiteSlotMissingError, ParcialYaAprobadoError, InvalidIntentoError, AlumnoLibreNoPuedeRendirError, CursadaNoConfirmadaError, TpObligatorioFaltanteError, MaxIntentosAlcanzadoError, CondicionCursadaInvalidaError } from './terciario';
+// Terciario — Policies
+export { RecuperatorioPolicy, FinalEligibilityPolicy } from './terciario';
 
 // AttendanceType
 export { AttendanceType } from './attendance-type/entities/attendance-type';

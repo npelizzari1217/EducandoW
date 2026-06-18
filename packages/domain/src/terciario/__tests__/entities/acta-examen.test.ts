@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ActaExamen } from '../../entities/acta-examen';
 import { CondicionExamen } from '../../value-objects/condicion-examen';
+import { IntentoFinal } from '../../value-objects/intento-final';
 
 describe('ActaExamen', () => {
   const validProps = {
@@ -46,7 +47,7 @@ describe('ActaExamen', () => {
       const acta = ActaExamen.create(validProps);
       const condicion = CondicionExamen.create('APROBADO');
 
-      acta.registrarNota('student-1', 8, condicion);
+      acta.registrarNota('student-1', 8, condicion, IntentoFinal.create(1));
 
       expect(acta.notas).toHaveLength(1);
       expect(acta.notas[0].studentId).toBe('student-1');
@@ -57,9 +58,9 @@ describe('ActaExamen', () => {
 
     it('overwrites existing grade for same student (re-register)', () => {
       const acta = ActaExamen.create(validProps);
-      acta.registrarNota('student-1', 4, CondicionExamen.create('DESAPROBADO'));
+      acta.registrarNota('student-1', 4, CondicionExamen.create('DESAPROBADO'), IntentoFinal.create(1));
       // Student retakes, now approved
-      acta.registrarNota('student-1', 7, CondicionExamen.create('APROBADO'));
+      acta.registrarNota('student-1', 7, CondicionExamen.create('APROBADO'), IntentoFinal.create(2));
 
       expect(acta.notas).toHaveLength(1);
       expect(acta.notas[0].nota).toBe(7);
@@ -68,9 +69,9 @@ describe('ActaExamen', () => {
 
     it('can register multiple grades for different students', () => {
       const acta = ActaExamen.create(validProps);
-      acta.registrarNota('s1', 9, CondicionExamen.create('APROBADO'));
-      acta.registrarNota('s2', 3, CondicionExamen.create('DESAPROBADO'));
-      acta.registrarNota('s3', 0, CondicionExamen.create('AUSENTE'));
+      acta.registrarNota('s1', 9, CondicionExamen.create('APROBADO'), IntentoFinal.create(1));
+      acta.registrarNota('s2', 3, CondicionExamen.create('DESAPROBADO'), IntentoFinal.create(1));
+      acta.registrarNota('s3', 0, CondicionExamen.create('AUSENTE'), IntentoFinal.create(1));
 
       expect(acta.notas).toHaveLength(3);
       expect(acta.notas.map((n) => n.studentId)).toEqual(['s1', 's2', 's3']);
@@ -105,6 +106,58 @@ describe('ActaExamen', () => {
       acta.softDelete();
       expect(acta.active).toBe(false);
       expect(acta.deletedAt).toBeInstanceOf(Date);
+    });
+  });
+
+  // ── T12: intento field in ActaExamenNota ─────────────────────────────────
+
+  describe('registrarNota() with intento', () => {
+    it('includes intento field in ActaExamenNota', () => {
+      const acta = ActaExamen.create(validProps);
+      const condicion = CondicionExamen.create('DESAPROBADO');
+      const intento = IntentoFinal.create(1);
+
+      acta.registrarNota('student-1', 4, condicion, intento);
+
+      expect(acta.notas[0].intento).toBeDefined();
+      expect(acta.notas[0].intento.get()).toBe(1);
+    });
+
+    it('includes intento=2 in second attempt', () => {
+      const acta = ActaExamen.create(validProps);
+      const intento = IntentoFinal.create(2);
+
+      acta.registrarNota('student-1', 3, CondicionExamen.create('DESAPROBADO'), intento);
+
+      expect(acta.notas[0].intento.get()).toBe(2);
+    });
+  });
+
+  describe('reconstruct() with intento', () => {
+    it('reconstructs correctly when notas have intento', () => {
+      const created = ActaExamen.create(validProps);
+      const intento = IntentoFinal.create(3);
+
+      const recon = ActaExamen.reconstruct({
+        id: created.id,
+        materiaCarreraId: created.materiaCarreraId,
+        fecha: created.fecha,
+        presidenteId: created.presidenteId,
+        vocales: created.vocales,
+        active: true,
+        notas: [
+          {
+            id: 'nota-1',
+            actaId: created.id.get(),
+            studentId: 'student-1',
+            nota: 4,
+            condicion: CondicionExamen.create('DESAPROBADO'),
+            intento,
+          },
+        ],
+      });
+
+      expect(recon.notas[0].intento.get()).toBe(3);
     });
   });
 });
