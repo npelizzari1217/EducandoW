@@ -22,6 +22,7 @@ function makeTenantClient(overrides: Record<string, unknown> = {}) {
     // Terciario path (decade 4) — needed so level=40 dispatch does not throw
     inscripcionMateria:                { findMany: vi.fn().mockResolvedValue([]) },
     actaExamenNota:                    { findMany: vi.fn().mockResolvedValue([]) },
+    llamadoExamen:                     { findMany: vi.fn().mockResolvedValue([]) },
     ...overrides,
   };
 }

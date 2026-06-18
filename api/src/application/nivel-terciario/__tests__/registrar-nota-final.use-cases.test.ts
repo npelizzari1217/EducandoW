@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   ActaExamen,
+  Carrera,
   NotaCursadaTerciario,
   InscripcionMateria,
   EstadoInscripcion,
@@ -12,6 +13,8 @@ import type {
   ActaExamenRepository,
   InscripcionRepository,
   NotaCursadaTerciarioRepository,
+  LlamadoExamenRepository,
+  CarreraRepository,
 } from '@educandow/domain';
 import type { TenantTransactionRunner } from '../../../application/shared/ports/tenant-transaction-runner';
 import { RegistrarNotaFinalUC, RegistrarPromocionalUC } from '../use-cases/acta-examen.use-cases';
@@ -27,7 +30,7 @@ function makeActa(materiaCarreraId = 'materia-1') {
   });
 }
 
-function makeInscripcion(estado: string): InscripcionMateria {
+function makeInscripcion(estado: string, fechaRegularidad?: Date): InscripcionMateria {
   return InscripcionMateria.reconstruct({
     id: Id.reconstruct('insc-1'),
     studentId: 'student-1',
@@ -35,6 +38,18 @@ function makeInscripcion(estado: string): InscripcionMateria {
     cuatrimestre: '1C',
     anioAcademico: '2026',
     estado: EstadoInscripcion.create(estado),
+    fechaRegularidad,
+  });
+}
+
+function makeCarrera(llamadosVencimiento = 5): Carrera {
+  return Carrera.reconstruct({
+    id: Id.reconstruct('carrera-1'),
+    name: 'Profesorado',
+    titulo: 'Profesor',
+    duracion: 4,
+    active: true,
+    llamadosVencimiento,
   });
 }
 
@@ -92,6 +107,34 @@ function mockTxRunner(overrides: Partial<TenantTransactionRunner> = {}): TenantT
   };
 }
 
+function mockLlamadoExamenRepo(
+  llamadosCount = 0,
+  overrides: Partial<LlamadoExamenRepository> = {},
+): LlamadoExamenRepository {
+  return {
+    findById: vi.fn().mockResolvedValue(null),
+    findByAnioAcademico: vi.fn().mockResolvedValue([]),
+    findOverlapping: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+    countAfter: vi.fn().mockResolvedValue(llamadosCount),
+    ...overrides,
+  };
+}
+
+function mockCarreraRepo(
+  carrera: Carrera | null = null,
+  overrides: Partial<CarreraRepository> = {},
+): CarreraRepository {
+  return {
+    findById: vi.fn().mockResolvedValue(null),
+    findAll: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+    delete: vi.fn().mockResolvedValue(undefined),
+    findByMateriaCarreraId: vi.fn().mockResolvedValue(carrera),
+    ...overrides,
+  };
+}
+
 // ── RegistrarNotaFinalUC ─────────────────────────────────────────────────────
 
 describe('RegistrarNotaFinalUC', () => {
@@ -103,6 +146,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo(),
       mockNotaCursadaRepo(),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute('nonexistent', {
@@ -123,6 +168,31 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo(),
       mockNotaCursadaRepo(),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 5,
+      condicion: 'DESAPROBADO',
+      intento: 1,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().code).toBe('NOT_FOUND');
+  });
+
+  it('returns Err(NOT_FOUND) when carreraRepo.findByMateriaCarreraId returns null (T-19)', async () => {
+    const acta = makeActa();
+    const inscripcion = makeInscripcion('REGULAR');
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({ findById: vi.fn().mockResolvedValue(acta) }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(null),  // carrera not found
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -145,6 +215,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -166,6 +238,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -187,6 +261,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo(),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -208,6 +284,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo(),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -229,6 +307,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo(),
       mockTxRunner(),
+      mockLlamadoExamenRepo(),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -250,6 +330,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(null) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),  // 0 llamados → not expired
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -271,6 +353,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('AUSENTE')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -295,6 +379,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -306,6 +392,87 @@ describe('RegistrarNotaFinalUC', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().code).toBe('MAX_INTENTOS_ALCANZADO');
+  });
+
+  // ── Expiry path tests (T-19) ────────────────────────────────────────────────
+
+  it('T-19 Scenario H: fechaRegularidad=T0, llamadosTranscurridos=3 >= llamadosVencimiento=3 → REGULARIDAD_VENCIDA', async () => {
+    const acta = makeActa();
+    const T0 = new Date('2026-01-01');
+    const inscripcion = makeInscripcion('REGULAR', T0);
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({ findById: vi.fn().mockResolvedValue(acta) }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+      mockLlamadoExamenRepo(3),    // countAfter returns 3
+      mockCarreraRepo(makeCarrera(3)),  // llamadosVencimiento = 3
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 5,
+      condicion: 'DESAPROBADO',
+      intento: 1,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().code).toBe('REGULARIDAD_VENCIDA');
+  });
+
+  it('T-19 Scenario I: fechaRegularidad=T0, llamadosTranscurridos=2 < llamadosVencimiento=5 → Ok', async () => {
+    const acta = makeActa();
+    const T0 = new Date('2026-01-01');
+    const inscripcion = makeInscripcion('REGULAR', T0);
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({
+        findById: vi.fn().mockResolvedValue(acta),
+        countIntentosFinal: vi.fn().mockResolvedValue(0),
+      }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+      mockLlamadoExamenRepo(2),    // countAfter returns 2
+      mockCarreraRepo(makeCarrera(5)),  // llamadosVencimiento = 5
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 8,
+      condicion: 'APROBADO',
+      intento: 1,
+    });
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('T-19 FR-7.3: fechaRegularidad=null → UC passes llamadosTranscurridos=0 to policy (never expired)', async () => {
+    const acta = makeActa();
+    const inscripcion = makeInscripcion('REGULAR'); // fechaRegularidad = undefined/null
+    const llamadoRepo = mockLlamadoExamenRepo(99); // would be expired if checked
+    const uc = new RegistrarNotaFinalUC(
+      mockActaRepo({
+        findById: vi.fn().mockResolvedValue(acta),
+        countIntentosFinal: vi.fn().mockResolvedValue(0),
+      }),
+      mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
+      mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
+      mockTxRunner(),
+      llamadoRepo,
+      mockCarreraRepo(makeCarrera(5)),
+    );
+
+    const result = await uc.execute(acta.id.get(), {
+      studentId: 'student-1',
+      nota: 7,
+      condicion: 'APROBADO',
+      intento: 1,
+    });
+
+    // countAfter should NOT be called because fechaRegularidad is null
+    expect(llamadoRepo.countAfter).not.toHaveBeenCalled();
+    // Policy should succeed (not expired)
+    expect(result.isOk()).toBe(true);
   });
 
   // ── Success paths ───────────────────────────────────────────────────────────
@@ -321,6 +488,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -345,6 +514,8 @@ describe('RegistrarNotaFinalUC', () => {
       mockInscRepo({ findByStudentAndMateria: vi.fn().mockResolvedValue(inscripcion) }),
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -372,6 +543,8 @@ describe('RegistrarNotaFinalUC', () => {
       inscRepo,
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       txRunner,
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {
@@ -400,6 +573,8 @@ describe('RegistrarNotaFinalUC', () => {
       inscRepo,
       mockNotaCursadaRepo({ findSlot: vi.fn().mockResolvedValue(makeTpSlot('APROBADO')) }),
       mockTxRunner(),
+      mockLlamadoExamenRepo(0),
+      mockCarreraRepo(makeCarrera()),
     );
 
     const result = await uc.execute(acta.id.get(), {

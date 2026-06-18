@@ -435,6 +435,11 @@ export class GenerateBoletinUseCase {
       orderBy: [{ cuatrimestre: 'asc' }, { materiaCarreraId: 'asc' }],
     } as Parameters<typeof client.inscripcionMateria.findMany>[0]);
 
+    // ── Query 3: bulk llamados for expiry filter (ADR-2 — once, no N+1) ────────
+    const llamadosAno = await client.llamadoExamen.findMany({
+      where: { anioAcademico: enrollment.academicYear, active: true, deletedAt: null },
+    } as Parameters<typeof client.llamadoExamen.findMany>[0]);
+
     // ── Query 2: finales bulk (REQ-5, REQ-8) ─────────────────────────────────
     const materiaCarreraIds = [...new Set(inscripciones.map((i: any) => i.materiaCarreraId))];
     const notasFinalesRaw = materiaCarreraIds.length === 0
@@ -503,6 +508,22 @@ export class GenerateBoletinUseCase {
       };
     });
 
+    // ── Post-DB expiry filter (ADR-6, FR-8.1–FR-8.5) — applied BEFORE grouping ─
+    // Indexes inscripcion by position to check fechaRegularidad and llamadosVencimiento.
+    // Only REGULAR inscripciones with a non-null fechaRegularidad are checked.
+    const materiasVigentes = materiasFlat.filter((_: MateriaBoletin, idx: number) => {
+      const insc = (inscripciones as any[])[idx];
+      if ((insc.estado as string) !== 'REGULAR') return true; // only REGULAR is gated
+      const fechaReg: Date | null = insc.fechaRegularidad ?? null;
+      if (!fechaReg) return true; // null → not expired (FR-4.3)
+      const llamadosVencimiento: number =
+        (insc.materiaCarrera?.carrera as any)?.llamadosVencimiento ?? 5;
+      const count = (llamadosAno as any[]).filter(
+        (l) => (l.fechaInicio as Date) > fechaReg,
+      ).length;
+      return count < llamadosVencimiento; // exclude when count >= threshold
+    });
+
     // ── Carrera header resolution (REQ-6) ────────────────────────────────────
     const carreraNameRaw = (inscripciones as any[])[0]
       ?.materiaCarrera?.carrera?.name
@@ -517,7 +538,7 @@ export class GenerateBoletinUseCase {
       ({ '1C': 0, '2C': 1 } as Record<string, number>)[c] ?? 2; // ANUAL/other sorts last
 
     const grupos = new Map<string, MateriaBoletin[]>();
-    for (const m of materiasFlat) {
+    for (const m of materiasVigentes) {
       const k = m.cuatrimestre ?? 'ANUAL';
       if (!grupos.has(k)) grupos.set(k, []);
       grupos.get(k)!.push(m);
@@ -526,7 +547,7 @@ export class GenerateBoletinUseCase {
       .sort(([a], [b]) => CUATRI_ORDER(a) - CUATRI_ORDER(b))
       .map(([cuatrimestre, materias]) => ({ cuatrimestre, materias }));
 
-    return { materias: materiasFlat, carreraName, cuatrimestresTerciario };
+    return { materias: materiasVigentes, carreraName, cuatrimestresTerciario };
   }
 
   // ── PR7: Primario branch ───────────────────────────────────────────────────

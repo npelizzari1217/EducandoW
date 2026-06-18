@@ -36,6 +36,7 @@ function makeRepo(overrides: Partial<LlamadoExamenRepository> = {}): LlamadoExam
     findByAnioAcademico: vi.fn().mockResolvedValue([]),
     findOverlapping: vi.fn().mockResolvedValue([]),
     save: vi.fn().mockResolvedValue(undefined),
+    countAfter: vi.fn().mockResolvedValue(0),
     ...overrides,
   };
 }

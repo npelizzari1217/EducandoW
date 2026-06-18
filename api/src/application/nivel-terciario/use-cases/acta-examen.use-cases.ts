@@ -8,6 +8,8 @@ import {
   DomainError,
   CursadaNoConfirmadaError,
   InvalidIntentoError,
+  LlamadoExamenRepository,
+  CarreraRepository,
 } from '@educandow/domain';
 import type { TenantTransactionRunner } from '../../shared/ports/tenant-transaction-runner';
 
@@ -125,6 +127,8 @@ export class RegistrarNotaFinalUC {
     private readonly inscripcionRepo: InscripcionRepository,
     private readonly notaCursadaRepo: NotaCursadaTerciarioRepository,
     private readonly txRunner: TenantTransactionRunner,
+    private readonly llamadoExamenRepo: LlamadoExamenRepository,
+    private readonly carreraRepo: CarreraRepository,
   ) {}
 
   async execute(
@@ -142,6 +146,18 @@ export class RegistrarNotaFinalUC {
     );
     if (!inscripcion) return err(new NotFoundError('InscripcionMateria', input.studentId));
 
+    // Step 2b: load carrera via materiaCarreraId (ADR-3)
+    const carrera = await this.carreraRepo.findByMateriaCarreraId(acta.materiaCarreraId);
+    if (!carrera) return err(new NotFoundError('Carrera', acta.materiaCarreraId));
+
+    // Step 2c: compute llamadosTranscurridos (FR-7.3: null → 0 = not expired)
+    const llamadosTranscurridos = inscripcion.fechaRegularidad == null
+      ? 0
+      : await this.llamadoExamenRepo.countAfter(
+          inscripcion.anioAcademico,
+          inscripcion.fechaRegularidad,
+        );
+
     // Step 3: count previous attempts (DESAPROBADO + AUSENTE)
     const intentosPrevios = await this.repo.countIntentosFinal(input.studentId, acta.materiaCarreraId);
 
@@ -158,6 +174,8 @@ export class RegistrarNotaFinalUC {
       estado: inscripcion.estado,
       tpSlot,
       intentosPrevios,
+      llamadosTranscurridos,
+      llamadosVencimiento: carrera.llamadosVencimiento,
     });
     if (policyResult.isErr()) return err(policyResult.unwrapErr());
 

@@ -123,7 +123,7 @@ export { LLAMADO_EXAMEN_REPOSITORY } from './terciario';
 export type { CarreraRepository, InscripcionRepository, ActaExamenRepository, TituloRepository, NotaCursadaTerciarioRepository } from './terciario';
 // Terciario — Errors
 export { InvalidLlamadoRangeError, LlamadoOverlapError } from './terciario';
-export { SlotAlreadyExistsError, PrerequisiteSlotMissingError, ParcialYaAprobadoError, InvalidIntentoError, AlumnoLibreNoPuedeRendirError, CursadaNoConfirmadaError, TpObligatorioFaltanteError, MaxIntentosAlcanzadoError, CondicionCursadaInvalidaError } from './terciario';
+export { SlotAlreadyExistsError, PrerequisiteSlotMissingError, ParcialYaAprobadoError, InvalidIntentoError, AlumnoLibreNoPuedeRendirError, CursadaNoConfirmadaError, TpObligatorioFaltanteError, MaxIntentosAlcanzadoError, CondicionCursadaInvalidaError, RegularidadVencidaError } from './terciario';
 // Terciario — Policies
 export { RecuperatorioPolicy, FinalEligibilityPolicy } from './terciario';
 

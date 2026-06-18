@@ -121,6 +121,11 @@ export class ConfirmarNotaCursadaUC {
       inscripcion.updateNotas(input.notaCursada);
     }
 
+    // Write fechaRegularidad = now() when becoming REGULAR (write-once — FR-2.1, FR-2.2)
+    if (input.condicion === 'REGULAR') {
+      inscripcion.setFechaRegularidad(new Date());
+    }
+
     await this.inscripcionRepo.save(inscripcion);
     return ok(undefined);
   }

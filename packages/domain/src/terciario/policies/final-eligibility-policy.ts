@@ -8,46 +8,55 @@ import { CursadaNoConfirmadaError } from '../errors/cursada-no-confirmada.error'
 import { AlumnoLibreNoPuedeRendirError } from '../errors/alumno-libre-no-puede-rendir.error';
 import { TpObligatorioFaltanteError } from '../errors/tp-obligatorio-faltante.error';
 import { MaxIntentosAlcanzadoError } from '../errors/max-intentos-alcanzado.error';
+import { RegularidadVencidaError } from '../errors/regularidad-vencida.error';
 
 export class FinalEligibilityPolicy {
   /**
    * Pure guard — no I/O. Returns Ok(IntentoFinal) when the student can sit the exam.
    *
-   * Guard evaluation order (design §5):
+   * Guard evaluation order (spec FR-5.2):
    * 1. estado not confirmed (null/INSCRIPTO/CURSANDO) → CURSADA_NO_CONFIRMADA
-   * 2. estado = LIBRE → ALUMNO_LIBRE_NO_PUEDE_RENDIR
-   * 3. TP faltante or AUSENTE → TP_OBLIGATORIO_FALTANTE
-   * 4. intentosPrevios >= 3 → MAX_INTENTOS_ALCANZADO
-   * 5. OK → return IntentoFinal = intentosPrevios + 1
+   * 2. estado = REGULAR AND llamadosTranscurridos >= llamadosVencimiento → REGULARIDAD_VENCIDA
+   * 3. estado = LIBRE → ALUMNO_LIBRE_NO_PUEDE_RENDIR
+   * 4. TP faltante or AUSENTE → TP_OBLIGATORIO_FALTANTE
+   * 5. intentosPrevios >= 3 → MAX_INTENTOS_ALCANZADO
+   * 6. OK → return IntentoFinal = intentosPrevios + 1
    */
   static check(input: {
     estado: EstadoInscripcion;
     tpSlot: NotaCursadaTerciario | null;
     intentosPrevios: number;
+    llamadosTranscurridos: number;
+    llamadosVencimiento: number;
   }): Result<IntentoFinal, DomainError> {
-    const { estado, tpSlot, intentosPrevios } = input;
+    const { estado, tpSlot, intentosPrevios, llamadosTranscurridos, llamadosVencimiento } = input;
 
     // 1. Not confirmed
     if (!estado.esConfirmada()) {
       return err(new CursadaNoConfirmadaError());
     }
 
-    // 2. LIBRE cannot sit exam
+    // 2. Regularidad vencida (only for REGULAR estado — FR-5.3)
+    if (estado.esRegular() && llamadosTranscurridos >= llamadosVencimiento) {
+      return err(new RegularidadVencidaError());
+    }
+
+    // 3. LIBRE cannot sit exam
     if (estado.esLibre()) {
       return err(new AlumnoLibreNoPuedeRendirError());
     }
 
-    // 3. TP obligatorio faltante o no aprobado [SUPUESTO]
+    // 4. TP obligatorio faltante o no aprobado [SUPUESTO]
     if (!tpSlot || tpSlot.condicion.get() !== 'APROBADO') {
       return err(new TpObligatorioFaltanteError());
     }
 
-    // 4. Límite de 3 intentos
+    // 5. Límite de 3 intentos
     if (intentosPrevios >= 3) {
       return err(new MaxIntentosAlcanzadoError());
     }
 
-    // 5. OK — assign next intento
+    // 6. OK — assign next intento
     return ok(IntentoFinal.create((intentosPrevios + 1) as 1 | 2 | 3));
   }
 

@@ -27,10 +27,11 @@ function makePrisma() {
  * Mock tenant client for Terciario tests.
  * Also exposes legacy models so no-regression dispatch tests can assert they are NOT called.
  */
-function makeTerciarioClient(opts: { inscripciones?: any[]; finales?: any[] } = {}) {
+function makeTerciarioClient(opts: { inscripciones?: any[]; finales?: any[]; llamados?: any[] } = {}) {
   return {
     inscripcionMateria: { findMany: vi.fn().mockResolvedValue(opts.inscripciones ?? []) },
     actaExamenNota: { findMany: vi.fn().mockResolvedValue(opts.finales ?? []) },
+    llamadoExamen: { findMany: vi.fn().mockResolvedValue(opts.llamados ?? []) },
     // legacy models — present so level-10 no-regression tests can assert NOT called
     notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
     courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
@@ -50,17 +51,26 @@ function makeInscripcion(opts: {
   notaCursada?: number | null;
   notasCursada?: Array<{ slot: string; nota: number | null }>;
   subjectName?: string;
-  carrera?: { name: string } | null;
+  carrera?: { name: string; llamadosVencimiento?: number } | null;
+  fechaRegularidad?: Date | null;
 } = {}) {
+  const carreraBase = opts.carrera !== undefined
+    ? opts.carrera
+    : { name: 'Profesorado de Lengua' };
+  const carreraObj = carreraBase === null
+    ? null
+    : { name: carreraBase.name, llamadosVencimiento: carreraBase.llamadosVencimiento ?? 5 };
+
   return {
     materiaCarreraId: opts.materiaCarreraId ?? 'mc-1',
     cuatrimestre: opts.cuatrimestre ?? '1C',
     estado: opts.estado ?? 'REGULAR',
     notaCursada: opts.notaCursada ?? null,
     notasCursada: opts.notasCursada ?? [],
+    fechaRegularidad: opts.fechaRegularidad !== undefined ? opts.fechaRegularidad : null,
     materiaCarrera: {
       subject: { name: opts.subjectName ?? 'Matemática' },
-      carrera: opts.carrera !== undefined ? opts.carrera : { name: 'Profesorado de Lengua' },
+      carrera: carreraObj,
     },
   };
 }
@@ -512,5 +522,119 @@ describe('no N+1 — 10 materias, 2 queries', () => {
 
     expect(mockClient.inscripcionMateria.findMany).toHaveBeenCalledTimes(1);
     expect(mockClient.actaExamenNota.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── 9. Expiry filter (T-21 / FR-8.1–FR-8.5) ──────────────────────────────────
+
+describe('expiry filter — Scenario J: expired REGULAR excluded', () => {
+  it('REGULAR materia with 5 llamados after T0 and llamadosVencimiento=5 → excluded from output (FR-8.1)', async () => {
+    const T0 = new Date('2026-01-01');
+    const insc = makeInscripcion({
+      estado: 'REGULAR',
+      fechaRegularidad: T0,
+      carrera: { name: 'Profesorado', llamadosVencimiento: 5 },
+      subjectName: 'Matemática',
+    });
+    // 5 llamados with fechaInicio > T0
+    const llamados = Array.from({ length: 5 }, (_, i) => ({
+      fechaInicio: new Date(`2026-0${i + 2}-01`),
+      active: true,
+      deletedAt: null,
+    }));
+    const mockClient = makeTerciarioClient({ inscripciones: [insc], finales: [], llamados });
+    const uc = makeTerciarioUseCase();
+
+    const result = await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
+
+    // Materia should be excluded (count 5 >= 5)
+    expect(result.materias.some((m: any) => m.nombre === 'Matemática')).toBe(false);
+    expect(result.cuatrimestresTerciario.flatMap((g: any) => g.materias)).toHaveLength(0);
+  });
+});
+
+describe('expiry filter — Scenario K: non-expired REGULAR included', () => {
+  it('REGULAR materia with 3 llamados after T0 and llamadosVencimiento=5 → included (FR-8.1, 3<5)', async () => {
+    const T0 = new Date('2026-01-01');
+    const insc = makeInscripcion({
+      estado: 'REGULAR',
+      fechaRegularidad: T0,
+      carrera: { name: 'Profesorado', llamadosVencimiento: 5 },
+      subjectName: 'Historia',
+    });
+    // Only 3 llamados with fechaInicio > T0
+    const llamados = [
+      { fechaInicio: new Date('2026-02-01'), active: true, deletedAt: null },
+      { fechaInicio: new Date('2026-03-01'), active: true, deletedAt: null },
+      { fechaInicio: new Date('2026-04-01'), active: true, deletedAt: null },
+    ];
+    const mockClient = makeTerciarioClient({ inscripciones: [insc], finales: [], llamados });
+    const uc = makeTerciarioUseCase();
+
+    const result = await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
+
+    // Materia should be included (count 3 < 5)
+    expect(result.materias.some((m: any) => m.nombre === 'Historia')).toBe(true);
+  });
+});
+
+describe('expiry filter — Scenario L: null fechaRegularidad always included (FR-4.3)', () => {
+  it('REGULAR materia with fechaRegularidad=null and 10 llamados → included (backfill safe)', async () => {
+    const insc = makeInscripcion({
+      estado: 'REGULAR',
+      fechaRegularidad: null,  // null → never expired
+      carrera: { name: 'Profesorado', llamadosVencimiento: 5 },
+      subjectName: 'Lengua',
+    });
+    // 10 llamados — would expire if fechaRegularidad were set
+    const llamados = Array.from({ length: 10 }, (_, i) => ({
+      fechaInicio: new Date(`2026-0${(i % 9) + 1}-01`),
+      active: true,
+      deletedAt: null,
+    }));
+    const mockClient = makeTerciarioClient({ inscripciones: [insc], finales: [], llamados });
+    const uc = makeTerciarioUseCase();
+
+    const result = await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
+
+    // Materia should be included (fechaRegularidad is null → not expired)
+    expect(result.materias.some((m: any) => m.nombre === 'Lengua')).toBe(true);
+  });
+});
+
+describe('expiry filter — INSCRIPTO/APROBADO materias unaffected by filter', () => {
+  it('non-REGULAR materias are never filtered by expiry regardless of llamados', async () => {
+    const T0 = new Date('2026-01-01');
+    const inscripciones = [
+      makeInscripcion({ estado: 'INSCRIPTO', fechaRegularidad: T0, subjectName: 'Inglés', materiaCarreraId: 'mc-1' }),
+      makeInscripcion({ estado: 'APROBADO', fechaRegularidad: T0, subjectName: 'Física', materiaCarreraId: 'mc-2' }),
+    ];
+    // Many llamados — would expire REGULAR, but not INSCRIPTO/APROBADO
+    const llamados = Array.from({ length: 10 }, (_, i) => ({
+      fechaInicio: new Date(`2026-0${(i % 9) + 1}-15`),
+      active: true,
+      deletedAt: null,
+    }));
+    const mockClient = makeTerciarioClient({ inscripciones, finales: [], llamados });
+    const uc = makeTerciarioUseCase();
+
+    const result = await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
+
+    expect(result.materias.some((m: any) => m.nombre === 'Inglés')).toBe(true);
+    expect(result.materias.some((m: any) => m.nombre === 'Física')).toBe(true);
+  });
+});
+
+describe('expiry filter — llamadoExamen.findMany called exactly once (ADR-2 no N+1)', () => {
+  it('Q3 bulk query called once for the year, regardless of inscripcion count', async () => {
+    const inscripciones = Array.from({ length: 5 }, (_, i) =>
+      makeInscripcion({ estado: 'REGULAR', materiaCarreraId: `mc-${i}`, subjectName: `M${i}` }),
+    );
+    const mockClient = makeTerciarioClient({ inscripciones, finales: [], llamados: [] });
+    const uc = makeTerciarioUseCase();
+
+    await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
+
+    expect(mockClient.llamadoExamen.findMany).toHaveBeenCalledTimes(1);
   });
 });

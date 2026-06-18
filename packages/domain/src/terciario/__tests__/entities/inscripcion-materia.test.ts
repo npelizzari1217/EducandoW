@@ -186,5 +186,69 @@ describe('InscripcionMateria', () => {
       expect(recon.notaCursada).toBe(7);
       expect(recon.notaFinal).toBe(9);
     });
+
+    it('reconstruct() with fechaRegularidad set → getter returns the date (FR-1.1, FR-1.3)', () => {
+      const created = InscripcionMateria.create(validProps);
+      const date = new Date('2026-01-15');
+      const recon = InscripcionMateria.reconstruct({
+        id: created.id,
+        studentId: created.studentId,
+        materiaCarreraId: created.materiaCarreraId,
+        cuatrimestre: created.cuatrimestre,
+        anioAcademico: created.anioAcademico,
+        estado: created.estado,
+        fechaRegularidad: date,
+      });
+      expect(recon.fechaRegularidad).toEqual(date);
+    });
+
+    it('reconstruct() without fechaRegularidad → getter returns undefined (FR-1.2)', () => {
+      const created = InscripcionMateria.create(validProps);
+      const recon = InscripcionMateria.reconstruct({
+        id: created.id,
+        studentId: created.studentId,
+        materiaCarreraId: created.materiaCarreraId,
+        cuatrimestre: created.cuatrimestre,
+        anioAcademico: created.anioAcademico,
+        estado: created.estado,
+      });
+      expect(recon.fechaRegularidad).toBeUndefined();
+    });
+  });
+
+  describe('fechaRegularidad — create() does NOT accept it (FR-1.4)', () => {
+    it('create() does not have fechaRegularidad in the returned entity by default', () => {
+      const insc = InscripcionMateria.create(validProps);
+      // create() should not set fechaRegularidad (it's only set via setFechaRegularidad)
+      expect(insc.fechaRegularidad).toBeUndefined();
+    });
+  });
+
+  describe('setFechaRegularidad() — write-once (FR-2.4)', () => {
+    it('sets fechaRegularidad when it is null (Scenario A)', () => {
+      const insc = InscripcionMateria.create(validProps);
+      expect(insc.fechaRegularidad).toBeUndefined();
+      const date = new Date('2026-03-10');
+      insc.setFechaRegularidad(date);
+      expect(insc.fechaRegularidad).toEqual(date);
+    });
+
+    it('is a no-op when fechaRegularidad is already set (Scenario B)', () => {
+      const created = InscripcionMateria.create(validProps);
+      const originalDate = new Date('2026-01-01');
+      const created2 = InscripcionMateria.reconstruct({
+        id: created.id,
+        studentId: created.studentId,
+        materiaCarreraId: created.materiaCarreraId,
+        cuatrimestre: created.cuatrimestre,
+        anioAcademico: created.anioAcademico,
+        estado: created.estado,
+        fechaRegularidad: originalDate,
+      });
+      const newDate = new Date('2026-06-01');
+      created2.setFechaRegularidad(newDate);
+      // Value should remain the original
+      expect(created2.fechaRegularidad).toEqual(originalDate);
+    });
   });
 });
