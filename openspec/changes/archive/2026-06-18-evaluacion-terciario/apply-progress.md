@@ -1,18 +1,36 @@
 # Apply Progress: evaluacion-terciario
 
 > Updated: 2026-06-18 · Branch: feat/evaluacion-terciario · Single-pass (size:exception)
+> Correction batch: 2026-06-18 — C1 (CRITICAL) fixed
 
 ## Status
 
-**35 / 35 tasks complete**
+**35 / 35 tasks complete + CRITICAL C1 fixed**
 
 ## Test Status
 
 - Domain tests: **1092 passed** (`pnpm --filter @educandow/domain test`)
-- API tests: **1255 passed** (`pnpm --filter api test`)
+- API tests: **1259 passed** (`pnpm --filter api test`) — +4 new tests for T27/T32
 - TypeScript typecheck: **clean** for new code (pre-existing errors in study-plan/competency/course-cycle unrelated to this change)
 - Domain build: **passes** (`pnpm --filter @educandow/domain build`)
 - Prisma generate: **passes** (`pnpm --filter api prisma:generate`)
+
+## CRITICAL C1 Fix (correction batch)
+
+**Problem**: `intento` field was missing from `RegistrarNotaFinalInput` and `RegistrarNotaFinalSchema`.
+`InvalidIntentoError` was defined and registered in AppExceptionFilter but never instantiated (dead code).
+Scenario `{ intento: 4 }` or `{ intento: 0 }` would be silently accepted instead of returning HTTP 422.
+
+**Fix**:
+- Added `intento: number` to `RegistrarNotaFinalInput` interface
+- Added `intento: z.number().int().min(1).max(3)` to `RegistrarNotaFinalSchema` (Zod)
+- Added step 5 validation in `RegistrarNotaFinalUC.execute`: rejects `intento` outside [1,3] with `InvalidIntentoError`
+- Added `InvalidIntentoError` import to `acta-examen.use-cases.ts`
+- Updated all existing test calls to include `intento: N` (valid values)
+- Added T27 tests: `intento=0|4 → Err(INVALID_INTENTO)` (2 new tests)
+- Added T32 tests: `intento:0 → parse fails`, `intento:4 → parse fails` (2 new Zod tests)
+
+**Commit**: `fix(terciario): validate intento range and reject out-of-range` (9c94c96)
 
 ## Tasks Completed
 
