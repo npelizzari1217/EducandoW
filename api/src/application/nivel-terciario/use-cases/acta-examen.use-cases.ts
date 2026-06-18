@@ -157,7 +157,7 @@ export class RegistrarNotaFinalUC {
     const intentoAsignado = policyResult.unwrap();
 
     // Step 7: create condicion
-    let condicionFinal: InstanceType<typeof CondicionExamen>;
+    let condicionFinal: CondicionExamen;
     try {
       condicionFinal = CondicionExamen.create(input.condicion);
     } catch (e) {

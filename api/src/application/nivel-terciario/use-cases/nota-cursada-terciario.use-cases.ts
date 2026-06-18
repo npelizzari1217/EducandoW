@@ -100,7 +100,6 @@ export class ListNotaCursadaSlotsUC {
 @Injectable()
 export class ConfirmarNotaCursadaUC {
   constructor(
-    private readonly notaCursadaRepo: NotaCursadaTerciarioRepository,
     private readonly inscripcionRepo: InscripcionRepository,
   ) {}
 

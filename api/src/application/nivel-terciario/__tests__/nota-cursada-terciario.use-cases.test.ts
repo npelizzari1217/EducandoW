@@ -222,11 +222,10 @@ describe('ListNotaCursadaSlotsUC', () => {
 describe('ConfirmarNotaCursadaUC', () => {
   it('returns Ok when condicion = REGULAR and updates estado', async () => {
     const inscripcion = makeInscripcion('CURSANDO');
-    const notaRepo = mockNotaCursadaRepo();
     const inscRepo = mockInscRepo({
       findById: vi.fn().mockResolvedValue(inscripcion),
     });
-    const uc = new ConfirmarNotaCursadaUC(notaRepo, inscRepo);
+    const uc = new ConfirmarNotaCursadaUC(inscRepo);
 
     const result = await uc.execute('insc-1', { condicion: 'REGULAR', notaCursada: 7 });
 
@@ -236,11 +235,10 @@ describe('ConfirmarNotaCursadaUC', () => {
 
   it('returns Ok when condicion = PROMOCIONAL and updates estado [SUPUESTO]', async () => {
     const inscripcion = makeInscripcion('CURSANDO');
-    const notaRepo = mockNotaCursadaRepo();
     const inscRepo = mockInscRepo({
       findById: vi.fn().mockResolvedValue(inscripcion),
     });
-    const uc = new ConfirmarNotaCursadaUC(notaRepo, inscRepo);
+    const uc = new ConfirmarNotaCursadaUC(inscRepo);
 
     const result = await uc.execute('insc-1', { condicion: 'PROMOCIONAL', notaCursada: 9 });
 
@@ -248,9 +246,8 @@ describe('ConfirmarNotaCursadaUC', () => {
   });
 
   it('returns Err(CONDICION_INVALIDA) when condicion = APROBADO', async () => {
-    const notaRepo = mockNotaCursadaRepo();
     const inscRepo = mockInscRepo();
-    const uc = new ConfirmarNotaCursadaUC(notaRepo, inscRepo);
+    const uc = new ConfirmarNotaCursadaUC(inscRepo);
 
     const result = await uc.execute('insc-1', { condicion: 'APROBADO', notaCursada: 8 });
 
@@ -260,11 +257,10 @@ describe('ConfirmarNotaCursadaUC', () => {
 
   it('returns Ok when condicion = LIBRE (allowed for secretaria)', async () => {
     const inscripcion = makeInscripcion('CURSANDO');
-    const notaRepo = mockNotaCursadaRepo();
     const inscRepo = mockInscRepo({
       findById: vi.fn().mockResolvedValue(inscripcion),
     });
-    const uc = new ConfirmarNotaCursadaUC(notaRepo, inscRepo);
+    const uc = new ConfirmarNotaCursadaUC(inscRepo);
 
     const result = await uc.execute('insc-1', { condicion: 'LIBRE' });
 
