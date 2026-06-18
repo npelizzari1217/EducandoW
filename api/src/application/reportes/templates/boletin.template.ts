@@ -1,3 +1,5 @@
+import type { SlotCursadaTerciarioValue } from '@educandow/domain';
+
 /**
  * Template Method — Estructura común de boletín.
  * Cada nivel pedagógico implementa sus hooks específicos.
@@ -90,6 +92,38 @@ export interface DatosBoletin {
    * Undefined for Primario/Secundario/Terciario — {{#if informesInicial}} no-ops cleanly.
    */
   informesInicial?: InformeInicialBoletin[];
+  /**
+   * Carrera name for the Terciario boletín header (REQ-6).
+   * Resolved from InscripcionMateria → MateriaCarrera → Carrera.name; falls back to
+   * enrollment.grade; null when both are absent. Undefined for all other levels.
+   */
+  carreraName?: string | null;
+  /**
+   * Materias grouped by cuatrimestre for the Terciario transcript layout (REQ-7).
+   * Sorted 1C → 2C → ANUAL/other. Undefined for all other levels.
+   */
+  cuatrimestresTerciario?: GrupoCuatrimestreBoletin[];
+}
+
+// ── Terciario-specific sub-types (optional fields on MateriaBoletin / DatosBoletin) ──
+
+/** One slot in the cursada grading grid (canonical 5-slot order, REQ-3). */
+export interface SlotCursadaBoletin {
+  slot: SlotCursadaTerciarioValue;
+  nota: number | null;  // null → blank in template
+}
+
+/** One final exam attempt for a Terciario materia (REQ-5). */
+export interface IntentoFinalBoletin {
+  intento: number;
+  nota: number;
+  condicion: string;  // "Aprobado" | "Desaprobado" | "Ausente"
+}
+
+/** Materias grouped by cuatrimestre for the Terciario boletín render (REQ-7). */
+export interface GrupoCuatrimestreBoletin {
+  cuatrimestre: string;  // "1C" | "2C" | "ANUAL"
+  materias: MateriaBoletin[];
 }
 
 // ── Primario-specific sub-types (optional fields on MateriaBoletin) ────────────
@@ -165,6 +199,32 @@ export interface MateriaBoletin {
    * Undefined for Primario / Terciario / Inicial — {{#if condicion}} guards no-op.
    */
   condicion?: string | null;
+  /**
+   * Fixed 5-slot array in canonical order: PARCIAL_1, PARCIAL_2, RECUPERATORIO_PARCIAL_1,
+   * RECUPERATORIO_PARCIAL_2, TP. nota is null when no record exists for that slot.
+   * Only populated by the Terciario branch (REQ-3).
+   */
+  slotsCursada?: SlotCursadaBoletin[];
+  /**
+   * Confirmed cursada grade from InscripcionMateria.notaCursada.
+   * Null when no confirmed grade exists. Only populated for Terciario (REQ-4).
+   */
+  notaCursadaConfirmada?: number | null;
+  /**
+   * Human-readable cursada state label (e.g. "Regular", "Cursando").
+   * Null only when estado is unmappable. Only populated for Terciario (REQ-4).
+   */
+  condicionCursada?: string | null;
+  /**
+   * All-time final exam attempts for this materia.
+   * Empty array when no records exist. Only populated for Terciario (REQ-5).
+   */
+  intentosFinales?: IntentoFinalBoletin[];
+  /**
+   * Cuatrimestre assignment for this materia ("1C" | "2C" | "ANUAL").
+   * Used as the grouping key in cuatrimestresTerciario. Only present for Terciario.
+   */
+  cuatrimestre?: string;
 }
 
 export interface BoletinResultado {

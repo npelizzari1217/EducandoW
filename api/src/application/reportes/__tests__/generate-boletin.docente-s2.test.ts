@@ -18,6 +18,10 @@ function makeTenantClient(overrides: Record<string, unknown> = {}) {
     studyPlanSubject:                  { findMany: vi.fn().mockResolvedValue([]) },
     gradingPeriodTemplateItem:         { findMany: vi.fn().mockResolvedValue([]) },
     subject:                           { findMany: vi.fn().mockResolvedValue([]) },
+    salaEnrollment:                    { findFirst: vi.fn().mockResolvedValue(null) },
+    // Terciario path (decade 4) — needed so level=40 dispatch does not throw
+    inscripcionMateria:                { findMany: vi.fn().mockResolvedValue([]) },
+    actaExamenNota:                    { findMany: vi.fn().mockResolvedValue([]) },
     ...overrides,
   };
 }
@@ -259,29 +263,28 @@ describe('legacy branch — Terciario (SC-6 partial)', () => {
     ({ uc } = makeUCWithRepos());
   });
 
-  it('SC-6: Terciario docente blank; resolver not called; subjectAssignment called WITHOUT teacher include', async () => {
+  it('SC-6: Terciario docente blank; resolver not called; uses new inscripcionMateria path (not subjectAssignment)', async () => {
+    // Terciario (decade 4) now dispatches to buildMateriasTerciario — it does NOT
+    // call subjectAssignment or the legacy NotaTrimestral path.
+    const insc = {
+      materiaCarreraId: 'mc-ter-1',
+      cuatrimestre: '1C',
+      estado: 'REGULAR',
+      notaCursada: null,
+      notasCursada: [],
+      materiaCarrera: {
+        subject: { name: 'Análisis Matemático' },
+        carrera: { name: 'Profesorado de Matemática' },
+      },
+    };
     const client = makeTenantClient({
-      courseCycle: {
-        findMany: vi.fn().mockResolvedValue([{
-          uuid: 'cc-ter-t7', courseId: 'section-ter', level: 40,
-        }]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{
-          id: 'sa-ter-1', subjectId: 'subj-ter',
-          subject: { name: 'Análisis Matemático' },
-        }]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'p-1', name: '1° Cuatrimestre' }]),
-      },
-      notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
+      inscripcionMateria: { findMany: vi.fn().mockResolvedValue([insc]) },
     });
 
-    const enrollment = { id: 'e-ter', studentId: 'stu-ter', level: 40, cycleId: 'cyc-ter', academicYear: '2026' };
+    const enrollment = { id: 'e-ter', studentId: 'stu-ter', level: 40, cycleId: null, academicYear: '2026' };
     const result = await (uc as any).buildMaterias(client, enrollment);
 
-    // All Terciario docentes must be blank
+    // All Terciario docentes must be blank (Approach A: no docente lookup)
     for (const m of result.materias) {
       expect(m.docente).toBe('');
     }
@@ -289,13 +292,9 @@ describe('legacy branch — Terciario (SC-6 partial)', () => {
     // Resolver must NOT be called for Terciario
     expect(client.materiaXCursoXCiclo.findMany).not.toHaveBeenCalled();
 
-    // subjectAssignment backbone is preserved (WAS called)
-    expect(client.subjectAssignment.findMany).toHaveBeenCalledTimes(1);
-
-    // The call must NOT have 'teacher' in include (INV-1 invariant)
-    const [[callArgs]] = (client.subjectAssignment.findMany as ReturnType<typeof vi.fn>).mock.calls;
-    expect(callArgs.include).not.toHaveProperty('teacher');
-    expect(callArgs.include).toHaveProperty('subject', true);
+    // New path: inscripcionMateria WAS called; subjectAssignment was NOT
+    expect(client.inscripcionMateria.findMany).toHaveBeenCalledTimes(1);
+    expect(client.subjectAssignment.findMany).not.toHaveBeenCalled();
   });
 });
 
@@ -367,46 +366,41 @@ describe('legacy branch — subjects + notas regression (INV-2)', () => {
     expect(result.materias).toEqual([]);
   });
 
-  it('Terciario: subject + notas + promedio + valoracion + aprobado preserved; docente blank', async () => {
+  it('Terciario: uses new buildMateriasTerciario path — subject name, slots, condicion, docente blank', async () => {
+    // Terciario (decade 4) dispatches to buildMateriasTerciario, NOT the legacy
+    // NotaTrimestral path. The new path returns slotsCursada/condicionCursada/intentosFinales.
     const { uc } = makeUCWithRepos();
+    const insc = {
+      materiaCarreraId: 'mc-analisis',
+      cuatrimestre: '1C',
+      estado: 'REGULAR',
+      notaCursada: 7.5,
+      notasCursada: [
+        { slot: 'PARCIAL_1', nota: 7 },
+        { slot: 'PARCIAL_2', nota: 8 },
+      ],
+      materiaCarrera: {
+        subject: { name: 'Análisis Matemático' },
+        carrera: { name: 'Profesorado de Matemática' },
+      },
+    };
     const client = makeTenantClient({
-      courseCycle: {
-        findMany: vi.fn().mockResolvedValue([{
-          uuid: 'cc-ter-reg', courseId: 'section-ter', level: 40,
-        }]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{
-          id: 'sa-ter-reg', subjectId: 'subj-analisis',
-          subject: { name: 'Análisis Matemático' },
-        }]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'p-1', name: '1° Cuatrimestre', startDate: new Date('2026-03-01') },
-          { id: 'p-2', name: '2° Cuatrimestre', startDate: new Date('2026-08-01') },
-        ]),
-      },
-      notaTrimestral: {
-        findMany: vi.fn().mockResolvedValue([
-          { assignmentId: 'sa-ter-reg', periodId: 'p-1', finalGrade: 7, studentId: 'stu-ter-reg', active: true },
-          { assignmentId: 'sa-ter-reg', periodId: 'p-2', finalGrade: 8, studentId: 'stu-ter-reg', active: true },
-        ]),
-      },
+      inscripcionMateria: { findMany: vi.fn().mockResolvedValue([insc]) },
     });
 
-    const enrollment = { id: 'e-ter-reg', studentId: 'stu-ter-reg', level: 40, cycleId: 'cyc-ter-reg', academicYear: '2026' };
+    const enrollment = { id: 'e-ter-reg', studentId: 'stu-ter-reg', level: 40, cycleId: null, academicYear: '2026' };
     const result = await (uc as any).buildMaterias(client, enrollment);
 
     expect(result.materias).toHaveLength(1);
     const m = result.materias[0];
     expect(m.nombre).toBe('Análisis Matemático');
-    expect(m.notas).toHaveLength(2);
-    expect(m.notas[0].valor).toBe('7');
-    expect(m.notas[1].valor).toBe('8');
-    expect(m.promedio).toBe('7.50');
-    expect(m.valoracion).toBe('Aprobado');
-    expect(m.aprobado).toBe(true);
+    // New fields populated by buildMateriasTerciario
+    expect(m.slotsCursada).toHaveLength(5);
+    expect(m.condicionCursada).toBe('Regular');
+    expect(m.notaCursadaConfirmada).toBe(7.5);
+    expect(m.intentosFinales).toEqual([]);
     expect(m.docente).toBe('');
+    // notaTrimestral (legacy) NOT called
+    expect(client.notaTrimestral.findMany).not.toHaveBeenCalled();
   });
 });
