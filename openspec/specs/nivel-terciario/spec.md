@@ -202,6 +202,120 @@ La respuesta HTTP 201 al tercer intento MUST incluir un flag `libreTransicion: t
 - WHEN se produce un error al actualizar `InscripcionMateria.estado`
 - THEN la nota de final MUST NOT persistirse y el sistema MUST retornar HTTP 500
 
+### Requirement: InscripcionMateria — fechaRegularidad (write-once)
+
+> Introduced by change: vencimiento-regularidad-terciario (2026-06-19)
+
+`InscripcionMateria` MUST expose a `fechaRegularidad: Date | null` property. The field MUST be set to the current UTC wall-clock time when `ConfirmarNotaCursadaUC` confirms a cursada with `condicion = REGULAR`. It MUST be write-once: once set, it MUST NOT be overwritten on any subsequent confirmation. When `condicion` is `LIBRE` or `PROMOCIONAL`, `fechaRegularidad` MUST remain unchanged. When `fechaRegularidad` is `null` (e.g., pre-existing REGULAR rows from before this change), the regularidad MUST be treated as NOT expired.
+
+The entity MUST expose a `setFechaRegularidad(date: Date): void` method that sets the value only when it is currently `null`; subsequent calls MUST be a no-op (enforces write-once at aggregate level).
+
+The Prisma tenant schema MUST define `fechaRegularidad DateTime? @map("fecha_regularidad")` on `InscripcionMateria` (nullable; backward-compatible — existing rows default to `null`).
+
+#### Scenario: fechaRegularidad set on first REGULAR confirmation
+
+- GIVEN an `InscripcionMateria` in `CURSANDO` with `fechaRegularidad = null`
+- WHEN `ConfirmarNotaCursadaUC` is executed with `condicion = REGULAR`
+- THEN `inscripcion.fechaRegularidad` MUST be set to approximately `now()` (non-null)
+- AND the value MUST be persisted
+
+#### Scenario: fechaRegularidad not overwritten on repeated REGULAR confirmation
+
+- GIVEN an `InscripcionMateria` already in `REGULAR` with `fechaRegularidad = T1`
+- WHEN `ConfirmarNotaCursadaUC` is executed again with `condicion = REGULAR`
+- THEN `inscripcion.fechaRegularidad` MUST remain `T1`
+
+#### Scenario: LIBRE confirmation does not touch fechaRegularidad
+
+- GIVEN an `InscripcionMateria` with `fechaRegularidad = null`
+- WHEN `ConfirmarNotaCursadaUC` is executed with `condicion = LIBRE`
+- THEN `inscripcion.fechaRegularidad` MUST remain `null`
+
+---
+
+### Requirement: Carrera — llamadosVencimiento
+
+> Introduced by change: vencimiento-regularidad-terciario (2026-06-19)
+
+`Carrera` MUST expose a `llamadosVencimiento: number` property that represents the maximum number of active `LlamadoExamen` records allowed after `fechaRegularidad` before a student's regularidad is considered expired. The field MUST default to `5`. The entity MUST throw a `ValidationError` if a value `<= 0` is provided (both at `create()` and `reconstruct()` time).
+
+The Prisma tenant schema MUST define `llamadosVencimiento Int @default(5) @map("llamados_vencimiento")` on `Carrera` (backward-compatible — existing rows default to `5`).
+
+#### Scenario: Carrera defaults llamadosVencimiento to 5
+
+- GIVEN `Carrera.create()` is called without providing `llamadosVencimiento`
+- THEN `carrera.llamadosVencimiento` MUST equal `5`
+
+#### Scenario: llamadosVencimiento rejects zero or negative
+
+- GIVEN `Carrera.create()` is called with `llamadosVencimiento = 0`
+- THEN a `ValidationError` MUST be thrown
+
+---
+
+### Requirement: Guard — Regularidad vencida bloquea final
+
+> Introduced by change: vencimiento-regularidad-terciario (2026-06-19)
+
+A student's `REGULAR` status expires when the count of institution-wide active `LlamadoExamen` records with `fechaInicio > inscripcion.fechaRegularidad` reaches `carrera.llamadosVencimiento`. A student with an expired regularidad MUST NOT be permitted to register a final exam grade.
+
+Expiry is **computed on-the-fly** — the `InscripcionMateria.estado` MUST remain `REGULAR` in the database; no write occurs as a result of expiry. No background job or cron task MAY be introduced.
+
+**Expiry rule (normative):** regularidad is expired when ALL of the following hold:
+- `inscripcion.estado === REGULAR`
+- `inscripcion.fechaRegularidad !== null`
+- Count of active `LlamadoExamen` where `fechaInicio > inscripcion.fechaRegularidad` (strict `>`) is `>= carrera.llamadosVencimiento`
+
+A llamado with `fechaInicio` equal to `fechaRegularidad` MUST NOT be counted.
+
+`FinalEligibilityPolicy.check()` MUST accept two additional inputs: `llamadosTranscurridos: number` (count of active llamados after `fechaRegularidad`) and `llamadosVencimiento: number` (from `Carrera`). The expiry guard MUST run as step 2 in the check order — after "cursada no confirmada" (step 1) and before `LIBRE` (step 3). `FinalEligibilityPolicy` MUST remain a pure function; the caller (`RegistrarNotaFinalUC`) MUST load these values before invoking the policy.
+
+When `inscripcion.fechaRegularidad` is `null`, `RegistrarNotaFinalUC` MUST pass `llamadosTranscurridos = 0` to the policy (null is always non-expired).
+
+A new domain error `RegularidadVencidaError` (code `REGULARIDAD_VENCIDA`) MUST be created. It MUST extend `DomainError` and MUST map to HTTP **422 Unprocessable Entity** via `AppExceptionFilter`.
+
+Migration: `pnpm --filter api prisma:migrate:tenant` (run once per tenant DB). The migration name is `20260618200000_vencimiento_regularidad_terciario`. No data backfill is required — all pre-existing REGULAR rows remain non-expired (NULL fechaRegularidad).
+
+#### Scenario: Expired REGULAR student blocked with 422
+
+- GIVEN `InscripcionMateria.estado = REGULAR` with `fechaRegularidad = T0`
+- AND `Carrera.llamadosVencimiento = 3`
+- AND 3 active `LlamadoExamen` records with `fechaInicio > T0` exist
+- WHEN secretaría registers a final grade for that student
+- THEN the system MUST return HTTP 422 with error code `REGULARIDAD_VENCIDA`
+- AND `inscripcion.estado` MUST remain `REGULAR` in the database
+
+#### Scenario: Non-expired REGULAR student allowed
+
+- GIVEN `InscripcionMateria.estado = REGULAR` with `fechaRegularidad = T0`
+- AND `Carrera.llamadosVencimiento = 5`
+- AND 2 active `LlamadoExamen` records with `fechaInicio > T0` exist
+- WHEN secretaría registers a final grade
+- THEN the system MUST NOT return `REGULARIDAD_VENCIDA`
+
+#### Scenario: NULL fechaRegularidad is never expired
+
+- GIVEN `InscripcionMateria.estado = REGULAR` with `fechaRegularidad = null`
+- AND any number of `LlamadoExamen` records exist
+- WHEN secretaría registers a final grade
+- THEN the system MUST NOT apply the expiry guard (passed `llamadosTranscurridos = 0`)
+
+#### Scenario: Boundary — llamado on same date as fechaRegularidad does NOT count
+
+- GIVEN a `LlamadoExamen` with `fechaInicio = T0`
+- AND `inscripcion.fechaRegularidad = T0`
+- WHEN `llamadosTranscurridos` is computed
+- THEN the count is `0` (strict `>`, not `>=`)
+
+#### Scenario: LIBRE guard fires before expiry guard is irrelevant (FR-5.3)
+
+- GIVEN `InscripcionMateria.estado = LIBRE`
+- AND `llamadosTranscurridos = 99, llamadosVencimiento = 1`
+- WHEN `FinalEligibilityPolicy.check()` is called
+- THEN the error MUST be `ALUMNO_LIBRE_NO_PUEDE_RENDIR` (expiry guard skipped for non-REGULAR states)
+
+---
+
 ### Requirement: Título
 
 `POST /v1/terciario/titulos` MUST create a degree title record for a graduated student. Only ADMIN, DIRECTOR, ROOT MAY access.
