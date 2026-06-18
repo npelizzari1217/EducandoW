@@ -144,6 +144,49 @@ The SECUNDARIO template includes a **Mesas de Examen** section rendered conditio
 The section is absent when the student has no active mesa de examen inscriptions.
 Only mesas with `mesa.active = true` are included. Results are ordered by `fecha asc`.
 
+---
+
+### Requirement: TERCIARIO Boletín Data Source (Transcript Model)
+
+> Added: boletin-terciario (Fase C) · 2026-06-18
+> Depends on: evaluacion-terciario (Fase A+B, PR #23)
+> Applies to: TERCIARIO level only (`Math.floor(enrollment.level / 10) === 4`)
+
+For TERCIARIO students, `GenerateBoletinUseCase` MUST NOT read `NotaTrimestral` or
+`CourseCycles`. The data source is `InscripcionMateria` (filtered to the enrollment's
+`anioAcademico`, excluding `LIBRE`) joined to `NotaCursadaTerciario` (slot grades) and
+`ActaExamenNota` (final-exam attempts).
+
+`buildMaterias()` MUST route Terciario students to a dedicated `buildMateriasTerciario`
+method as a decade-4 branch, inserted BEFORE the legacy `else` that reads `NotaTrimestral`.
+
+The output is a **transcripción** of the student's materias vigentes: in-progress, regular,
+promoted, and approved — grouped by cuatrimestre (1C / 2C / ANUAL).
+
+`DatosBoletin` carries `cuatrimestresTerciario: GrupoCuatrimestreBoletin[]` and `carreraName:
+string | null` (resolved from `Carrera.name`, fallback to `enrollment.grade`, else `null`).
+
+**Vencimiento de regularidad is DEFERRED** — finales are shown all-time per inscripcion
+until a future change adds the expiry model.
+
+See full spec: `openspec/specs/boletin-terciario/spec.md`.
+
+#### Scenario: TERCIARIO — boletín reads InscripcionMateria transcript, not NotaTrimestral
+
+- GIVEN a student enrolled at TERCIARIO level with at least one eligible `InscripcionMateria`
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN the PDF includes one section per cuatrimestre with slot grades and final attempts
+- AND the `NotaTrimestral` / `CourseCycles` tables are NOT queried
+
+#### Scenario: TERCIARIO — no eligible inscripciones → valid empty boletín
+
+- GIVEN a TERCIARIO student with zero included `InscripcionMateria` records
+  (all are LIBRE or from a different year)
+- WHEN the boletín is generated
+- THEN the response is HTTP 2xx with a valid PDF (no crash, no empty `{{#each}}` error)
+
+---
+
 #### Scenario: INICIAL report card contains concept-based grades
 
 - GIVEN a student enrolled at INICIAL level

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Analítico Parcial — {{grado}}</title>
+  <title>Analítico Parcial — {{#if carreraName}}{{carreraName}}{{else}}{{grado}}{{/if}}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; padding: 40px; color: #1a1a1a; }
@@ -16,7 +16,7 @@
     .section-title { font-size: 15px; font-weight: bold; margin-bottom: 10px; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
     table.grades { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
     table.grades th { background: #1a1a1a; color: white; padding: 8px 10px; text-align: left; font-size: 12px; }
-    table.grades td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; }
+    table.grades td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; vertical-align: top; }
     table.grades tr:nth-child(even) { background: #fafafa; }
     .footer { margin-top: 40px; font-size: 11px; color: #666; }
     .signature-line { display: inline-block; margin-top: 50px; width: 230px; border-top: 1px solid #1a1a1a; padding-top: 4px; text-align: center; font-size: 12px; margin-right: 40px; }
@@ -27,41 +27,57 @@
 <body>
   <div class="header">
     <h1>{{institucionNombre}}</h1>
-    <h2>Analítico Parcial — {{grado}}</h2>
+    <h2>Analítico Parcial — {{#if carreraName}}{{carreraName}}{{else}}{{grado}}{{/if}}</h2>
   </div>
 
   <div class="student-info">
     <table>
       <tr><td>Alumno:</td><td>{{alumnoApellido}}, {{alumnoNombre}}</td></tr>
       <tr><td>DNI:</td><td>{{alumnoDni}}</td></tr>
-      <tr><td>Carrera:</td><td>{{grado}}</td></tr>
+      <tr><td>Carrera:</td><td>{{#if carreraName}}{{carreraName}}{{else}}{{grado}}{{/if}}</td></tr>
       <tr><td>Período:</td><td>{{periodo}}</td></tr>
     </table>
   </div>
 
-  <div class="section-title">Materias</div>
-  <table class="grades">
-    <thead>
-      <tr>
-        <th>Materia</th>
-        <th>Promedio</th>
-        <th>Valoración</th>
-        <th>Condición</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each materias}}
-      <tr>
-        <td>{{nombre}}</td>
-        <td>{{promedio}}</td>
-        <td>{{valoracion}}</td>
-        <td class="{{#if aprobado}}approved{{else}}failed{{/if}}">
-          {{#if aprobado}}APROBADO{{else}}LIBRE{{/if}}
-        </td>
-      </tr>
-      {{/each}}
-    </tbody>
-  </table>
+  {{#if cuatrimestresTerciario}}
+    {{#each cuatrimestresTerciario}}
+      <div class="section-title">{{cuatrimestre}}</div>
+      <table class="grades">
+        <thead>
+          <tr>
+            <th>Materia</th>
+            <th>Condición</th>
+            <th>Nota cursada</th>
+            <th>P1</th>
+            <th>P2</th>
+            <th>RP1</th>
+            <th>RP2</th>
+            <th>TP</th>
+            <th>Finales</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each materias}}
+          <tr>
+            <td>{{nombre}}</td>
+            <td>{{condicionCursada}}</td>
+            <td>{{#if notaCursadaConfirmada}}{{notaCursadaConfirmada}}{{/if}}</td>
+            {{#each slotsCursada}}
+              <td>{{#if nota}}{{nota}}{{/if}}</td>
+            {{/each}}
+            <td>
+              {{#if intentosFinales.length}}
+                {{#each intentosFinales}}
+                  {{intento}}: {{nota}} ({{condicion}}){{#unless @last}} · {{/unless}}
+                {{/each}}
+              {{/if}}
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    {{/each}}
+  {{/if}}
 
   {{#if asistencia}}
   <div class="section-title">Asistencia</div>

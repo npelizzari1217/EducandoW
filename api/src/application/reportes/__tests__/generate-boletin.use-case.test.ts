@@ -694,47 +694,39 @@ describe('GenerateBoletinUseCase.buildMaterias — PR6-T1 regression: Terciario'
     );
   });
 
-  it('Terciario (level=40): legacy NotaTrimestral path used; buildMateriasSecundario repos NOT called', async () => {
+  it('Terciario (level=40): new buildMateriasTerciario path used; Primario/Secundario repos NOT called', async () => {
+    // Terciario dispatches to buildMateriasTerciario (decade 4 branch), NOT the legacy
+    // NotaTrimestral path and NOT the Primario/Secundario repo branches.
+    const inscripcionFindMany = vi.fn().mockResolvedValue([]);
     const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
     const mockClient = {
-      courseCycle: {
-        findMany: vi.fn().mockResolvedValue([{
-          uuid: 'cc-ter',
-          courseId: 'section-ter',
-          level: 40,
-        }]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          {
-            id: 'sa-ter-1',
-            subjectId: 'subj-ter',
-            subject: { name: 'Análisis Matemático' },
-          },
-        ]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'p-1', name: '1° Cuatrimestre' }]),
-      },
-      notaTrimestral: { findMany: notaTrimestralFindMany },
+      inscripcionMateria: { findMany: inscripcionFindMany },
+      actaExamenNota:     { findMany: vi.fn().mockResolvedValue([]) },
+      notaTrimestral:     { findMany: notaTrimestralFindMany },
+      courseCycle:        { findMany: vi.fn().mockResolvedValue([]) },
     };
 
-    const enrollment = { id: 'e-ter', studentId: 'stu-ter', level: 40, cycleId: 'cyc-ter', academicYear: '2026' };
+    const enrollment = { id: 'e-ter', studentId: 'stu-ter', level: 40, cycleId: null, academicYear: '2026' };
     const result = await (uc as any).buildMaterias(mockClient, enrollment);
 
-    // Terciario MUST use the legacy path — new repos MUST NOT be called
+    // Primario/Secundario repos MUST NOT be called for Terciario
     expect(repos.pgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
     expect(repos.fgRepo.findByStudentAndCourseCycle).not.toHaveBeenCalled();
     expect(repos.sgpRepo.findByCourseCycleAndSubject).not.toHaveBeenCalled();
     expect(repos.cvRepo.findByCourseCycleAndStudyPlanSubject).not.toHaveBeenCalled();
 
-    // Legacy NotaTrimestral path WAS called
-    expect(notaTrimestralFindMany).toHaveBeenCalled();
+    // New Terciario path: inscripcionMateria.findMany WAS called
+    expect(inscripcionFindMany).toHaveBeenCalled();
 
-    // After PR6-T4: buildMaterias returns { materias, previas? } — check new structure
+    // Legacy NotaTrimestral path was NOT called
+    expect(notaTrimestralFindMany).not.toHaveBeenCalled();
+
+    // Result structure from buildMateriasTerciario
     expect(Array.isArray(result.materias)).toBe(true);
-    // Terciario has no previas
     expect(result.previas).toBeUndefined();
+    // New fields (empty since no inscripciones)
+    expect(result.carreraName).toBeNull();
+    expect(Array.isArray(result.cuatrimestresTerciario)).toBe(true);
   });
 });
 

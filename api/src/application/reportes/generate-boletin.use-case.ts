@@ -7,7 +7,8 @@ import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
-import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin } from './templates/boletin.template';
+import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin, SlotCursadaBoletin, IntentoFinalBoletin, GrupoCuatrimestreBoletin } from './templates/boletin.template';
+import type { SlotCursadaTerciarioValue } from '@educandow/domain';
 import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
@@ -126,7 +127,7 @@ export class GenerateBoletinUseCase {
     const levelName = this.resolveLevelName(enrollment.level);
 
     // 6. Fetch grades and build materias
-    const { materias, previas, informesInicial } = await this.buildMaterias(client, enrollment);
+    const { materias, previas, informesInicial, carreraName, cuatrimestresTerciario } = await this.buildMaterias(client, enrollment);
 
     // 7. Build attendance summary
     const asistencia = await this.buildAsistencia(client, enrollment.studentId, enrollment.cycleId ?? null);
@@ -151,6 +152,8 @@ export class GenerateBoletinUseCase {
       mesasExamen,
       previas,
       informesInicial,
+      carreraName,
+      cuatrimestresTerciario,
     };
 
     // 9. Choose and render template
@@ -181,19 +184,39 @@ export class GenerateBoletinUseCase {
    * Aggregates subject grades for the enrollment's level.
    *
    * Level dispatch:
+   *   Math.floor(level/10) === 1 → Inicial branch (buildMateriasInicial)
+   *   Math.floor(level/10) === 4 → Terciario branch (buildMateriasTerciario)
    *   Math.floor(level/10) === 2 → Primario branch (buildMateriasPrimario)
    *   Math.floor(level/10) === 3 → Secundario branch (buildMateriasSecundario) [PR6]
-   *   Otherwise → legacy NotaTrimestral path (Terciario, Inicial — unchanged)
+   *   Otherwise → legacy NotaTrimestral path (levels with no repo injection)
    *
    * Returns { materias, previas? } — previas is populated only by the Secundario branch.
    */
   private async buildMaterias(
     client: TenantPrismaClient,
-    enrollment: { id: string; studentId: string; level: number; cycleId: string | null; academicYear: string },
-  ): Promise<{ materias: MateriaBoletin[]; previas?: PreviaBoletin[]; informesInicial?: InformeInicialBoletin[] }> {
+    enrollment: {
+      id: string;
+      studentId: string;
+      level: number;
+      cycleId: string | null;
+      academicYear: string;
+      grade?: string | null;
+    },
+  ): Promise<{
+    materias: MateriaBoletin[];
+    previas?: PreviaBoletin[];
+    informesInicial?: InformeInicialBoletin[];
+    carreraName?: string | null;
+    cuatrimestresTerciario?: GrupoCuatrimestreBoletin[];
+  }> {
     // ── Inicial path ─────────────────────────────────────────────────────────
     if (Math.floor(enrollment.level / 10) === 1) {
       return this.buildMateriasInicial(client, enrollment);
+    }
+
+    // ── Terciario path (decade 4) ──────────────────────────────────────────────
+    if (Math.floor(enrollment.level / 10) === 4) {
+      return this.buildMateriasTerciario(client, enrollment);
     }
 
     // ── Primario path ────────────────────────────────────────────────────────
@@ -218,7 +241,7 @@ export class GenerateBoletinUseCase {
       return this.buildMateriasSecundario(client, enrollment);
     }
 
-    // ── Legacy NotaTrimestral path (Terciario, Inicial) ───────────────────────
+    // ── Legacy NotaTrimestral path (levels with no repo injection) ────────────
     // Get the course section(s) for this enrollment via the cycle
     if (!enrollment.cycleId) {
       // No cycle => no grades yet
@@ -353,6 +376,157 @@ export class GenerateBoletinUseCase {
     }));
 
     return { materias: [], informesInicial };
+  }
+
+  // ── Terciario branch (decade 4, REQ-1 through REQ-8) ─────────────────────
+
+  /**
+   * Builds MateriaBoletin[] + carreraName + cuatrimestresTerciario for a Terciario enrollment.
+   *
+   * Two bulk queries (REQ-8 — no N+1):
+   *   Q1: inscripcionMateria (includes notasCursada + materiaCarrera.{subject,carrera})
+   *   Q2: actaExamenNota (bulk, keyed by materiaCarreraId IN [...])
+   *
+   * Inclusion filter (REQ-2): INSCRIPTO, CURSANDO, REGULAR, PROMOCIONAL, APROBADO. LIBRE excluded.
+   * Carrera header (REQ-6): Carrera.name → enrollment.grade → null.
+   * Cuatrimestre grouping (REQ-7): grouped in use case, 1C→2C→ANUAL/other order.
+   */
+  private async buildMateriasTerciario(
+    client: TenantPrismaClient,
+    enrollment: { studentId: string; academicYear: string; grade?: string | null },
+  ): Promise<{
+    materias: MateriaBoletin[];
+    carreraName: string | null;
+    cuatrimestresTerciario: GrupoCuatrimestreBoletin[];
+  }> {
+    // ── Constants ────────────────────────────────────────────────────────────
+    const ESTADOS_INCLUIDOS = ['INSCRIPTO', 'CURSANDO', 'REGULAR', 'PROMOCIONAL', 'APROBADO'];
+    const SLOT_ORDER: SlotCursadaTerciarioValue[] = [
+      'PARCIAL_1',
+      'PARCIAL_2',
+      'RECUPERATORIO_PARCIAL_1',
+      'RECUPERATORIO_PARCIAL_2',
+      'TP',
+    ];
+    const CONDICION_LABEL: Record<string, string> = {
+      INSCRIPTO: 'Inscripto',
+      CURSANDO: 'Cursando',
+      REGULAR: 'Regular',
+      PROMOCIONAL: 'Promocional',
+      APROBADO: 'Aprobado',
+    };
+    const CONDICION_FINAL_LABEL: Record<string, string> = {
+      APROBADO: 'Aprobado',
+      DESAPROBADO: 'Desaprobado',
+      AUSENTE: 'Ausente',
+    };
+
+    // ── Query 1: inscripciones + full include chain (REQ-2, REQ-8) ───────────
+    const inscripciones = await client.inscripcionMateria.findMany({
+      where: {
+        studentId: enrollment.studentId,
+        anioAcademico: enrollment.academicYear,
+        estado: { in: [...ESTADOS_INCLUIDOS] },  // LIBRE excluded at the DB (REQ-2, Scenario 2.3)
+      },
+      include: {
+        notasCursada: true,
+        materiaCarrera: { include: { subject: true, carrera: true } },
+      },
+      orderBy: [{ cuatrimestre: 'asc' }, { materiaCarreraId: 'asc' }],
+    } as Parameters<typeof client.inscripcionMateria.findMany>[0]);
+
+    // ── Query 2: finales bulk (REQ-5, REQ-8) ─────────────────────────────────
+    const materiaCarreraIds = [...new Set(inscripciones.map((i: any) => i.materiaCarreraId))];
+    const notasFinalesRaw = materiaCarreraIds.length === 0
+      ? []
+      : await client.actaExamenNota.findMany({
+          where: {
+            studentId: enrollment.studentId,
+            acta: { materiaCarreraId: { in: materiaCarreraIds }, active: true },
+          },
+          include: { acta: { select: { materiaCarreraId: true, fecha: true } } },
+          orderBy: [{ acta: { fecha: 'asc' } }, { intento: 'asc' }],
+        } as Parameters<typeof client.actaExamenNota.findMany>[0]);
+
+    // In-memory sort as R1 fallback (to-one orderBy may be unsupported in some Prisma versions)
+    const notasFinales = [...(notasFinalesRaw as any[])].sort((a, b) => {
+      const dateDiff = new Date(a.acta.fecha).getTime() - new Date(b.acta.fecha).getTime();
+      return dateDiff !== 0 ? dateDiff : (a.intento - b.intento);
+    });
+
+    // ── Index finales by materiaCarreraId for O(1) assembly ──────────────────
+    const finalesByMC = new Map<string, typeof notasFinales>();
+    for (const n of notasFinales) {
+      const k = (n as any).acta.materiaCarreraId as string;
+      if (!finalesByMC.has(k)) finalesByMC.set(k, []);
+      finalesByMC.get(k)!.push(n);
+    }
+
+    // ── Per-inscripcion assembly ──────────────────────────────────────────────
+    const materiasFlat: MateriaBoletin[] = (inscripciones as any[]).map((insc: any) => {
+      // Slot mapping — always exactly 5 entries (REQ-3)
+      const notaBySlot = new Map<string, number | null>(
+        insc.notasCursada.map((n: any) => [n.slot, n.nota]),
+      );
+      const slotsCursada: SlotCursadaBoletin[] = SLOT_ORDER.map((slot) => ({
+        slot,
+        nota: notaBySlot.has(slot) ? notaBySlot.get(slot)! : null,
+      }));
+
+      // notaCursadaConfirmada from InscripcionMateria.notaCursada (ADR-3, REQ-4)
+      const notaCursadaConfirmada: number | null = insc.notaCursada ?? null;
+
+      // condicionCursada from estado (REQ-4)
+      const condicionCursada: string | null = CONDICION_LABEL[insc.estado as string] ?? null;
+
+      // intentosFinales (REQ-5) — already sorted by in-memory sort above
+      const intentosFinales: IntentoFinalBoletin[] = (
+        finalesByMC.get(insc.materiaCarreraId as string) ?? []
+      ).map((n: any) => ({
+        intento: n.intento as number,
+        nota: n.nota as number,
+        condicion: CONDICION_FINAL_LABEL[n.condicion as string] ?? (n.condicion as string),
+      }));
+
+      return {
+        nombre: (insc.materiaCarrera.subject as any).name as string,
+        docente: '',
+        notas: [],
+        promedio: '',
+        valoracion: '',
+        aprobado: false,
+        slotsCursada,
+        notaCursadaConfirmada,
+        condicionCursada,
+        intentosFinales,
+        cuatrimestre: insc.cuatrimestre as string,
+      };
+    });
+
+    // ── Carrera header resolution (REQ-6) ────────────────────────────────────
+    const carreraNameRaw = (inscripciones as any[])[0]
+      ?.materiaCarrera?.carrera?.name
+      ?.trim() as string | undefined;
+    const carreraName: string | null =
+      carreraNameRaw && carreraNameRaw.length > 0
+        ? carreraNameRaw
+        : (enrollment.grade?.trim() || null);
+
+    // ── Cuatrimestre grouping (REQ-7) ─────────────────────────────────────────
+    const CUATRI_ORDER = (c: string): number =>
+      ({ '1C': 0, '2C': 1 } as Record<string, number>)[c] ?? 2; // ANUAL/other sorts last
+
+    const grupos = new Map<string, MateriaBoletin[]>();
+    for (const m of materiasFlat) {
+      const k = m.cuatrimestre ?? 'ANUAL';
+      if (!grupos.has(k)) grupos.set(k, []);
+      grupos.get(k)!.push(m);
+    }
+    const cuatrimestresTerciario: GrupoCuatrimestreBoletin[] = [...grupos.entries()]
+      .sort(([a], [b]) => CUATRI_ORDER(a) - CUATRI_ORDER(b))
+      .map(([cuatrimestre, materias]) => ({ cuatrimestre, materias }));
+
+    return { materias: materiasFlat, carreraName, cuatrimestresTerciario };
   }
 
   // ── PR7: Primario branch ───────────────────────────────────────────────────
