@@ -1,4 +1,6 @@
 // Entities
+export { LlamadoExamen } from './entities/llamado-examen';
+export type { LlamadoExamenProps, CreateLlamadoExamenInput } from './entities/llamado-examen';
 export { Carrera } from './entities/carrera';
 export type { CarreraProps } from './entities/carrera';
 export { InscripcionMateria } from './entities/inscripcion-materia';
@@ -11,6 +13,7 @@ export { NotaCursadaTerciario } from './entities/nota-cursada-terciario';
 export type { NotaCursadaTerciarioProps } from './entities/nota-cursada-terciario';
 
 // Value Objects
+export { RangoFechas } from './value-objects/rango-fechas';
 export { RegimenMateria } from './value-objects/regimen-materia';
 export type { RegimenMateriaValue } from './value-objects/regimen-materia';
 export { EstadoInscripcion } from './value-objects/estado-inscripcion';
@@ -27,6 +30,8 @@ export { IntentoFinal } from './value-objects/intento-final';
 export type { IntentoFinalValue } from './value-objects/intento-final';
 
 // Errors
+export { InvalidLlamadoRangeError } from './errors/invalid-llamado-range.error';
+export { LlamadoOverlapError } from './errors/llamado-overlap.error';
 export { SlotAlreadyExistsError } from './errors/slot-already-exists.error';
 export { PrerequisiteSlotMissingError } from './errors/prerequisite-slot-missing.error';
 export { ParcialYaAprobadoError } from './errors/parcial-ya-aprobado.error';
@@ -42,6 +47,8 @@ export { RecuperatorioPolicy } from './policies/recuperatorio-policy';
 export { FinalEligibilityPolicy } from './policies/final-eligibility-policy';
 
 // Repositories
+export type { LlamadoExamenRepository } from './repositories/llamado-examen-repository';
+export { LLAMADO_EXAMEN_REPOSITORY } from './repositories/llamado-examen-repository';
 export type { CarreraRepository } from './repositories/carrera-repository';
 export type { InscripcionRepository } from './repositories/inscripcion-repository';
 export type { ActaExamenRepository } from './repositories/acta-examen-repository';

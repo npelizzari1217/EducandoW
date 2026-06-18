@@ -5,11 +5,15 @@ import { InscripcionMateriaController } from './inscripcion-materia.controller';
 import { ActaExamenController } from './acta-examen.controller';
 import { TituloController } from './titulo.controller';
 import { NotaCursadaTerciarioController } from './nota-cursada-terciario.controller';
+import { LlamadoExamenController } from './llamado-examen.controller';
 import { CreateCarreraUC, ListCarrerasUC, GetCarreraUC, UpdateCarreraUC, DeleteCarreraUC } from '../../application/nivel-terciario/use-cases/carrera.use-cases';
 import { CreateInscripcionUC, ListInscripcionesUC, GetInscripcionUC, UpdateInscripcionEstadoUC } from '../../application/nivel-terciario/use-cases/inscripcion-materia.use-cases';
 import { CreateActaExamenUC, ListActasExamenUC, GetActaExamenUC, RegistrarNotaUC, RegistrarNotaFinalUC, RegistrarPromocionalUC } from '../../application/nivel-terciario/use-cases/acta-examen.use-cases';
 import { CreateTituloUC, ListTitulosUC, GetTituloUC, UpdateTituloEstadoUC } from '../../application/nivel-terciario/use-cases/titulo.use-cases';
 import { CreateNotaCursadaSlotUC, UpdateNotaCursadaSlotUC, ListNotaCursadaSlotsUC, ConfirmarNotaCursadaUC } from '../../application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases';
+import { PrismaLlamadoExamenRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-llamado-examen.repository';
+import { CreateLlamadoExamenUC, UpdateLlamadoExamenUC, ListLlamadosExamenUC, DeleteLlamadoExamenUC } from '../../application/nivel-terciario/use-cases/llamado-examen.use-cases';
+import { LLAMADO_EXAMEN_REPOSITORY } from '@educandow/domain';
 import { PrismaCarreraRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-carrera.repository';
 import { PrismaInscripcionMateriaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-inscripcion-materia.repository';
 import { PrismaActaExamenRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-acta-examen.repository';
@@ -25,6 +29,7 @@ import { PrismaTenantTransactionRunner } from '../../infrastructure/persistence/
     ActaExamenController,
     TituloController,
     NotaCursadaTerciarioController,
+    LlamadoExamenController,
   ],
   providers: [
     PrismaCarreraRepository,
@@ -105,6 +110,14 @@ import { PrismaTenantTransactionRunner } from '../../infrastructure/persistence/
     { provide: ListTitulosUC, useFactory: (r: PrismaTituloRepository) => new ListTitulosUC(r), inject: ['TituloRepository'] },
     { provide: GetTituloUC, useFactory: (r: PrismaTituloRepository) => new GetTituloUC(r), inject: ['TituloRepository'] },
     { provide: UpdateTituloEstadoUC, useFactory: (r: PrismaTituloRepository) => new UpdateTituloEstadoUC(r), inject: ['TituloRepository'] },
+
+    // LlamadoExamen repository + use cases
+    PrismaLlamadoExamenRepository,
+    { provide: LLAMADO_EXAMEN_REPOSITORY, useExisting: PrismaLlamadoExamenRepository },
+    { provide: CreateLlamadoExamenUC, useFactory: (r: PrismaLlamadoExamenRepository) => new CreateLlamadoExamenUC(r), inject: [LLAMADO_EXAMEN_REPOSITORY] },
+    { provide: UpdateLlamadoExamenUC, useFactory: (r: PrismaLlamadoExamenRepository) => new UpdateLlamadoExamenUC(r), inject: [LLAMADO_EXAMEN_REPOSITORY] },
+    { provide: ListLlamadosExamenUC, useFactory: (r: PrismaLlamadoExamenRepository) => new ListLlamadosExamenUC(r), inject: [LLAMADO_EXAMEN_REPOSITORY] },
+    { provide: DeleteLlamadoExamenUC, useFactory: (r: PrismaLlamadoExamenRepository) => new DeleteLlamadoExamenUC(r), inject: [LLAMADO_EXAMEN_REPOSITORY] },
   ],
 })
 export class NivelTerciarioModule {}
