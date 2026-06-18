@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result, ValidationError, NotFoundError,
   ActaExamen, CondicionExamen, ActaExamenRepository,
-  InscripcionRepository, EstadoInscripcion,
+  InscripcionRepository, EstadoInscripcion, IntentoFinal,
 } from '@educandow/domain';
 
 export interface CreateActaExamenInput {
@@ -75,8 +75,9 @@ export class RegistrarNotaUC {
       return err(new ValidationError((e as Error).message));
     }
 
-    acta.registrarNota(input.studentId, input.nota, condicion);
-    await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get());
+    // Backward compat: existing RegistrarNotaUC defaults to intento=1 (backfill convention)
+    acta.registrarNota(input.studentId, input.nota, condicion, IntentoFinal.create(1));
+    await this.repo.saveNota(actaId, input.studentId, input.nota, condicion.get(), 1);
 
     // Spec: when condicion = APROBADO, update InscripcionMateria.estado to APROBADO
     if (condicion.get() === 'APROBADO') {
