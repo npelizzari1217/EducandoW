@@ -10,9 +10,9 @@ function makeTenantClient(overrides: Record<string, unknown> = {}) {
     alumnosXGrupoXCursoXMateriaXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
     grupoXCursoXMateriaXCiclo:         { findMany: vi.fn().mockResolvedValue([]) },
     docenteXCiclo:                     { findMany: vi.fn().mockResolvedValue([]) },
-    subjectAssignment:                 { findMany: vi.fn().mockResolvedValue([]) },
     courseCycle:                       { findMany: vi.fn().mockResolvedValue([]) },
-    periodoEvaluacion:                 { findMany: vi.fn().mockResolvedValue([]) },
+    // Guard mocks — present so tests can assert these legacy tables are NOT called
+    subjectAssignment:                 { findMany: vi.fn().mockResolvedValue([]) },
     notaTrimestral:                    { findMany: vi.fn().mockResolvedValue([]) },
     studyPlanCourse:                   { findFirst: vi.fn().mockResolvedValue(null) },
     studyPlanSubject:                  { findMany: vi.fn().mockResolvedValue([]) },
@@ -81,101 +81,6 @@ function makeUCWithRepos(
   );
   return { uc, repos, master };
 }
-
-// ── T2: resolveDocentesForStudentCC — SC-1, SC-2a, SC-2b, SC-3 ────────────────
-// These tests MUST FAIL before T3 (resolver implementation).
-
-describe('resolveDocentesForStudentCC', () => {
-  it('SC-1 single docente → "Apellido, Nombre"', async () => {
-    const { uc } = makeUC([{ id: 'user-1', firstName: 'Ana', lastName: 'Gomez' }]);
-    const client = makeTenantClient({
-      materiaXCursoXCiclo:               { findMany: vi.fn().mockResolvedValue([{ id: 'mxcc-1', subjectId: 'subj-1' }]) },
-      alumnosXMateriaXCursoXCiclo:       { findMany: vi.fn().mockResolvedValue([{ id: 'axm-1', materiaXCursoXCicloId: 'mxcc-1' }]) },
-      alumnosXGrupoXCursoXMateriaXCiclo: { findMany: vi.fn().mockResolvedValue([{ grupoId: 'g-1', alumnosXMateriaXCursoXCicloId: 'axm-1' }]) },
-      grupoXCursoXMateriaXCiclo:         { findMany: vi.fn().mockResolvedValue([{ id: 'g-1', docenteXCicloId: 'dxc-1' }]) },
-      docenteXCiclo:                     { findMany: vi.fn().mockResolvedValue([{ id: 'dxc-1', userId: 'user-1' }]) },
-    });
-
-    const map: Map<string, string> = await (uc as any).resolveDocentesForStudentCC(client, 'stu-1', 'cc-1');
-
-    expect(map.get('subj-1')).toBe('Gomez, Ana');
-  });
-
-  it('SC-2a co-docencia 2 distinct docentes → joined alphabetically by last name', async () => {
-    const { uc } = makeUC([
-      { id: 'user-1', firstName: 'Xavier', lastName: 'Alves' },
-      { id: 'user-2', firstName: 'Bruno', lastName: 'Ferreira' },
-    ]);
-    const client = makeTenantClient({
-      materiaXCursoXCiclo:               { findMany: vi.fn().mockResolvedValue([{ id: 'mxcc-1', subjectId: 'subj-1' }]) },
-      alumnosXMateriaXCursoXCiclo:       { findMany: vi.fn().mockResolvedValue([{ id: 'axm-1', materiaXCursoXCicloId: 'mxcc-1' }]) },
-      alumnosXGrupoXCursoXMateriaXCiclo: {
-        findMany: vi.fn().mockResolvedValue([
-          { grupoId: 'g-1', alumnosXMateriaXCursoXCicloId: 'axm-1' },
-          { grupoId: 'g-2', alumnosXMateriaXCursoXCicloId: 'axm-1' },
-        ]),
-      },
-      grupoXCursoXMateriaXCiclo: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'g-1', docenteXCicloId: 'dxc-1' },
-          { id: 'g-2', docenteXCicloId: 'dxc-2' },
-        ]),
-      },
-      docenteXCiclo: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'dxc-1', userId: 'user-1' },
-          { id: 'dxc-2', userId: 'user-2' },
-        ]),
-      },
-    });
-
-    const map: Map<string, string> = await (uc as any).resolveDocentesForStudentCC(client, 'stu-1', 'cc-1');
-
-    // Alphabetical: "Alves, Xavier" < "Ferreira, Bruno"
-    expect(map.get('subj-1')).toBe('Alves, Xavier / Ferreira, Bruno');
-  });
-
-  it('SC-2b dedup — same docenteXCicloId in 2 grupos → single name (covers dropped @@unique)', async () => {
-    const { uc } = makeUC([{ id: 'user-1', firstName: 'Ana', lastName: 'Gomez' }]);
-    const client = makeTenantClient({
-      materiaXCursoXCiclo:               { findMany: vi.fn().mockResolvedValue([{ id: 'mxcc-1', subjectId: 'subj-1' }]) },
-      alumnosXMateriaXCursoXCiclo:       { findMany: vi.fn().mockResolvedValue([{ id: 'axm-1', materiaXCursoXCicloId: 'mxcc-1' }]) },
-      alumnosXGrupoXCursoXMateriaXCiclo: {
-        findMany: vi.fn().mockResolvedValue([
-          { grupoId: 'g-1', alumnosXMateriaXCursoXCicloId: 'axm-1' },
-          { grupoId: 'g-2', alumnosXMateriaXCursoXCicloId: 'axm-1' },
-        ]),
-      },
-      grupoXCursoXMateriaXCiclo: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'g-1', docenteXCicloId: 'dxc-1' },
-          { id: 'g-2', docenteXCicloId: 'dxc-1' }, // SAME docenteXCicloId
-        ]),
-      },
-      docenteXCiclo: {
-        findMany: vi.fn().mockResolvedValue([{ id: 'dxc-1', userId: 'user-1' }]),
-      },
-    });
-
-    const map: Map<string, string> = await (uc as any).resolveDocentesForStudentCC(client, 'stu-1', 'cc-1');
-
-    // dedup: single name, NOT "Gomez, Ana / Gomez, Ana"
-    expect(map.get('subj-1')).toBe('Gomez, Ana');
-    expect(map.get('subj-1')).not.toContain(' / ');
-  });
-
-  it('SC-3 zero results (empty MateriaXCursoXCiclo) → empty Map, no error thrown', async () => {
-    const { uc } = makeUC([]);
-    const client = makeTenantClient({
-      materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
-    });
-
-    const map: Map<string, string> = await (uc as any).resolveDocentesForStudentCC(client, 'stu-1', 'cc-1');
-
-    expect(map).toBeInstanceOf(Map);
-    expect(map.size).toBe(0);
-  });
-});
 
 // ── T4: buildMateriasPrimario SC-4 + buildMateriasSecundario SC-5 ──────────────
 // These tests MUST FAIL before T5/T6 (teacher query removal).

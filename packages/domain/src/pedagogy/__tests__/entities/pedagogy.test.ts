@@ -8,11 +8,6 @@ import { Level, LevelType } from '../../../institution/value-objects/level';
 import { StudyPlan } from '../../../pedagogy/entities/study-plan';
 import { Subject } from '../../../pedagogy/entities/subject';
 import { CourseSection } from '../../../pedagogy/entities/course-section';
-import { SubjectAssignment } from '../../../pedagogy/entities/subject-assignment';
-import { Evaluacion } from '../../../pedagogy/entities/evaluacion';
-import { Nota } from '../../../pedagogy/entities/nota';
-import { PeriodoEvaluacion } from '../../../pedagogy/entities/periodo-evaluacion';
-import { NotaTrimestral } from '../../../pedagogy/entities/nota-trimestral';
 import { Attendance } from '../../../pedagogy/entities/attendance';
 // GradeScale and GradeScaleValue moved to grading/__tests__/entities/ — grading-foundations
 
@@ -105,101 +100,6 @@ describe('CourseSection', () => {
     expect(c.academicYear).toBe('2025');
     expect(c.grade).toBe('3°');
     expect(c.division).toBe('A');
-  });
-});
-
-describe('SubjectAssignment', () => {
-  it('links subject, teacher and course section', () => {
-    const a = SubjectAssignment.create({ subjectId: 'subj-1', teacherId: 't-1', courseSectionId: 'cs-1' });
-    expect(a.subjectId).toBe('subj-1');
-    expect(a.teacherId).toBe('t-1');
-    expect(a.courseSectionId).toBe('cs-1');
-  });
-});
-
-describe('Evaluacion', () => {
-  it('creates with assignment, title, date and weight', () => {
-    const date = new Date('2026-06-15');
-    const e = Evaluacion.create({ assignmentId: 'sa-1', title: 'Examen Parcial 1', description: 'Temas 1-4', evaluationDate: date, weight: 2 });
-    expect(e.title).toBe('Examen Parcial 1');
-    expect(e.weight).toBe(2);
-    expect(e.evaluationDate).toEqual(date);
-    expect(e.description).toBe('Temas 1-4');
-  });
-
-  it('defaults weight to 1 if not provided', () => {
-    const e = Evaluacion.create({ assignmentId: 'sa-1', title: 'TP Integrador', evaluationDate: new Date() });
-    expect(e.weight).toBe(1);
-  });
-
-  it('softDelete marks as inactive', () => {
-    const e = Evaluacion.create({ assignmentId: 'sa-1', title: 'Test', evaluationDate: new Date() });
-    expect(e.active).toBe(true);
-    e.softDelete();
-    expect(e.active).toBe(false);
-    expect(e.deletedAt).toBeInstanceOf(Date);
-  });
-});
-
-describe('Nota', () => {
-  it('creates with evaluation, student, and numeric value', () => {
-    const n = Nota.create({ evaluationId: 'ev-1', studentId: 's-1', numericValue: 8.5, qualitativeValue: 'Muy Bueno', comments: 'Buen trabajo' });
-    expect(n.numericValue).toBe(8.5);
-    expect(n.qualitativeValue).toBe('Muy Bueno');
-    expect(n.comments).toBe('Buen trabajo');
-    expect(n.studentId).toBe('s-1');
-  });
-
-  it('registeredAt is set automatically', () => {
-    const n = Nota.create({ evaluationId: 'ev-1', studentId: 's-1' });
-    expect(n.registeredAt).toBeInstanceOf(Date);
-  });
-
-  it('optional fields default to undefined', () => {
-    const n = Nota.create({ evaluationId: 'ev-1', studentId: 's-1' });
-    expect(n.numericValue).toBeUndefined();
-    expect(n.qualitativeValue).toBeUndefined();
-    expect(n.comments).toBeUndefined();
-  });
-
-  it('stores grade scale snapshot fields', () => {
-    const n = Nota.reconstruct({
-      id: Id.create(),
-      evaluationId: 'ev-1',
-      studentId: 's-1',
-      registeredAt: new Date('2025-03-15'),
-      gradeScaleValueId: 'gsv-10',
-      gradeCode: '10',
-      gradeLabel: 'Excelente (10)',
-      isApproved: true,
-    });
-    expect(n.gradeScaleValueId).toBe('gsv-10');
-    expect(n.gradeCode).toBe('10');
-    expect(n.gradeLabel).toBe('Excelente (10)');
-    expect(n.isApproved).toBe(true);
-  });
-});
-
-describe('PeriodoEvaluacion', () => {
-  it('creates with academic year and dates', () => {
-    const start = new Date('2026-03-01');
-    const end = new Date('2026-06-30');
-    const p = PeriodoEvaluacion.create({ academicYear: '2026', name: 'Primer Trimestre', startDate: start, endDate: end });
-    expect(p.name).toBe('Primer Trimestre');
-    expect(p.academicYear).toBe('2026');
-    expect(p.startDate).toEqual(start);
-    expect(p.endDate).toEqual(end);
-  });
-});
-
-describe('NotaTrimestral', () => {
-  it('creates with student, assignment, period, and final grade', () => {
-    const n = NotaTrimestral.create({ studentId: 's-1', assignmentId: 'sa-1', periodId: 'p-1', finalGrade: 7.5, attendancePct: 85 });
-    expect(n.finalGrade).toBe(7.5);
-    expect(n.attendancePct).toBe(85);
-    expect(n.studentId).toBe('s-1');
-    expect(n.assignmentId).toBe('sa-1');
-    expect(n.periodId).toBe('p-1');
   });
 });
 
