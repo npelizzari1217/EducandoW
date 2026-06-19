@@ -356,7 +356,15 @@ export class GenerateCourseCyclesUseCase {
 
         let courseCycleUuid: string;
         if (existing) {
-          existing.update({ courseName });
+          // Regenerar resincroniza las fechas de bimestre desde el ciclo lectivo
+          // (pisa overrides por curso, por decisión de producto).
+          existing.update({
+            courseName,
+            firstBimonth: cycle.firstBimonth ?? null,
+            secondBimonth: cycle.secondBimonth ?? null,
+            thirdBimonth: cycle.thirdBimonth ?? null,
+            fourthBimonth: cycle.fourthBimonth ?? null,
+          });
           await this.courseCycleRepo.save(existing);
           courseCycleUuid = existing.uuid;
           updated++;
@@ -369,10 +377,11 @@ export class GenerateCourseCyclesUseCase {
             level: compositeLevel,
             passingGrade,
             promotionText: null,
-            firstBimonth: null,
-            secondBimonth: null,
-            thirdBimonth: null,
-            fourthBimonth: null,
+            // Hereda las fechas de bimestre definidas en el ciclo lectivo.
+            firstBimonth: cycle.firstBimonth ?? null,
+            secondBimonth: cycle.secondBimonth ?? null,
+            thirdBimonth: cycle.thirdBimonth ?? null,
+            fourthBimonth: cycle.fourthBimonth ?? null,
           });
           await this.courseCycleRepo.save(cc);
           courseCycleUuid = cc.uuid;

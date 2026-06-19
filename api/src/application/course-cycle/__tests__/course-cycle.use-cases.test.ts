@@ -515,6 +515,55 @@ describe('GenerateCourseCyclesUseCase', () => {
     expect((mockAutoCreateUC as unknown as { execute: ReturnType<typeof vi.fn> }).execute).toHaveBeenCalledWith({ courseCycleId: existingCC.uuid });
   });
 
+  // 2c. Bimonth dates from the academic cycle are assigned to generated CourseCycles
+  const cycleWithBimonths = {
+    id: Id.reconstruct('cycle-1'),
+    name: '2026',
+    active: true,
+    isCurrent: () => true,
+    firstBimonth: makeBimonth('2026-03-10', '2026-05-10'),
+    secondBimonth: makeBimonth('2026-05-11', '2026-07-10'),
+    thirdBimonth: makeBimonth('2026-07-11', '2026-09-10'),
+    fourthBimonth: makeBimonth('2026-09-11', '2026-11-10'),
+  };
+
+  it('assigns the academic cycle bimonth dates to newly created CourseCycles', async () => {
+    mockCycleRepo.findByUuid = vi.fn().mockResolvedValue(cycleWithBimonths);
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+    ]);
+    mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+    await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    const saved = (mockRepo.save as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(saved.firstBimonth?.start.toISOString()).toBe(new Date('2026-03-10').toISOString());
+    expect(saved.firstBimonth?.end.toISOString()).toBe(new Date('2026-05-10').toISOString());
+    expect(saved.fourthBimonth?.end.toISOString()).toBe(new Date('2026-11-10').toISOString());
+  });
+
+  it('overwrites existing CourseCycle bimonth dates with the cycle dates on regenerate', async () => {
+    mockCycleRepo.findByUuid = vi.fn().mockResolvedValue(cycleWithBimonths);
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+    ]);
+    const existing = makeCC(); // tiene fechas '2026-03-01'... distintas a las del ciclo
+    mockRepo.findByPair = vi.fn().mockResolvedValue(existing);
+
+    await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    expect(existing.firstBimonth?.start.toISOString()).toBe(new Date('2026-03-10').toISOString());
+    expect(existing.fourthBimonth?.end.toISOString()).toBe(new Date('2026-11-10').toISOString());
+  });
+
   // 3. Level derived from plan via Level.fromParts
   it('derives level via Level.fromParts instead of hardcoding', async () => {
     mockPlanRepo.findById = vi.fn().mockResolvedValue({
