@@ -1,0 +1,31 @@
+-- Migration: drop-teachers
+-- Change: retiro-teacher-legacy-s3b-final — DROP legacy teachers table.
+-- PRE-REQUISITO: retiro-grading-legacy-s3pre aplicado (20260619200000_drop_grading_legacy).
+--   La tabla "teachers" ya no tiene consumidores reales en el código (entidad y repo eliminados).
+
+DROP TABLE IF EXISTS "teachers";
+
+-- ── ROLLBACK INLINE (manual) ─────────────────────────────────────────────────
+-- Prisma migrate no genera down-migrations. Para revertir este DROP:
+--   1. Restaurar la tabla con el schema original (columnas e índices abajo).
+--   2. Restaurar datos desde backup previo a la migración.
+--
+-- CREATE TABLE "teachers" (
+--     "id" TEXT NOT NULL,
+--     "firstName" TEXT NOT NULL,
+--     "lastName" TEXT NOT NULL,
+--     "dni" TEXT NOT NULL,
+--     "email" TEXT NOT NULL,
+--     "phone" TEXT,
+--     "title" TEXT,
+--     "user_id" TEXT,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updatedAt" TIMESTAMP(3) NOT NULL,
+--     CONSTRAINT "teachers_pkey" PRIMARY KEY ("id")
+-- );
+-- CREATE UNIQUE INDEX "teachers_dni_key" ON "teachers"("dni");
+-- CREATE INDEX "teachers_lastName_idx" ON "teachers"("lastName");
+-- CREATE INDEX "teachers_dni_idx" ON "teachers"("dni");
+-- CREATE INDEX "teachers_user_id_idx" ON "teachers"("user_id");

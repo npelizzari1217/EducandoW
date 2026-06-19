@@ -74,19 +74,6 @@ export const CreateStudentSchema = z.object({
 });
 export type CreateStudentDTO = z.infer<typeof CreateStudentSchema>;
 
-export const CreateTeacherSchema = z.object({
-  firstName: nameField,
-  lastName: lastNameField,
-  dni: dniField,
-  email: emailField,
-  phone: z.string().max(50).optional(),
-  title: nameField.optional(),
-  institutionId: uuidField,
-  password: z.string().min(6, 'Mínimo 6 caracteres').max(128).optional(),
-  active: z.boolean().optional().default(true),
-});
-export type CreateTeacherDTO = z.infer<typeof CreateTeacherSchema>;
-
 export const CreateEnrollmentSchema = z.object({
   studentId: uuidField,
   institutionId: uuidField,
