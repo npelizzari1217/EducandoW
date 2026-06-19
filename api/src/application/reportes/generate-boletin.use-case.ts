@@ -210,18 +210,18 @@ export class GenerateBoletinUseCase {
     cuatrimestresTerciario?: GrupoCuatrimestreBoletin[];
   }> {
     // ── Inicial path ─────────────────────────────────────────────────────────
-    if (Math.floor(enrollment.level / 10) === 1) {
+    if (this.levelDecade(enrollment.level) === 1) {
       return this.buildMateriasInicial(client, enrollment);
     }
 
     // ── Terciario path (decade 4) ──────────────────────────────────────────────
-    if (Math.floor(enrollment.level / 10) === 4) {
+    if (this.levelDecade(enrollment.level) === 4) {
       return this.buildMateriasTerciario(client, enrollment);
     }
 
     // ── Primario path ────────────────────────────────────────────────────────
     if (
-      Math.floor(enrollment.level / 10) === 2
+      this.levelDecade(enrollment.level) === 2
       && this.sgpRepo
       && this.periodGradeRepo
       && this.finalGradeRepo
@@ -232,7 +232,7 @@ export class GenerateBoletinUseCase {
 
     // ── Secundario path (PR6) ─────────────────────────────────────────────────
     if (
-      Math.floor(enrollment.level / 10) === 3
+      this.levelDecade(enrollment.level) === 3
       && this.sgpRepo
       && this.periodGradeRepo
       && this.finalGradeRepo
@@ -484,9 +484,9 @@ export class GenerateBoletinUseCase {
       select: { uuid: true, level: true, courseId: true, studyPlanId: true },
     });
 
-    // Filter to Primario CCs (Math.floor(level/10) === 2)
+    // Filter to Primario CCs (levelDecade === 2)
     const primarioCCs = courseCycles.filter(
-      (cc) => Math.floor((cc.level as number) / 10) === 2,
+      (cc) => this.levelDecade(cc.level as number) === 2,
     );
     if (primarioCCs.length === 0) return [];
 
@@ -671,9 +671,9 @@ export class GenerateBoletinUseCase {
       select: { uuid: true, level: true, courseId: true, studyPlanId: true },
     });
 
-    // Filter to Secundario CCs (Math.floor(level/10) === 3)
+    // Filter to Secundario CCs (levelDecade === 3)
     const secundarioCCs = courseCycles.filter(
-      (cc) => Math.floor((cc.level as number) / 10) === 3,
+      (cc) => this.levelDecade(cc.level as number) === 3,
     );
     if (secundarioCCs.length === 0) return { materias: [], previas };
 
@@ -843,9 +843,17 @@ export class GenerateBoletinUseCase {
     return c;
   }
 
+  /**
+   * Decada pedagógica (1=Inicial, 2=Primario, 3=Secundario, 4=Terciario).
+   * Acepta tanto level base (1-4) como compuesto (10-49). Ver prisma-subject.repository.
+   */
+  private levelDecade(level: number): number {
+    return level >= 10 ? Math.floor(level / 10) : level;
+  }
+
   /** Maps LevelType enum to human-readable base level name. */
   private resolveLevelName(levelCode: number): string {
-    const base = Math.floor(levelCode / 10) * 10;
+    const base = this.levelDecade(levelCode) * 10;
     const names: Record<number, string> = {
       10: 'INICIAL',
       20: 'PRIMARIO',
@@ -859,9 +867,10 @@ export class GenerateBoletinUseCase {
    * Returns the base level string for template selection.
    * Throws BOLETIN_LEVEL_UNKNOWN (422) for unrecognised level codes
    * instead of silently defaulting to PRIMARIO (which would produce a wrong PDF).
+   * Accepts both base encoding (1-4) and decade encoding (10-49).
    */
   getBaseLevel(levelCode: number): string {
-    const base = Math.floor(levelCode / 10) * 10;
+    const base = this.levelDecade(levelCode) * 10;
     const names: Record<number, string> = {
       10: 'INICIAL',
       20: 'PRIMARIO',
