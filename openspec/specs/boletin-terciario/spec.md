@@ -17,7 +17,7 @@ The legacy `NotaTrimestral` path for other levels is NOT modified.
 
 ---
 
-## Data Model (introduced by evaluacion-terciario — pre-existing)
+## Data Model (introduced by evaluacion-terciario — pre-existing; updated by vencimiento-regularidad-terciario 2026-06-19)
 
 ```
 InscripcionMateria
@@ -26,6 +26,7 @@ InscripcionMateria
   estado             String      // 'INSCRIPTO'|'CURSANDO'|'REGULAR'|'PROMOCIONAL'|'APROBADO'|'LIBRE'
   cuatrimestre       String      // '1C'|'2C'|'ANUAL' — authoritative per-student axis
   notaCursada        Float?      // confirmed cursada grade (Fase A write)
+  fechaRegularidad   DateTime?   // UTC timestamp of first REGULAR confirmation (write-once; null = not expired)
   notasCursada       NotaCursadaTerciario[]
   materiaCarrera     MateriaCarrera (→ Subject, → Carrera)
 
@@ -41,8 +42,15 @@ ActaExamenNota
   intento      Int      // 1|2|3 (introduced by evaluacion-terciario)
   acta         ActaExamen (→ materiaCarreraId, fecha, active)
 
+LlamadoExamen
+  anioAcademico  String
+  fechaInicio    DateTime
+  active         Boolean
+  deletedAt      DateTime?   // soft-delete
+
 Carrera
-  name         String   // degree/career display name for transcript header
+  name                 String   // degree/career display name for transcript header
+  llamadosVencimiento  Int      // max active llamados after fechaRegularidad before expiry (default 5)
 ```
 
 Note: `MateriaCarrera.cuatrimestre` is `@deprecated` (grading-foundations); the inscription's
@@ -84,10 +92,13 @@ From those records it MUST apply the following inclusion rules:
 |-----------------------------|----------|-----------|
 | `INSCRIPTO`                 | YES      | In-progress: parciales ongoing |
 | `CURSANDO`                  | YES      | In-progress: parciales ongoing |
-| `REGULAR`                   | YES      | TP approved; awaiting final |
+| `REGULAR`                   | YES*     | TP approved; awaiting final — unless regularidad is expired (see BT-R10) |
 | `PROMOCIONAL`               | YES      | Approved without final |
 | `APROBADO`                  | YES      | Approved with final |
 | `LIBRE`                     | NO       | Did not pass cursada; must re-enroll |
+
+*REGULAR with expired regularidad MUST be excluded by the post-DB expiry filter (BT-R10).
+The DB query continues to include REGULAR in `where.estado.in`; expiry is applied in-memory.
 
 The query MUST be performed via tenant Prisma client only (MUST NOT use master client).
 
@@ -192,8 +203,9 @@ The canonical slot order MUST be driven by the domain `SlotCursadaTerciario` VAL
 The system MUST include ALL `ActaExamenNota` records linked to the included `InscripcionMateria`
 regardless of the `ActaExamen.fecha` year (all-time per inscripcion, transcript semantics).
 
-**Vencimiento de regularidad is DEFERRED** — no expiry filtering MUST be applied in this change.
-See "Deferred Items" section below.
+**Vencimiento de regularidad:** expired REGULAR materias are excluded from the boletín entirely
+by BT-R10 (resolved by change: vencimiento-regularidad-terciario 2026-06-19). If a materia
+reaches this point it has passed the expiry filter and `intentosFinales` MUST be included normally.
 
 When no final attempts exist, `intentosFinales` MUST be an empty array `[]`.
 
@@ -281,21 +293,85 @@ The grouping axis MUST be `InscripcionMateria.cuatrimestre`.
 
 `buildMateriasTerciario()` MUST NOT issue per-materia database queries.
 All related data (`NotaCursadaTerciario`, `ActaExamenNota` via `ActaExamen`, `MateriaCarrera`,
-`Carrera`, `Subject`) MUST be fetched in a constant number of queries (≤ 2) regardless
-of the number of materias.
+`Carrera`, `Subject`, `LlamadoExamen` for expiry) MUST be fetched in a constant number of
+queries (≤ 3) regardless of the number of materias.
 
-Implementation: 2 queries:
+> Updated by change: vencimiento-regularidad-terciario (2026-06-19) — budget raised from ≤2 to ≤3
+> to accommodate Q3 (bulk llamados load for expiry filter).
+
+Implementation: 3 queries:
 - Q1: `inscripcionMateria.findMany` with full include chain
-  (`notasCursada`, `materiaCarrera.{subject, carrera}`)
+  (`notasCursada`, `materiaCarrera.{subject, carrera}`) — also loads `llamadosVencimiento`
+  via `carrera` after the schema migration
 - Q2: `actaExamenNota.findMany` bulk by `materiaCarreraId IN [...]`,
   short-circuited to `[]` when there are zero included inscripciones
+- Q3: `llamadoExamen.findMany` for the academic year (active, not soft-deleted) —
+  loaded ONCE, used in-memory for all REGULAR expiry checks (ADR-2)
 
-#### BT-S8.1 — Single query set for all data
+#### BT-S8.1 — Constant query set for all data
 
 - GIVEN a student with 10 eligible `InscripcionMateria` records
 - WHEN `buildMateriasTerciario()` is called
 - THEN `inscripcionMateria.findMany` MUST be called exactly once
 - AND `actaExamenNota.findMany` MUST be called exactly once
+- AND `llamadoExamen.findMany` MUST be called exactly once (Q3, for expiry filter)
+
+---
+
+### BT-R10 — Expiry Filter: Exclude Expired REGULAR Materias
+
+> Introduced by change: vencimiento-regularidad-terciario (2026-06-19).
+> Resolves DEFERRED-1 from the original boletin-terciario spec.
+
+`buildMateriasTerciario()` MUST exclude from its output any `InscripcionMateria` where ALL of
+the following hold:
+- `inscripcion.estado === REGULAR`
+- `inscripcion.fechaRegularidad !== null`
+- The count of active `LlamadoExamen` records with `fechaInicio > inscripcion.fechaRegularidad`
+  is `>= carrera.llamadosVencimiento`
+
+The exclusion MUST be applied as a **post-DB in-memory filter** AFTER the existing Prisma Q1
+query and AFTER building `materiasFlat`, but BEFORE cuatrimestre grouping. The DB query
+(`where.estado.in`) MUST continue to include `REGULAR` unchanged.
+
+A single bulk load of the year's active `LlamadoExamen` records (Q3) MUST be used to compute
+the count for all REGULAR inscripciones without N+1 queries.
+
+Expired REGULAR materias MUST be **silently excluded** — no `"VENCIDA"` label or expiry
+indicator MUST appear in the boletín response.
+
+When `inscripcion.fechaRegularidad` is `null`, the materia MUST be included (treated as
+non-expired — backfill safety).
+
+#### BT-S10.1 — Expired REGULAR materia excluded
+
+- GIVEN a student has an `InscripcionMateria` with `estado = REGULAR`, `fechaRegularidad = T0`
+- AND `Carrera.llamadosVencimiento = 5`
+- AND 5 active `LlamadoExamen` records with `fechaInicio > T0` exist
+- WHEN `buildMateriasTerciario()` is called
+- THEN that materia MUST NOT appear in the output
+- AND no `"VENCIDA"` label MUST appear in the response
+
+#### BT-S10.2 — Non-expired REGULAR materia included
+
+- GIVEN a student has an `InscripcionMateria` with `estado = REGULAR`, `fechaRegularidad = T0`
+- AND `Carrera.llamadosVencimiento = 5`
+- AND 3 active `LlamadoExamen` records with `fechaInicio > T0` exist
+- WHEN `buildMateriasTerciario()` is called
+- THEN that materia MUST appear in the output with `condicionCursada = "Regular"`
+
+#### BT-S10.3 — NULL fechaRegularidad included (backfill safety)
+
+- GIVEN a student has an `InscripcionMateria` with `estado = REGULAR`, `fechaRegularidad = null`
+- AND any number of `LlamadoExamen` records exist
+- WHEN `buildMateriasTerciario()` is called
+- THEN that materia MUST appear in the output (treated as non-expired)
+
+#### BT-S10.4 — Q3 loaded exactly once regardless of REGULAR count
+
+- GIVEN a student has 5 REGULAR `InscripcionMateria` records
+- WHEN `buildMateriasTerciario()` is called
+- THEN `llamadoExamen.findMany` MUST be called exactly once (no N+1)
 
 ---
 
@@ -345,13 +421,14 @@ continue to compile and render correctly.
 
 ## Out of Scope (explicitly deferred)
 
-### DEFERRED-1 — Vencimiento de regularidad
+### DEFERRED-1 — Vencimiento de regularidad ✓ RESOLVED
 
-No expiry model exists in the current schema. `InscripcionMateria` has no `fechaVencimiento`
-or similar field. The transcript currently shows all finales all-time per included inscripcion.
+~~No expiry model exists in the current schema.~~
 
-**Deferred to:** a future change (e.g. `vencimiento-regularidad-terciario`).
-**When introduced:** this requirement MUST be added to this spec under BT-R5.
+**Resolved by:** change `vencimiento-regularidad-terciario` (2026-06-19).
+**Implementation:** BT-R10 (post-DB expiry filter) and BT-R8 (Q3 query budget update).
+Expired REGULAR materias are silently excluded from the boletín (no VENCIDA label).
+See `nivel-terciario` spec for the full expiry rule (on-the-fly computation, no background job).
 
 ### DEFERRED-2 — NotaTrimestral legacy retirement for Terciario
 
@@ -386,4 +463,5 @@ Only secretaría-side reads are covered in this change.
 | ADR-3 | `notaCursadaConfirmada = InscripcionMateria.notaCursada` (not recomputed from slots). Fase A writes the confirmed grade to that float; recomputing would duplicate domain logic and could diverge. |
 | ADR-4 | Finales scoped by `materiaCarreraId` linkage, all-time (no fecha/year filter). `ActaExamen` has no `anioAcademico`; transcript semantics include every intento of an included inscripcion. Vencimiento out of scope. |
 | ADR-5 | Cuatrimestre grouping done in use case via `DatosBoletin.cuatrimestresTerciario`, keyed on `InscripcionMateria.cuatrimestre`. Clean-arch: presentation logic stays out of Handlebars. `MateriaCarrera.cuatrimestre` is `@deprecated` and MUST NOT be read. |
-| ADR-6 | Two queries (≤2 budget). Carrera resolved inside Q1. Finales bulk via `actaExamenNota.where.acta.materiaCarreraId IN`. Prisma `orderBy` on to-one relation (R1) uses in-memory sort fallback if rejected at runtime. |
+| ADR-6 | Three queries (≤3 budget). Carrera resolved inside Q1. Finales bulk via `actaExamenNota.where.acta.materiaCarreraId IN`. Q3 added for expiry (see ADR-7). Prisma `orderBy` on to-one relation (R1) uses in-memory sort fallback if rejected at runtime. |
+| ADR-7 | Expiry filter (BT-R10): bulk-load all year llamados ONCE (Q3) → in-memory count per REGULAR inscripcion. Rejected: per-inscripcion `countAfter` DB call (N+1). Bulk is correct because LlamadoExamen are institution-wide and few per academic year. (Introduced by change: vencimiento-regularidad-terciario 2026-06-19) |

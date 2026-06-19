@@ -11,6 +11,7 @@ interface CarreraRow {
   resolucion?: string | null;
   active: boolean;
   deletedAt?: Date | null;
+  llamadosVencimiento: number;
 }
 
 @Injectable()
@@ -45,6 +46,7 @@ export class PrismaCarreraRepository implements CarreraRepository {
         resolucion: carrera.resolucion,
         active: carrera.active,
         deletedAt: carrera.deletedAt,
+        llamadosVencimiento: carrera.llamadosVencimiento,
       },
       update: {
         name: carrera.name,
@@ -53,12 +55,21 @@ export class PrismaCarreraRepository implements CarreraRepository {
         resolucion: carrera.resolucion,
         active: carrera.active,
         deletedAt: carrera.deletedAt,
+        llamadosVencimiento: carrera.llamadosVencimiento,
       },
     });
   }
 
   async delete(id: string): Promise<void> {
     await this.client.carrera.delete({ where: { id } });
+  }
+
+  async findByMateriaCarreraId(materiaCarreraId: string): Promise<Carrera | null> {
+    const r = await this.client.materiaCarrera.findUnique({
+      where: { id: materiaCarreraId },
+      include: { carrera: true },
+    });
+    return r ? this.toDomain(r.carrera as CarreraRow) : null;
   }
 
   private toDomain(r: CarreraRow): Carrera {
@@ -70,6 +81,7 @@ export class PrismaCarreraRepository implements CarreraRepository {
       resolucion: r.resolucion ?? undefined,
       active: r.active,
       deletedAt: r.deletedAt ?? undefined,
+      llamadosVencimiento: r.llamadosVencimiento,
     });
   }
 }

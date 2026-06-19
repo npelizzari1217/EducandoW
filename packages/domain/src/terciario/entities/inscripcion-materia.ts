@@ -19,6 +19,7 @@ export interface InscripcionMateriaProps {
   estado: EstadoInscripcion;
   notaCursada?: number;
   notaFinal?: number;
+  fechaRegularidad?: Date;
 }
 
 export class InscripcionMateria {
@@ -40,6 +41,14 @@ export class InscripcionMateria {
   get estado(): EstadoInscripcion { return this.props.estado; }
   get notaCursada(): number | undefined { return this.props.notaCursada; }
   get notaFinal(): number | undefined { return this.props.notaFinal; }
+  get fechaRegularidad(): Date | undefined { return this.props.fechaRegularidad; }
+
+  /** Write-once: sets fechaRegularidad only when currently null/undefined (FR-2.4) */
+  setFechaRegularidad(date: Date): void {
+    if (this.props.fechaRegularidad == null) {
+      this.props.fechaRegularidad = date;
+    }
+  }
 
   updateEstado(estado: EstadoInscripcion): void {
     this.props.estado = estado;

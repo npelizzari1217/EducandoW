@@ -10,6 +10,8 @@ export interface LlamadoExamenRepository {
     excludeId?: string,
   ): Promise<LlamadoExamen[]>;
   save(llamado: LlamadoExamen): Promise<void>;
+  /** Returns count of active llamados with fechaInicio strictly > afterDate (FR-4.2) */
+  countAfter(anioAcademico: string, afterDate: Date): Promise<number>;
 }
 
 export const LLAMADO_EXAMEN_REPOSITORY = 'LlamadoExamenRepository';

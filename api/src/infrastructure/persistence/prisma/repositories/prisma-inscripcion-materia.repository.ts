@@ -12,6 +12,7 @@ interface InscripcionRow {
   estado: string;
   notaCursada?: number | null;
   notaFinal?: number | null;
+  fechaRegularidad?: Date | null;
 }
 
 interface CorrelatividadRow {
@@ -99,11 +100,13 @@ export class PrismaInscripcionMateriaRepository implements InscripcionRepository
         estado: inscripcion.estado.get(),
         notaCursada: inscripcion.notaCursada,
         notaFinal: inscripcion.notaFinal,
+        fechaRegularidad: inscripcion.fechaRegularidad ?? null,
       },
       update: {
         estado: inscripcion.estado.get(),
         notaCursada: inscripcion.notaCursada,
         notaFinal: inscripcion.notaFinal,
+        fechaRegularidad: inscripcion.fechaRegularidad ?? null,
       },
     });
   }
@@ -122,6 +125,7 @@ export class PrismaInscripcionMateriaRepository implements InscripcionRepository
       estado: EstadoInscripcion.create(r.estado),
       notaCursada: r.notaCursada ?? undefined,
       notaFinal: r.notaFinal ?? undefined,
+      fechaRegularidad: r.fechaRegularidad ?? undefined,
     });
   }
 }

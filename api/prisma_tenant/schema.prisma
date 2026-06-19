@@ -1082,13 +1082,14 @@ model RegimenAcademico {
 // ── Terciario ──────────────────────────────────────────────
 
 model Carrera {
-  id         String   @id @default(uuid())
-  name       String
-  titulo     String
-  duracion   Int
-  resolucion String?
-  active     Boolean  @default(true)
-  deletedAt  DateTime? @map("deleted_at")
+  id                  String   @id @default(uuid())
+  name                String
+  titulo              String
+  duracion            Int
+  resolucion          String?
+  llamadosVencimiento Int      @default(5) @map("llamados_vencimiento")
+  active              Boolean  @default(true)
+  deletedAt           DateTime? @map("deleted_at")
 
   materias MateriaCarrera[]
   titulos  Titulo[]
@@ -1143,14 +1144,15 @@ model Correlatividad {
 }
 
 model InscripcionMateria {
-  id              String  @id @default(uuid())
-  studentId       String  @map("student_id")
-  materiaCarreraId String @map("materia_carrera_id")
-  cuatrimestre    String
-  anioAcademico   String  @map("anio_academico")
-  estado          String                           // "INSCRIPTO"|"CURSANDO"|"REGULAR"|"APROBADO"|"LIBRE" — PROMOCIONAL valid value — see ADR-1
-  notaCursada     Float?  @map("nota_cursada")
-  notaFinal       Float?  @map("nota_final")
+  id               String    @id @default(uuid())
+  studentId        String    @map("student_id")
+  materiaCarreraId String    @map("materia_carrera_id")
+  cuatrimestre     String
+  anioAcademico    String    @map("anio_academico")
+  estado           String                            // "INSCRIPTO"|"CURSANDO"|"REGULAR"|"APROBADO"|"LIBRE" — PROMOCIONAL valid value — see ADR-1
+  notaCursada      Float?    @map("nota_cursada")
+  notaFinal        Float?    @map("nota_final")
+  fechaRegularidad DateTime? @map("fecha_regularidad")
 
   student       Student        @relation(fields: [studentId],        references: [id], onDelete: Cascade)
   materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)

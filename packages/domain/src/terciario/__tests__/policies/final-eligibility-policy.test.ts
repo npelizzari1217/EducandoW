@@ -24,6 +24,8 @@ describe('FinalEligibilityPolicy.check()', () => {
           estado: EstadoInscripcion.create(estado),
           tpSlot: null,
           intentosPrevios: 0,
+          llamadosTranscurridos: 0,
+          llamadosVencimiento: 5,
         });
 
         expect(result.isErr()).toBe(true);
@@ -32,12 +34,88 @@ describe('FinalEligibilityPolicy.check()', () => {
     );
   });
 
+  describe('Guard: regularidad vencida (NEW — step 2, FR-5.1–FR-5.4)', () => {
+    it('Ok when estado=REGULAR, llamadosTranscurridos=0, llamadosVencimiento=5 (Scenario D — NULL path)', () => {
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('REGULAR'),
+        tpSlot: makeTpSlot('APROBADO'),
+        intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
+      });
+      // Should not fire expiry guard; may fail TP or intentos guard — we just check it's not REGULARIDAD_VENCIDA
+      expect(result.isErr() && result.unwrapErr().code === 'REGULARIDAD_VENCIDA').toBe(false);
+    });
+
+    it('Err(REGULARIDAD_VENCIDA) when estado=REGULAR, llamadosTranscurridos=5, llamadosVencimiento=5 (Scenario E — at-threshold)', () => {
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('REGULAR'),
+        tpSlot: makeTpSlot('APROBADO'),
+        intentosPrevios: 0,
+        llamadosTranscurridos: 5,
+        llamadosVencimiento: 5,
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr().code).toBe('REGULARIDAD_VENCIDA');
+    });
+
+    it('guard does NOT fire when llamadosTranscurridos=4, llamadosVencimiento=5 (Scenario F — below threshold)', () => {
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('REGULAR'),
+        tpSlot: makeTpSlot('APROBADO'),
+        intentosPrevios: 0,
+        llamadosTranscurridos: 4,
+        llamadosVencimiento: 5,
+      });
+      // Not expired → proceeds; with APROBADO TP and 0 intentos, should be Ok
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('Ok when estado=REGULAR, llamadosTranscurridos=0, llamadosVencimiento=1 (Scenario G — boundary, count 0 < 1)', () => {
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('REGULAR'),
+        tpSlot: makeTpSlot('APROBADO'),
+        intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 1,
+      });
+      expect(result.isErr() && result.unwrapErr().code === 'REGULARIDAD_VENCIDA').toBe(false);
+    });
+
+    it('LIBRE with llamadosTranscurridos=99 → ALUMNO_LIBRE (guard step 2 skipped for LIBRE — FR-5.3)', () => {
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('LIBRE'),
+        tpSlot: null,
+        intentosPrevios: 0,
+        llamadosTranscurridos: 99,
+        llamadosVencimiento: 1,
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr().code).toBe('ALUMNO_LIBRE_NO_PUEDE_RENDIR');
+    });
+
+    it('REGULARIDAD_VENCIDA fires BEFORE TP check when both conditions met (FR-5.2 order)', () => {
+      // expired REGULAR + no TP → expiry fires first, not TP error
+      const result = FinalEligibilityPolicy.check({
+        estado: EstadoInscripcion.create('REGULAR'),
+        tpSlot: null,   // no TP
+        intentosPrevios: 0,
+        llamadosTranscurridos: 5,
+        llamadosVencimiento: 5,
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr().code).toBe('REGULARIDAD_VENCIDA');
+    });
+  });
+
   describe('Guard: estado LIBRE', () => {
     it('returns Err(AlumnoLibreNoPuedeRendirError) when estado = LIBRE', () => {
       const result = FinalEligibilityPolicy.check({
         estado: EstadoInscripcion.create('LIBRE'),
         tpSlot: null,
         intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isErr()).toBe(true);
@@ -51,6 +129,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: null,
         intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isErr()).toBe(true);
@@ -62,6 +142,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: makeTpSlot('AUSENTE'),
         intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isErr()).toBe(true);
@@ -73,6 +155,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: makeTpSlot('DESAPROBADO'),
         intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isErr()).toBe(true);
@@ -86,6 +170,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: makeTpSlot('APROBADO'),
         intentosPrevios: 3,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isErr()).toBe(true);
@@ -99,6 +185,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: makeTpSlot('APROBADO'),
         intentosPrevios: 0,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isOk()).toBe(true);
@@ -110,6 +198,8 @@ describe('FinalEligibilityPolicy.check()', () => {
         estado: EstadoInscripcion.create('REGULAR'),
         tpSlot: makeTpSlot('APROBADO'),
         intentosPrevios: 2,
+        llamadosTranscurridos: 0,
+        llamadosVencimiento: 5,
       });
 
       expect(result.isOk()).toBe(true);

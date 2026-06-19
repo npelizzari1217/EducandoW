@@ -702,6 +702,7 @@ describe('GenerateBoletinUseCase.buildMaterias — PR6-T1 regression: Terciario'
     const mockClient = {
       inscripcionMateria: { findMany: inscripcionFindMany },
       actaExamenNota:     { findMany: vi.fn().mockResolvedValue([]) },
+      llamadoExamen:      { findMany: vi.fn().mockResolvedValue([]) },
       notaTrimestral:     { findMany: notaTrimestralFindMany },
       courseCycle:        { findMany: vi.fn().mockResolvedValue([]) },
     };

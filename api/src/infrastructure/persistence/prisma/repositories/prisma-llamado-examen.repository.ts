@@ -55,6 +55,17 @@ export class PrismaLlamadoExamenRepository implements LlamadoExamenRepository {
     return rows.map((r) => this.toDomain(r));
   }
 
+  async countAfter(anioAcademico: string, afterDate: Date): Promise<number> {
+    return this.client.llamadoExamen.count({
+      where: {
+        anioAcademico,
+        active: true,
+        deletedAt: null,
+        fechaInicio: { gt: afterDate },
+      },
+    });
+  }
+
   async save(llamado: LlamadoExamen): Promise<void> {
     await this.client.llamadoExamen.upsert({
       where: { id: llamado.id.get() },

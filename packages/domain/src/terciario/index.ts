@@ -41,6 +41,7 @@ export { CursadaNoConfirmadaError } from './errors/cursada-no-confirmada.error';
 export { TpObligatorioFaltanteError } from './errors/tp-obligatorio-faltante.error';
 export { MaxIntentosAlcanzadoError } from './errors/max-intentos-alcanzado.error';
 export { CondicionCursadaInvalidaError } from './errors/condicion-cursada-invalida.error';
+export { RegularidadVencidaError } from './errors/regularidad-vencida.error';
 
 // Policies
 export { RecuperatorioPolicy } from './policies/recuperatorio-policy';
