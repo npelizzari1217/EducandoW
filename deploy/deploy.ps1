@@ -125,18 +125,29 @@ Write-Host "  Tenant migrations complete." -ForegroundColor Green
 # sesion SSH y reboots (pm2 no persistia bajo OpenSSH en este server).
 Write-Host "[9/10] Starting API service..." -ForegroundColor Yellow
 $nodeExe = (Get-Command node.exe).Source
-if (Get-Service $API_NAME -ErrorAction SilentlyContinue) {
-    Restart-Service $API_NAME
-} else {
-    $nssm = (Get-Command nssm -ErrorAction SilentlyContinue).Source
-    if (-not $nssm) { choco install nssm -y --no-progress | Out-Null; $nssm = "C:\ProgramData\chocolatey\bin\nssm.exe" }
+$nssm = (Get-Command nssm -ErrorAction SilentlyContinue).Source
+if (-not $nssm) { choco install nssm -y --no-progress | Out-Null; $nssm = "C:\ProgramData\chocolatey\bin\nssm.exe" }
+
+if (-not (Get-Service $API_NAME -ErrorAction SilentlyContinue)) {
     & $nssm install $API_NAME $nodeExe "dist\main.js" | Out-Null
     & $nssm set $API_NAME AppDirectory "$PROJECT_DIR\api" | Out-Null
     & $nssm set $API_NAME AppStdout "$PROJECT_DIR\api\svc-out.log" | Out-Null
     & $nssm set $API_NAME AppStderr "$PROJECT_DIR\api\svc-err.log" | Out-Null
     & $nssm set $API_NAME Start SERVICE_AUTO_START | Out-Null
-    & $nssm start $API_NAME | Out-Null
 }
+
+# Puppeteer (boletín PDF): el servicio corre sin HOME, así que Puppeteer busca
+# Chrome en su cache (resuelve a system32) y falla. Apuntamos explícitamente al
+# Chrome del sistema. Idempotente: se re-aplica en cada deploy y tras un rebuild.
+$chromeExe = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+if (Test-Path $chromeExe) {
+    & $nssm set $API_NAME AppEnvironmentExtra "PUPPETEER_EXECUTABLE_PATH=$chromeExe" | Out-Null
+    Write-Host "  PUPPETEER_EXECUTABLE_PATH -> $chromeExe" -ForegroundColor Green
+} else {
+    Write-Host "  WARN: Chrome no encontrado en Program Files; el boletín PDF puede fallar." -ForegroundColor Yellow
+}
+
+if ((Get-Service $API_NAME).Status -eq 'Running') { Restart-Service $API_NAME } else { Start-Service $API_NAME }
 Write-Host "  API service running on port $API_PORT." -ForegroundColor Green
 
 # ── 10. Health check ─────────────────────────────────────────────────────
