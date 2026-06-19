@@ -66,6 +66,28 @@ describe('GenerateBoletinUseCase.getBaseLevel', () => {
       expect.objectContaining({ code: 'BOLETIN_LEVEL_UNKNOWN' }),
     );
   });
+
+  // ── HOTFIX: base-encoded levels (1-4) — prod bug where enrollments have level=4 not level=40
+  it('[HOTFIX] returns INICIAL for base-encoded level 1', () => {
+    expect(uc.getBaseLevel(1)).toBe('INICIAL');
+  });
+
+  it('[HOTFIX] returns PRIMARIO for base-encoded level 2', () => {
+    expect(uc.getBaseLevel(2)).toBe('PRIMARIO');
+  });
+
+  it('[HOTFIX] returns SECUNDARIO for base-encoded level 3', () => {
+    expect(uc.getBaseLevel(3)).toBe('SECUNDARIO');
+  });
+
+  it('[HOTFIX] returns TERCIARIO for base-encoded level 4 (was throwing BOLETIN_LEVEL_UNKNOWN in prod)', () => {
+    expect(uc.getBaseLevel(4)).toBe('TERCIARIO');
+  });
+
+  it('[HOTFIX] level=4 and level=40 both map to TERCIARIO (dual-encoding compatibility)', () => {
+    expect(uc.getBaseLevel(4)).toBe('TERCIARIO');
+    expect(uc.getBaseLevel(40)).toBe('TERCIARIO');
+  });
 });
 
 // ── buildAsistencia (C2 — attendance aggregation) ─────────────────────────────
