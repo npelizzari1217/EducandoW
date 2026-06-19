@@ -67,10 +67,20 @@ export class GenerateBoletinUseCase {
     // Pre-compile all Handlebars templates at construction time
     this.templates = new Map();
 
-    // Resolve template directory: try dist path first (production), fallback to src (dev)
-    const distTemplateDir = path.resolve(__dirname, '../../infrastructure/reporting/html-templates');
-    const srcTemplateDir = path.resolve(__dirname, '../../../../src/infrastructure/reporting/html-templates');
-    const templateDir = fs.existsSync(distTemplateDir) ? distTemplateDir : srcTemplateDir;
+    // Resolve template directory using candidate list — checked in order, first hit wins.
+    // In production, __dirname is <root>/api/dist/application/reportes.
+    // The .hbs files are NOT copied to dist (no nest-cli asset config), so we probe
+    // the src tree at different offsets to cover all known layout variants.
+    // A sentinel file (boletin-terciario.hbs) is used instead of just testing dir existence,
+    // which ensures we pick a directory that actually contains the templates.
+    const TEMPLATE_SUBPATH = 'infrastructure/reporting/html-templates';
+    const candidateDirs = [
+      path.resolve(__dirname, '../../', TEMPLATE_SUBPATH),           // dev (runs from src/) / dist mirror
+      path.resolve(__dirname, '../../src', TEMPLATE_SUBPATH),        // assets under dist/src (nest-cli outDir variant)
+      path.resolve(__dirname, '../../../src', TEMPLATE_SUBPATH),     // prod: dist/application/reportes → api/src (FIX off-by-one)
+      path.resolve(__dirname, '../../../../src', TEMPLATE_SUBPATH),  // legacy layout fallback
+    ];
+    const templateDir = candidateDirs.find((d) => fs.existsSync(path.join(d, 'boletin-terciario.hbs'))) ?? candidateDirs[0];
     const templateFiles: Record<string, string> = {
       INICIAL: 'boletin-inicial.hbs',
       PRIMARIO: 'boletin-primario.hbs',
