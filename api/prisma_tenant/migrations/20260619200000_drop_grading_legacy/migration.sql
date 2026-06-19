@@ -1,0 +1,124 @@
+-- Migration: drop-grading-legacy
+-- Change: retiro-grading-legacy-s3pre PR-b — DROP 5 legacy grading tables.
+-- PRE-REQUISITO: archive-legacy-grading-data.ts ejecutado con exit 0 en este tenant.
+--   Los archivos de salida (5 por tenant: notas, evaluaciones, notas_trimestrales,
+--   periodos_evaluacion, subject_assignments) deben existir en disco antes de aplicar.
+
+-- DROP grading legacy — orden hijo→padre (FKs Restrict). AD-3.
+DROP TABLE IF EXISTS "notas";
+DROP TABLE IF EXISTS "evaluaciones";
+DROP TABLE IF EXISTS "notas_trimestrales";
+DROP TABLE IF EXISTS "periodos_evaluacion";
+DROP TABLE IF EXISTS "subject_assignments";
+
+-- ── ROLLBACK INLINE (manual) ─────────────────────────────────────────────────
+-- Prisma migrate no genera down-migrations. Para revertir este DROP:
+--   1. Ejecutar los CREATE TABLE en orden inverso (padre→hijo):
+--      subject_assignments → periodos_evaluacion → notas_trimestrales → evaluaciones → notas
+--   2. Restaurar datos desde los CSV/JSON generados por archive-legacy-grading-data.ts (AD-1).
+--
+-- CREATE TABLE "subject_assignments" (
+--     "id" TEXT NOT NULL,
+--     "subjectId" TEXT NOT NULL,
+--     "teacherId" TEXT NOT NULL,
+--     "courseSectionId" TEXT NOT NULL,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updated_at" TIMESTAMP(3) NOT NULL,
+--     CONSTRAINT "subject_assignments_pkey" PRIMARY KEY ("id")
+-- );
+-- ALTER TABLE "subject_assignments" ADD CONSTRAINT "subject_assignments_subjectId_fkey"
+--     FOREIGN KEY ("subjectId") REFERENCES "subjects"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- ALTER TABLE "subject_assignments" ADD CONSTRAINT "subject_assignments_teacherId_fkey"
+--     FOREIGN KEY ("teacherId") REFERENCES "teachers"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- ALTER TABLE "subject_assignments" ADD CONSTRAINT "subject_assignments_courseSectionId_fkey"
+--     FOREIGN KEY ("courseSectionId") REFERENCES "course_sections"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- CREATE INDEX "subject_assignments_subjectId_idx" ON "subject_assignments"("subjectId");
+-- CREATE INDEX "subject_assignments_teacherId_idx" ON "subject_assignments"("teacherId");
+-- CREATE INDEX "subject_assignments_courseSectionId_idx" ON "subject_assignments"("courseSectionId");
+--
+-- CREATE TABLE "periodos_evaluacion" (
+--     "id" TEXT NOT NULL,
+--     "academicYear" TEXT NOT NULL,
+--     "name" TEXT NOT NULL,
+--     "startDate" TIMESTAMP(3) NOT NULL,
+--     "endDate" TIMESTAMP(3) NOT NULL,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updatedAt" TIMESTAMP(3) NOT NULL,
+--     CONSTRAINT "periodos_evaluacion_pkey" PRIMARY KEY ("id")
+-- );
+-- CREATE INDEX "periodos_evaluacion_academicYear_idx" ON "periodos_evaluacion"("academicYear");
+--
+-- CREATE TABLE "notas_trimestrales" (
+--     "id" TEXT NOT NULL,
+--     "studentId" TEXT NOT NULL,
+--     "assignmentId" TEXT NOT NULL,
+--     "periodId" TEXT NOT NULL,
+--     "finalGrade" DOUBLE PRECISION NOT NULL,
+--     "attendancePct" DOUBLE PRECISION,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updatedAt" TIMESTAMP(3) NOT NULL,
+--     CONSTRAINT "notas_trimestrales_pkey" PRIMARY KEY ("id")
+-- );
+-- ALTER TABLE "notas_trimestrales" ADD CONSTRAINT "notas_trimestrales_studentId_fkey"
+--     FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- ALTER TABLE "notas_trimestrales" ADD CONSTRAINT "notas_trimestrales_assignmentId_fkey"
+--     FOREIGN KEY ("assignmentId") REFERENCES "subject_assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- ALTER TABLE "notas_trimestrales" ADD CONSTRAINT "notas_trimestrales_periodId_fkey"
+--     FOREIGN KEY ("periodId") REFERENCES "periodos_evaluacion"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CREATE INDEX "notas_trimestrales_studentId_idx" ON "notas_trimestrales"("studentId");
+-- CREATE INDEX "notas_trimestrales_periodId_idx" ON "notas_trimestrales"("periodId");
+-- CREATE UNIQUE INDEX "notas_trimestrales_studentId_assignmentId_periodId_key"
+--     ON "notas_trimestrales"("studentId", "assignmentId", "periodId");
+--
+-- CREATE TABLE "evaluaciones" (
+--     "id" TEXT NOT NULL,
+--     "assignmentId" TEXT NOT NULL,
+--     "title" TEXT NOT NULL,
+--     "description" TEXT,
+--     "evaluationDate" TIMESTAMP(3) NOT NULL,
+--     "weight" DOUBLE PRECISION NOT NULL DEFAULT 1,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updatedAt" TIMESTAMP(3) NOT NULL,
+--     CONSTRAINT "evaluaciones_pkey" PRIMARY KEY ("id")
+-- );
+-- ALTER TABLE "evaluaciones" ADD CONSTRAINT "evaluaciones_assignmentId_fkey"
+--     FOREIGN KEY ("assignmentId") REFERENCES "subject_assignments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CREATE INDEX "evaluaciones_assignmentId_idx" ON "evaluaciones"("assignmentId");
+-- CREATE INDEX "evaluaciones_evaluationDate_idx" ON "evaluaciones"("evaluationDate");
+--
+-- CREATE TABLE "notas" (
+--     "id" TEXT NOT NULL,
+--     "evaluationId" TEXT NOT NULL,
+--     "studentId" TEXT NOT NULL,
+--     "numericValue" DOUBLE PRECISION,
+--     "qualitativeValue" TEXT,
+--     "comments" TEXT,
+--     "registeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "active" BOOLEAN NOT NULL DEFAULT true,
+--     "deletedAt" TIMESTAMP(3),
+--     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+--     "updatedAt" TIMESTAMP(3) NOT NULL,
+--     "gradeScaleValueId" TEXT,
+--     "gradeCode" TEXT,
+--     "gradeLabel" TEXT,
+--     "isApproved" BOOLEAN,
+--     CONSTRAINT "notas_pkey" PRIMARY KEY ("id")
+-- );
+-- ALTER TABLE "notas" ADD CONSTRAINT "notas_gradeScaleValueId_fkey"
+--     FOREIGN KEY ("gradeScaleValueId") REFERENCES "grade_scale_values"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+-- ALTER TABLE "notas" ADD CONSTRAINT "notas_evaluationId_fkey"
+--     FOREIGN KEY ("evaluationId") REFERENCES "evaluaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- ALTER TABLE "notas" ADD CONSTRAINT "notas_studentId_fkey"
+--     FOREIGN KEY ("studentId") REFERENCES "students"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+-- CREATE INDEX "notas_studentId_idx" ON "notas"("studentId");
+-- CREATE INDEX "notas_evaluationId_idx" ON "notas"("evaluationId");
+-- CREATE INDEX "notas_registeredAt_idx" ON "notas"("registeredAt");
+-- CREATE UNIQUE INDEX "notas_evaluationId_studentId_key" ON "notas"("evaluationId", "studentId");

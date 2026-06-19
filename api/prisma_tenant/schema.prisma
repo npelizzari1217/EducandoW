@@ -39,8 +39,6 @@ model Student {
   deletedAt DateTime?
 
   enrollments             Enrollment[]
-  notas                   Nota[]
-  notasTrimestrales       NotaTrimestral[]
   attendances             Attendance[]
   guardians               StudentGuardian[]
   salaEnrollments         SalaEnrollment[]
@@ -105,8 +103,6 @@ model Teacher {
 
   active    Boolean   @default(true)
   deletedAt DateTime?
-
-  subjectAssignments   SubjectAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -411,7 +407,6 @@ model Subject {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  subjectAssignments       SubjectAssignment[]
   attendances              Attendance[]
   studyPlanSubjects        StudyPlanSubject[]
   calificacionesPrimario   CalificacionPrimario[]
@@ -445,7 +440,6 @@ model CourseSection {
   deletedAt DateTime?
 
   attendances        Attendance[]
-  subjectAssignments SubjectAssignment[]
   studyPlanCourses   StudyPlanCourse[]
   grados             Grado[]
   cursos             Curso[]
@@ -457,31 +451,6 @@ model CourseSection {
   @@index([level])
   @@index([academicYear])
   @@map("course_sections")
-}
-
-model SubjectAssignment {
-  id              String @id @default(uuid())
-  subjectId       String
-  teacherId       String
-  courseSectionId String
-
-  active    Boolean   @default(true)
-  deletedAt DateTime?
-
-  subject       Subject       @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  teacher       Teacher       @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  courseSection CourseSection @relation(fields: [courseSectionId], references: [id], onDelete: Cascade)
-
-  evaluaciones      Evaluacion[]
-  notasTrimestrales NotaTrimestral[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([subjectId])
-  @@index([teacherId])
-  @@index([courseSectionId])
-  @@map("subject_assignments")
 }
 
 // ── Subject Competencies ──────────────────────────────────
@@ -592,7 +561,6 @@ model GradeScaleValue {
   updatedAt      DateTime @updatedAt
 
   scale GradeScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
-  notas Nota[]
   competencyPeriodValuations CompetencyPeriodValuation[]
   subjectPeriodGrades        SubjectPeriodGrade[]
   subjectFinalGrades         SubjectFinalGrade[]
@@ -602,99 +570,6 @@ model GradeScaleValue {
   @@map("grade_scale_values")
 }
 // ELIMINADOS: isApproved (→ internalStatus), numericValue — grading-foundations
-
-// ── Evaluation ───────────────────────────────────────────
-
-model Evaluacion {
-  id              String   @id @default(uuid())
-  assignmentId    String
-  title           String
-  description     String?
-  evaluationDate  DateTime
-  weight          Float    @default(1)
-  active          Boolean  @default(true)
-  deletedAt       DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  assignment SubjectAssignment @relation(fields: [assignmentId], references: [id])
-  notas      Nota[]
-
-  @@index([assignmentId])
-  @@index([evaluationDate])
-  @@map("evaluaciones")
-}
-
-model Nota {
-  id               String   @id @default(uuid())
-  evaluationId     String
-  studentId        String
-  numericValue     Float?
-  qualitativeValue String?
-  comments         String?
-  registeredAt     DateTime @default(now())
-  active           Boolean  @default(true)
-  deletedAt        DateTime?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // FK to the grade scale value (for current reference)
-  gradeScaleValueId String?
-  gradeScaleValue   GradeScaleValue? @relation(fields: [gradeScaleValueId], references: [id])
-
-  // SNAPSHOT — immutable historical record
-  gradeCode  String?   // "10", "DESTACADO" — the code at time of grading
-  gradeLabel String?   // "Excelente (10)" — the label at time of grading
-  isApproved Boolean?  // true/false — approval status at time of grading
-
-  evaluation Evaluacion @relation(fields: [evaluationId], references: [id])
-  student    Student    @relation(fields: [studentId], references: [id])
-
-  @@index([studentId])
-  @@index([evaluationId])
-  @@index([registeredAt])
-  @@unique([evaluationId, studentId])
-  @@map("notas")
-}
-
-model PeriodoEvaluacion {
-  id           String   @id @default(uuid())
-  academicYear String
-  name         String
-  startDate    DateTime
-  endDate      DateTime
-  active       Boolean  @default(true)
-  deletedAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  notasTrimestrales NotaTrimestral[]
-
-  @@index([academicYear])
-  @@map("periodos_evaluacion")
-}
-
-model NotaTrimestral {
-  id             String  @id @default(uuid())
-  studentId      String
-  assignmentId   String
-  periodId       String
-  finalGrade     Float
-  attendancePct  Float?
-  active         Boolean @default(true)
-  deletedAt      DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  student    Student           @relation(fields: [studentId], references: [id])
-  assignment SubjectAssignment @relation(fields: [assignmentId], references: [id])
-  period     PeriodoEvaluacion @relation(fields: [periodId], references: [id])
-
-  @@index([studentId])
-  @@index([periodId])
-  @@unique([studentId, assignmentId, periodId])
-  @@map("notas_trimestrales")
-}
 
 model AttendanceType {
   id           String    @id @default(uuid())

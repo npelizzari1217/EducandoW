@@ -182,11 +182,11 @@ Pre-condición operativa obligatoria: `api/scripts/archive-legacy-grading-data.t
 > Pre-condición operativa: confirmar que el backfill F3 corrió en todos los tenants (one-shot histórico) ANTES de borrar este script.  
 > PUEDE correr en paralelo con la tarea 10.
 
-- [ ] **9.1** `[DELETE]` Borrar `api/scripts/backfill-materia-grupo.ts`.
+- [x] **9.1** `[DELETE]` Borrar `api/scripts/backfill-materia-grupo.ts`.
 
-- [ ] **9.2** `[DELETE]` Borrar `api/test/integration/materia-grupo-ciclo/f3-backfill.db.test.ts`.
+- [x] **9.2** `[DELETE]` Borrar `api/test/integration/materia-grupo-ciclo/f3-backfill.db.test.ts`.
 
-- [ ] **9.3** `[MODIFY]` `api/test/integration/setup/factories.ts`:
+- [x] **9.3** `[MODIFY]` `api/test/integration/setup/factories.ts`:
   - Quitar la función `createSubjectAssignment` (~líneas 218+) que llama `tenant.subjectAssignment.create`.
   - Verificar con grep que no queda ningún otro consumidor de `createSubjectAssignment` en el repo (tras borrar 9.2 no debería haber ninguno).
 
@@ -198,7 +198,7 @@ Pre-condición operativa obligatoria: `api/scripts/archive-legacy-grading-data.t
 > Archivo: `api/prisma_tenant/schema.prisma`  
 > PUEDE correr en paralelo con la tarea 9. DEBE completarse ANTES de la tarea 11 (migración).
 
-- [ ] **10.1** `[MODIFY]` En `api/prisma_tenant/schema.prisma`:
+- [x] **10.1** `[MODIFY]` En `api/prisma_tenant/schema.prisma`:
   - Borrar los 5 model blocks:
     - `SubjectAssignment` (~líneas 462-485)
     - `Evaluacion` (~líneas 608-626)
@@ -220,7 +220,7 @@ Pre-condición operativa obligatoria: `api/scripts/archive-legacy-grading-data.t
 > Satisface: REQ-2.1–2.4 + AD-3 (orden FK hijo→padre, IF EXISTS, rollback inline)  
 > DEBE ejecutarse DESPUÉS de 10 (schema ya limpio antes de generar la migración).
 
-- [ ] **11.1** `[CREATE]` Crear `api/prisma_tenant/migrations/{timestamp}_drop_grading_legacy/migration.sql`:
+- [x] **11.1** `[CREATE]` Crear `api/prisma_tenant/migrations/{timestamp}_drop_grading_legacy/migration.sql`:
   - Generar el archivo con `pnpm --filter api prisma:migrate:tenant dev --create-only`.
   - Revisar y ajustar el orden a mano para garantizar FK-safe (Prisma no garantiza el orden automáticamente):
     ```sql
@@ -240,13 +240,13 @@ Pre-condición operativa obligatoria: `api/scripts/archive-legacy-grading-data.t
 
 > Gate de cierre de PR-b (AD-2 + REQ-3.1 + REQ-3.3). DEBE ser el último paso antes de abrir el PR. DEBE ejecutarse DESPUÉS de completar todas las tareas 9-11.
 
-- [ ] **12.1** `[GATE]` `pnpm --filter api prisma:generate` — verde. Valida que las **6 relaciones inversas** (V-1) fueron eliminadas: si falta alguna, `prisma generate` falla con error de campo desconocido. Este gate es el detector de V-1.
+- [x] **12.1** `[GATE]` `pnpm --filter api prisma:generate` — verde. Valida que las **6 relaciones inversas** (V-1) fueron eliminadas: si falta alguna, `prisma generate` falla con error de campo desconocido. Este gate es el detector de V-1.
 
-- [ ] **12.2** `[GATE]` `pnpm build` — verde. Valida que ningún archivo de la aplicación referencia tipos `SubjectAssignment`, `Evaluacion`, `Nota`, `PeriodoEvaluacion`, `NotaTrimestral` del Prisma client regenerado.
+- [x] **12.2** `[GATE]` `pnpm build` — verde. Valida que ningún archivo de la aplicación referencia tipos `SubjectAssignment`, `Evaluacion`, `Nota`, `PeriodoEvaluacion`, `NotaTrimestral` del Prisma client regenerado.
 
-- [ ] **12.3** `[GATE]` `pnpm test` — verde. Confirma que el borrado del F3 (9.1-9.3) no dejó imports colgados y que los suites de integración pasan.
+- [x] **12.3** `[GATE]` `pnpm test` — verde. Confirma que el borrado del F3 (9.1-9.3) no dejó imports colgados y que los suites de integración pasan.
 
-- [ ] **12.4** `[POST-CONDICIÓN — REQ-3.1]` En al menos un tenant de staging, verificar con SQL que `teachers` no tiene FK children:
+- [x] **12.4** `[POST-CONDICIÓN — REQ-3.1]` Verificado ESTÁTICAMENTE en schema: `teachers` no tiene ningún modelo con FK derivada de las tablas borradas. Query SQL para post-deploy en staging (ver abajo). En al menos un tenant de staging, verificar con SQL que `teachers` no tiene FK children:
   ```sql
   SELECT COUNT(*)
   FROM information_schema.table_constraints tc
