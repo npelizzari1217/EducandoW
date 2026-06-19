@@ -1,5 +1,5 @@
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
+import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { DomainError } from '@educandow/domain';
 
 // Map domain error codes to HTTP status
@@ -44,9 +44,12 @@ const DOMAIN_STATUS: Record<string, number> = {
 
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AppExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
@@ -71,6 +74,15 @@ export class AppExceptionFilter implements ExceptionFilter {
       message = exception.message;
     } else if (exception instanceof Error) {
       message = exception.message;
+    }
+
+    // Errores 5xx inesperados (Prisma, bugs, etc.): logueá el stack completo.
+    // Sin esto, un 500 deja el log mudo y quedás ciego para debuggear.
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(
+        `Unhandled ${status} en ${request.method} ${request.url}: ${message}`,
+        exception instanceof Error ? exception.stack : String(exception),
+      );
     }
 
     response.status(status).json({
