@@ -38,6 +38,10 @@ vi.mock('../context/institution-context', () => ({
     isLoading: false,
   }),
 }));
+vi.mock('../context/active-institution-context', () => ({
+  ActiveInstitutionProvider: ({ children }: any) => <>{children}</>,
+  useActiveInstitution: () => ({ activeId: null, setActive: () => {} }),
+}));
 vi.mock('../components/layout/dashboard-layout', () => ({
   DashboardLayout: () => {
     return <div data-testid="dashboard-layout"><Outlet /></div>;

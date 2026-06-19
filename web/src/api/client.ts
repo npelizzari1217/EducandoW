@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { getToken, setToken } from './token';
+import { applyActiveInstitution } from './active-institution';
 import { sessionManager } from './session-manager';
 
 const apiClient = axios.create({
@@ -14,7 +15,7 @@ let refreshPromise: Promise<string> | null = null;
 apiClient.interceptors.request.use((config) => {
   const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
+  return applyActiveInstitution(config);
 });
 
 apiClient.interceptors.response.use(

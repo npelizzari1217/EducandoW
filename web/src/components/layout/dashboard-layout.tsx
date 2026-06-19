@@ -2,8 +2,40 @@ import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Sidebar } from './sidebar';
 import { ThemeToggle } from '../ui/theme-toggle';
+import { ActiveInstitutionSelector } from './active-institution-selector';
 import { useInstitution } from '../../context/institution-context';
+import { useAuth } from '../../context/auth-context';
+import { useActiveInstitution } from '../../context/active-institution-context';
 import './sidebar.css';
+
+/**
+ * Frontend routes where ROOT can operate WITHOUT an active institution.
+ * These mirror the master-only paths in:
+ *   api/src/infrastructure/auth/tenant.middleware.ts → isMasterRoute()
+ *
+ * IMPORTANT: Keep this list in sync with isMasterRoute() in the API.
+ * Master routes use the master DB and do not require a tenant/institutionId.
+ */
+const MASTER_ROUTES = [
+  '/',            // dashboard home (static cards, no tenant API calls)
+  '/institutions', // institution CRUD → master DB
+  '/users',        // user management → master DB
+  '/modules',      // module management → master DB
+  '/profiles',     // profile management → master DB
+] as const;
+
+/**
+ * Returns true if the given pathname corresponds to a MASTER (non-tenant) route.
+ * Matches exact paths and any sub-paths (e.g. /institutions/123).
+ * The root '/' is matched exactly to avoid accidentally allowing everything.
+ */
+function isMasterRoute(pathname: string): boolean {
+  return MASTER_ROUTES.some((route) =>
+    route === '/'
+      ? pathname === '/'
+      : pathname === route || pathname.startsWith(route + '/'),
+  );
+}
 
 function isDesktop() {
   try {
@@ -17,6 +49,14 @@ export function DashboardLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(isDesktop);
   const { config } = useInstitution();
   const location = useLocation();
+  const { user } = useAuth();
+  const { activeId } = useActiveInstitution();
+
+  // ROOT without an active institution must not load tenant-scoped pages.
+  // MASTER routes (institution management, users, modules, profiles) are
+  // always accessible — they don't require a tenant DB.
+  const isRoot = user?.roles?.includes('ROOT') ?? false;
+  const showTenantGuard = isRoot && activeId == null && !isMasterRoute(location.pathname);
 
   // Close sidebar on route change in mobile/tablet
   useEffect(() => {
@@ -82,9 +122,28 @@ export function DashboardLayout() {
       {/* Theme toggle — always visible */}
       <ThemeToggle />
 
+      {/* Global institution selector — visible only for ROOT */}
+      <ActiveInstitutionSelector />
+
       <Sidebar isOpen={sidebarOpen} onToggle={handleToggle} />
       <main className="main-content">
-        <Outlet />
+        {showTenantGuard ? (
+          <div
+            style={{
+              padding: '2rem',
+              textAlign: 'center',
+              marginTop: '4rem',
+            }}
+          >
+            <p style={{ fontSize: 'var(--text-lg)', marginBottom: '1.5rem' }}>
+              Seleccioná una institución para ver y editar sus datos
+            </p>
+            {/* Inline selector so the user can pick without hunting the top bar */}
+            <ActiveInstitutionSelector />
+          </div>
+        ) : (
+          <Outlet />
+        )}
       </main>
     </div>
   );
