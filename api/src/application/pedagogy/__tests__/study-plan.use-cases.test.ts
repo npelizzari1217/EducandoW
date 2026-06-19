@@ -18,7 +18,6 @@ function makeExistingPlan(overrides?: Partial<StudyPlanProps>): StudyPlan {
     name: 'Plan Primario',
     level: EducationalLevelCode.PRIMARIO,
     modality: EducationalModalityCode.COMUN,
-    academicYear: '2026',
     active: true,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
@@ -105,7 +104,7 @@ describe('UpdateStudyPlanUC', () => {
     const existing = makeExistingPlan();
     mockRepo.findById.mockResolvedValue(existing);
 
-    const result = await uc.execute(EXISTING_ID, { academicYear: '2027' });
+    const result = await uc.execute(EXISTING_ID, { name: 'Nombre 2027' });
 
     expect(result.isOk()).toBe(true);
     expect(mockRepo.saveWithLevelCascade).not.toHaveBeenCalled();
@@ -201,7 +200,6 @@ describe('CreateStudyPlanUC', () => {
       name: 'Plan Inválido',
       level: 4, // TERCIARIO — only COMUN (0) is valid
       modality: 1,
-      academicYear: '2026',
     });
 
     expect(result.isErr()).toBe(true);
@@ -214,7 +212,6 @@ describe('CreateStudyPlanUC', () => {
       name: 'Talleres de Secundario',
       level: EducationalLevelCode.SECUNDARIO, // 3
       modality: EducationalModalityCode.TALLERES, // 1
-      academicYear: '2026',
     });
 
     expect(result.isOk()).toBe(true);
@@ -228,7 +225,6 @@ describe('CreateStudyPlanUC', () => {
     const result = await uc.execute({
       name: 'Plan X',
       level: 5,
-      academicYear: '2026',
     });
 
     expect(result.isErr()).toBe(true);
