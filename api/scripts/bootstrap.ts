@@ -11,7 +11,6 @@
  *   5. Run prisma migrate deploy (master schema)
  *   6. Run prisma seed (RBAC + ROOT user)
  *   7. Apply sync-system.sql (system data)
- *   8. Create Test institution + tenant DB (idempotent)
  *
  * Usage:
  *   pnpm bootstrap            (from api/)
@@ -238,84 +237,6 @@ async function main() {
     process.exit(1);
   } finally {
     await masterPool.end();
-  }
-
-  // ── Step 8: Create Test institution ───────────────────
-  console.log('⏳ Creating Test institution...');
-
-  const TEST_INSTITUTION_UUID = '00000000-0000-0000-0000-000000000001';
-  const TEST_INSTITUTION_DB_NAME = 'educandow_test';
-  const TEST_INSTITUTION_NAME = 'Test';
-
-  const instPool = new Pool({ connectionString: masterUrl });
-  try {
-    const result = await instPool.query(
-      `INSERT INTO institutions (id, name, db_name, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       ON CONFLICT (db_name) DO NOTHING`,
-      [TEST_INSTITUTION_UUID, TEST_INSTITUTION_NAME, TEST_INSTITUTION_DB_NAME],
-    );
-
-    if (result.rowCount === 1) {
-      console.log('✅ Test institution record created.');
-    } else {
-      console.log('⏩ Test institution record already exists, skipping.');
-    }
-  } catch (err) {
-    console.error(
-      '❌ Failed to insert Test institution:',
-      (err as Error).message,
-    );
-    await instPool.end();
-    process.exit(1);
-  } finally {
-    await instPool.end();
-  }
-
-  // ── Create tenant database ────────────────────────────
-  const maintPool = new Pool({ connectionString: maintenanceUrl });
-  try {
-    await maintPool.query(`CREATE DATABASE "${TEST_INSTITUTION_DB_NAME}"`);
-    console.log(`✅ Tenant database '${TEST_INSTITUTION_DB_NAME}' created.`);
-  } catch (err: unknown) {
-    const pgErr = err as { code?: string; message?: string };
-    if (pgErr.code === '42P04') {
-      console.log(
-        `⏩ Tenant database '${TEST_INSTITUTION_DB_NAME}' already exists, skipping.`,
-      );
-    } else {
-      console.error(
-        '❌ Failed to create tenant database:',
-        pgErr.message ?? err,
-      );
-      await maintPool.end();
-      process.exit(1);
-    }
-  } finally {
-    await maintPool.end();
-  }
-
-  // ── Run tenant migrations ─────────────────────────────
-  console.log('⏳ Running tenant migrations...');
-  try {
-    const tenantDbUrl = masterUrl.replace(
-      /\/[^/]+$/,
-      `/${TEST_INSTITUTION_DB_NAME}`,
-    );
-    execSync('npx prisma migrate deploy --schema=prisma_tenant/schema.prisma', {
-      stdio: 'inherit',
-      cwd: path.resolve(__dirname, '..'),
-      env: { ...process.env, DATABASE_URL: tenantDbUrl },
-    });
-    console.log(
-      `✅ Tenant migrations applied for '${TEST_INSTITUTION_DB_NAME}'.\n`,
-    );
-  } catch (err) {
-    console.error(
-      '❌ Tenant migrations failed:',
-      (err as Error).message,
-    );
-    process.exit(1);
   }
 
   // ── Done ─────────────────────────────────────────────
