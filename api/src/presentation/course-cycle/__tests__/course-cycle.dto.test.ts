@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GenerateCourseCyclesSchema } from '../dto/course-cycle.dto';
 import { CourseCycleController } from '../course-cycle.controller';
-import { CourseCycleNotFoundError, CourseCycle, CourseName, PassingGrade, Level, LevelType, BimonthPeriod } from '@educandow/domain';
+import { CourseCycleNotFoundError, CourseCycle, CourseName, PassingGrade, Level, LevelType } from '@educandow/domain';
 
 // ── CourseCycleController helpers ──────────────────────────────
 
@@ -33,6 +33,9 @@ function makeController(overrides: Record<string, unknown> = {}) {
     overrides.getGradingPeriodUC as any,
     overrides.setGradingPeriodUC as any,
     overrides.listStudentsUC as any,
+    overrides.listTeacherCCsUC as any,
+    overrides.listTeacherSubjectsUC as any,
+    overrides.listAdminSubjectsUC as any,
   );
 }
 

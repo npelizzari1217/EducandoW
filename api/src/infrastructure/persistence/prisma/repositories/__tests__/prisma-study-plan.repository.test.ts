@@ -15,7 +15,6 @@ function makePlan(id: string, level: EducationalLevelCode, modality: Educational
     name: 'Plan Test',
     level,
     modality,
-    academicYear: '2026',
     active: true,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),

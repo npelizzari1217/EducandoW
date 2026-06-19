@@ -97,11 +97,11 @@ describe('PedagogyController — GET /competency-valuations', () => {
     const ctrl = buildController({});
 
     await expect(
-      ctrl.listValuations('student-1', undefined as unknown as string),
+      ctrl.listValuations('student-1', undefined as unknown as string, undefined as unknown as string),
     ).rejects.toBeInstanceOf(HttpException);
 
     try {
-      await ctrl.listValuations('student-1', undefined as unknown as string);
+      await ctrl.listValuations('student-1', undefined as unknown as string, undefined as unknown as string);
     } catch (e) {
       expect((e as HttpException).getStatus()).toBe(HttpStatus.BAD_REQUEST);
     }

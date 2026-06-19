@@ -19,7 +19,6 @@ import {
   GradeScaleValue,
   Id,
   CompetencyValuationNotFoundError,
-  GradeScaleNotConfiguredError,
   PeriodItemNotInTemplateError,
   GradeScaleValueMismatchError,
   PeriodLockedError,
