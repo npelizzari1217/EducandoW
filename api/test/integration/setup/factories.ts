@@ -189,32 +189,6 @@ export function createStudent(
   });
 }
 
-export function createTeacher(
-  tenant: TenantPrismaClient,
-  overrides: {
-    userId?: string;
-    firstName?: string;
-    lastName?: string;
-    dni?: string;
-    email?: string;
-    title?: string;
-    phone?: string;
-  } = {},
-) {
-  const n = uniq();
-  return tenant.teacher.create({
-    data: {
-      firstName: overrides.firstName ?? `Docente${n}`,
-      lastName: overrides.lastName ?? `Apellido${n}`,
-      dni: overrides.dni ?? `TDNI${n}`,
-      email: overrides.email ?? `docente${n}@test.local`,
-      title: overrides.title ?? null,
-      phone: overrides.phone ?? null,
-      userId: overrides.userId ?? null,
-    },
-  });
-}
-
 export function createEnrollment(
   tenant: TenantPrismaClient,
   data: {

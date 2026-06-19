@@ -90,29 +90,6 @@ model StudentGuardian {
   @@map("student_guardians")
 }
 
-model Teacher {
-  id            String   @id @default(uuid())
-  firstName     String
-  lastName      String
-  dni           String   @unique
-  email         String
-  phone         String?
-  title         String?
-  /// Link to master-DB User.id (no FK — cross-DB reference). Stored in column user_id via @map. AD-6.
-  userId        String?  @map("user_id")
-
-  active    Boolean   @default(true)
-  deletedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([lastName])
-  @@index([dni])
-  @@index([userId])
-  @@map("teachers")
-}
-
 // ── Asignacion Curso x Ciclo (Fase 4) ─────────────────────
 
 // RolCurso — functional role within a CursoXCiclo.
