@@ -60,8 +60,8 @@ opencode_state.json
 api/prisma/generated/
 
 # ERD autogenerados (prisma-erd-generator)
-api/prisma_master/ERD.svg
-api/prisma_tenant/ERD.svg
+api/prisma_master/ERD.md
+api/prisma_tenant/ERD.md
 
 # Turbo cache
 node_modules/.cache/

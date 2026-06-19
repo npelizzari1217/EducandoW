@@ -4,7 +4,9 @@ generator client {
 
 generator erd {
   provider = "prisma-erd-generator"
-  output   = "ERD.svg"
+  // .md => el generator escribe mermaid markdown y NO invoca mmdc/chromium
+  // (evita `find ../.. -name mmdc`, que rompe el deploy en Windows). Cross-platform.
+  output   = "ERD.md"
 }
 
 datasource db {
