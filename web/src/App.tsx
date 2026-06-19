@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from './components/error-boundary';
 import { AuthProvider } from './context/auth-context';
 import { InstitutionProvider } from './context/institution-context';
+import { ActiveInstitutionProvider } from './context/active-institution-context';
 import { ThemeApplier } from './components/theme/theme-applier';
 import { ReloginModal } from './components/auth/relogin-modal';
 import { useIdleTimer } from './hooks/use-idle-timer';
@@ -52,6 +53,7 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <InstitutionProvider>
+          <ActiveInstitutionProvider>
           <ThemeApplier />
           <IdleTimerMount />
           <ReloginModal />
@@ -101,6 +103,7 @@ function App() {
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </ActiveInstitutionProvider>
         </InstitutionProvider>
       </AuthProvider>
     </ErrorBoundary>
