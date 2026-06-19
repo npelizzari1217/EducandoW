@@ -140,7 +140,7 @@ La secretaría MUST poder confirmar `notaCursada` y `condicion` en `InscripcionM
 
 ### Requirement: Autorización
 
-Los endpoints de `NotaCursadaTerciario` y confirmación de `notaCursada` MUST requerir `@Roles GRADES` + `@Levels TERCIARIO`. No se introduce DocenteXCiclo ni variantes en este cambio. La entrada por docente queda diferida a Fase D.
+Los endpoints de `NotaCursadaTerciario` y confirmación de `notaCursada` MUST requerir `@Roles GRADES` + `@Levels TERCIARIO`. La entrada por docente asignado es parte de este mismo modelo (Fase D, `docente-grade-entry` 2026-06-19).
 
 #### Scenario: Acceso sin nivel TERCIARIO rechazado
 
@@ -153,6 +153,57 @@ Los endpoints de `NotaCursadaTerciario` y confirmación de `notaCursada` MUST re
 - GIVEN un usuario autenticado pero sin `@Roles GRADES`
 - WHEN accede a cualquier endpoint de cursada Terciario
 - THEN el sistema MUST retornar HTTP 403
+
+---
+
+### Requirement: Docente — crear y actualizar slots de cursada (Door 3)
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+Un docente asignado MUST poder crear (`POST /terciario/cursada/:id/slots`) y actualizar (`PATCH /terciario/cursada/:id/slots/:slot`) slots de `NotaCursadaTerciario` para las materias que dicta. El sistema MUST verificar la pertenencia mediante `TerciarioAuthorizerService.canWriteGrades` (Door 3) en el use-case. Un docente sin asignación activa para la materia de la `InscripcionMateria` MUST recibir HTTP 403. Secretaría y superiores (rank >= SECRETARIO) MUST pasar Door 3 por bypass (Door 2).
+
+Door 1 requerido: `GRADES:CREATE` para crear; `GRADES:UPDATE` para actualizar.
+Door 3 se evalúa dentro del use-case (`CreateSlotUC`, `UpdateSlotUC`), no en el guard.
+
+#### Scenario: Docente asignado crea un slot
+
+- GIVEN un TEACHER con asignación activa `DocenteXMateriaCarrera` para materiaCarreraId=M / anioAcademico=Y
+- AND una `InscripcionMateria` con id=I, materiaCarreraId=M, anioAcademico=Y
+- WHEN `POST /terciario/cursada/I/slots` con body válido
+- THEN el sistema MUST retornar HTTP 201 con el slot creado
+
+#### Scenario: Docente no asignado recibe 403 en create
+
+- GIVEN un TEACHER sin asignación activa para la materia de la `InscripcionMateria` I
+- WHEN `POST /terciario/cursada/I/slots`
+- THEN HTTP 403 es retornado y ningún slot es creado
+
+#### Scenario: Secretaría crea slot sin restriction de asignación
+
+- GIVEN un usuario con rank >= SECRETARIO
+- WHEN `POST /terciario/cursada/I/slots` con body válido
+- THEN HTTP 201 es retornado independientemente de `DocenteXMateriaCarrera`
+
+---
+
+### Requirement: Docente — confirmar regularidad (Door 3)
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+Un docente asignado MUST poder confirmar la cursada (`PATCH /terciario/cursada/:id/confirmar`) para las materias que dicta. Se aceptan las condiciones `REGULAR`, `LIBRE` y `PROMOCIONAL` cuando el docente tiene asignación activa. El sistema MUST verificar Door 3 vía `TerciarioAuthorizerService.canWriteGrades` en el use-case (`ConfirmarNotaCursadaUC`). Door 1 requiere `GRADES:UPDATE` (grant agregado a TEACHER en SPEC-2 de este cambio).
+
+#### Scenario: Docente asignado confirma REGULAR
+
+- GIVEN un TEACHER asignado a materiaCarreraId=M / anioAcademico=Y
+- AND InscripcionMateria I en esa materia/año
+- WHEN `PATCH /terciario/cursada/I/confirmar` con `{ condicion: "REGULAR" }`
+- THEN `InscripcionMateria.estado` queda REGULAR y HTTP 200 es retornado
+
+#### Scenario: Docente no asignado recibe 403 en confirmar
+
+- GIVEN un TEACHER sin asignación activa para la materia de InscripcionMateria I
+- WHEN `PATCH /terciario/cursada/I/confirmar`
+- THEN HTTP 403 es retornado y `InscripcionMateria.estado` NO es modificado
 
 ---
 

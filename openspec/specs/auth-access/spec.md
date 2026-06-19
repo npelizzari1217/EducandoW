@@ -203,3 +203,31 @@ Observation endpoints MUST be protected by role rank, not by module/action guard
 - WHEN the use case evaluates `type: PSYCHOPEDAGOGICAL` against caller rank < 50
 - THEN the use case returns a domain authorization error mapped to HTTP 403
 - AND the guard itself does NOT make type-level decisions
+
+### Requirement: TEACHER role — GRADES:UPDATE grant
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+The `role_modules` entry for the TEACHER role on the GRADES module MUST include `UPDATE` in its `actions` array. The effective grant after this change SHALL be `GRADES: [CREATE, READ, UPDATE]`. This grant is required so TEACHER passes Door 1 (`@Roles({ module: 'GRADES', action: 'UPDATE' })`) on cursada update and confirmar regularidad endpoints. The `UPDATE` grant does NOT give unrestricted update access: `TerciarioAuthorizerService` (Door 3) still enforces per-materia ownership. Primario/Secundario grading (handled by `AssignmentAuthorizer`) is NOT affected.
+
+Implemented via: `api/prisma/seed-rbac.sql` (TEACHER GRADES array updated) + idempotent master migration `api/prisma_master/migrations/20260619110000_teacher_grades_update/migration.sql`. Docentes MUST re-login after the master migration is deployed to receive `GRADES:UPDATE` in their JWT (ADR-7, staleness window).
+
+#### Scenario: Teacher passes Door 1 for GRADES:UPDATE after grant
+
+- GIVEN a user with role TEACHER and GRADES:UPDATE in their resolved role_modules
+- WHEN a request hits a cursada endpoint decorated with `@Roles({ module: 'GRADES', action: 'UPDATE' })`
+- THEN Door 1 passes (the guard does not reject)
+
+#### Scenario: Teacher still blocked at Door 3 on non-assigned materia
+
+- GIVEN a TEACHER with GRADES:UPDATE (passes Door 1)
+- AND the requested inscripcionMateria belongs to a materiaCarreraId NOT assigned to this teacher
+- WHEN the use-case invokes TerciarioAuthorizerService.canWriteGrades
+- THEN HTTP 403 is returned
+
+#### Scenario: Primario/Secundario grading unaffected
+
+- GIVEN any grading request against a Primario or Secundario endpoint
+- WHEN the request is processed
+- THEN the existing AssignmentAuthorizer logic is invoked unchanged
+- AND the TEACHER GRADES:UPDATE grant does NOT alter Primario/Secundario authorization behavior

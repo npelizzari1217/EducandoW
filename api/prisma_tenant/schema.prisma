@@ -1119,6 +1119,7 @@ model MateriaCarrera {
   correlativasDe    Correlatividad[] @relation("MateriaCorrelativaRequerida")
   inscripciones     InscripcionMateria[]
   actasExamen       ActaExamen[]
+  docentesAsignados DocenteXMateriaCarrera[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -1127,6 +1128,23 @@ model MateriaCarrera {
   @@index([carreraId])
   @@index([subjectId])
   @@map("materias_carrera")
+}
+
+model DocenteXMateriaCarrera {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  materiaCarreraId String   @map("materia_carrera_id")
+  anioAcademico    String   @map("anio_academico")
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt      @map("updated_at")
+
+  materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, materiaCarreraId, anioAcademico])
+  @@index([materiaCarreraId, anioAcademico])
+  @@index([userId])
+  @@map("docentes_x_materia_carrera")
 }
 
 model Correlatividad {

@@ -37,6 +37,9 @@ const DOMAIN_STATUS: Record<string, number> = {
   MAX_INTENTOS_ALCANZADO: 422,
   CONDICION_INVALIDA: 422,
   REGULARIDAD_VENCIDA: 422,
+  // Terciario — docente-grade-entry (Fase D)
+  DOCENTE_ALREADY_ASSIGNED: 409,
+  ASSIGNMENT_ALREADY_INACTIVE: 409,
 };
 
 @Catch()

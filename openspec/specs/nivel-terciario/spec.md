@@ -325,3 +325,141 @@ Migration: `pnpm --filter api prisma:migrate:tenant` (run once per tenant DB). T
 - GIVEN a student has completed all subjects in their career
 - WHEN `POST /v1/terciario/titulos` with `{ studentId, carreraId, estado: "EN_TRAMITE" }`
 - THEN the system returns HTTP 201
+
+---
+
+### Requirement: Entity `DocenteXMateriaCarrera` — docente–materia assignment
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+The tenant schema MUST define a model `DocenteXMateriaCarrera` with fields: `id` (String, CUID PK), `userId` (String, AD-6 soft ref to master `User.id`), `materiaCarreraId` (String, FK → `MateriaCarrera.id`), `anioAcademico` (String, e.g. "2025"), `active` (Boolean, default true), `createdAt`, `updatedAt`. The combination `(userId, materiaCarreraId, anioAcademico)` MUST be unique within the tenant. Multiple distinct `userId` values MAY be active for the same `(materiaCarreraId, anioAcademico)` pair (co-teaching). Hard-delete via the public API is NOT allowed — unassign MUST set `active = false`. Re-assigning an inactive row MUST reactivate it (no duplicate insert). Uses `User.id` directly (Terciario has no AcademicCycle; mirrors `InscripcionMateria.anioAcademico` style).
+
+Tenant migration: `api/prisma_tenant/migrations/20260619100000_docentes_x_materia_carrera/migration.sql`. Run via `prisma migrate deploy` on each tenant DB at deploy time.
+
+#### Scenario: Assignment persisted
+
+- GIVEN valid `userId`, `materiaCarreraId`, and `anioAcademico`
+- WHEN secretaría calls the assign endpoint
+- THEN a `DocenteXMateriaCarrera` row is created with `active = true` and HTTP 201
+
+#### Scenario: Duplicate active assignment rejected with 409
+
+- GIVEN an active `DocenteXMateriaCarrera` for `(U, M, Y)` exists
+- WHEN secretaría attempts to assign the same `(U, M, Y)` again
+- THEN HTTP 409 is returned and no duplicate row is created
+
+#### Scenario: Co-teaching allowed
+
+- GIVEN `DocenteXMateriaCarrera` for `(userId=U1, M, Y)` is active
+- WHEN secretaría assigns `(userId=U2, M, Y)`
+- THEN a second row is created with `active = true` and the first row is unaffected
+
+#### Scenario: Soft unassign sets active=false
+
+- GIVEN an active `DocenteXMateriaCarrera` row with id=R
+- WHEN secretaría calls `PATCH /terciario/admin/docentes-materias/R/unassign`
+- THEN `active` is set to `false` and the row MUST NOT be deleted from the database
+
+---
+
+### Requirement: `TerciarioAuthorizerService` — Door 3 for Terciario grading
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+An application service `TerciarioAuthorizerService` MUST exist in `api/src/application/grading/`. It MUST expose:
+- `canWriteGrades(userId, userRoles, inscripcionMateriaId): Promise<boolean>` — authorizes create/update/confirmar.
+- `getAllowedStudentIds(userId, userRoles, materiaCarreraId, anioAcademico): Promise<string[] | 'all' | null>` — scopes reads to assigned students.
+
+Door 2 bypass: when `resolveAccessScope(userRoles).isAdministrative === true` (rank >= SECRETARIO), `canWriteGrades` MUST return `true` and `getAllowedStudentIds` MUST return `'all'` without querying `DocenteXMateriaCarrera`. Door 3 teacher path: look up an active `DocenteXMateriaCarrera` for `(userId, materiaCarreraId, anioAcademico)` derived from the `InscripcionMateria` record. `anioAcademico` MUST be derived from `InscripcionMateria.anioAcademico` — NEVER from a caller-supplied header or query param. Fail-closed: if the tenant client is null or `InscripcionMateria` is missing, return `false`/`null` (no throw). `AssignmentAuthorizer` (Primario/Secundario) MUST remain untouched.
+
+#### Scenario: Administrative user bypasses Door 3
+
+- GIVEN a user with role SECRETARIO (rank >= SECRETARIO)
+- WHEN `canWriteGrades` is called for any `inscripcionMateriaId`
+- THEN `true` is returned without querying `DocenteXMateriaCarrera`
+
+#### Scenario: Teacher on assigned materia passes Door 3
+
+- GIVEN a TEACHER with an active `DocenteXMateriaCarrera` for `(U, M, Y)` and an `InscripcionMateria` id=I with materiaCarreraId=M, anioAcademico=Y
+- WHEN `canWriteGrades(U, ['TEACHER'], I)` is called
+- THEN `true` is returned
+
+#### Scenario: Inactive assignment does not grant access
+
+- GIVEN a `DocenteXMateriaCarrera` row for `(U, M, Y)` with `active = false`
+- WHEN `canWriteGrades(U, ['TEACHER'], I)` is called for an inscripcion in materia M / year Y
+- THEN `false` is returned
+
+#### Scenario: Null tenant client → fail-closed
+
+- GIVEN `TenantContext.getClient()` returns null
+- WHEN `canWriteGrades` is called
+- THEN `false` is returned without throwing and HTTP 403 propagates to the caller
+
+---
+
+### Requirement: Admin endpoints — docente–materia assignments
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+All admin assignment endpoints MUST require Door 1 (`GRADES:CREATE/READ/UPDATE`) AND Door 2 (`isAdministrative`, rank >= SECRETARIO), enforced in the use-case via `resolveAccessScope(userRoles).isAdministrative`. A TEACHER MUST NOT reach these endpoints even with `GRADES:CREATE/UPDATE`.
+
+| Method | Path                                               | Door 1 action  |
+|--------|----------------------------------------------------|----------------|
+| POST   | `/terciario/admin/docentes-materias`               | GRADES:CREATE  |
+| GET    | `/terciario/admin/docentes-materias`               | GRADES:READ    |
+| PATCH  | `/terciario/admin/docentes-materias/:id/unassign`  | GRADES:UPDATE  |
+
+`POST` accepts `{ userId, materiaCarreraId, anioAcademico }` (all required Strings); returns 201 on success, 409 on duplicate active assignment. `GET` accepts `?materiaCarreraId=X` (returns active assignments for that materia, optionally filtered by `?anioAcademico=Y`) or `?userId=X` (returns all active assignments for that docente). `PATCH unassign` sets `active = false`; returns 404 if not found, 409 if already inactive.
+
+All inputs MUST be validated with Zod.
+
+#### Scenario: Secretaría assigns a docente
+
+- GIVEN a SECRETARIO user with GRADES:CREATE
+- WHEN `POST /terciario/admin/docentes-materias` with valid body
+- THEN HTTP 201 is returned with the new assignment row
+
+#### Scenario: Teacher cannot call assign endpoint
+
+- GIVEN a TEACHER with GRADES:CREATE
+- WHEN `POST /terciario/admin/docentes-materias` is called
+- THEN HTTP 403 is returned
+
+#### Scenario: List by materia returns only active rows
+
+- GIVEN three `DocenteXMateriaCarrera` rows (two active, one inactive) for the same materiaCarreraId
+- WHEN `GET /terciario/admin/docentes-materias?materiaCarreraId=M`
+- THEN only the two active rows are returned
+
+#### Scenario: Unassign on already-inactive row returns 409
+
+- GIVEN a row with `active = false`
+- WHEN `PATCH /terciario/admin/docentes-materias/R/unassign` is called
+- THEN HTTP 409 is returned
+
+---
+
+### Requirement: Docente scoped inscripciones read
+
+> Introduced by change: docente-grade-entry (Fase D, Terciario) · 2026-06-19
+
+A TEACHER MUST be able to list inscripciones for a `materiaCarreraId` they are actively assigned to via a dedicated route `GET /terciario/cursada/inscripciones` requiring `GRADES:READ` at Door 1. `ENROLLMENTS:READ` (which TEACHER does not hold) MUST NOT be required. The existing `GET /terciario/inscripciones` (requires `ENROLLMENTS:READ`) MUST remain unchanged. Ownership filtering MUST use `TerciarioAuthorizerService.getAllowedStudentIds`: if it returns `'all'` (administrative), the full list is returned; if it returns an array, only matching inscripciones are returned; if it returns `null` (not assigned), HTTP 403 MUST be returned — NOT an empty list.
+
+#### Scenario: Assigned docente lists inscripciones
+
+- GIVEN a TEACHER with an active assignment for materiaCarreraId=M / anioAcademico=Y
+- WHEN `GET /terciario/cursada/inscripciones?materiaCarreraId=M&anioAcademico=Y`
+- THEN only inscripciones where `studentId` is in the allowed student set are returned with HTTP 200
+
+#### Scenario: Non-assigned docente receives 403
+
+- GIVEN a TEACHER with no active assignment for materiaCarreraId=M2
+- WHEN `GET /terciario/cursada/inscripciones?materiaCarreraId=M2`
+- THEN HTTP 403 is returned and no inscripciones data is leaked
+
+#### Scenario: Secretaría receives full list
+
+- GIVEN a SECRETARIO user
+- WHEN `GET /terciario/cursada/inscripciones` with any materiaCarreraId
+- THEN all inscripciones for that materia are returned without ownership filter

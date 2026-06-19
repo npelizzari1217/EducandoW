@@ -4,10 +4,12 @@ import {
   EstadoInscripcion,
   Id,
 } from '@educandow/domain';
-import type { InscripcionRepository } from '@educandow/domain';
+import type { InscripcionRepository, TerciarioAuthorizerPort } from '@educandow/domain';
 import { ConfirmarNotaCursadaUC } from '../use-cases/nota-cursada-terciario.use-cases';
 
 // ── Factories ─────────────────────────────────────────────────────────────────
+
+const TEACHER_USER = { userId: 'user-1', roles: ['TEACHER'] };
 
 function makeInscripcion(estado: string, fechaRegularidad?: Date): InscripcionMateria {
   return InscripcionMateria.reconstruct({
@@ -21,6 +23,13 @@ function makeInscripcion(estado: string, fechaRegularidad?: Date): InscripcionMa
   });
 }
 
+function mockAuthz(canWrite = true): TerciarioAuthorizerPort {
+  return {
+    canWriteGrades: vi.fn().mockResolvedValue(canWrite),
+    getAllowedStudentIds: vi.fn().mockResolvedValue('all'),
+  };
+}
+
 function mockInscRepo(
   inscripcion: InscripcionMateria | null = null,
 ): InscripcionRepository {
@@ -28,6 +37,7 @@ function mockInscRepo(
     findById: vi.fn().mockResolvedValue(inscripcion),
     findByStudent: vi.fn().mockResolvedValue([]),
     findByMateriaCarrera: vi.fn().mockResolvedValue([]),
+    listByMateria: vi.fn().mockResolvedValue([]),
     findCorrelativas: vi.fn().mockResolvedValue([]),
     findAprobadas: vi.fn().mockResolvedValue([]),
     findRegulares: vi.fn().mockResolvedValue([]),
@@ -44,9 +54,9 @@ describe('ConfirmarNotaCursadaUC — fechaRegularidad behavior (FR-2.1–FR-2.4)
     const inscripcion = makeInscripcion('CURSANDO');
     const setFechaRegularidadSpy = vi.spyOn(inscripcion, 'setFechaRegularidad');
     const repo = mockInscRepo(inscripcion);
-    const uc = new ConfirmarNotaCursadaUC(repo);
+    const uc = new ConfirmarNotaCursadaUC(repo, mockAuthz(true));
 
-    const result = await uc.execute('insc-1', { condicion: 'REGULAR' });
+    const result = await uc.execute(TEACHER_USER.userId, TEACHER_USER.roles, 'insc-1', { condicion: 'REGULAR' });
 
     expect(result.isOk()).toBe(true);
     expect(setFechaRegularidadSpy).toHaveBeenCalledOnce();
@@ -59,9 +69,9 @@ describe('ConfirmarNotaCursadaUC — fechaRegularidad behavior (FR-2.1–FR-2.4)
     const inscripcion = makeInscripcion('REGULAR', originalDate);
     const setFechaRegularidadSpy = vi.spyOn(inscripcion, 'setFechaRegularidad');
     const repo = mockInscRepo(inscripcion);
-    const uc = new ConfirmarNotaCursadaUC(repo);
+    const uc = new ConfirmarNotaCursadaUC(repo, mockAuthz(true));
 
-    const result = await uc.execute('insc-1', { condicion: 'REGULAR' });
+    const result = await uc.execute(TEACHER_USER.userId, TEACHER_USER.roles, 'insc-1', { condicion: 'REGULAR' });
 
     expect(result.isOk()).toBe(true);
     expect(setFechaRegularidadSpy).toHaveBeenCalledOnce();
@@ -73,9 +83,9 @@ describe('ConfirmarNotaCursadaUC — fechaRegularidad behavior (FR-2.1–FR-2.4)
     const inscripcion = makeInscripcion('CURSANDO');
     const setFechaRegularidadSpy = vi.spyOn(inscripcion, 'setFechaRegularidad');
     const repo = mockInscRepo(inscripcion);
-    const uc = new ConfirmarNotaCursadaUC(repo);
+    const uc = new ConfirmarNotaCursadaUC(repo, mockAuthz(true));
 
-    const result = await uc.execute('insc-1', { condicion: 'LIBRE' });
+    const result = await uc.execute(TEACHER_USER.userId, TEACHER_USER.roles, 'insc-1', { condicion: 'LIBRE' });
 
     expect(result.isOk()).toBe(true);
     expect(setFechaRegularidadSpy).not.toHaveBeenCalled();
@@ -86,9 +96,9 @@ describe('ConfirmarNotaCursadaUC — fechaRegularidad behavior (FR-2.1–FR-2.4)
     const inscripcion = makeInscripcion('CURSANDO');
     const setFechaRegularidadSpy = vi.spyOn(inscripcion, 'setFechaRegularidad');
     const repo = mockInscRepo(inscripcion);
-    const uc = new ConfirmarNotaCursadaUC(repo);
+    const uc = new ConfirmarNotaCursadaUC(repo, mockAuthz(true));
 
-    const result = await uc.execute('insc-1', { condicion: 'PROMOCIONAL' });
+    const result = await uc.execute(TEACHER_USER.userId, TEACHER_USER.roles, 'insc-1', { condicion: 'PROMOCIONAL' });
 
     expect(result.isOk()).toBe(true);
     expect(setFechaRegularidadSpy).not.toHaveBeenCalled();
