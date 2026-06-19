@@ -373,16 +373,11 @@ describe('GenerateBoletinUseCase.buildMaterias — PR7-T1 regression: non-Primar
   });
 
   it('INICIAL (level=10): does NOT call Primario repos', async () => {
-    const notaTrimestralFindMany = vi.fn().mockResolvedValue([]);
     const mockClient = {
       courseCycle: {
         findMany: vi.fn().mockResolvedValue([{ uuid: 'cc-ini', courseId: 'sec-ini', level: 10 }]),
       },
-      // S2: resolveDocentesForStudentCC is called for Inicial; returns [] → resolver exits early
       materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
-      subjectAssignment: { findMany: vi.fn().mockResolvedValue([]) },
-      periodoEvaluacion: { findMany: vi.fn().mockResolvedValue([]) },
-      notaTrimestral: { findMany: notaTrimestralFindMany },
     };
 
     const enrollment = { id: 'e-ini', studentId: 'stu-ini', level: 10, cycleId: 'cyc-ini', academicYear: '2026' };
@@ -413,11 +408,6 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — PR7-T2', () => {
       studyPlanSubject: {
         findMany: vi.fn().mockResolvedValue([
           { id: 'sps-1', subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Matemática' } },
-        ]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID },
         ]),
       },
       // W2: gradingPeriodTemplateItem lookup for periodItemId → sortOrder alignment
@@ -586,11 +576,6 @@ describe('GenerateBoletinUseCase.buildMateriasPrimario — W2: per-period compet
       studyPlanSubject: {
         findMany: vi.fn().mockResolvedValue([
           { id: 'sps-1', subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Matemática' } },
-        ]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID },
         ]),
       },
       gradingPeriodTemplateItem: {
@@ -764,11 +749,6 @@ describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
           { id: SPS_ID, subjectId: SUBJECT_ID, subject: { id: SUBJECT_ID, name: 'Lengua' } },
         ]),
       },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID },
-        ]),
-      },
       gradingPeriodTemplateItem: {
         findMany: vi.fn().mockResolvedValue([]),
       },
@@ -921,12 +901,6 @@ describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
         findMany: vi.fn().mockResolvedValue([
           { id: 'sps-1', subjectId: SUBJECT_ID,  subject: { id: SUBJECT_ID,  name: 'Lengua' } },
           { id: 'sps-2', subjectId: SUBJECT_ID2, subject: { id: SUBJECT_ID2, name: 'Historia' } },
-        ]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([
-          { subjectId: SUBJECT_ID },
-          { subjectId: SUBJECT_ID2 },
         ]),
       },
     });

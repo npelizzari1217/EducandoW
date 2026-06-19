@@ -423,56 +423,12 @@ describe('grouping — missing cuatrimestre not lost', () => {
   });
 });
 
-// ── Legacy path regression — ensure the NotaTrimestral path still works ────────
-// These tests cover the legacy branch that was previously exercised by the old
-// Terciario tests. Now that Terciario dispatches to buildMateriasTerciario, the
-// legacy path is still reachable for levels that fall through all other conditions
-// (e.g. level=20 or level=30 WITHOUT repos injected).
+// ── Fallback path — unrecognized level or missing repo injection → empty materias ──
+// After PR-a2, there is no legacy NotaTrimestral path. Levels without matching repos
+// or unrecognized decade return { materias: [] } immediately.
 
-describe('legacy NotaTrimestral path — fallback (no repos, level 20)', () => {
-  it('uses courseCycle/subjectAssignment/notaTrimestral for level=20 without repos', async () => {
-    // Without repos, Primario condition (level/10===2 && repos) is false → falls to legacy path
-    const uc = makeTerciarioUseCase(); // no repos
-    const notaTrimestralFindMany = vi.fn().mockResolvedValue([
-      { assignmentId: 'sa-1', periodId: 'p-1', finalGrade: 7, studentId: 'stu-prim', active: true },
-    ]);
-    const mockClient = {
-      inscripcionMateria: { findMany: vi.fn().mockResolvedValue([]) },
-      actaExamenNota: { findMany: vi.fn().mockResolvedValue([]) },
-      salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
-      courseCycle: {
-        findMany: vi.fn().mockResolvedValue([{
-          uuid: 'cc-prim', courseId: 'section-prim', level: 20,
-        }]),
-      },
-      subjectAssignment: {
-        findMany: vi.fn().mockResolvedValue([{
-          id: 'sa-1', subjectId: 'subj-1',
-          subject: { name: 'Matemática' },
-        }]),
-      },
-      periodoEvaluacion: {
-        findMany: vi.fn().mockResolvedValue([
-          { id: 'p-1', name: '1° Cuatrimestre', startDate: new Date('2026-03-01') },
-        ]),
-      },
-      notaTrimestral: { findMany: notaTrimestralFindMany },
-      materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
-    };
-    const enrollment = { id: 'e-prim', studentId: 'stu-prim', level: 20, cycleId: 'cyc-prim', academicYear: '2026', grade: null };
-
-    const result = await (uc as any).buildMaterias(mockClient, enrollment);
-
-    // Legacy path was called (notaTrimestral)
-    expect(notaTrimestralFindMany).toHaveBeenCalled();
-    expect(result.materias).toHaveLength(1);
-    expect(result.materias[0].nombre).toBe('Matemática');
-    expect(result.materias[0].notas).toHaveLength(1);
-    // New Terciario-path models were NOT called
-    expect(mockClient.inscripcionMateria.findMany).not.toHaveBeenCalled();
-  });
-
-  it('returns empty materias when cycleId is null (legacy path early return)', async () => {
+describe('fallback path — empty materias (no repos, level 20)', () => {
+  it('returns empty materias when cycleId is null (no repos → fallback immediately)', async () => {
     const uc = makeTerciarioUseCase();
     const mockClient = {
       inscripcionMateria: { findMany: vi.fn().mockResolvedValue([]) },
@@ -481,7 +437,7 @@ describe('legacy NotaTrimestral path — fallback (no repos, level 20)', () => {
       courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
       notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    // level=20 without repos + cycleId=null → `if (!enrollment.cycleId) return { materias: [] }`
+    // level=20 without repos → no Primario branch match → return { materias: [] } immediately
     const enrollment = { id: 'e-leg', studentId: 'stu-leg', level: 20, cycleId: null as string | null, academicYear: '2026', grade: null };
 
     const result = await (uc as any).buildMaterias(mockClient, enrollment);
@@ -490,15 +446,16 @@ describe('legacy NotaTrimestral path — fallback (no repos, level 20)', () => {
     expect(mockClient.courseCycle.findMany).not.toHaveBeenCalled();
   });
 
-  it('returns empty materias when courseCycles is empty (legacy path early return)', async () => {
+  it('returns empty materias for unmatched level with cycleId (no repos → fallback immediately)', async () => {
     const uc = makeTerciarioUseCase();
     const mockClient = {
       inscripcionMateria: { findMany: vi.fn().mockResolvedValue([]) },
       actaExamenNota: { findMany: vi.fn().mockResolvedValue([]) },
       salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
-      courseCycle: { findMany: vi.fn().mockResolvedValue([]) }, // empty → early return
+      courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
       notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
     };
+    // level=20 without repos → no Primario branch match → return { materias: [] } immediately
     const enrollment = { id: 'e-leg2', studentId: 'stu-leg2', level: 20, cycleId: 'cyc-1', academicYear: '2026', grade: null };
 
     const result = await (uc as any).buildMaterias(mockClient, enrollment);

@@ -57,20 +57,20 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > Archivo: `api/src/application/reportes/generate-boletin.use-case.ts`  
 > SECUENCIAL: 2.1 → 2.2 → 2.3. No saltear el baseline (2.1).
 
-- [ ] **2.1** `[BASELINE]` Correr `pnpm --filter api test` y confirmar que los 4 suites de boletín pasan ANTES de tocar el use-case:
+- [x] **2.1** `[BASELINE]` Correr `pnpm --filter api test` y confirmar que los 4 suites de boletín pasan ANTES de tocar el use-case:
   - `generate-boletin.use-case.test.ts`
   - `generate-boletin.docente-s2.test.ts`
   - `generate-boletin.inicial.test.ts`
   - `generate-boletin.terciario.test.ts`
   - Si alguno falla → STOP. No continuar hasta que el baseline esté verde.
 
-- [ ] **2.2** `[MODIFY]` En `generate-boletin.use-case.ts` borrar:
+- [x] **2.2** `[MODIFY]` En `generate-boletin.use-case.ts` borrar:
   - Bloque `else` legacy completo (~líneas 244-334): la rama de `buildMaterias()` que lee `NotaTrimestral` y `CourseCycles` cuando los repos NO están inyectados.
   - Sub-bloque `isInicial` + llamada a `resolveDocentesForStudentCC` (~líneas 263-269), que estaba dentro del bloque anterior.
   - Método privado `resolveDocentesForStudentCC` completo (~líneas 906-1001).
   - Verificar con grep que `NotaTrimestral`, `notaTrimestral`, `resolveDocentesForStudentCC`, `SubjectAssignment` no aparecen en el archivo. Si aparecen → revisar que no quedaron fragmentos.
 
-- [ ] **2.3** `[GREEN / NO-REGRESIÓN]` `pnpm --filter api test` — los 4 suites de boletín pasan idénticos a 2.1. Si algún assert cambia o un test rompe → el path NO era dead code → STOP y re-evaluar antes de continuar.
+- [x] **2.3** `[GREEN / NO-REGRESIÓN]` `pnpm --filter api test` — los 4 suites de boletín pasan idénticos a 2.1. Si algún assert cambia o un test rompe → el path NO era dead code → STOP y re-evaluar antes de continuar.
 
 ---
 
@@ -80,7 +80,7 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > Directorio: `api/src/application/shared/strategies/`  
 > PUEDE correr en paralelo con la tarea 4.
 
-- [ ] **3.1** `[DELETE]` Borrar los 7 archivos:
+- [x] **3.1** `[DELETE]` Borrar los 7 archivos:
   - `evaluacion.strategy.ts`
   - `evaluacion-inicial.strategy.ts`
   - `evaluacion-primario.strategy.ts`
@@ -98,13 +98,13 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > Archivos: 4 test files de boletín  
 > PUEDE correr en paralelo con la tarea 3. DEBE ejecutarse DESPUÉS de 2.3 (baseline confirmado).
 
-- [ ] **4.1** `[MODIFY]` Quitar las claves `subjectAssignment`, `periodoEvaluacion`, `notaTrimestral` de los mock factories / `makeTenantClient` en:
+- [x] **4.1** `[MODIFY]` Quitar las claves `subjectAssignment`, `periodoEvaluacion`, `notaTrimestral` de los mock factories / `makeTenantClient` en:
   - `generate-boletin.use-case.test.ts`: instancias en ~383-385, 418-421, 591-594, 767-770, 926-929.
   - `generate-boletin.docente-s2.test.ts`: factory `makeTenantClient` ~líneas 13-16.
   - `generate-boletin.inicial.test.ts`: scan completo del archivo, quitar todas las ocurrencias.
   - `generate-boletin.terciario.test.ts`: scan completo del archivo, quitar todas las ocurrencias.
 
-- [ ] **4.2** `[GREEN]` `pnpm --filter api test` — todos los tests de boletín pasan. Si alguno rompe → las claves eliminadas sí eran consultadas → STOP y revisar el use-case antes de continuar.
+- [x] **4.2** `[GREEN]` `pnpm --filter api test` — todos los tests de boletín pasan. Si alguno rompe → las claves eliminadas sí eran consultadas → STOP y revisar el use-case antes de continuar.
 
 ---
 
@@ -113,11 +113,11 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > V-3: `pedagogy.test.ts` importa y testea las 5 entidades legacy. Sin esta limpieza, el build de PR-a rompe al borrar los archivos en la tarea 6.  
 > DEBE ejecutarse ANTES de la tarea 6 (DELETE de entidades/repos). DEBE ejecutarse DESPUÉS de 3 y 4 (consumidores de application ya borrados).
 
-- [ ] **5.1** `[MODIFY]` En `packages/domain/src/pedagogy/__tests__/entities/pedagogy.test.ts`:
+- [x] **5.1** `[MODIFY]` En `packages/domain/src/pedagogy/__tests__/entities/pedagogy.test.ts`:
   - Quitar imports de las 5 entidades legacy (líneas ~11-15: `SubjectAssignment`, `Evaluacion`, `Nota`, `PeriodoEvaluacion`, `NotaTrimestral`).
   - Quitar los 5 `describe` blocks legacy (líneas ~111-197: bloques que testean las entidades borradas).
 
-- [ ] **5.2** `[GREEN]` `pnpm --filter @educandow/domain test` — verde. Sin errores de compilación ni tests rotos. Si falla → quedan referencias a las entidades borradas → revisar 5.1.
+- [x] **5.2** `[GREEN]` `pnpm --filter @educandow/domain test` — verde. Sin errores de compilación ni tests rotos. Si falla → quedan referencias a las entidades borradas → revisar 5.1.
 
 ---
 
@@ -126,14 +126,14 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > Satisface: REQ-4.3 (5 entidades) + REQ-4.4 (5 repos) + V-2 (nota-repository.ts que el explore omitió)  
 > DEBE ejecutarse DESPUÉS de 5 (pedagogy.test.ts limpio) y DESPUÉS de 2/3/4 (consumidores de application borrados).
 
-- [ ] **6.1** `[DELETE]` Borrar los 5 archivos de entidades:
+- [x] **6.1** `[DELETE]` Borrar los 5 archivos de entidades:
   - `packages/domain/src/pedagogy/entities/subject-assignment.ts`
   - `packages/domain/src/pedagogy/entities/evaluacion.ts`
   - `packages/domain/src/pedagogy/entities/nota.ts`
   - `packages/domain/src/pedagogy/entities/periodo-evaluacion.ts`
   - `packages/domain/src/pedagogy/entities/nota-trimestral.ts`
 
-- [ ] **6.2** `[DELETE]` Borrar los 5 archivos de repositorios (V-2: incluye `nota-repository.ts` que el explore no listó):
+- [x] **6.2** `[DELETE]` Borrar los 5 archivos de repositorios (V-2: incluye `nota-repository.ts` que el explore no listó):
   - `packages/domain/src/pedagogy/repositories/subject-assignment-repository.ts`
   - `packages/domain/src/pedagogy/repositories/evaluacion-repository.ts`
   - `packages/domain/src/pedagogy/repositories/nota-repository.ts` **(V-2)**
@@ -147,12 +147,12 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 > Satisface: REQ-4.5 (exports cleaned — pedagogy/index.ts y domain/src/index.ts)  
 > DEBE ejecutarse DESPUÉS de 6 (archivos ya borrados — si los exports se limpian antes, el barrel apuntaría a archivos que aún existen, no es error pero es confuso).
 
-- [ ] **7.1** `[MODIFY]` `packages/domain/src/pedagogy/index.ts`:
+- [x] **7.1** `[MODIFY]` `packages/domain/src/pedagogy/index.ts`:
   - Quitar exports de las 5 entidades legacy (líneas ~5-14: `SubjectAssignment`, `Evaluacion`, `Nota`, `PeriodoEvaluacion`, `NotaTrimestral` y sus tipos `Props`).
   - Quitar exports de los 5 repos legacy (líneas ~76-80: `SubjectAssignmentRepository`, `EvaluacionRepository`, `NotaRepository`, `PeriodoEvaluacionRepository`, `NotaTrimestralRepository`).
   - Conservar todos los demás exports del barrel.
 
-- [ ] **7.2** `[MODIFY]` `packages/domain/src/index.ts`:
+- [x] **7.2** `[MODIFY]` `packages/domain/src/index.ts`:
   - Quitar re-exports de entidades/Props legacy (líneas ~57-58).
   - Quitar re-export de repos legacy (línea ~81).
   - Conservar el resto del barrel intacto.
@@ -163,9 +163,9 @@ Riesgo: BAJO. ~1.200 líneas eliminadas de dead code verificable con grep. El sc
 
 > Gate de cierre de PR-a2 (AD-2). DEBE ser el último paso antes de abrir el PR. DEBE ejecutarse DESPUÉS de completar las tareas 2-7.
 
-- [ ] **8.1** `[GATE]` `pnpm build` — verde. Incluye `tsc` de `@educandow/domain` sin los exports legacy. Si falla → hay un export o import colgado; revisar 7.1 o 7.2.
+- [x] **8.1** `[GATE]` `pnpm build` — verde. Incluye `tsc` de `@educandow/domain` sin los exports legacy. Si falla → hay un export o import colgado; revisar 7.1 o 7.2.
 
-- [ ] **8.2** `[GATE]` `pnpm test` — verde. Todos los suites pasan (dominio, boletín, archival script). Si algún test referencia tipos borrados → revisar 5.1 o 4.1.
+- [x] **8.2** `[GATE]` `pnpm test` — verde. Todos los suites pasan (dominio, boletín, archival script). Si algún test referencia tipos borrados → revisar 5.1 o 4.1.
 
 ---
 

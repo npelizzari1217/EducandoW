@@ -69,13 +69,12 @@ function makeInicialClient(opts: {
     salaEnrollment: {
       findFirst: vi.fn().mockResolvedValue(salaEnrollmentResult),
     },
+    // Guard mock — present so tests can assert notaTrimestral is NOT called for Inicial
     notaTrimestral: {
       findMany: opts.notaTrimestralFindMany ?? vi.fn().mockResolvedValue([]),
     },
     // Other Prisma models not needed for Inicial path
     courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
-    subjectAssignment: { findMany: vi.fn().mockResolvedValue([]) },
-    periodoEvaluacion: { findMany: vi.fn().mockResolvedValue([]) },
     materiaXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
   };
 }
@@ -85,7 +84,6 @@ function makePrimarioClient() {
   return {
     courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
     studyPlanCourse: { findFirst: vi.fn().mockResolvedValue(null) },
-    notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
     salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
   };
 }

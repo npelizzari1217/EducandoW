@@ -188,7 +188,7 @@ export class GenerateBoletinUseCase {
    *   Math.floor(level/10) === 4 → Terciario branch (buildMateriasTerciario)
    *   Math.floor(level/10) === 2 → Primario branch (buildMateriasPrimario)
    *   Math.floor(level/10) === 3 → Secundario branch (buildMateriasSecundario) [PR6]
-   *   Otherwise → legacy NotaTrimestral path (levels with no repo injection)
+   *   Otherwise → empty materias (unrecognized level or missing repo injection)
    *
    * Returns { materias, previas? } — previas is populated only by the Secundario branch.
    */
@@ -241,97 +241,7 @@ export class GenerateBoletinUseCase {
       return this.buildMateriasSecundario(client, enrollment);
     }
 
-    // ── Legacy NotaTrimestral path (levels with no repo injection) ────────────
-    // Get the course section(s) for this enrollment via the cycle
-    if (!enrollment.cycleId) {
-      // No cycle => no grades yet
-      return { materias: [] };
-    }
-
-    // Find course cycles for this academic cycle
-    const courseCycles = await client.courseCycle.findMany({
-      where: { cycleId: enrollment.cycleId, active: true },
-      include: { course: true },
-    });
-
-    if (courseCycles.length === 0) {
-      return { materias: [] };
-    }
-
-    // Resolve docente for Inicial via new-model resolver (Approach B, per CourseCycle).
-    // Terciario does not render docente → resolver is gated to Inicial only (D1).
-    const isInicial = Math.floor(enrollment.level / 10) === 1;
-    const docenteBySubjectId = new Map<string, string>();
-    if (isInicial) {
-      for (const cc of courseCycles) {
-        const m = await this.resolveDocentesForStudentCC(client, enrollment.studentId, cc.uuid);
-        for (const [sid, name] of m) docenteBySubjectId.set(sid, name);
-      }
-    }
-
-    // Get subject assignments for the course sections (backbone: subjects + NotaTrimestral join)
-    const courseSectionIds = courseCycles.map(cc => cc.courseId);
-    const assignments = await client.subjectAssignment.findMany({
-      where: { courseSectionId: { in: courseSectionIds }, active: true },
-      include: { subject: true },
-    });
-
-    if (assignments.length === 0) {
-      return { materias: [] };
-    }
-
-    // Get the period IDs (trimesters/cuatrimesters) for this academic year
-    const periodos = await client.periodoEvaluacion.findMany({
-      where: { academicYear: enrollment.academicYear, active: true },
-      orderBy: { startDate: 'asc' },
-    });
-
-    // Get NotaTrimestral records for this student across all assignments
-    const assignmentIds = assignments.map(a => a.id);
-    const notasTrimestrales = await client.notaTrimestral.findMany({
-      where: {
-        studentId: enrollment.studentId,
-        assignmentId: { in: assignmentIds },
-        active: true,
-      },
-    });
-
-    // Build MateriaBoletin for each subject
-    const materias: MateriaBoletin[] = [];
-
-    for (const assignment of assignments) {
-      const notas = periodos.map(p => {
-        const nt = notasTrimestrales.find(
-          n => n.assignmentId === assignment.id && n.periodId === p.id,
-        );
-        return {
-          periodo: p.name,
-          valor: nt ? String(nt.finalGrade) : '—',
-        };
-      });
-
-      // Calculate average from available grades
-      const numericValues = notasTrimestrales
-        .filter(n => n.assignmentId === assignment.id)
-        .map(n => n.finalGrade);
-      const promedio = numericValues.length > 0
-        ? (numericValues.reduce((a, b) => a + b, 0) / numericValues.length).toFixed(2)
-        : '—';
-
-      const aprobado = numericValues.length > 0
-        && (numericValues.reduce((a, b) => a + b, 0) / numericValues.length) >= 6;
-
-      materias.push({
-        nombre: assignment.subject.name,
-        docente: docenteBySubjectId.get(assignment.subjectId) ?? '',
-        notas,
-        promedio,
-        valoracion: aprobado ? 'Aprobado' : 'Desaprobado',
-        aprobado,
-      });
-    }
-
-    return { materias };
+    return { materias: [] };
   }
 
   // ── Inicial branch ────────────────────────────────────────────────────────
@@ -892,113 +802,6 @@ export class GenerateBoletinUseCase {
     }
 
     return { materias, previas };
-  }
-
-  /**
-   * Resolves docente display names for ONE student within ONE CourseCycle,
-   * via the new model (DocenteXCiclo → master User). Student-scoped (Approach B):
-   * only the docentes of the grupos the student actually belongs to.
-   * Co-docencia → names joined " / " alphabetically. docenteXCicloId deduped
-   * (dropped @@unique on GrupoXCursoXMateriaXCiclo).
-   * Returns subjectId → "Apellido, Nombre[ / Apellido2, Nombre2]". Missing key = no docente found.
-   * 5 tenant IN-queries + 1 master IN-query. Zero per-subject queries (no N+1).
-   */
-  private async resolveDocentesForStudentCC(
-    client: TenantPrismaClient,
-    studentId: string,
-    courseCycleId: string,
-  ): Promise<Map<string, string>> {
-    // 1. materiaXCursoXCiclo — subject list for this CC
-    const materias = await client.materiaXCursoXCiclo.findMany({
-      where: { courseCycleId },
-      select: { id: true, subjectId: true },
-    });
-    if (materias.length === 0) return new Map();
-
-    const subjectIdByMateriaId = new Map(materias.map((m) => [m.id, m.subjectId]));
-    const materiaIds = materias.map((m) => m.id);
-
-    // 2. alumnosXMateriaXCursoXCiclo — student's memberships
-    const alumnoMaterias = await client.alumnosXMateriaXCursoXCiclo.findMany({
-      where: { materiaXCursoXCicloId: { in: materiaIds }, studentId },
-      select: { id: true, materiaXCursoXCicloId: true },
-    });
-    if (alumnoMaterias.length === 0) return new Map();
-
-    const materiaIdByAlumnoMateriaId = new Map(alumnoMaterias.map((a) => [a.id, a.materiaXCursoXCicloId]));
-    const alumnoMateriaIds = alumnoMaterias.map((a) => a.id);
-
-    // 3. alumnosXGrupoXCursoXMateriaXCiclo — grupo memberships
-    const alumnoGrupos = await client.alumnosXGrupoXCursoXMateriaXCiclo.findMany({
-      where: { alumnosXMateriaXCursoXCicloId: { in: alumnoMateriaIds } },
-      select: { grupoId: true, alumnosXMateriaXCursoXCicloId: true },
-    });
-    if (alumnoGrupos.length === 0) return new Map();
-
-    const grupoIds = [...new Set(alumnoGrupos.map((ag) => ag.grupoId))];
-
-    // 4. grupoXCursoXMateriaXCiclo — docente for each grupo
-    const grupos = await client.grupoXCursoXMateriaXCiclo.findMany({
-      where: { id: { in: grupoIds } },
-      select: { id: true, docenteXCicloId: true },
-    });
-
-    const docenteXCicloIdByGrupoId = new Map(grupos.map((g) => [g.id, g.docenteXCicloId]));
-
-    // Build subjectId → Set<docenteXCicloId> (Set deduplicates co-docencia with same docenteXCicloId)
-    const docIdsBySubjectId = new Map<string, Set<string>>();
-    for (const { grupoId, alumnosXMateriaXCursoXCicloId } of alumnoGrupos) {
-      const materiaId = materiaIdByAlumnoMateriaId.get(alumnosXMateriaXCursoXCicloId);
-      if (!materiaId) continue;
-      const subjectId = subjectIdByMateriaId.get(materiaId);
-      if (!subjectId) continue;
-      const docId = docenteXCicloIdByGrupoId.get(grupoId);
-      if (!docId) continue;
-      if (!docIdsBySubjectId.has(subjectId)) docIdsBySubjectId.set(subjectId, new Set());
-      docIdsBySubjectId.get(subjectId)!.add(docId);
-    }
-
-    if (docIdsBySubjectId.size === 0) return new Map();
-
-    // 5. docenteXCiclo — userId for each deduplicated docenteXCicloId
-    const allDocIds = [...new Set([...docIdsBySubjectId.values()].flatMap((s) => [...s]))];
-    const docentes = await client.docenteXCiclo.findMany({
-      where: { id: { in: allDocIds } },
-      select: { id: true, userId: true },
-    });
-    const userIdByDocId = new Map(docentes.map((d) => [d.id, d.userId]));
-
-    // 6. master User — names (cross-DB, mirrors ListDocentesXCicloUseCase pattern)
-    const userIds = [...new Set(docentes.map((d) => d.userId).filter(Boolean))];
-    if (userIds.length === 0) return new Map();
-
-    const users = await this.prisma.getMasterClient().user.findMany({
-      where: { id: { in: userIds } },
-      select: { id: true, firstName: true, lastName: true },
-    });
-    const nameByUserId = new Map(
-      (users as Array<{ id: string; firstName: string; lastName: string }>).map((u) => [
-        u.id,
-        `${u.lastName}, ${u.firstName}`,
-      ]),
-    );
-
-    // Assembly: subjectId → sorted joined names (alphabetical = stable PDF output)
-    const result = new Map<string, string>();
-    for (const [subjectId, docIds] of docIdsBySubjectId) {
-      const names: string[] = [];
-      for (const docId of docIds) {
-        const userId = userIdByDocId.get(docId);
-        if (!userId) continue;
-        const name = nameByUserId.get(userId);
-        if (name) names.push(name);
-      }
-      if (names.length === 0) continue;
-      names.sort();
-      result.set(subjectId, names.join(' / '));
-    }
-
-    return result;
   }
 
   /**
