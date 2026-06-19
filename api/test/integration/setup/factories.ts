@@ -215,19 +215,6 @@ export function createTeacher(
   });
 }
 
-export function createSubjectAssignment(
-  tenant: TenantPrismaClient,
-  data: { subjectId: string; teacherId: string; courseSectionId: string },
-) {
-  return tenant.subjectAssignment.create({
-    data: {
-      subjectId: data.subjectId,
-      teacherId: data.teacherId,
-      courseSectionId: data.courseSectionId,
-    },
-  });
-}
-
 export function createEnrollment(
   tenant: TenantPrismaClient,
   data: {
