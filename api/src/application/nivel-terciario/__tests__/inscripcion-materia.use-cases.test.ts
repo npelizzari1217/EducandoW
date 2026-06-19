@@ -9,6 +9,7 @@ function mockInscRepo(overrides: Partial<InscripcionRepository> = {}): Inscripci
     findById: vi.fn().mockResolvedValue(null),
     findByStudent: vi.fn().mockResolvedValue([]),
     findByMateriaCarrera: vi.fn().mockResolvedValue([]),
+    listByMateria: vi.fn().mockResolvedValue([]),
     findByStudentAndMateria: vi.fn().mockResolvedValue(null),
     findCorrelativas: vi.fn().mockResolvedValue([]),
     findAprobadas: vi.fn().mockResolvedValue([]),

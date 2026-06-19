@@ -69,3 +69,7 @@ export type {
 // Ports (Fase 5)
 export { ASSIGNMENT_AUTHORIZER } from './ports/assignment-authorizer.port';
 export type { AssignmentAuthorizerPort, StudentScope } from './ports/assignment-authorizer.port';
+
+// Ports (Fase D — Terciario Door 3)
+export { TERCIARIO_AUTHORIZER } from './ports/terciario-authorizer.port';
+export type { TerciarioAuthorizerPort } from './ports/terciario-authorizer.port';

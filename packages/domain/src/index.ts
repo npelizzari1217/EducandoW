@@ -136,6 +136,16 @@ export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/atten
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
 export type { AttendanceTypeRepository, AttendanceTypeFilters } from './attendance-type/repositories/attendance-type-repository';
 
+// Nivel Terciario — DocenteXMateriaCarrera (Fase D)
+export { DocenteXMateriaCarrera } from './nivel-terciario';
+export type { DocenteXMateriaCarreraProps, CreateDocenteXMateriaCarreraInput } from './nivel-terciario';
+export { DOCENTE_X_MATERIA_CARRERA_REPOSITORY } from './nivel-terciario';
+export type { DocenteXMateriaCarreraRepository } from './nivel-terciario';
+
+// Shared errors — Fase D
+export { DocenteAlreadyAssignedError } from './shared/errors/docente-already-assigned-error';
+export { AssignmentAlreadyInactiveError } from './shared/errors/assignment-already-inactive-error';
+
 // Grading
 export { GradeInternalStatus, GradeValueCode } from './grading';
 export type { GradeInternalStatusValue } from './grading';
@@ -157,6 +167,8 @@ export {
 export type { GradeScaleRepository, GradeScaleFilters } from './grading';
 export { ASSIGNMENT_AUTHORIZER } from './grading';
 export type { AssignmentAuthorizerPort, StudentScope } from './grading';
+export { TERCIARIO_AUTHORIZER } from './grading';
+export type { TerciarioAuthorizerPort } from './grading';
 
 // Grading — Periods
 export { PeriodSortOrder } from './grading';

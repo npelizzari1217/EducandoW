@@ -8,6 +8,8 @@ export interface InscripcionRepository {
   findCorrelativas(materiaCarreraId: string): Promise<CorrelativaRequerida[]>;
   findAprobadas(studentId: string): Promise<string[]>;    // returns materiaCarreraIds
   findRegulares(studentId: string): Promise<string[]>;   // returns materiaCarreraIds
+  /** Fase D: scoped read for docentes — filters by materiaCarreraId + anioAcademico */
+  listByMateria(materiaCarreraId: string, anioAcademico: string): Promise<InscripcionMateria[]>;
   save(inscripcion: InscripcionMateria): Promise<void>;
   delete(id: string): Promise<void>;
 }

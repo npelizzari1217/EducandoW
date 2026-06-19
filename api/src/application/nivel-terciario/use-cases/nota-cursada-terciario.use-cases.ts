@@ -4,6 +4,7 @@ import {
   err,
   Result,
   NotFoundError,
+  ForbiddenError,
   NotaCursadaTerciario,
   NotaCursadaTerciarioRepository,
   SlotCursadaTerciario,
@@ -14,6 +15,7 @@ import {
   CondicionCursadaInvalidaError,
   DomainError,
 } from '@educandow/domain';
+import type { TerciarioAuthorizerPort } from '@educandow/domain';
 
 // ── Input types ────────────────────────────────────────────────────────────────
 
@@ -42,12 +44,22 @@ const CONDICIONES_CONFIRMACION = new Set(['REGULAR', 'PROMOCIONAL', 'LIBRE']);
 
 @Injectable()
 export class CreateNotaCursadaSlotUC {
-  constructor(private readonly repo: NotaCursadaTerciarioRepository) {}
+  constructor(
+    private readonly repo: NotaCursadaTerciarioRepository,
+    private readonly authz: TerciarioAuthorizerPort,
+  ) {}
 
   async execute(
+    userId: string,
+    userRoles: string[],
     inscripcionMateriaId: string,
     input: CreateSlotInput,
   ): Promise<Result<NotaCursadaTerciario, DomainError>> {
+    // Door 3: ownership check (SPEC-5.1)
+    if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
+      return err(new ForbiddenError('No estás asignado a esta materia'));
+    }
+
     const existing = await this.repo.findByInscripcion(inscripcionMateriaId);
     const slotNuevo = SlotCursadaTerciario.create(input.slot);
 
@@ -69,13 +81,23 @@ export class CreateNotaCursadaSlotUC {
 
 @Injectable()
 export class UpdateNotaCursadaSlotUC {
-  constructor(private readonly repo: NotaCursadaTerciarioRepository) {}
+  constructor(
+    private readonly repo: NotaCursadaTerciarioRepository,
+    private readonly authz: TerciarioAuthorizerPort,
+  ) {}
 
   async execute(
+    userId: string,
+    userRoles: string[],
     inscripcionMateriaId: string,
     slot: string,
     input: UpdateSlotInput,
-  ): Promise<Result<NotaCursadaTerciario, NotFoundError>> {
+  ): Promise<Result<NotaCursadaTerciario, DomainError>> {
+    // Door 3: ownership check (SPEC-5.2)
+    if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
+      return err(new ForbiddenError('No estás asignado a esta materia'));
+    }
+
     const existing = await this.repo.findSlot(inscripcionMateriaId, slot);
     if (!existing) return err(new NotFoundError('NotaCursadaTerciario', `${inscripcionMateriaId}/${slot}`));
 
@@ -101,12 +123,20 @@ export class ListNotaCursadaSlotsUC {
 export class ConfirmarNotaCursadaUC {
   constructor(
     private readonly inscripcionRepo: InscripcionRepository,
+    private readonly authz: TerciarioAuthorizerPort,
   ) {}
 
   async execute(
+    userId: string,
+    userRoles: string[],
     inscripcionMateriaId: string,
     input: ConfirmarNotaCursadaInput,
   ): Promise<Result<void, DomainError>> {
+    // Door 3: ownership check (SPEC-6.1)
+    if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
+      return err(new ForbiddenError('No estás asignado a esta materia'));
+    }
+
     // Only REGULAR, PROMOCIONAL, LIBRE are valid confirmation states (ADR-1)
     if (!CONDICIONES_CONFIRMACION.has(input.condicion)) {
       return err(new CondicionCursadaInvalidaError(input.condicion));
@@ -128,5 +158,25 @@ export class ConfirmarNotaCursadaUC {
 
     await this.inscripcionRepo.save(inscripcion);
     return ok(undefined);
+  }
+}
+
+@Injectable()
+export class ListInscripcionesDocenteUC {
+  constructor(
+    private readonly authz: TerciarioAuthorizerPort,
+    private readonly inscripcionRepo: InscripcionRepository,
+  ) {}
+
+  async execute(
+    userId: string,
+    userRoles: string[],
+    materiaCarreraId: string,
+    anioAcademico: string,
+  ): Promise<Result<import('@educandow/domain').InscripcionMateria[], ForbiddenError>> {
+    const scope = await this.authz.getAllowedStudentIds(userId, userRoles, materiaCarreraId, anioAcademico);
+    if (scope === null) return err(new ForbiddenError('No estás asignado a esta materia'));
+    const all = await this.inscripcionRepo.listByMateria(materiaCarreraId, anioAcademico);
+    return ok(scope === 'all' ? all : all.filter(i => scope.includes(i.studentId)));
   }
 }
