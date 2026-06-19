@@ -4,6 +4,29 @@
 > Change: grading-primario · Fase 4, Etapa 1
 > IDs: TIA-R* / TIA-S*
 
+---
+
+> **NOTA DE RETIRO PARCIAL (2026-06-19)**
+>
+> La tabla `teachers`, la entidad de dominio `Teacher` y la interfaz `TeacherRepository`
+> fueron **eliminadas definitivamente** por el change `retiro-teacher-legacy-s3b-final`
+> (PR #37, migración `20260619300000_drop_teachers`, verificado en dev).
+>
+> **TIA-R1 y TIA-R2 quedan RETIRED** — asumían la existencia de la tabla/entidad `Teacher`
+> para resolver la identidad del docente. Esa entidad ya no existe.
+>
+> La identidad docente vive exclusivamente en:
+> - `User` (master DB): persona + rol `'TEACHER'` (acceso, sobrevive)
+> - `DocenteXCiclo` (tenant DB): enrolamiento por ciclo lectivo
+> - `AsignacionCursoXCiclo(rol=TITULAR)`: asignación homeroom
+>
+> Los requirements TIA-R3 a TIA-R10 (y sus scenarios) siguen **VIGENTES**
+> en la medida en que no dependan de la tabla `Teacher` (ver anotaciones inline).
+> TIA-R3/R4 mencionan `SubjectAssignment` — esa tabla sigue existiendo (el retiro
+> de SubjectAssignment pertenece a un epic separado).
+
+---
+
 ## Purpose
 
 Define what MUST be true after this change regarding how the authenticated user
@@ -12,31 +35,39 @@ two grading entry views.
 
 ## Requirements
 
-### TIA-R1 — Teacher.userId link
+### ~~TIA-R1 — Teacher.userId link~~ [RETIRED 2026-06-19]
 
-The `Teacher` entity MUST have a nullable `userId` field that stores the `id` of the
+> **RETIRED** por `retiro-teacher-legacy-s3b-final`. La entidad `Teacher` y la tabla `teachers`
+> ya no existen. La resolución de identidad docente a partir del JWT `sub` se realiza vía
+> `User.id` (master) → `DocenteXCiclo.userId` (tenant). No hay entidad `Teacher` que resolver.
+
+~~The `Teacher` entity MUST have a nullable `userId` field that stores the `id` of the
 corresponding `User` record from the master database. This field enables the system to
-resolve a JWT sub to a tenant Teacher record.
+resolve a JWT sub to a tenant Teacher record.~~
 
-#### TIA-S1 — Teacher resolved by userId
+#### ~~TIA-S1 — Teacher resolved by userId~~ [RETIRED]
 
-- GIVEN a JWT with sub = "user-abc"
-- AND a Teacher record with userId = "user-abc" in the tenant DB
-- WHEN the system resolves the teacher identity
-- THEN the Teacher record with userId = "user-abc" is returned
+~~- GIVEN a JWT with sub = "user-abc"~~
+~~- AND a Teacher record with userId = "user-abc" in the tenant DB~~
+~~- WHEN the system resolves the teacher identity~~
+~~- THEN the Teacher record with userId = "user-abc" is returned~~
 
 ---
 
-### TIA-R2 — No matching Teacher returns empty, not error
+### ~~TIA-R2 — No matching Teacher returns empty, not error~~ [RETIRED 2026-06-19]
 
-If `Teacher.userId` is not populated for any teacher, or if no Teacher record matches
-the JWT sub, the system MUST return an empty result set — NOT a 404 or 500.
+> **RETIRED** por `retiro-teacher-legacy-s3b-final`. No hay tabla `Teacher` que consultar.
+> La lógica de "vacío sin error" aplica ahora a `DocenteXCiclo` — cubierta implícitamente
+> por los requirements de los endpoints de `/course-cycles`.
 
-#### TIA-S2 — Unpopulated userId returns empty list
+~~If `Teacher.userId` is not populated for any teacher, or if no Teacher record matches
+the JWT sub, the system MUST return an empty result set — NOT a 404 or 500.~~
 
-- GIVEN no Teacher record has userId = "user-xyz"
-- WHEN a teacher-filtered query is executed for userId "user-xyz"
-- THEN response is HTTP 200 with `{ data: [] }`
+#### ~~TIA-S2 — Unpopulated userId returns empty list~~ [RETIRED]
+
+~~- GIVEN no Teacher record has userId = "user-xyz"~~
+~~- WHEN a teacher-filtered query is executed for userId "user-xyz"~~
+~~- THEN response is HTTP 200 with `{ data: [] }`~~
 
 ---
 
