@@ -2,6 +2,47 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GenerateBoletinUseCase, BoletinError } from '../generate-boletin.use-case';
 import type { MesaExamenBoletin } from '../templates/boletin.template';
 
+// ── HOTFIX-2: template path resolution ───────────────────────────────────────
+// Regression guard: constructor must load all 4 HBS templates from the real
+// src/ layout. In prod (dist/) the sentinel-based candidate search hits the
+// 3rd candidate (../../../src/…) and finds the files; in dev (src/) it hits
+// the 1st candidate immediately. Either way templates.size must equal 4.
+// Main verification is the smoke E2E in prod, but this unit guard catches
+// obvious path regressions during CI.
+
+describe('GenerateBoletinUseCase — HOTFIX-2: template loading from real src layout', () => {
+  function makeUc() {
+    return new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+  }
+
+  it('loads all 4 templates (INICIAL/PRIMARIO/SECUNDARIO/TERCIARIO) from the filesystem', () => {
+    const uc = makeUc();
+    // Access the private Map via bracket notation — acceptable in tests to verify
+    // the constructor side-effect without exposing a public API.
+    const templates: Map<string, unknown> = (uc as any).templates;
+    expect(templates.size).toBe(4);
+    expect(templates.has('INICIAL')).toBe(true);
+    expect(templates.has('PRIMARIO')).toBe(true);
+    expect(templates.has('SECUNDARIO')).toBe(true);
+    expect(templates.has('TERCIARIO')).toBe(true);
+  });
+
+  it('does NOT throw BOLETIN_LEVEL_UNKNOWN for any of the 4 known base levels when template is present', () => {
+    const uc = makeUc();
+    const templates: Map<string, unknown> = (uc as any).templates;
+    // Each known base level must have a template — the template lookup in execute()
+    // uses this.templates.get(baseLevel), so an empty Map would produce the prod error.
+    for (const level of [10, 20, 30, 40]) {
+      const baseLevel = uc.getBaseLevel(level);
+      expect(templates.has(baseLevel)).toBe(true);
+    }
+  });
+});
+
 // ── Minimal mocks ──────────────────────────────────────────────────────────────
 
 function makePdfGenerator() {
