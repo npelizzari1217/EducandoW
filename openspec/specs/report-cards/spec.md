@@ -149,6 +149,7 @@ Only mesas with `mesa.active = true` are included. Results are ordered by `fecha
 ### Requirement: TERCIARIO Boletín Data Source (Transcript Model)
 
 > Added: boletin-terciario (Fase C) · 2026-06-18
+> Updated: retiro-grading-legacy-s3pre · 2026-06-19 (removed positional clause referencing legacy else-branch)
 > Depends on: evaluacion-terciario (Fase A+B, PR #23)
 > Applies to: TERCIARIO level only (`Math.floor(enrollment.level / 10) === 4`)
 
@@ -157,8 +158,9 @@ For TERCIARIO students, `GenerateBoletinUseCase` MUST NOT read `NotaTrimestral` 
 `anioAcademico`, excluding `LIBRE`) joined to `NotaCursadaTerciario` (slot grades) and
 `ActaExamenNota` (final-exam attempts).
 
-`buildMaterias()` MUST route Terciario students to a dedicated `buildMateriasTerciario`
-method as a decade-4 branch, inserted BEFORE the legacy `else` that reads `NotaTrimestral`.
+`buildMaterias()` MUST route TERCIARIO students (decade-4) to `buildMateriasTerciario`
+as the last named branch in the dispatch chain. No legacy fallback branch MUST exist
+after this function.
 
 The output is a **transcripción** of the student's materias vigentes: in-progress, regular,
 promoted, and approved — grouped by cuatrimestre (1C / 2C / ANUAL).
@@ -219,9 +221,11 @@ for the disk-backed deployment target; the port abstraction remains a future ref
 On subsequent requests for the same `enrollmentId`, the system SHOULD return the stored
 file rather than regenerating (cache-first pattern via `pdfStorage.getPath(enrollmentId)`).
 A stored PDF MUST be invalidated and regenerated whenever grade or attendance data
-for that student changes. Invalidation is handled by `BoletinInvalidationService`,
-injected into `PedagogyController` and called after `postNotaTrimestral` and
-`deleteNotaTrimestral`.
+for that student changes. Invalidation wiring to the new grading model events (PRIMARIO,
+SECUNDARIO) is DEFERRED — the broader caching invalidation policy (cache-first pattern
+via `pdfStorage.getPath`) remains in force. The `postNotaTrimestral` and
+`deleteNotaTrimestral` invalidation hooks are RETIRED as of retiro-grading-legacy-s3pre
+(2026-06-19): those endpoints and the `notas_trimestrales` table no longer exist.
 
 #### Scenario: First-time PDF generation stores the file
 
@@ -235,13 +239,6 @@ injected into `PedagogyController` and called after `postNotaTrimestral` and
 - AND no grade or attendance data has changed since storage
 - WHEN `GET /v1/reportes/boletin/:enrollmentId` is called again
 - THEN the system SHOULD return the stored PDF without re-rendering
-
-#### Scenario: Stale PDF is regenerated after grade change
-
-- GIVEN a stored PDF exists for a student's enrollment
-- WHEN a grade record (NotaTrimestral) for that student is created or deleted
-- THEN the stored PDF MUST be invalidated via `BoletinInvalidationService`
-- AND the next request triggers a fresh generation
 
 ---
 
@@ -311,12 +308,6 @@ with no teacher-related query.
 
 `MateriaBoletin.docente` MUST remain typed as `string`. No template changes.
 
-The `SubjectAssignment` table and its rows MUST remain intact. The legacy
-Inicial/Terciario branch still queries `SubjectAssignment` for the subject list
-and as the join key to `NotaTrimestral` grades (`NotaTrimestral.assignmentId`;
-`NotaTrimestral` has no `subjectId`). Removing `SubjectAssignment` from this branch
-requires a separate migration stage.
-
 **Tenant/master client separation (mandatory):** queries to the DocenteXCiclo/grupo chain
 (MateriaXCursoXCiclo → AlumnosXMateriaXCursoXCiclo → AlumnosXGrupo →
 GrupoXCursoXMateriaXCiclo → DocenteXCiclo) MUST use the tenant Prisma client.
@@ -372,3 +363,58 @@ tenant before deploying. If it has not run, INICIAL boletines degrade to `docent
 - WHEN the full execution of `generate-boletin.use-case.ts` completes
 - THEN zero reads of the `Teacher` table MUST have been issued (no `teacher` include/select)
 - AND this MUST be verifiable via test-level Prisma mock/spy assertions
+
+---
+
+### Requirement: No Legacy Table Reads in Boletín Generation (Post-Drop Regression Guard)
+
+> Added: retiro-grading-legacy-s3pre · 2026-06-19
+> Applies to: all boletín levels (INICIAL, PRIMARIO, SECUNDARIO, TERCIARIO)
+
+After retiro-grading-legacy-s3pre is applied (dead code removal in PR-a2, DROP migration
+in PR-b), `GenerateBoletinUseCase` MUST NOT issue queries against any of the five legacy
+tables for any pedagogical level: `notas`, `evaluaciones`, `notas_trimestrales`,
+`periodos_evaluacion`, `subject_assignments`.
+
+This MUST be verifiable via unit-test Prisma mock assertions: the keys `notaTrimestral`,
+`evaluacion`, `nota`, `periodoEvaluacion`, and `subjectAssignment` MUST NOT appear
+in any mock call against the tenant Prisma client within `generate-boletin.use-case.ts`.
+
+#### Scenario: INICIAL — boletín does not query legacy tables
+
+- GIVEN a student enrolled at INICIAL level
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN `GenerateBoletinUseCase` dispatches to `buildMateriasInicial` via the decade-1 branch
+- AND zero queries against `notas_trimestrales`, `evaluaciones`, `notas`,
+  `periodos_evaluacion`, or `subject_assignments` are issued by the use case
+
+#### Scenario: PRIMARIO — boletín does not query legacy tables
+
+- GIVEN a student enrolled at PRIMARIO level
+- AND `sgpRepo` is injected by `reportes.module.ts`
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN `GenerateBoletinUseCase` dispatches to `buildMateriasPrimario` via the decade-2+repos branch
+- AND zero queries against the five dropped tables are issued
+
+#### Scenario: SECUNDARIO — boletín does not query legacy tables
+
+- GIVEN a student enrolled at SECUNDARIO level
+- AND `pgRepo` is injected by `reportes.module.ts`
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN `GenerateBoletinUseCase` dispatches to `buildMateriasSecundario` via the decade-3+repos branch
+- AND zero queries against the five dropped tables are issued
+
+#### Scenario: TERCIARIO — boletín does not query legacy tables
+
+- GIVEN a student enrolled at TERCIARIO level
+- WHEN `GET /v1/reportes/boletin/:enrollmentId` is called
+- THEN `GenerateBoletinUseCase` dispatches to `buildMateriasTerciario` via the decade-4 branch
+- AND zero queries against the five dropped tables are issued
+
+#### Scenario: No legacy else-branch reachable after PR-a2
+
+- GIVEN `generate-boletin.use-case.ts` after PR-a2 is applied
+- WHEN `buildMaterias()` is invoked for a student of any pedagogical level
+- THEN the function MUST NOT contain a code path that references `NotaTrimestral`,
+  `notaTrimestral`, `SubjectAssignment`, `subjectAssignment`, or `resolveDocentesForStudentCC`
+- AND this is verifiable by static grep of the file after PR-a2 is merged
