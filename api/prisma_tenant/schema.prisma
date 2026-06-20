@@ -45,7 +45,7 @@ model Student {
   calificacionesPrimario  CalificacionPrimario[]
   calificacionesSecundario CalificacionSecundario[]
   mesaExamenInscripciones MesaExamenInscripcion[]
-  competencyValuations    CompetencyValuation[]
+  competencyValuations    CompetenciaXMateriaXAlumnoXCursoXCiclo[]
   inscripcionesMateria    InscripcionMateria[]
   actaExamenNotas         ActaExamenNota[]
   titulos                 Titulo[]
@@ -53,7 +53,7 @@ model Student {
   subjectPeriodGrades     SubjectPeriodGrade[]
   subjectFinalGrades      SubjectFinalGrade[]
   materiasPrevias         MateriaPrevia[]
-  alumnosXMateriaXCursoXCiclo AlumnosXMateriaXCursoXCiclo[]
+  materiasXAlumnoXCursoXCiclo MateriasXAlumnoXCursoXCiclo[]
   alumnosXCursoXCiclo         AlumnosXCursoXCiclo[]
   ausenciasXGrupo             AusenciaXGrupo[]
   asistenciaDiaria            AsistenciaDiaria[]
@@ -178,7 +178,7 @@ model MateriaXCursoXCiclo {
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)
 
-  alumnos AlumnosXMateriaXCursoXCiclo[]
+  alumnos MateriasXAlumnoXCursoXCiclo[]
   grupos  GrupoXCursoXMateriaXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -189,10 +189,10 @@ model MateriaXCursoXCiclo {
   @@map("materias_x_curso_x_ciclo")
 }
 
-// AlumnosXMateriaXCursoXCiclo — authoritative universe of students for a subject.
+// MateriasXAlumnoXCursoXCiclo — authoritative universe of students for a subject.
 // Students must be added one by one (MGC-R2); bulk endpoint is out of scope.
 // The @@unique([materiaXCursoXCicloId, studentId]) enforces 1 row per student-materia.
-model AlumnosXMateriaXCursoXCiclo {
+model MateriasXAlumnoXCursoXCiclo {
   id                    String @id @default(uuid())
   materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")
   studentId             String @map("student_id")                  // → Student.id
@@ -235,7 +235,7 @@ model GrupoXCursoXMateriaXCiclo {
 }
 
 // AlumnosXGrupoXCursoXMateriaXCiclo — maps a student (via their materia membership)
-// into a specific group. The FK to AlumnosXMateriaXCursoXCiclo (not to Student directly)
+// into a specific group. The FK to MateriasXAlumnoXCursoXCiclo (not to Student directly)
 // enforces grupo ⊆ materia at the DB level (MGC-R4). Cross-course students are
 // impossible because the alumnoMateria row itself belongs to a specific CourseCycle.
 model AlumnosXGrupoXCursoXMateriaXCiclo {
@@ -244,7 +244,7 @@ model AlumnosXGrupoXCursoXMateriaXCiclo {
   alumnosXMateriaXCursoXCicloId String @map("alumnos_x_materia_x_curso_x_ciclo_id")
 
   grupo         GrupoXCursoXMateriaXCiclo   @relation(fields: [grupoId],                        references: [id], onDelete: Cascade)
-  alumnoMateria AlumnosXMateriaXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
+  alumnoMateria MateriasXAlumnoXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -323,7 +323,7 @@ model CourseCycle {
   studyPlan       StudyPlan      @relation(fields: [studyPlanId], references: [id])
   cycle           AcademicCycle  @relation(fields: [cycleId], references: [uuid])
 
-  competencyValuations  CompetencyValuation[]
+  competencyValuations  CompetenciaXMateriaXAlumnoXCursoXCiclo[]
   subjectGradingPeriods SubjectGradingPeriod[]
   subjectPeriodGrades   SubjectPeriodGrade[]
   subjectFinalGrades    SubjectFinalGrade[]
@@ -431,7 +431,7 @@ model SubjectCompetency {
 
   studyPlanSubject StudyPlanSubject @relation(fields: [studyPlanSubjectId], references: [id], onDelete: Cascade)
 
-  valuations CompetencyValuation[]
+  valuations CompetenciaXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -441,7 +441,7 @@ model SubjectCompetency {
   @@map("subject_competencies")
 }
 
-model CompetencyValuation {
+model CompetenciaXMateriaXAlumnoXCursoXCiclo {
   id            String   @id @default(uuid())
   competencyId  String
   studentId     String
@@ -453,7 +453,7 @@ model CompetencyValuation {
   student     Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
   courseCycle CourseCycle       @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
 
-  periodValuations CompetencyPeriodValuation[]
+  periodValuations CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -465,7 +465,7 @@ model CompetencyValuation {
   @@map("competency_valuations")
 }
 
-model CompetencyPeriodValuation {
+model CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
   id               String              @id @default(uuid())
   valuationId      String              @map("valuation_id")
   periodItemId     String              @map("period_item_id")
@@ -475,9 +475,9 @@ model CompetencyPeriodValuation {
   modificable      Boolean             @default(true)
   imprimible       Boolean             @default(false)
 
-  valuation   CompetencyValuation       @relation(fields: [valuationId], references: [id], onDelete: Cascade)
-  periodItem  GradingPeriodTemplateItem @relation(fields: [periodItemId], references: [id], onDelete: Restrict)
-  gradeValue  GradeScaleValue?          @relation(fields: [gradeScaleValueId], references: [id], onDelete: SetNull)
+  valuation   CompetenciaXMateriaXAlumnoXCursoXCiclo @relation(fields: [valuationId], references: [id], onDelete: Cascade)
+  periodItem  GradingPeriodTemplateItem               @relation(fields: [periodItemId], references: [id], onDelete: Restrict)
+  gradeValue  GradeScaleValue?                        @relation(fields: [gradeScaleValueId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -528,7 +528,7 @@ model GradeScaleValue {
   updatedAt      DateTime @updatedAt
 
   scale GradeScale @relation(fields: [scaleId], references: [id], onDelete: Cascade)
-  competencyPeriodValuations CompetencyPeriodValuation[]
+  competencyPeriodValuations CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo[]
   subjectPeriodGrades        SubjectPeriodGrade[]
   subjectFinalGrades         SubjectFinalGrade[]
 
@@ -1269,7 +1269,7 @@ model GradingPeriodTemplateItem {
 
   template GradingPeriodTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   dates    GradingPeriodDate[]
-  competencyPeriodValuations CompetencyPeriodValuation[]
+  competencyPeriodValuations CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo[]
 
   @@unique([templateId, sortOrder])
   @@unique([templateId, name])

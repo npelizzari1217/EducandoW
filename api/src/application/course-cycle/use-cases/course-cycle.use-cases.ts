@@ -21,7 +21,7 @@ import type { CourseSectionRepository } from '@educandow/domain';
 import type { AcademicCycleRepository } from '@educandow/domain';
 import type { StudyPlanRepository } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
-import type { AutoCreateCompetencyValuationsUC } from '../../pedagogy/use-cases/competency.use-cases';
+import type { AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC } from '../../pedagogy/use-cases/competency.use-cases';
 import type { MaterializeMateriasUseCase } from '../../materia-grupo-ciclo/materialize-materias.use-case';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -300,7 +300,7 @@ export class GenerateCourseCyclesUseCase {
     private readonly courseCycleRepo: CourseCycleRepository,
     private readonly studyPlanRepo: StudyPlanRepository,
     private readonly academicCycleRepo: AcademicCycleRepository,
-    private readonly autoCreateUC: AutoCreateCompetencyValuationsUC,
+    private readonly autoCreateUC: AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC,
     private readonly materializeMateriasUC?: MaterializeMateriasUseCase,
   ) {}
 

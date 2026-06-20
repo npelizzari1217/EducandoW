@@ -1,37 +1,37 @@
 /**
- * PR2 slim rewrite — maps the new CompetencyValuation schema.
+ * PR2 slim rewrite — maps the new CompetenciaXMateriaXAlumnoXCursoXCiclo schema.
  * Flat period columns (valuation1–4, modificable1–4, imprimible1–4, periodActive) removed.
  * courseCycleId added; unique constraint is now (studentId, competencyId, courseCycleId).
  * PR slice 1a: adds findByCourseCycleAndStudyPlanSubject (bulk read with periodValuations include).
  */
 import { Injectable } from '@nestjs/common';
 import {
-  CompetencyValuationRepository,
-  CompetencyValuationWithPeriods,
-  CompetencyPeriodValuationData,
-  CompetencyValuation,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData,
+  CompetenciaXMateriaXAlumnoXCursoXCiclo,
   Id,
 } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, CompetencyValuation as PrismaCompetencyValuation } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient, CompetenciaXMateriaXAlumnoXCursoXCiclo as PrismaCompetenciaXMateriaXAlumnoXCursoXCiclo } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
 @Injectable()
-export class PrismaCompetencyValuationRepo implements CompetencyValuationRepository {
+export class PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo implements CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
   private get client(): TenantPrismaClient {
     const c = TenantContext.getClient();
     if (!c) throw new Error('TenantContext: no tenant client available for this request');
     return c;
   }
 
-  async findById(id: string): Promise<CompetencyValuation | null> {
-    const r = await this.client.competencyValuation.findUnique({ where: { id } });
+  async findById(id: string): Promise<CompetenciaXMateriaXAlumnoXCursoXCiclo | null> {
+    const r = await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.findUnique({ where: { id } });
     return r ? this.toDomain(r) : null;
   }
 
   async findByCourseCycleAndStudyPlanSubject(
     courseCycleId: string,
     studyPlanSubjectId: string,
-  ): Promise<CompetencyValuationWithPeriods[]> {
+  ): Promise<CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]> {
     // 1. Resolve all active competencies with their human-readable names
     const competencies = await this.client.subjectCompetency.findMany({
       where: { studyPlanSubjectId, deletedAt: null },
@@ -44,7 +44,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     const nameById = new Map(competencies.map((c) => [c.id, c.name]));
 
     // 2. Fetch parent valuations with period children included
-    const rows = await this.client.competencyValuation.findMany({
+    const rows = await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.findMany({
       where: {
         courseCycleId,
         competencyId: { in: competencies.map((c) => c.id) },
@@ -57,7 +57,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     return rows.map((row) => this.toReadModel(row, nameById));
   }
 
-  async findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
+  async findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetenciaXMateriaXAlumnoXCursoXCiclo[]> {
     const competencyIds = await this.client.subjectCompetency.findMany({
       where: { studyPlanSubjectId, deletedAt: null },
       select: { id: true },
@@ -65,7 +65,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
 
     if (competencyIds.length === 0) return [];
 
-    const rs = await this.client.competencyValuation.findMany({
+    const rs = await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.findMany({
       where: {
         studentId,
         competencyId: { in: competencyIds.map((c) => c.id) },
@@ -75,8 +75,8 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     return rs.map((r) => this.toDomain(r));
   }
 
-  async save(v: CompetencyValuation): Promise<void> {
-    await this.client.competencyValuation.upsert({
+  async save(v: CompetenciaXMateriaXAlumnoXCursoXCiclo): Promise<void> {
+    await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.upsert({
       where: { id: v.id.get() },
       create: {
         id: v.id.get(),
@@ -91,10 +91,10 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
     });
   }
 
-  async bulkCreate(valuations: CompetencyValuation[]): Promise<void> {
-    if (valuations.length === 0) return;
+  async bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<{ count: number }> {
+    if (valuations.length === 0) return { count: 0 };
 
-    await this.client.competencyValuation.createMany({
+    const result = await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.createMany({
       data: valuations.map((v) => ({
         id: v.id.get(),
         competencyId: v.competencyId,
@@ -103,17 +103,18 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
       })),
       skipDuplicates: true,
     });
+    return { count: result.count };
   }
 
   async delete(id: string): Promise<void> {
-    await this.client.competencyValuation.update({
+    await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.update({
       where: { id },
       data: { active: false, deletedAt: new Date() },
     });
   }
 
-  private toDomain(r: PrismaCompetencyValuation): CompetencyValuation {
-    return CompetencyValuation.reconstruct({
+  private toDomain(r: PrismaCompetenciaXMateriaXAlumnoXCursoXCiclo): CompetenciaXMateriaXAlumnoXCursoXCiclo {
+    return CompetenciaXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: Id.reconstruct(r.id),
       competencyId: r.competencyId,
       studentId: r.studentId,
@@ -124,7 +125,7 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
   }
 
   private toReadModel(
-    row: PrismaCompetencyValuation & {
+    row: PrismaCompetenciaXMateriaXAlumnoXCursoXCiclo & {
       periodValuations: Array<{
         periodItemId:      string;
         gradeScaleValueId: string | null;
@@ -135,17 +136,17 @@ export class PrismaCompetencyValuationRepo implements CompetencyValuationReposit
       }>;
     },
     nameById: Map<string, string>,
-  ): CompetencyValuationWithPeriods {
+  ): CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos {
     return {
       valuationId:    row.id,
       studentId:      row.studentId,
       competencyId:   row.competencyId,
       competencyName: nameById.get(row.competencyId) ?? '',
-      periodValuations: row.periodValuations.map((pv): CompetencyPeriodValuationData => ({
+      periodValuations: row.periodValuations.map((pv): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData => ({
         periodItemId:      pv.periodItemId,
         gradeScaleValueId: pv.gradeScaleValueId,
         gradeCode:         pv.gradeCode,
-        internalStatus:    pv.internalStatus as CompetencyPeriodValuationData['internalStatus'],
+        internalStatus:    pv.internalStatus as CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData['internalStatus'],
         modificable:       pv.modificable,
         imprimible:        pv.imprimible,
       })),

@@ -18,11 +18,11 @@ export interface AlumnosXGrupoRepository {
   findByGrupo(grupoId: string): Promise<AlumnosXGrupoXCursoXMateriaXCiclo[]>;
   /**
    * Returns alumnos of a group enriched with studentId + studentName.
-   * Resolution: AlumnosXGrupo → AlumnosXMateriaXCursoXCiclo.studentId → Student name.
+   * Resolution: AlumnosXGrupo → MateriasXAlumnoXCursoXCiclo.studentId → Student name.
    */
   findByGrupoEnriched(grupoId: string): Promise<AlumnoGrupoEnriched[]>;
   /**
-   * Add a student (via their AlumnosXMateriaXCursoXCiclo membership) to a group.
+   * Add a student (via their MateriasXAlumnoXCursoXCiclo membership) to a group.
    * The FK at DB level enforces grupo ⊆ materia (MGC-R4).
    * Co-docencia (MGC-R5): same alumnosXMateriaId in multiple grupos is allowed.
    */

@@ -1,9 +1,9 @@
 import { DomainError } from '../../shared/errors/domain-error';
 
-export class CompetencyValuationNotFoundError extends DomainError {
+export class CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError extends DomainError {
   constructor(uuid: string) {
     super(
-      `CompetencyValuation with id "${uuid}" not found`,
+      `CompetenciaXMateriaXAlumnoXCursoXCiclo with id "${uuid}" not found`,
       'COMPETENCY_VALUATION_NOT_FOUND',
     );
   }

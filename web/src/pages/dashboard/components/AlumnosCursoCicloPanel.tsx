@@ -77,6 +77,8 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
   const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [cascadingIds, setCascadingIds] = useState<Set<string>>(new Set());
+  const [cascadeToast, setCascadeToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -149,6 +151,38 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
       await downloadBoletinBatch(ccId);
     } catch {
       setToast({ message: 'Error al descargar boletines', type: 'error' });
+    }
+  };
+
+  /**
+   * handleCascade — POST /course-cycles/:ccId/alumnos/:rowId/cascade
+   * Materializes all plan materias + active competencies for a single student.
+   * Button is disabled while in flight (no double-submit). Returns counts in toast.
+   * SDD-3 PR-3, R-21.
+   */
+  const handleCascade = async (rowId: string) => {
+    setCascadingIds((prev) => new Set(prev).add(rowId));
+    setCascadeToast(null);
+    try {
+      const res = await apiClient.post<{ data: {
+        materiasCreated: number; materiasSkipped: number;
+        competenciasCreated: number; competenciasSkipped: number;
+      } }>(`/course-cycles/${ccId}/alumnos/${rowId}/cascade`);
+      const counts = res.data?.data;
+      if (counts) {
+        setCascadeToast({
+          message: `${counts.materiasCreated} materia(s) y ${counts.competenciasCreated} competencia(s) asignadas`,
+          type: 'success',
+        });
+      }
+    } catch {
+      setCascadeToast({ message: 'Error al asignar materias y competencias', type: 'error' });
+    } finally {
+      setCascadingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(rowId);
+        return next;
+      });
     }
   };
 
@@ -239,14 +273,27 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
                   />
                   <span style={{ fontSize: 'var(--text-sm)' }}>{alumno.studentName}</span>
                 </div>
-                <Button
-                  variant="danger-soft"
-                  size="sm"
-                  data-testid={`btn-remove-alumno-${alumno.id}`}
-                  onClick={() => handleRemove(alumno.id)}
-                >
-                  Quitar
-                </Button>
+                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  {/* Cascade: assign materias + competencias for this student */}
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid={`btn-cascade-${alumno.id}`}
+                    onClick={() => handleCascade(alumno.id)}
+                    disabled={cascadingIds.has(alumno.id)}
+                    title="Asignar materias y competencias"
+                  >
+                    Asignar materias y competencias
+                  </Button>
+                  <Button
+                    variant="danger-soft"
+                    size="sm"
+                    data-testid={`btn-remove-alumno-${alumno.id}`}
+                    onClick={() => handleRemove(alumno.id)}
+                  >
+                    Quitar
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -322,6 +369,25 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
           onClick={() => setToast(null)}
         >
           {toast.message}
+        </div>
+      )}
+
+      {/* Cascade toast — shows counts returned by POST /cascade */}
+      {cascadeToast && (
+        <div
+          data-testid="cascade-toast"
+          style={{
+            marginTop: 'var(--space-sm)',
+            padding: '0.5rem 0.75rem',
+            borderRadius: 'var(--radius-sm)',
+            background: cascadeToast.type === 'success' ? '#2563eb' : '#dc2626',
+            color: '#fff',
+            fontSize: 'var(--text-sm)',
+            cursor: 'pointer',
+          }}
+          onClick={() => setCascadeToast(null)}
+        >
+          {cascadeToast.message}
         </div>
       )}
     </div>

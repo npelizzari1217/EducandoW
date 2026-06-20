@@ -1,10 +1,10 @@
 /**
- * 1a-T3 [RED→GREEN] — PrismaCompetencyValuationRepo.findByCourseCycleAndStudyPlanSubject.
+ * 1a-T3 [RED→GREEN] — PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo.findByCourseCycleAndStudyPlanSubject.
  * Mocks TenantContext; no real DB.
  * Verifies: competencyId resolution via SubjectCompetency, include periodValuations, BVR-5 ([]≠null).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PrismaCompetencyValuationRepo } from '../prisma-competency-valuation.repository';
+import { PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo } from '../prisma-competency-valuation.repository';
 import { TenantContext } from '../../../../auth/tenant.context';
 
 vi.mock('../../../../auth/tenant.context', () => ({
@@ -52,7 +52,7 @@ function makeMockClient(overrides: Record<string, unknown> = {}) {
     subjectCompetency: {
       findMany: vi.fn().mockResolvedValue([]),
     },
-    competencyValuation: {
+    competenciaXMateriaXAlumnoXCursoXCiclo: {
       findUnique: vi.fn().mockResolvedValue(null),
       findMany:   vi.fn().mockResolvedValue([]),
       upsert:     vi.fn().mockResolvedValue(undefined),
@@ -67,14 +67,14 @@ function makeMockClient(overrides: Record<string, unknown> = {}) {
 // findByCourseCycleAndStudyPlanSubject
 // ═══════════════════════════════════════════════════════════
 
-describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject', () => {
-  let repo: PrismaCompetencyValuationRepo;
+describe('PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo — findByCourseCycleAndStudyPlanSubject', () => {
+  let repo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo;
   let mockClient: ReturnType<typeof makeMockClient>;
 
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    repo = new PrismaCompetencyValuationRepo();
+    repo = new PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo();
   });
 
   it('resolves competencyIds from SubjectCompetency first (studyPlanSubjectId filter)', async () => {
@@ -82,7 +82,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
       { id: 'comp-uuid-1' },
       { id: 'comp-uuid-2' },
     ]);
-    mockClient.competencyValuation.findMany.mockResolvedValue([]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([]);
 
     await repo.findByCourseCycleAndStudyPlanSubject('cc-1', 'sps-1');
 
@@ -98,16 +98,16 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-1', 'sps-1');
 
     expect(result).toEqual([]);
-    expect(mockClient.competencyValuation.findMany).not.toHaveBeenCalled();
+    expect(mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany).not.toHaveBeenCalled();
   });
 
-  it('queries competencyValuation with courseCycleId + competencyId-in filter + include periodValuations', async () => {
+  it('queries competenciaXMateriaXAlumnoXCursoXCiclo with courseCycleId + competencyId-in filter + include periodValuations', async () => {
     mockClient.subjectCompetency.findMany.mockResolvedValue([{ id: 'comp-uuid-1' }]);
-    mockClient.competencyValuation.findMany.mockResolvedValue([]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([]);
 
     await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 
-    expect(mockClient.competencyValuation.findMany).toHaveBeenCalledWith({
+    expect(mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany).toHaveBeenCalledWith({
       where: {
         courseCycleId: 'cc-uuid-1',
         competencyId:  { in: ['comp-uuid-1'] },
@@ -117,7 +117,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     });
   });
 
-  it('maps rows to CompetencyValuationWithPeriods shape — BVR-1 happy path', async () => {
+  it('maps rows to CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos shape — BVR-1 happy path', async () => {
     const periodRow = makePeriodRow({
       gradeScaleValueId: 'gsv-a',
       gradeCode:         'MB',
@@ -126,7 +126,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     const valRow = { ...makeValuationRow(), periodValuations: [periodRow] };
 
     mockClient.subjectCompetency.findMany.mockResolvedValue([{ id: 'comp-uuid-1' }]);
-    mockClient.competencyValuation.findMany.mockResolvedValue([valRow]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([valRow]);
 
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 
@@ -146,7 +146,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     const valRow = { ...makeValuationRow({ id: 'v-uuid-2' }), periodValuations: [] };
 
     mockClient.subjectCompetency.findMany.mockResolvedValue([{ id: 'comp-uuid-1' }]);
-    mockClient.competencyValuation.findMany.mockResolvedValue([valRow]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([valRow]);
 
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 
@@ -159,7 +159,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
       { id: 'comp-uuid-1', name: 'Resolución de problemas' },
     ]);
     const valRow = { ...makeValuationRow(), periodValuations: [] };
-    mockClient.competencyValuation.findMany.mockResolvedValue([valRow]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([valRow]);
 
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 
@@ -175,7 +175,7 @@ describe('PrismaCompetencyValuationRepo — findByCourseCycleAndStudyPlanSubject
     const rowS2 = { ...makeValuationRow({ id: 'v-s2', studentId: 's-2' }), periodValuations: [pvS2] };
 
     mockClient.subjectCompetency.findMany.mockResolvedValue([{ id: 'comp-uuid-1' }]);
-    mockClient.competencyValuation.findMany.mockResolvedValue([rowS1, rowS2]);
+    mockClient.competenciaXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([rowS1, rowS2]);
 
     const result = await repo.findByCourseCycleAndStudyPlanSubject('cc-uuid-1', 'sps-1');
 

@@ -1,10 +1,10 @@
 /**
  * T1.1 [RED] → T1.2 [GREEN]
- * Tests for CompetencyPeriodValuation entity.
+ * Tests for CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo entity.
  * Specs: MVM-4 (lazy create defaults), MVM-6 (ungraded null fields), GPE-4 (lock guard).
  */
 import { describe, it, expect } from 'vitest';
-import { CompetencyPeriodValuation } from '../../entities/competency-period-valuation';
+import { CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from '../../entities/competency-period-valuation';
 import { PeriodLockedError } from '../../errors/competency-valuation.errors';
 
 const VALUATION_ID = 'valuation-uuid-1';
@@ -12,9 +12,9 @@ const PERIOD_ITEM_ID = 'period-item-uuid-1';
 
 // ── create (MVM-4, MVM-6) ─────────────────────────────────────
 
-describe('CompetencyPeriodValuation.create', () => {
+describe('CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create', () => {
   it('creates with ungraded defaults: grade fields null, modificable=true, imprimible=false', () => {
-    const child = CompetencyPeriodValuation.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
 
     expect(child.valuationId).toBe(VALUATION_ID);
     expect(child.periodItemId).toBe(PERIOD_ITEM_ID);
@@ -26,16 +26,16 @@ describe('CompetencyPeriodValuation.create', () => {
   });
 
   it('assigns a UUID id on creation', () => {
-    const child = CompetencyPeriodValuation.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
     expect(child.id).toHaveLength(36);
   });
 });
 
 // ── reconstruct ───────────────────────────────────────────────
 
-describe('CompetencyPeriodValuation.reconstruct', () => {
+describe('CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct', () => {
   it('preserves all props', () => {
-    const child = CompetencyPeriodValuation.reconstruct({
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: VALUATION_ID,
       periodItemId: PERIOD_ITEM_ID,
@@ -57,9 +57,9 @@ describe('CompetencyPeriodValuation.reconstruct', () => {
 
 // ── assignGrade (GPE-4) ───────────────────────────────────────
 
-describe('CompetencyPeriodValuation.assignGrade', () => {
+describe('CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.assignGrade', () => {
   it('snapshots all three grade fields and returns ok when modificable=true', () => {
-    const child = CompetencyPeriodValuation.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
 
     const result = child.assignGrade({
       gradeScaleValueId: 'sv-uuid',
@@ -74,7 +74,7 @@ describe('CompetencyPeriodValuation.assignGrade', () => {
   });
 
   it('returns err(PeriodLockedError) when modificable=false (GPE-4)', () => {
-    const child = CompetencyPeriodValuation.reconstruct({
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: VALUATION_ID,
       periodItemId: PERIOD_ITEM_ID,
@@ -93,7 +93,7 @@ describe('CompetencyPeriodValuation.assignGrade', () => {
   });
 
   it('does NOT mutate grade fields when locked', () => {
-    const child = CompetencyPeriodValuation.reconstruct({
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: VALUATION_ID,
       periodItemId: PERIOD_ITEM_ID,
@@ -114,9 +114,9 @@ describe('CompetencyPeriodValuation.assignGrade', () => {
 
 // ── clearGrade ────────────────────────────────────────────────
 
-describe('CompetencyPeriodValuation.clearGrade', () => {
+describe('CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.clearGrade', () => {
   it('nulls all three grade fields when modificable=true', () => {
-    const child = CompetencyPeriodValuation.reconstruct({
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: VALUATION_ID,
       periodItemId: PERIOD_ITEM_ID,
@@ -136,7 +136,7 @@ describe('CompetencyPeriodValuation.clearGrade', () => {
   });
 
   it('returns err(PeriodLockedError) when modificable=false', () => {
-    const child = CompetencyPeriodValuation.reconstruct({
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: VALUATION_ID,
       periodItemId: PERIOD_ITEM_ID,
@@ -156,9 +156,9 @@ describe('CompetencyPeriodValuation.clearGrade', () => {
 
 // ── setModificable / setImprimible ────────────────────────────
 
-describe('CompetencyPeriodValuation.setModificable / setImprimible', () => {
+describe('CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.setModificable / setImprimible', () => {
   it('setModificable(false) changes the flag', () => {
-    const child = CompetencyPeriodValuation.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
     expect(child.modificable).toBe(true);
 
     child.setModificable(false);
@@ -167,7 +167,7 @@ describe('CompetencyPeriodValuation.setModificable / setImprimible', () => {
   });
 
   it('setImprimible(true) changes the flag', () => {
-    const child = CompetencyPeriodValuation.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: VALUATION_ID, periodItemId: PERIOD_ITEM_ID });
     expect(child.imprimible).toBe(false);
 
     child.setImprimible(true);

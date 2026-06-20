@@ -10,7 +10,7 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-grading-period.repository';
 import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
 import { PrismaSubjectFinalGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-final-grade.repository';
-import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
+import { PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
 import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-informe.repository';
 
 @Module({
@@ -25,7 +25,7 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
     PrismaSubjectGradingPeriodRepository,
     PrismaSubjectPeriodGradeRepository,
     PrismaSubjectFinalGradeRepository,
-    PrismaCompetencyValuationRepo,
+    PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
 
     // ── Inicial branch repository ──────────────────────────────────────────────
     PrismaInformeRepository,
@@ -40,7 +40,7 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
         sgpRepo: PrismaSubjectGradingPeriodRepository,
         pgRepo: PrismaSubjectPeriodGradeRepository,
         fgRepo: PrismaSubjectFinalGradeRepository,
-        cvRepo: PrismaCompetencyValuationRepo,
+        cvRepo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         informeRepo: PrismaInformeRepository,
       ) => new GenerateBoletinUseCase(pdfGen, pdfStorage, prisma, sgpRepo, pgRepo, fgRepo, cvRepo, undefined, informeRepo),
       inject: [
@@ -50,7 +50,7 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
         PrismaSubjectGradingPeriodRepository,
         PrismaSubjectPeriodGradeRepository,
         PrismaSubjectFinalGradeRepository,
-        PrismaCompetencyValuationRepo,
+        PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         PrismaInformeRepository,
       ],
     },

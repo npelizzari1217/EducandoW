@@ -33,7 +33,7 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-grading-period.repository';
 import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
 import { PrismaSubjectFinalGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-final-grade.repository';
-import { PrismaCompetencyValuationRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
+import { PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
@@ -166,8 +166,8 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
     { provide: 'SubjectPeriodGradeRepository', useExisting: PrismaSubjectPeriodGradeRepository },
     PrismaSubjectFinalGradeRepository,
     { provide: 'SubjectFinalGradeRepository', useExisting: PrismaSubjectFinalGradeRepository },
-    PrismaCompetencyValuationRepo,
-    { provide: 'CompetencyValuationRepository', useExisting: PrismaCompetencyValuationRepo },
+    PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
+    { provide: 'CompetenciaXMateriaXAlumnoXCursoXCicloRepository', useExisting: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo },
     PrismaCourseCycleRepository,
 
     // ── Fase 5: group-assignment authorizer (used by both read and write paths) ─
@@ -194,7 +194,7 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
         sgpRepo: PrismaSubjectGradingPeriodRepository,
         pgRepo: PrismaSubjectPeriodGradeRepository,
         fgRepo: PrismaSubjectFinalGradeRepository,
-        cvRepo: PrismaCompetencyValuationRepo,
+        cvRepo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         ccRepo: PrismaCourseCycleRepository,
         authorizer: AssignmentAuthorizer,
       ) => new GetSubjectGradesBySubjectUseCase(sgpRepo, pgRepo, fgRepo, cvRepo, ccRepo, authorizer),
@@ -202,7 +202,7 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
         PrismaSubjectGradingPeriodRepository,
         PrismaSubjectPeriodGradeRepository,
         PrismaSubjectFinalGradeRepository,
-        PrismaCompetencyValuationRepo,
+        PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         PrismaCourseCycleRepository,
         AssignmentAuthorizer,
       ],
@@ -213,14 +213,14 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
         sgpRepo: PrismaSubjectGradingPeriodRepository,
         pgRepo: PrismaSubjectPeriodGradeRepository,
         fgRepo: PrismaSubjectFinalGradeRepository,
-        cvRepo: PrismaCompetencyValuationRepo,
+        cvRepo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         authorizer: AssignmentAuthorizer,
       ) => new GetSubjectGradesByStudentUseCase(sgpRepo, pgRepo, fgRepo, cvRepo, authorizer),
       inject: [
         PrismaSubjectGradingPeriodRepository,
         PrismaSubjectPeriodGradeRepository,
         PrismaSubjectFinalGradeRepository,
-        PrismaCompetencyValuationRepo,
+        PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
         AssignmentAuthorizer,
       ],
     },

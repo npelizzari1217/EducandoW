@@ -3,13 +3,13 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import { PedagogyController } from '../pedagogy.controller';
 import {
   ok, err, ValidationError, NotFoundError,
-  CompetencyPeriodValuation,
-  CompetencyValuationNotFoundError,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo,
+  CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError,
   ValueNotFoundError,
   PeriodLockedError,
   GradeScaleNotConfiguredError,
 } from '@educandow/domain';
-import type { CompetencyValuationWithPeriods } from '@educandow/domain';
+import type { CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos } from '@educandow/domain';
 import { CreateSubjectCompetencySchema, CopySubjectCompetenciesSchema, UpdatePeriodGradeSchema } from '../dto/competency.dto';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 
@@ -231,8 +231,8 @@ describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:per
   const mockBoletinInvalidation = { invalidateForStudent: vi.fn().mockResolvedValue(undefined) };
   let ctrl: PedagogyController;
 
-  function makeChild(): CompetencyPeriodValuation {
-    return CompetencyPeriodValuation.reconstruct({
+  function makeChild(): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
+    return CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -278,7 +278,7 @@ describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:per
   });
 
   it('CTL-IMP-1: forwards imprimible=true to the use case when present in body', async () => {
-    const childWithImprimible = CompetencyPeriodValuation.reconstruct({
+    const childWithImprimible = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -302,7 +302,7 @@ describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:per
   });
 
   it('CTL-IMP-2: imprimible-only body (no gradeScaleValueId) forwards to use case', async () => {
-    const childImprimibleOnly = CompetencyPeriodValuation.reconstruct({
+    const childImprimibleOnly = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -325,9 +325,9 @@ describe('PedagogyController — PATCH /competency-valuations/:uuid/periods/:per
     });
   });
 
-  it('returns HTTP 404 when UC returns CompetencyValuationNotFoundError', async () => {
+  it('returns HTTP 404 when UC returns CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError', async () => {
     mockGradePeriodUC.execute.mockResolvedValue(
-      err(new CompetencyValuationNotFoundError('v-nonexistent')),
+      err(new CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError('v-nonexistent')),
     );
 
     await expect(ctrl.gradePeriod('v-nonexistent', 'item-7', { gradeScaleValueId: 'gsv-a' })).rejects.toBeInstanceOf(HttpException);
@@ -445,7 +445,7 @@ describe('PedagogyController — GET /competency-valuations (bulk-read branch)',
   const mockBulkUC = { execute: vi.fn() };
   let ctrl: PedagogyController;
 
-  function makeRow(id = 'v-1'): CompetencyValuationWithPeriods {
+  function makeRow(id = 'v-1'): CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos {
     return {
       valuationId:      id,
       studentId:        's-1',

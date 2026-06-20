@@ -5,7 +5,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { AddStudentToMateriaUseCase } from '../add-student-to-materia.use-case';
 import type { MateriaXCursoXCicloRepository, AlumnosXMateriaRepository, StudentRepository } from '@educandow/domain';
-import { MateriaXCursoXCiclo, AlumnosXMateriaXCursoXCiclo, NotFoundError } from '@educandow/domain';
+import { MateriaXCursoXCiclo, MateriasXAlumnoXCursoXCiclo, NotFoundError } from '@educandow/domain';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -19,8 +19,8 @@ function makeMateria(id = 'm-1'): MateriaXCursoXCiclo {
   });
 }
 
-function makeAlumnosXMateria(): AlumnosXMateriaXCursoXCiclo {
-  return AlumnosXMateriaXCursoXCiclo.reconstruct({
+function makeAlumnosXMateria(): MateriasXAlumnoXCursoXCiclo {
+  return MateriasXAlumnoXCursoXCiclo.reconstruct({
     id: 'axm-1',
     materiaXCursoXCicloId: 'm-1',
     studentId: 's-1',

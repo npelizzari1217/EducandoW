@@ -4,12 +4,17 @@ import { StudentModule } from '../student/student.module';
 import { AlumnosXCursoXCicloController } from './alumnos-x-curso-x-ciclo.controller';
 import { PrismaAlumnosXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-curso-x-ciclo.repository';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
+import { PrismaMateriaXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-x-curso-x-ciclo.repository';
+import { PrismaAlumnosXMateriaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-materia.repository';
+import { PrismaSubjectCompetencyRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-competency.repository';
+import { PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-competency-valuation.repository';
 import { AddStudentToCourseCycleUseCase } from '../../application/course-cycle/add-student-to-course-cycle.use-case';
 import { ListStudentsByCourseCycleUseCase } from '../../application/course-cycle/list-students-by-course-cycle.use-case';
 import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cycle/remove-student-from-course-cycle.use-case';
 import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-printable.use-case';
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
+import { CascadeStudentMateriasCompetenciasUseCase } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
 
 /**
  * AlumnosXCursoXCicloModule — SDD-1 PR-3 (T-18).
@@ -31,6 +36,10 @@ import { ListStudentMembershipsUseCase } from '../../application/course-cycle/li
     // ── Repositories ──────────────────────────────────────────────────────────
     PrismaAlumnosXCursoXCicloRepository,
     PrismaCourseCycleRepository,
+    PrismaMateriaXCursoXCicloRepository,
+    PrismaAlumnosXMateriaRepository,
+    PrismaSubjectCompetencyRepo,
+    PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
 
     // ── Use-cases ─────────────────────────────────────────────────────────────
 
@@ -75,6 +84,31 @@ import { ListStudentMembershipsUseCase } from '../../application/course-cycle/li
       useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
         new ListStudentMembershipsUseCase(alumnosRepo),
       inject: [PrismaAlumnosXCursoXCicloRepository],
+    },
+
+    {
+      provide: CascadeStudentMateriasCompetenciasUseCase,
+      useFactory: (
+        alumnosCCRepo: PrismaAlumnosXCursoXCicloRepository,
+        materiaRepo: PrismaMateriaXCursoXCicloRepository,
+        alumnosXMateriaRepo: PrismaAlumnosXMateriaRepository,
+        competencyRepo: PrismaSubjectCompetencyRepo,
+        competenciaRepo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
+      ) =>
+        new CascadeStudentMateriasCompetenciasUseCase(
+          alumnosCCRepo,
+          materiaRepo,
+          alumnosXMateriaRepo,
+          competencyRepo,
+          competenciaRepo,
+        ),
+      inject: [
+        PrismaAlumnosXCursoXCicloRepository,
+        PrismaMateriaXCursoXCicloRepository,
+        PrismaAlumnosXMateriaRepository,
+        PrismaSubjectCompetencyRepo,
+        PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
+      ],
     },
   ],
 })

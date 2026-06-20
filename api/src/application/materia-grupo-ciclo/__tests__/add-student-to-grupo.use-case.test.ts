@@ -11,7 +11,7 @@ import type {
 } from '@educandow/domain';
 import {
   GrupoXCursoXMateriaXCiclo,
-  AlumnosXMateriaXCursoXCiclo,
+  MateriasXAlumnoXCursoXCiclo,
   AlumnosXGrupoXCursoXMateriaXCiclo,
   NotFoundError,
 } from '@educandow/domain';
@@ -28,8 +28,8 @@ function makeGrupo(id = 'grupo-1', materiaId = 'm-1'): GrupoXCursoXMateriaXCiclo
   });
 }
 
-function makeAlumnosXMateria(id = 'axm-1', materiaId = 'm-1'): AlumnosXMateriaXCursoXCiclo {
-  return AlumnosXMateriaXCursoXCiclo.reconstruct({
+function makeAlumnosXMateria(id = 'axm-1', materiaId = 'm-1'): MateriasXAlumnoXCursoXCiclo {
+  return MateriasXAlumnoXCursoXCiclo.reconstruct({
     id,
     materiaXCursoXCicloId: materiaId,
     studentId: 's-1',
@@ -73,7 +73,7 @@ function makeAlumnosGrupoRepo(): AlumnosXGrupoRepository {
   };
 }
 
-function makeAlumnosMateriaRepo(axm: AlumnosXMateriaXCursoXCiclo | null): AlumnosXMateriaRepository {
+function makeAlumnosMateriaRepo(axm: MateriasXAlumnoXCursoXCiclo | null): AlumnosXMateriaRepository {
   return {
     findByMateria: vi.fn().mockResolvedValue([]),
     findById: vi.fn().mockResolvedValue(axm),

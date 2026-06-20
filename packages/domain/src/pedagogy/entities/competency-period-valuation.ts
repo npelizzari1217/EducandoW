@@ -5,12 +5,12 @@ import { PeriodLockedError } from '../errors/competency-valuation.errors';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
-export interface CreateCompetencyPeriodValuationInput {
+export interface CreateCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloInput {
   valuationId: string;
   periodItemId: string;
 }
 
-export interface ReconstructCompetencyPeriodValuationProps {
+export interface ReconstructCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps {
   id: string;
   valuationId: string;
   periodItemId: string;
@@ -21,7 +21,7 @@ export interface ReconstructCompetencyPeriodValuationProps {
   imprimible: boolean;
 }
 
-interface CompetencyPeriodValuationProps {
+interface CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps {
   id: string;
   valuationId: string;
   periodItemId: string;
@@ -42,8 +42,8 @@ export interface AssignGradeInput {
 
 // ─── Entity ───────────────────────────────────────────────────────────────────
 
-export class CompetencyPeriodValuation {
-  private constructor(private readonly props: CompetencyPeriodValuationProps) {}
+export class CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
+  private constructor(private readonly props: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps) {}
 
   // ── Factories ─────────────────────────────────────────────
 
@@ -51,8 +51,8 @@ export class CompetencyPeriodValuation {
    * Lazy-creates an ungraded child row for a (valuation, periodItem) pair.
    * Defaults: all grade fields null, modificable=true, imprimible=false.
    */
-  static create(input: CreateCompetencyPeriodValuationInput): CompetencyPeriodValuation {
-    return new CompetencyPeriodValuation({
+  static create(input: CreateCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloInput): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
+    return new CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo({
       id: Id.create().get(),
       valuationId: input.valuationId,
       periodItemId: input.periodItemId,
@@ -64,8 +64,8 @@ export class CompetencyPeriodValuation {
     });
   }
 
-  static reconstruct(props: ReconstructCompetencyPeriodValuationProps): CompetencyPeriodValuation {
-    return new CompetencyPeriodValuation({ ...props });
+  static reconstruct(props: ReconstructCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
+    return new CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo({ ...props });
   }
 
   // ── Behavior ──────────────────────────────────────────────

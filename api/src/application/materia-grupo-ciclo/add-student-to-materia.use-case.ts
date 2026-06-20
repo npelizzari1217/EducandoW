@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type {
   MateriaXCursoXCicloRepository,
   AlumnosXMateriaRepository,
-  AlumnosXMateriaXCursoXCiclo,
+  MateriasXAlumnoXCursoXCiclo,
   StudentRepository,
 } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
@@ -26,7 +26,7 @@ export class AddStudentToMateriaUseCase {
   async execute(input: {
     materiaXCursoXCicloId: string;
     studentId: string;
-  }): Promise<AlumnosXMateriaXCursoXCiclo> {
+  }): Promise<MateriasXAlumnoXCursoXCiclo> {
     // Validate materia exists
     const materia = await this.materiaRepo.findById(input.materiaXCursoXCicloId);
     if (!materia) {

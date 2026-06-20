@@ -1,4 +1,4 @@
-import type { AlumnosXMateriaXCursoXCiclo } from '../entities/alumnos-x-materia-x-curso-x-ciclo';
+import type { MateriasXAlumnoXCursoXCiclo } from '../entities/alumnos-x-materia-x-curso-x-ciclo';
 
 /** Enriched projection: AlumnosXMateria record with resolved studentId + displayName. */
 export interface AlumnoMateriaEnriched {
@@ -8,21 +8,26 @@ export interface AlumnoMateriaEnriched {
 }
 
 /**
- * Port (interface) for AlumnosXMateriaXCursoXCiclo persistence.
+ * Port (interface) for MateriasXAlumnoXCursoXCiclo persistence.
  * Implementations live in the infrastructure layer (prisma-tenant).
  * Tenant scoping is implicit via TenantContext.
  *
  * Tasks: F3-D2
  */
 export interface AlumnosXMateriaRepository {
-  findByMateria(materiaXCursoXCicloId: string): Promise<AlumnosXMateriaXCursoXCiclo[]>;
-  findById(id: string): Promise<AlumnosXMateriaXCursoXCiclo | null>;
+  findByMateria(materiaXCursoXCicloId: string): Promise<MateriasXAlumnoXCursoXCiclo[]>;
+  findById(id: string): Promise<MateriasXAlumnoXCursoXCiclo | null>;
   /** Add a student to the subject universe. Idempotent (skipDuplicates). */
-  addStudent(materiaXCursoXCicloId: string, studentId: string): Promise<AlumnosXMateriaXCursoXCiclo>;
+  addStudent(materiaXCursoXCicloId: string, studentId: string): Promise<MateriasXAlumnoXCursoXCiclo>;
   /** Check if a student is in the universe of a subject. */
   isMember(materiaXCursoXCicloId: string, studentId: string): Promise<boolean>;
   /** Bulk-upsert for backfill (skipDuplicates). */
-  upsertMany(data: Array<{ materiaXCursoXCicloId: string; studentId: string }>): Promise<void>;
+  /**
+   * Bulk-upsert for cascade (skipDuplicates).
+   * Returns `{ count }` = rows actually inserted; callers that don't need the count
+   * can safely ignore the return value.
+   */
+  upsertMany(data: Array<{ materiaXCursoXCicloId: string; studentId: string }>): Promise<{ count: number }>;
   /**
    * Returns alumnos of a materia enriched with studentId + studentName.
    * Resolution: AlumnosXMateria.studentId → Student name.

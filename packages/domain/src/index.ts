@@ -53,8 +53,8 @@ export { StudentObservation, ObservationType, ObservationTypeValue } from './stu
 export type { StudentObservationProps, StudentObservationRepository } from './student-observation';
 
 // Pedagogy
-export { Subject, CourseSection, Attendance, SubjectCompetency, CompetencyValuation, CompetencyPeriodValuation } from './pedagogy';
-export type { SubjectProps, CourseSectionProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, SubjectCompetencyProps, CompetencyValuationProps, CreateCompetencyPeriodValuationInput, ReconstructCompetencyPeriodValuationProps, AssignGradeInput } from './pedagogy';
+export { Subject, CourseSection, Attendance, SubjectCompetency, CompetenciaXMateriaXAlumnoXCursoXCiclo, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from './pedagogy';
+export type { SubjectProps, CourseSectionProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, SubjectCompetencyProps, CompetenciaXMateriaXAlumnoXCursoXCicloProps, CreateCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloInput, ReconstructCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps, AssignGradeInput } from './pedagogy';
 
 // Pedagogy — Grading Primario (Fase 4, PR1)
 export { SubjectGradingPeriod, SubjectPeriodGrade, PedagogicalFlags } from './pedagogy';
@@ -77,8 +77,8 @@ export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFou
 export { StudyPlanHasDependenciesError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, AttendanceRepository, SubjectCompetencyRepository, CompetencyValuationRepository, CompetencyPeriodValuationRepository, CompetencyValuationWithPeriods, CompetencyPeriodValuationData } from './pedagogy';
-export { CompetencyValuationNotFoundError, GradeScaleNotConfiguredError, PeriodItemNotInTemplateError, GradeScaleValueMismatchError, PeriodLockedError } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, AttendanceRepository, SubjectCompetencyRepository, CompetenciaXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData } from './pedagogy';
+export { CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError, GradeScaleNotConfiguredError, PeriodItemNotInTemplateError, GradeScaleValueMismatchError, PeriodLockedError } from './pedagogy';
 export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';
 
@@ -212,8 +212,8 @@ export { MateriaXCursoXCiclo } from './materia-grupo-ciclo';
 export type { MateriaXCursoXCicloProps, CreateMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
 export type { MateriaXCursoXCicloRepository } from './materia-grupo-ciclo';
 
-export { AlumnosXMateriaXCursoXCiclo } from './materia-grupo-ciclo';
-export type { AlumnosXMateriaXCursoXCicloProps, CreateAlumnosXMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
+export { MateriasXAlumnoXCursoXCiclo } from './materia-grupo-ciclo';
+export type { MateriasXAlumnoXCursoXCicloProps, CreateMateriasXAlumnoXCursoXCicloInput } from './materia-grupo-ciclo';
 export type { AlumnosXMateriaRepository, AlumnoMateriaEnriched } from './materia-grupo-ciclo';
 
 export { GrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';

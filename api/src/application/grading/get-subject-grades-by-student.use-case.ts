@@ -21,8 +21,8 @@ import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
   SubjectFinalGradeRepository,
-  CompetencyValuationRepository,
-  CompetencyValuationWithPeriods,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos,
   AssignmentAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
@@ -56,7 +56,7 @@ export interface SubjectEntry {
     /** Year-end condicion (REGULAR | PREVIA | LIBRE). null for Primario rows or when not set. */
     condicion: string | null;
   }>;
-  competencyValuations: CompetencyValuationWithPeriods[];
+  competencyValuations: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[];
 }
 
 export interface SubjectGradesByStudentResult {
@@ -75,7 +75,7 @@ export class GetSubjectGradesByStudentUseCase {
     private readonly sgpRepo: SubjectGradingPeriodRepository,
     private readonly periodGradeRepo: SubjectPeriodGradeRepository,
     private readonly finalGradeRepo: SubjectFinalGradeRepository,
-    private readonly cvRepo: CompetencyValuationRepository,
+    private readonly cvRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
     private readonly authorizer: AssignmentAuthorizerPort,
   ) {}
 
@@ -138,7 +138,7 @@ export class GetSubjectGradesByStudentUseCase {
       const subjectFinalMap = fgBySubject.get(sid) ?? new Map();
 
       // Competency valuations (ALL — no imprimible filter per ES-R2 correction)
-      let cvs: CompetencyValuationWithPeriods[] = [];
+      let cvs: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[] = [];
       if (studyPlanSubjectId) {
         const allCvs = await this.cvRepo.findByCourseCycleAndStudyPlanSubject(
           courseCycleId,

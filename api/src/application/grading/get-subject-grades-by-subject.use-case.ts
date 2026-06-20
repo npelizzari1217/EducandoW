@@ -22,8 +22,8 @@ import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
   SubjectFinalGradeRepository,
-  CompetencyValuationRepository,
-  CompetencyValuationWithPeriods,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos,
   CourseCycleRepository,
   AssignmentAuthorizerPort,
 } from '@educandow/domain';
@@ -62,7 +62,7 @@ export interface SubjectGradesBySubjectResult {
       /** Year-end condicion (REGULAR | PREVIA | LIBRE). null for Primario rows or when not set. */
       condicion: string | null;
     }>;
-    competencyValuations: CompetencyValuationWithPeriods[];
+    competencyValuations: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[];
   }>;
 }
 
@@ -76,7 +76,7 @@ export class GetSubjectGradesBySubjectUseCase {
     private readonly sgpRepo: SubjectGradingPeriodRepository,
     private readonly periodGradeRepo: SubjectPeriodGradeRepository,
     private readonly finalGradeRepo: SubjectFinalGradeRepository,
-    private readonly cvRepo: CompetencyValuationRepository,
+    private readonly cvRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
     private readonly ccRepo: CourseCycleRepository,
     private readonly authorizer: AssignmentAuthorizerPort,
   ) {}
@@ -132,7 +132,7 @@ export class GetSubjectGradesBySubjectUseCase {
 
     // ── 5. Resolve studyPlanSubjectId + competency valuations ─────────────────
     const studyPlanSubjectId = await this.resolveStudyPlanSubjectId(courseCycleId, subjectId);
-    let competencyValuations: CompetencyValuationWithPeriods[] = [];
+    let competencyValuations: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[] = [];
     if (studyPlanSubjectId) {
       competencyValuations = await this.cvRepo.findByCourseCycleAndStudyPlanSubject(
         courseCycleId,
@@ -156,7 +156,7 @@ export class GetSubjectGradesBySubjectUseCase {
       finalsByStudent.get(f.studentId)!.set(f.type, f);
     }
 
-    const cvByStudent = new Map<string, CompetencyValuationWithPeriods[]>();
+    const cvByStudent = new Map<string, CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]>();
     for (const cv of competencyValuations) {
       const bucket = cvByStudent.get(cv.studentId) ?? [];
       bucket.push(cv);

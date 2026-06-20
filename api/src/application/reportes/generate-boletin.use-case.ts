@@ -13,7 +13,7 @@ import type {
   SubjectGradingPeriodRepository,
   SubjectPeriodGradeRepository,
   SubjectFinalGradeRepository,
-  CompetencyValuationRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
   MateriaPreviaRepository,
   InformeRepository,
 } from '@educandow/domain';
@@ -60,7 +60,7 @@ export class GenerateBoletinUseCase {
     private readonly sgpRepo?: SubjectGradingPeriodRepository,
     private readonly periodGradeRepo?: SubjectPeriodGradeRepository,
     private readonly finalGradeRepo?: SubjectFinalGradeRepository,
-    private readonly cvRepo?: CompetencyValuationRepository,
+    private readonly cvRepo?: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
     private readonly materiaPreviaRepo?: MateriaPreviaRepository,
     private readonly informeRepo?: InformeRepository,
   ) {
