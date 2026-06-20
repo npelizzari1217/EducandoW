@@ -206,7 +206,7 @@ function setupDefaultMocks() {
         return Promise.resolve({ data: { data: null } });
       }
       // Legajo sub-resources
-      if (url === '/enrollments' || url === '/notas' || url === '/attendance') {
+      if (url === '/enrollments' || url === '/notas') {
         return Promise.resolve({ data: { data: [] } });
       }
       return Promise.resolve({ data: { data: [] } });

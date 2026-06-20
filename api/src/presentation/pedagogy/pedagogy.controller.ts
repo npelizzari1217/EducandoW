@@ -20,7 +20,6 @@ export class PedagogyController {
   constructor(
     private createSubjUC: UC.CreateSubjectUC, private listSubjUC: UC.ListSubjectsUC, private deleteSubjUC: UC.DeleteSubjectUC, private updateSubjUC: UC.UpdateSubjectUC,
     private createSecUC: UC.CreateCourseSectionUC, private listSecUC: UC.ListCourseSectionsUC, private deleteSecUC: UC.DeleteCourseSectionUC, private updateSecUC: UC.UpdateCourseSectionUC,
-    private createAttUC: UC.CreateAttendanceUC, private listAttUC: UC.ListAttendanceUC, private deleteAttUC: UC.DeleteAttendanceUC,
     private listCyclesUC: UC.ListAcademicCyclesUC,
     private getCycleUC: UC.GetAcademicCycleUC,
     private createCycleUC: UC.CreateAcademicCycleUC,
@@ -148,16 +147,6 @@ export class PedagogyController {
 
   @Patch('course-sections/:id') @Roles('ROOT', { module: 'COURSES', action: 'UPDATE' })
   async patchSection(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.UpdateCourseSectionSchema)) b: DTO.UpdateCourseSectionDTO) { const r = await this.updateSecUC.execute(id, b); if (r.isErr()) throw r.unwrapErr(); const s = r.unwrap(); if (!s) return { data: null }; return { data: { id: s.id.get(), name: s.name, grade: s.grade, division: s.division, level: s.level.toCode(), academicYear: s.academicYear } }; }
-
-  // ── Attendance ─────────────────────────────────────
-  @Post('attendance') @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
-  async postAttendance(@Body(new ZodValidationPipe(DTO.CreateAttendanceSchema)) b: DTO.CreateAttendanceDTO) { const r = await this.createAttUC.execute(b); if (r.isErr()) throw r.unwrapErr(); const a = r.unwrap(); return { data: { id: a.id.get(), studentId: a.studentId, status: a.status, statusDescription: a.statusDescription, isPresent: a.isPresent } }; }
-
-  @Get('attendance') @Roles('ROOT', { module: 'ATTENDANCE', action: 'READ' })
-  async getAttendance(@Query('courseSectionId') csid: string, @Query('date') d: string, @Query('studentId') sid: string) { if (csid && d) { const a = await this.listAttUC.executeByCourseDate(csid, d); return { data: a.map(x => ({ id: x.id.get(), studentId: x.studentId, status: x.status, statusDescription: x.statusDescription, isPresent: x.isPresent, note: x.note })) }; } if (sid) { const a = await this.listAttUC.executeByStudent(sid); return { data: a.map(x => ({ id: x.id.get(), date: x.date.toISOString(), status: x.status, statusDescription: x.statusDescription })) }; } return { data: [] }; }
-
-  @Delete('attendance/:id') @Roles('ROOT', { module: 'ATTENDANCE', action: 'DELETE' }) @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteAttendance(@Param('id') id: string) { await this.deleteAttUC.execute(id); }
 
   // ── Study Plans ─────────────────────────────────────
   @Post('study-plans') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'CREATE' })

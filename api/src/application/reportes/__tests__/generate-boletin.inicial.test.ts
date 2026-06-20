@@ -284,7 +284,6 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Inicial (level=10)', () 
       alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
       courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-ini', level: 10, cycleId: 'acyc-ini', course: { grade: null, division: null, academicYear: '2026' }, cycle: {} }) },
       student: { findUnique: vi.fn().mockResolvedValue(null) },
-      attendance: { findMany: vi.fn().mockResolvedValue([]) },
     };
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 

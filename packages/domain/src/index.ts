@@ -53,8 +53,8 @@ export { StudentObservation, ObservationType, ObservationTypeValue } from './stu
 export type { StudentObservationProps, StudentObservationRepository } from './student-observation';
 
 // Pedagogy
-export { Subject, CourseSection, Attendance, SubjectCompetency, CompetenciaXMateriaXAlumnoXCursoXCiclo, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from './pedagogy';
-export type { SubjectProps, CourseSectionProps, AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity, SubjectCompetencyProps, CompetenciaXMateriaXAlumnoXCursoXCicloProps, CreateCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloInput, ReconstructCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps, AssignGradeInput } from './pedagogy';
+export { Subject, CourseSection, SubjectCompetency, CompetenciaXMateriaXAlumnoXCursoXCiclo, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from './pedagogy';
+export type { SubjectProps, CourseSectionProps, SubjectCompetencyProps, CompetenciaXMateriaXAlumnoXCursoXCicloProps, CreateCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloInput, ReconstructCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloProps, AssignGradeInput } from './pedagogy';
 
 // Pedagogy — Grading Primario (Fase 4, PR1)
 export { SubjectGradingPeriod, SubjectPeriodGrade, PedagogicalFlags } from './pedagogy';
@@ -77,7 +77,7 @@ export { CycleCodeInvalidError, CycleCodeAlreadyExistsError, AcademicCycleNotFou
 export { StudyPlanHasDependenciesError } from './pedagogy';
 export { StudyPlan } from './pedagogy';
 export type { StudyPlanProps } from './pedagogy';
-export type { SubjectRepository, CourseSectionRepository, AttendanceRepository, SubjectCompetencyRepository, CompetenciaXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData } from './pedagogy';
+export type { SubjectRepository, CourseSectionRepository, SubjectCompetencyRepository, CompetenciaXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository, CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData } from './pedagogy';
 export { CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError, GradeScaleNotConfiguredError, PeriodItemNotInTemplateError, GradeScaleValueMismatchError, PeriodLockedError } from './pedagogy';
 export type { AcademicCycleRepository, AcademicCycleFilters } from './pedagogy';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './pedagogy';

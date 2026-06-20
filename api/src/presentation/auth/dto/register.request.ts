@@ -95,15 +95,6 @@ export const CreateCourseSectionSchema = z.object({
 export type CreateCourseSectionDTO = z.infer<typeof CreateCourseSectionSchema>;
 
 
-export const CreateAttendanceSchema = z.object({
-  studentId: uuidField,
-  courseSectionId: uuidField,
-  date: z.string(),
-  status: z.enum(['PRE', 'AUS', 'TAR', 'JUS', 'RET']),
-  note: z.string().max(300).optional(),
-});
-export type CreateAttendanceDTO = z.infer<typeof CreateAttendanceSchema>;
-
 // ── Study Plans ────────────────────────────────────
 export const CreateStudyPlanSchema = z.object({
   name: z.string().min(1).max(200),

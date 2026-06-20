@@ -396,7 +396,7 @@ export default function MateriasGruposPage() {
                     <Button
                       variant="action"
                       size="sm"
-                      onClick={() => navigate('/attendance')}
+                      onClick={() => navigate('/asistencia-mensual')}
                     >
                       Ausencias
                     </Button>

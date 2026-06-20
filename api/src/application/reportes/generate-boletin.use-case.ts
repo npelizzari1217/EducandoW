@@ -984,14 +984,14 @@ export class GenerateBoletinUseCase {
   ): Promise<AsistenciaBoletin | undefined> {
     if (!courseCycleId) return undefined;
 
-    const registers = await (client as any).asistenciaXAlumnoXCursoXCiclo.findMany({
+    const registers = await client.asistenciaXAlumnoXCursoXCiclo.findMany({
       where: { courseCycleId, studentId },
     });
 
     if (registers.length === 0) return undefined;
 
     // Build catalog once per call: code → { isPresent, absenceValue (number) }
-    const rawTypes = await (client as any).attendanceType.findMany({ where: { level } });
+    const rawTypes = await client.attendanceType.findMany({ where: { level } });
     const catalog = new Map<string, { isPresent: boolean; absenceValue: number }>();
     for (const t of rawTypes) {
       catalog.set(t.code as string, {

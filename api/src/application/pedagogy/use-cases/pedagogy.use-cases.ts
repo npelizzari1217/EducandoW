@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, ValidationError, Id, Level, EducationalLevel, EducationalLevelCode, EducationalModality, EducationalModalityCode, Result } from '@educandow/domain';
-import type { SubjectRepository, CourseSectionRepository, AttendanceRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
-import { Subject, CourseSection, Attendance, AcademicCycle, StudyPlan } from '@educandow/domain';
+import type { SubjectRepository, CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, StudyPlanCourseDto } from '@educandow/domain';
+import { Subject, CourseSection, AcademicCycle, StudyPlan } from '@educandow/domain';
 import { CycleCode, BimonthPeriod, CycleCodeAlreadyExistsError, AcademicCycleNotFoundError, StudyPlanHasDependenciesError } from '@educandow/domain';
 import { DomainError } from '@educandow/domain';
 import type { SubjectProps, CourseSectionProps, StudyPlanProps, AcademicCycleFilters, PaginatedResult } from '@educandow/domain';
@@ -259,14 +259,6 @@ export class UpdateCourseSectionUC {
     return ok(updated);
   }
 }
-
-// ── Attendance ───────────────────────────────────────
-@Injectable()
-export class CreateAttendanceUC { constructor(private r: AttendanceRepository) {} async execute(input: { studentId: string; courseSectionId: string; date: string; status: string; note?: string }) { const { status, ...rest } = input; const a = Attendance.create({ ...rest, date: new Date(input.date), statusId: status }); await this.r.save(a); return ok(a); } }
-@Injectable()
-export class ListAttendanceUC { constructor(private r: AttendanceRepository) {} async executeByCourseDate(courseSectionId: string, date: string) { return this.r.findByCourseSectionAndDate(courseSectionId, new Date(date)); } async executeByStudent(studentId: string) { return this.r.findByStudent(studentId); } }
-@Injectable()
-export class DeleteAttendanceUC { constructor(private r: AttendanceRepository) {} async execute(id: string) { await this.r.delete(id); } }
 
 // ── Study Plans ──────────────────────────────────────
 @Injectable()

@@ -126,7 +126,6 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Legajos')).not.toBeInTheDocument();
     expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
     expect(screen.queryByText('Notas y Calificaciones')).not.toBeInTheDocument();
-    expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
     // Level-specific items also hidden
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
     expect(screen.queryByText('Grados')).not.toBeInTheDocument();
@@ -143,7 +142,6 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
     expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
-    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed — verify it's NOT present
     expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
@@ -178,7 +176,6 @@ describe('Sidebar filtering', () => {
 
     // Generic items visible
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed
     expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
@@ -210,9 +207,6 @@ describe('Sidebar filtering', () => {
     (mockUser as any).levels = [20, 30];
     setRole('ADMIN');
     renderSidebar();
-
-    // Generic items visible
-    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
 
     // Dead link removed
     expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
@@ -311,7 +305,6 @@ describe('Sidebar filtering', () => {
 
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Asistencia del día')).toBeInTheDocument();
     expect(screen.getByText('Instituciones')).toBeInTheDocument();
     expect(screen.getByText('Perfiles')).toBeInTheDocument();
     expect(screen.getByText('Usuarios')).toBeInTheDocument();
@@ -409,7 +402,6 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Académico')).not.toBeInTheDocument();
     expect(screen.queryByText('Alumnos por curso')).not.toBeInTheDocument();
     expect(screen.queryByText('Notas y Calificaciones')).not.toBeInTheDocument();
-    expect(screen.queryByText('Asistencia del día')).not.toBeInTheDocument();
     expect(screen.queryByText('Salas')).not.toBeInTheDocument();
     expect(screen.queryByText('Grados')).not.toBeInTheDocument();
     expect(screen.queryByText('Cursos')).not.toBeInTheDocument();

@@ -317,7 +317,6 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
       alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
       courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-pri', level: 21, cycleId: 'acyc-pri', course: { grade: '3°', division: 'B', academicYear: '2026' } }) },
       student: { findUnique: vi.fn().mockResolvedValue(null) },
-      attendance: { findMany: vi.fn().mockResolvedValue([]) },
     };
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
@@ -340,7 +339,6 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
       alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
       courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-sec', level: 30, cycleId: 'acyc-sec', course: { grade: '4°', division: 'A', academicYear: '2026' } }) },
       student: { findUnique: vi.fn().mockResolvedValue(null) },
-      attendance: { findMany: vi.fn().mockResolvedValue([]) },
     };
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
