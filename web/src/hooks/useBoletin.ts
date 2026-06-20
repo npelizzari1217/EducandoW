@@ -1,12 +1,13 @@
 import apiClient from '../api/client';
 
 /**
- * Downloads a report card PDF for a single student enrollment.
+ * Downloads a report card PDF for a single student.
+ * SDD-2 R16: keyed on AlumnosXCursoXCiclo.id (alumnosXCursoXCicloId) instead of enrollment.id.
  * Fetches via API client (which injects the auth token), creates a blob URL,
  * and opens it in a new browser tab for viewing/printing.
  */
-export async function downloadBoletin(enrollmentId: string): Promise<void> {
-  const res = await apiClient.get(`/reportes/boletin/${enrollmentId}`, {
+export async function downloadBoletin(alumnosXCursoXCicloId: string): Promise<void> {
+  const res = await apiClient.get(`/reportes/boletin/${alumnosXCursoXCicloId}`, {
     responseType: 'blob',
   });
   const blobUrl = URL.createObjectURL(res.data);
@@ -18,9 +19,10 @@ export async function downloadBoletin(enrollmentId: string): Promise<void> {
 /**
  * Downloads a ZIP archive with report cards for all printable students
  * in a course cycle. Creates a temporary download link and triggers it.
+ * SDD-2 ADR-2: batch is scoped by CourseCycle (courseCycleId), not AcademicCycle.
  */
-export async function downloadBoletinBatch(cycleId: string): Promise<void> {
-  const res = await apiClient.get(`/reportes/boletin/curso/${cycleId}`, {
+export async function downloadBoletinBatch(courseCycleId: string): Promise<void> {
+  const res = await apiClient.get(`/reportes/boletin/curso/${courseCycleId}`, {
     responseType: 'blob',
   });
   const blobUrl = URL.createObjectURL(res.data);

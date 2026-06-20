@@ -9,6 +9,8 @@ interface CourseCycleOption {
   courseName: string;
   level: number;
   modality: number | null;
+  /** AcademicCycle.uuid — used by StudentObservationsPanel for academicCycleId (SDD-2 R15). */
+  cycleId?: string;
 }
 
 interface InstitutionOption {
@@ -45,6 +47,8 @@ export interface CourseCycleContext {
   courseName: string;
   /** Populated for ROOT; undefined for non-ROOT. */
   institutionId?: string;
+  /** AcademicCycle.uuid — passed from CourseCycle.cycleId (SDD-2 R15). */
+  academicCycleId?: string;
 }
 
 interface Props {
@@ -193,6 +197,7 @@ export function TeacherFilteredSelector({ onSelect, onSelectCC, filterCourseCycl
           modality: cc.modality ?? null,
           courseName: cc.courseName,
           institutionId: isRoot ? institutionId || undefined : undefined,
+          academicCycleId: cc.cycleId,
         });
       }
       return;

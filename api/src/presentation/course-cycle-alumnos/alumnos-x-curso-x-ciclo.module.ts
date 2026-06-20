@@ -9,6 +9,7 @@ import { ListStudentsByCourseCycleUseCase } from '../../application/course-cycle
 import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cycle/remove-student-from-course-cycle.use-case';
 import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-printable.use-case';
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
+import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
 
 /**
  * AlumnosXCursoXCicloModule — SDD-1 PR-3 (T-18).
@@ -66,6 +67,13 @@ import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-co
       provide: SetCoursePrintableUseCase,
       useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
         new SetCoursePrintableUseCase(alumnosRepo),
+      inject: [PrismaAlumnosXCursoXCicloRepository],
+    },
+
+    {
+      provide: ListStudentMembershipsUseCase,
+      useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
+        new ListStudentMembershipsUseCase(alumnosRepo),
       inject: [PrismaAlumnosXCursoXCicloRepository],
     },
   ],

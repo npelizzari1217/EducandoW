@@ -18,17 +18,20 @@ interface StudentDetail {
   institutionId: string;
 }
 
-interface Enrollment {
+/**
+ * SDD-2 R17: replaces Enrollment interface. Mirrors StudentMembershipEnriched from backend.
+ * Source: GET /students/:studentId/memberships (AlumnosXCursoXCiclo enriched).
+ */
+interface StudentMembership {
   [key: string]: unknown;
   id: string;
-  studentId: string;
-  institutionId: string;
-  level: string;
+  courseCycleId: string;
+  printable: boolean;
+  level: number;
   academicYear: string;
   grade: string | null;
   division: string | null;
-  status: string;
-  enrolledAt: string;
+  createdAt: string;
 }
 
 interface Nota {
@@ -96,7 +99,8 @@ interface StudentLegajoProps {
 
 export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) {
   const [selectedStudent, setSelectedStudent] = useState<StudentDetail | null>(null);
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  // SDD-2 R17: memberships replace enrollments (AlumnosXCursoXCiclo enriched rows)
+  const [memberships, setMemberships] = useState<StudentMembership[]>([]);
   const [notas, setNotas] = useState<Nota[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loadingLegajo, setLoadingLegajo] = useState(false);
@@ -106,7 +110,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
     if (!studentId) return;
 
     setSelectedStudent(null);
-    setEnrollments([]);
+    setMemberships([]);
     setNotas([]);
     setAttendance([]);
     setError('');
@@ -116,7 +120,8 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
 
     Promise.allSettled([
       apiClient.get(`/students/${studentId}`, { params: tenantParams }),
-      apiClient.get('/enrollments', { params: { studentId, ...tenantParams } }),
+      // SDD-2 R17: GET /students/:studentId/memberships replaces GET /enrollments
+      apiClient.get(`/students/${studentId}/memberships`),
       apiClient.get('/notas', { params: { studentId, ...tenantParams } }),
       apiClient.get('/attendance', { params: { studentId, ...tenantParams } }),
     ]).then((results) => {
@@ -133,13 +138,13 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         (results[0] as { value: { data: { data: StudentDetail } } }).value.data.data,
       );
 
-      // Enrollments (optional)
+      // Memberships (optional)
       if (results[1].status === 'fulfilled') {
-        setEnrollments(
-          (results[1] as { value?: { data?: { data?: Enrollment[] } } }).value?.data?.data ?? [],
+        setMemberships(
+          (results[1] as { value?: { data?: { data?: StudentMembership[] } } }).value?.data?.data ?? [],
         );
       } else {
-        setEnrollments([]);
+        setMemberships([]);
       }
 
       // Notas (optional)
@@ -217,27 +222,31 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         </div>
       </Card>
 
-      {/* ── Matrículas ── */}
-      <Card title={`Matrículas (${enrollments.length})`} className="mt-md">
+      {/* ── Cursos Ciclo (SDD-2: reemplaza Matrículas) ── */}
+      <Card title={`Cursos Ciclo (${memberships.length})`} className="mt-md">
         <Table
           columns={[
             { key: 'academicYear', header: 'Año lectivo' },
-            { key: 'level', header: 'Nivel', render: (e: Enrollment) => levelLabel(e.level) },
-            { key: 'grade', header: 'Grado/Año', render: (e: Enrollment) => e.grade || '-' },
+            { key: 'level', header: 'Nivel', render: (m: StudentMembership) => levelLabel(String(m.level)) },
+            { key: 'grade', header: 'Grado/Año', render: (m: StudentMembership) => m.grade || '-' },
             {
               key: 'division',
               header: 'División',
-              render: (e: Enrollment) => e.division || '-',
+              render: (m: StudentMembership) => m.division || '-',
             },
-            { key: 'status', header: 'Estado' },
             {
-              key: 'enrolledAt',
-              header: 'Fecha',
-              render: (e: Enrollment) => formatDateTime(e.enrolledAt),
+              key: 'printable',
+              header: 'Boletín',
+              render: (m: StudentMembership) => m.printable ? '✓ Sí' : '✗ No',
+            },
+            {
+              key: 'createdAt',
+              header: 'Fecha alta',
+              render: (m: StudentMembership) => formatDateTime(m.createdAt),
             },
           ]}
-          data={enrollments}
-          emptyMessage="Sin matrículas registradas"
+          data={memberships}
+          emptyMessage="Sin cursos asignados"
         />
       </Card>
 

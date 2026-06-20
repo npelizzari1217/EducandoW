@@ -27,6 +27,8 @@ import { ListStudentsByCourseCycleUseCase } from '../../application/course-cycle
 import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cycle/remove-student-from-course-cycle.use-case';
 import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-printable.use-case';
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
+import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
+import type { StudentMembershipEnriched } from '@educandow/domain';
 
 /**
  * AlumnosXCursoXCicloController — SDD-1 PR-3 (T-17).
@@ -46,6 +48,7 @@ export class AlumnosXCursoXCicloController {
     private readonly removeUC: RemoveStudentFromCourseCycleUseCase,
     private readonly togglePrintableUC: TogglePrintableUseCase,
     private readonly setCoursePrintableUC: SetCoursePrintableUseCase,
+    private readonly listMembershipsUC: ListStudentMembershipsUseCase,
   ) {}
 
   /**
@@ -134,5 +137,19 @@ export class AlumnosXCursoXCicloController {
     @Body(new ZodValidationPipe(SetPrintableSchema)) body: SetPrintableDto,
   ): Promise<void> {
     await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+  }
+
+  /**
+   * GET /students/:studentId/memberships — List all AlumnosXCursoXCiclo rows for a student.
+   * Returns enriched data: id, courseCycleId, printable, level, academicYear, grade, division.
+   * SDD-2 R16/R17: replaces GET /enrollments?studentId in web StudentLegajo + boletín dropdown.
+   */
+  @Get('students/:studentId/memberships')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
+  async listStudentMemberships(
+    @Param('studentId') studentId: string,
+  ): Promise<{ data: StudentMembershipEnriched[] }> {
+    const data = await this.listMembershipsUC.execute(studentId);
+    return { data };
   }
 }

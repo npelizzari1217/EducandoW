@@ -51,7 +51,7 @@ export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFo
 // AlumnosXCursoXCiclo (SDD-1)
 export { AlumnosXCursoXCiclo } from './course-cycle';
 export type { AlumnosXCursoXCicloProps, CreateAlumnosXCursoXCicloInput } from './course-cycle';
-export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched } from './course-cycle';
+export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched, StudentMembershipEnriched } from './course-cycle';
 
 // Student Observation
 export { StudentObservation, ObservationType, ObservationTypeValue } from './student-observation';

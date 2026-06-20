@@ -21,13 +21,14 @@ import '@testing-library/jest-dom/vitest';
 const mockGet = vi.fn();
 const mockPost = vi.fn();
 const mockDelete = vi.fn();
+const mockPatch = vi.fn();
 
 vi.mock('../../../api/client', () => ({
   default: {
     get: mockGet,
     post: mockPost,
     delete: mockDelete,
-    patch: vi.fn(),
+    patch: mockPatch,
   },
 }));
 
@@ -66,11 +67,19 @@ vi.mock('../../../context/institution-context', () => ({
   }),
 }));
 
+// ── Mock useBoletin ───────────────────────────────────────────────────────────
+
+const mockDownloadBoletinBatch = vi.fn();
+
+vi.mock('../../../hooks/useBoletin', () => ({
+  downloadBoletinBatch: (...args: unknown[]) => mockDownloadBoletinBatch(...args),
+}));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const currentAlumnos = [
-  { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García' },
-  { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López' },
+  { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: true },
+  { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López', printable: false },
 ];
 
 const allStudents = [
@@ -85,6 +94,8 @@ let AlumnosCursoCicloPanel: React.ComponentType<{ ccId: string; onClose: () => v
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockDownloadBoletinBatch.mockResolvedValue(undefined);
+  mockPatch.mockResolvedValue({});
   mockGet.mockImplementation((url: string) => {
     if (url === '/course-cycles/cc-1/alumnos') {
       return Promise.resolve({ data: { data: currentAlumnos } });
@@ -219,5 +230,143 @@ describe('AlumnosCursoCicloPanel', () => {
 
     await user.click(screen.getByTestId('btn-cerrar'));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  // ── SDD-2 Printable & Print features ─────────────────────────────────────
+
+  // W-08: printable indicator shown per row
+  it('W-08: shows printable indicator for each assigned student', async () => {
+    renderPanel();
+    await waitFor(() => {
+      // row-1 (printable=true) has a printable indicator
+      expect(screen.getByTestId('printable-row-1')).toBeInTheDocument();
+      // row-2 (printable=false) also has an indicator (unchecked)
+      expect(screen.getByTestId('printable-row-2')).toBeInTheDocument();
+    });
+  });
+
+  // W-09: "Todos" button → PATCH /course-cycles/:ccId/alumnos/printable { value: true }
+  it('W-09: "Todos" button calls bulk PATCH with value=true', async () => {
+    const user = userEvent.setup();
+    mockPatch.mockResolvedValue({});
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-todos')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-todos'));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/course-cycles/cc-1/alumnos/printable',
+        { value: true },
+      );
+    });
+  });
+
+  // W-10: "Ninguno" button → PATCH /course-cycles/:ccId/alumnos/printable { value: false }
+  it('W-10: "Ninguno" button calls bulk PATCH with value=false', async () => {
+    const user = userEvent.setup();
+    mockPatch.mockResolvedValue({});
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-ninguno')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-ninguno'));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/course-cycles/cc-1/alumnos/printable',
+        { value: false },
+      );
+    });
+  });
+
+  // W-11: per-row printable toggle → PATCH /course-cycles/:ccId/alumnos/:id/printable
+  it('W-11: toggling per-row printable calls PATCH with the row id', async () => {
+    const user = userEvent.setup();
+    mockPatch.mockResolvedValue({});
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('printable-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('printable-row-1'));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/course-cycles/cc-1/alumnos/row-1/printable',
+        { value: false }, // row-1 was printable=true, toggle → false
+      );
+    });
+  });
+
+  // W-12: "Imprimir" button → downloadBoletinBatch(ccId)
+  it('W-12: "Imprimir" button calls downloadBoletinBatch with the course cycle id', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-imprimir')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-imprimir'));
+
+    await waitFor(() => {
+      expect(mockDownloadBoletinBatch).toHaveBeenCalledWith('cc-1');
+    });
+  });
+
+  // W-13: aggregate state label reflects selection state
+  it('W-13: shows "Algunos" when only some students are printable', async () => {
+    renderPanel();
+    // currentAlumnos: row-1 printable=true, row-2 printable=false → Algunos
+    await waitFor(() => {
+      expect(screen.getByTestId('printable-state-label')).toHaveTextContent('Algunos');
+    });
+  });
+
+  it('W-13b: shows "Todos" when all students are printable', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/alumnos') {
+        return Promise.resolve({ data: { data: [
+          { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: true },
+          { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López', printable: true },
+        ] } });
+      }
+      if (url === '/students') return Promise.resolve({ data: { data: allStudents } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('printable-state-label')).toHaveTextContent('Todos');
+    });
+  });
+
+  it('W-13c: shows "Ninguno" when no students are printable', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/alumnos') {
+        return Promise.resolve({ data: { data: [
+          { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: false },
+          { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López', printable: false },
+        ] } });
+      }
+      if (url === '/students') return Promise.resolve({ data: { data: allStudents } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('printable-state-label')).toHaveTextContent('Ninguno');
+    });
+  });
+
+  // W-14: "Imprimir" button is disabled / shows empty-state when 0 printable
+  it('W-14: disables print or shows warning when no students are printable', async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/alumnos') {
+        return Promise.resolve({ data: { data: [
+          { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: false },
+        ] } });
+      }
+      if (url === '/students') return Promise.resolve({ data: { data: allStudents } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+    renderPanel();
+    await waitFor(() => {
+      const btn = screen.getByTestId('btn-imprimir') as HTMLButtonElement;
+      expect(btn).toBeDisabled();
+    });
   });
 });

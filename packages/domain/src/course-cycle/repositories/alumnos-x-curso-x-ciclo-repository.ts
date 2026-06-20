@@ -10,6 +10,28 @@ export interface AlumnoCursoCicloEnriched {
 }
 
 /**
+ * Student membership enriched with CourseCycle → CourseSection display fields.
+ * Used by the web StudentLegajo "Cursos Ciclo" card (T39) and per-student
+ * boletín dropdown in students.tsx (T36). Replaces GET /enrollments usage (SDD-2 R16/R17).
+ */
+export interface StudentMembershipEnriched {
+  /** AlumnosXCursoXCiclo bridge-row id — used as alumnosXCursoXCicloId for boletín download. */
+  id: string;
+  courseCycleId: string;
+  printable: boolean;
+  /** CourseCycle.level as number. */
+  level: number;
+  /** CourseSection.academicYear string, e.g. "2026". */
+  academicYear: string;
+  /** CourseSection.grade, nullable. */
+  grade: string | null;
+  /** CourseSection.division, nullable. */
+  division: string | null;
+  /** ISO timestamp. */
+  createdAt: string;
+}
+
+/**
  * Port (interface) for AlumnosXCursoXCiclo persistence.
  * Implementations live in the infrastructure layer (prisma-tenant).
  * Tenant scoping is implicit via TenantContext.
@@ -58,4 +80,11 @@ export interface AlumnosXCursoXCicloRepository {
    * Scoped to tenant via TenantContext — does NOT affect other tenants or CourseCycles.
    */
   setPrintableBulk(courseCycleId: string, value: boolean): Promise<void>;
+
+  /**
+   * Returns all AlumnosXCursoXCiclo rows for a student, enriched with CourseCycle display info.
+   * Used by GET /students/:studentId/memberships (SDD-2 R16/R17).
+   * Replaces GET /enrollments?studentId usage in the web layer.
+   */
+  findByStudentEnriched(studentId: string): Promise<StudentMembershipEnriched[]>;
 }

@@ -3,6 +3,7 @@ import {
   AlumnosXCursoXCiclo,
   AlumnosXCursoXCicloRepository,
   type AlumnoCursoCicloEnriched,
+  type StudentMembershipEnriched,
 } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
@@ -138,6 +139,47 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       where: { courseCycleId },
       data: { printable: value, updatedAt: new Date() },
     });
+  }
+
+  /**
+   * Returns all AlumnosXCursoXCiclo rows for a student enriched with CourseCycle display info.
+   * SDD-2 R16/R17: replaces GET /enrollments?studentId in the web StudentLegajo and boletín dropdown.
+   */
+  async findByStudentEnriched(studentId: string): Promise<StudentMembershipEnriched[]> {
+    const rows = await this.client.alumnosXCursoXCiclo.findMany({
+      where: { studentId },
+      include: {
+        courseCycle: {
+          select: {
+            uuid: true,
+            level: true,
+            course: { select: { grade: true, division: true, academicYear: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((r: {
+      id: string;
+      courseCycleId: string;
+      printable: boolean;
+      createdAt: Date;
+      courseCycle: {
+        uuid: string;
+        level: number;
+        course: { grade: string | null; division: string | null; academicYear: string };
+      };
+    }) => ({
+      id: r.id,
+      courseCycleId: r.courseCycleId,
+      printable: r.printable,
+      level: r.courseCycle.level,
+      academicYear: r.courseCycle.course.academicYear,
+      grade: r.courseCycle.course.grade,
+      division: r.courseCycle.course.division,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   private toDomain(row: AlumnosXCursoXCicloRow): AlumnosXCursoXCiclo {

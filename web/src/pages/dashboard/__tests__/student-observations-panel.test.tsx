@@ -1,12 +1,13 @@
 /**
  * Tests for StudentObservationsPanel (type-specific).
+ * SDD-2 R15: enrollment resolution removed; academicCycleId prop used directly.
  *
  * Covers:
  * - Client-side filter: each type panel renders only its type's rows
  * - No type <select> in the create form
- * - PSYCHOPEDAGOGICAL: POSTs without enrollmentId
- * - PEDAGOGICAL: fetches /enrollments, picks ACTIVE, includes enrollmentId in POST
- * - PEDAGOGICAL: disables form and shows warning when no active enrollment
+ * - PSYCHOPEDAGOGICAL: POSTs without academicCycleId
+ * - PEDAGOGICAL with academicCycleId prop: includes it in POST body, no enrollment fetch
+ * - PEDAGOGICAL without academicCycleId: disables form and shows warning
  * - Type-specific empty-state text
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -32,21 +33,14 @@ const mixedObservations = [
   { id: 'obs-psico', studentId: 'stu-1', type: 'PSYCHOPEDAGOGICAL', content: 'Observación psicopedagógica uno' },
 ];
 
-const activeEnrollments = [
-  { id: 'enr-active', studentId: 'stu-1', status: 'ACTIVE' },
-];
-
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-function setupMocks(enrollments = activeEnrollments, observations = mixedObservations) {
+function setupMocks(observations = mixedObservations) {
   vi.clearAllMocks();
   (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
     (url: string) => {
       if (url === '/students/stu-1/observations') {
         return Promise.resolve({ data: { data: observations } });
-      }
-      if (url === '/enrollments') {
-        return Promise.resolve({ data: { data: enrollments } });
       }
       return Promise.resolve({ data: { data: [] } });
     },
@@ -56,12 +50,12 @@ function setupMocks(enrollments = activeEnrollments, observations = mixedObserva
 
 function renderPanel(
   type: 'PEDAGOGICAL' | 'PSYCHOPEDAGOGICAL',
-  { enrollments = activeEnrollments, observations = mixedObservations } = {},
+  { observations = mixedObservations, academicCycleId }: { observations?: typeof mixedObservations; academicCycleId?: string } = {},
 ) {
-  setupMocks(enrollments, observations);
+  setupMocks(observations);
   return render(
     <MemoryRouter>
-      <StudentObservationsPanel studentId="stu-1" type={type} />
+      <StudentObservationsPanel studentId="stu-1" type={type} academicCycleId={academicCycleId} />
     </MemoryRouter>,
   );
 }
@@ -84,7 +78,7 @@ describe('StudentObservationsPanel', () => {
 
   // SOP-2: PEDAGOGICAL panel filters to pedagogical rows only
   it('SOP-2: PEDAGOGICAL panel renders only pedagogical observations', async () => {
-    renderPanel('PEDAGOGICAL');
+    renderPanel('PEDAGOGICAL', { academicCycleId: 'cycle-uuid-2026' });
 
     await waitFor(() => screen.getByText('Observación pedagógica uno'));
 
@@ -102,8 +96,8 @@ describe('StudentObservationsPanel', () => {
     expect(screen.getByRole('textbox')).toBeInTheDocument();
   });
 
-  // SOP-4: PSYCHOPEDAGOGICAL creates without enrollmentId
-  it('SOP-4: PSYCHOPEDAGOGICAL panel POSTs without enrollmentId', async () => {
+  // SOP-4: PSYCHOPEDAGOGICAL creates without academicCycleId or enrollmentId
+  it('SOP-4: PSYCHOPEDAGOGICAL panel POSTs without academicCycleId', async () => {
     renderPanel('PSYCHOPEDAGOGICAL');
 
     await userEvent.click(screen.getByRole('button', { name: /nueva observación/i }));
@@ -122,8 +116,9 @@ describe('StudentObservationsPanel', () => {
       );
     });
 
-    // enrollmentId must NOT appear in the POST body
+    // academicCycleId and enrollmentId must NOT appear in the POST body
     const body = (apiClient.post as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(body).not.toHaveProperty('academicCycleId');
     expect(body).not.toHaveProperty('enrollmentId');
 
     // enrollment endpoint must NOT have been called
@@ -133,19 +128,17 @@ describe('StudentObservationsPanel', () => {
     expect(getUrls).not.toContain('/enrollments');
   });
 
-  // SOP-5: PEDAGOGICAL resolves active enrollment and includes enrollmentId in POST
-  it('SOP-5: PEDAGOGICAL panel fetches /enrollments on mount and includes enrollmentId in POST', async () => {
-    renderPanel('PEDAGOGICAL');
+  // SOP-5: PEDAGOGICAL with academicCycleId prop — uses it directly in POST, no enrollment fetch
+  it('SOP-5: PEDAGOGICAL panel with academicCycleId prop POSTs with academicCycleId (no enrollment fetch)', async () => {
+    renderPanel('PEDAGOGICAL', { academicCycleId: 'cycle-uuid-2026' });
 
-    // Enrollment fetch happened
-    await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(
-        '/enrollments',
-        expect.objectContaining({
-          params: expect.objectContaining({ studentId: 'stu-1' }),
-        }),
-      );
-    });
+    await waitFor(() => screen.getByRole('button', { name: /nueva observación/i }));
+
+    // No enrollment fetch on mount
+    const getUrlsBeforeClick = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => c[0] as string,
+    );
+    expect(getUrlsBeforeClick).not.toContain('/enrollments');
 
     await userEvent.click(screen.getByRole('button', { name: /nueva observación/i }));
     await userEvent.type(screen.getByRole('textbox'), 'Ped content');
@@ -158,41 +151,34 @@ describe('StudentObservationsPanel', () => {
           studentId: 'stu-1',
           type: 'PEDAGOGICAL',
           content: 'Ped content',
-          enrollmentId: 'enr-active',
+          academicCycleId: 'cycle-uuid-2026',
         }),
         expect.anything(),
       );
     });
+
+    // Still no enrollment call
+    const getUrls = (apiClient.get as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c: unknown[]) => c[0] as string,
+    );
+    expect(getUrls).not.toContain('/enrollments');
   });
 
-  // SOP-6: PEDAGOGICAL disables form when no active enrollment
-  it('SOP-6: PEDAGOGICAL panel disables create button and shows warning when no active enrollment', async () => {
-    renderPanel('PEDAGOGICAL', { enrollments: [] });
+  // SOP-6: PEDAGOGICAL without academicCycleId disables create button and shows warning
+  it('SOP-6: PEDAGOGICAL panel disables create button and shows warning when no academicCycleId prop', async () => {
+    renderPanel('PEDAGOGICAL'); // no academicCycleId
 
     await waitFor(() => {
       expect(
-        screen.getByText(/no tiene una inscripción activa/i),
+        screen.getByText(/no hay un ciclo lectivo activo/i),
       ).toBeInTheDocument();
     });
 
     expect(screen.getByRole('button', { name: /nueva observación/i })).toBeDisabled();
   });
 
-  // SOP-7: PEDAGOGICAL with inactive enrollment only → treats as no active enrollment
-  it('SOP-7: PEDAGOGICAL panel disables form when only non-ACTIVE enrollments exist', async () => {
-    renderPanel('PEDAGOGICAL', {
-      enrollments: [{ id: 'enr-old', studentId: 'stu-1', status: 'COMPLETED' }],
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText(/no tiene una inscripción activa/i)).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole('button', { name: /nueva observación/i })).toBeDisabled();
-  });
-
-  // SOP-8: PSYCHOPEDAGOGICAL empty-state text is type-specific
-  it('SOP-8: PSYCHOPEDAGOGICAL empty state says "psicopedagógicas"', async () => {
+  // SOP-7: PSYCHOPEDAGOGICAL empty-state text is type-specific
+  it('SOP-7: PSYCHOPEDAGOGICAL empty state says "psicopedagógicas"', async () => {
     renderPanel('PSYCHOPEDAGOGICAL', { observations: [] });
 
     await waitFor(() =>
@@ -200,34 +186,12 @@ describe('StudentObservationsPanel', () => {
     );
   });
 
-  // SOP-9: PEDAGOGICAL empty-state text is type-specific
-  it('SOP-9: PEDAGOGICAL empty state says "pedagógicas"', async () => {
-    renderPanel('PEDAGOGICAL', { observations: [] });
+  // SOP-8: PEDAGOGICAL empty-state text is type-specific
+  it('SOP-8: PEDAGOGICAL empty state says "pedagógicas"', async () => {
+    renderPanel('PEDAGOGICAL', { observations: [], academicCycleId: 'cycle-uuid-2026' });
 
     await waitFor(() =>
       screen.getByText(/no hay observaciones pedagógicas para este alumno/i),
     );
-  });
-
-  // SOP-10: institutionId is threaded through to enrollment fetch
-  it('SOP-10: PEDAGOGICAL panel passes institutionId in enrollment fetch params', async () => {
-    setupMocks();
-    render(
-      <MemoryRouter>
-        <StudentObservationsPanel studentId="stu-1" institutionId="inst-42" type="PEDAGOGICAL" />
-      </MemoryRouter>,
-    );
-
-    await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith(
-        '/enrollments',
-        expect.objectContaining({
-          params: expect.objectContaining({
-            studentId: 'stu-1',
-            institutionId: 'inst-42',
-          }),
-        }),
-      );
-    });
   });
 });

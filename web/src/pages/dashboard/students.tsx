@@ -124,24 +124,26 @@ export default function StudentsPage() {
   const [removeGuardianId, setRemoveGuardianId] = useState<string | null>(null);
   const [removingGuardian, setRemovingGuardian] = useState(false);
   const [boletinStudentId, setBoletinStudentId] = useState<string | null>(null);
-  const [boletinEnrollments, setBoletinEnrollments] = useState<{ id: string; level: string; academicYear: string; grade?: string; division?: string; printable: boolean }[]>([]);
+  // SDD-2 R16: membership items replace enrollment rows; id = AlumnosXCursoXCiclo bridge-row id.
+  const [boletinMemberships, setBoletinMemberships] = useState<{ id: string; level: number; academicYear: string; grade: string | null; division: string | null; printable: boolean }[]>([]);
   const [boletinLoading, setBoletinLoading] = useState(false);
 
   const handleBoletinClick = async (studentId: string) => {
     setBoletinStudentId(studentId);
     setBoletinLoading(true);
     try {
-      const res = await apiClient.get('/enrollments', { params: { studentId } });
-      const enrollments = (res.data?.data ?? []).filter((e: { printable: boolean }) => e.printable);
-      setBoletinEnrollments(enrollments);
-      if (enrollments.length === 1) {
-        await downloadBoletin(enrollments[0].id);
+      // SDD-2 R16: GET /students/:studentId/memberships instead of GET /enrollments
+      const res = await apiClient.get(`/students/${studentId}/memberships`);
+      const memberships = (res.data?.data ?? []).filter((m: { printable: boolean }) => m.printable);
+      setBoletinMemberships(memberships);
+      if (memberships.length === 1) {
+        await downloadBoletin(memberships[0].id);
         setBoletinStudentId(null);
-        setBoletinEnrollments([]);
+        setBoletinMemberships([]);
       }
     } catch {
       setBoletinStudentId(null);
-      setBoletinEnrollments([]);
+      setBoletinMemberships([]);
     } finally {
       setBoletinLoading(false);
     }
@@ -418,7 +420,7 @@ export default function StudentsPage() {
         <Table
           columns={[{ key: 'fullName', header: 'Nombre' }, { key: 'dni', header: 'DNI' }, { key: 'actions', header: '', render: (s) => {
             const sid = s.id as string;
-            const isBoletinDropdown = boletinStudentId === sid && boletinEnrollments.length > 1;
+            const isBoletinDropdown = boletinStudentId === sid && boletinMemberships.length > 1;
             return (
               <div>
                 <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
@@ -441,14 +443,14 @@ export default function StudentsPage() {
                     onChange={(e) => {
                       if (e.target.value) downloadBoletin(e.target.value);
                       setBoletinStudentId(null);
-                      setBoletinEnrollments([]);
+                      setBoletinMemberships([]);
                     }}
                     style={{ marginTop: 'var(--space-xs)', padding: '0.35rem 0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-xs)', width: '100%' }}
                   >
-                    <option value="">Elegir inscripción...</option>
-                    {boletinEnrollments.map((enr) => (
-                      <option key={enr.id} value={enr.id}>
-                        {enr.level} {enr.academicYear} — {enr.grade || 'S/G'} {enr.division || ''}
+                    <option value="">Elegir curso ciclo...</option>
+                    {boletinMemberships.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.level} {m.academicYear} — {m.grade || 'S/G'} {m.division || ''}
                       </option>
                     ))}
                   </select>
