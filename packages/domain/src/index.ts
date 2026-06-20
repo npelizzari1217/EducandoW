@@ -254,3 +254,18 @@ export { AsistenciaDiaria } from './asistencia';
 export type { AsistenciaDiariaProps, CreateAsistenciaDiariaInput } from './asistencia';
 export type { SubjectAbsenceRepository } from './asistencia';
 export type { DailyAttendanceRepository } from './asistencia';
+
+// ── Asistencia Mensual (SDD-4) ───────────────────────────────────────────────
+export { DayMap } from './asistencia';
+export { AsistenciaXAlumnoXCursoXCiclo } from './asistencia';
+export type {
+  AsistenciaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXAlumnoXCursoXCicloInput,
+} from './asistencia';
+export { AsistenciaXMateriaXAlumnoXCursoXCiclo } from './asistencia';
+export type {
+  AsistenciaXMateriaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXMateriaXAlumnoXCursoXCicloInput,
+} from './asistencia';
+export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './asistencia';
+export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './asistencia';

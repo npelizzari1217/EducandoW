@@ -57,6 +57,8 @@ model Student {
   alumnosXCursoXCiclo         AlumnosXCursoXCiclo[]
   ausenciasXGrupo             AusenciaXGrupo[]
   asistenciaDiaria            AsistenciaDiaria[]
+  asistenciaMensualGeneral    asistenciaXAlumnoXCursoXCiclo[]
+  asistenciaMensualMateria    asistenciaXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,8 +180,9 @@ model MateriaXCursoXCiclo {
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)
 
-  alumnos MateriasXAlumnoXCursoXCiclo[]
-  grupos  GrupoXCursoXMateriaXCiclo[]
+  alumnos           MateriasXAlumnoXCursoXCiclo[]
+  grupos            GrupoXCursoXMateriaXCiclo[]
+  asistenciaMensual asistenciaXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -332,6 +335,7 @@ model CourseCycle {
   alumnosXCursoXCiclo   AlumnosXCursoXCiclo[]
   asignacionesCurso     AsignacionCursoXCiclo[]
   asistenciaDiaria      AsistenciaDiaria[]
+  asistenciaMensual     asistenciaXAlumnoXCursoXCiclo[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -1409,4 +1413,53 @@ model AsistenciaDiaria {
   @@index([courseCycleId, date])
   @@index([studentId])
   @@map("asistencia_diaria")
+}
+
+// ── Asistencia Mensual (SDD-4) ────────────────────────────────────────────────
+// Monthly attendance register — replaces the daily-row model (AsistenciaDiaria +
+// AusenciaXGrupo) with one row per student × scope × month.
+// Old models kept in schema until PR-3 (T-30) when TS consumers are also removed.
+
+// General (course-cycle grain): one row per (CourseCycle, Student, Year, Month).
+// days: JSON day-map { "1":"P", "2":"A", ... } — keys 1..31, values = AttendanceType.code.
+// ADR-1, ADR-5.
+model asistenciaXAlumnoXCursoXCiclo {
+  id            String @id @default(uuid())
+  courseCycleId String @map("course_cycle_id")  // → CourseCycle.uuid
+  studentId     String @map("student_id")        // → Student.id
+  year          Int
+  month         Int                               // 1..12
+  days          Json   @default("{}")             // { "1":"P", ... } day→AttendanceType.code
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+  student     Student     @relation(fields: [studentId],     references: [id],   onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, studentId, year, month], map: "asistencia_alumno_cc_year_month_key")
+  @@index([courseCycleId, year, month])
+  @@map("asistencia_x_alumno_x_curso_x_ciclo")
+}
+
+// Subject (materia grain): one row per (MateriaXCursoXCiclo, Student, Year, Month).
+// Group is NOT stored here — it is a filter at the presentation/authorization layer only (ADR-2).
+// ADR-1, ADR-5.
+model asistenciaXMateriaXAlumnoXCursoXCiclo {
+  id                    String @id @default(uuid())
+  materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")  // → MateriaXCursoXCiclo.id
+  studentId             String @map("student_id")                   // → Student.id
+  year                  Int
+  month                 Int
+  days                  Json   @default("{}")
+
+  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  student Student             @relation(fields: [studentId],             references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([materiaXCursoXCicloId, studentId, year, month], map: "asistencia_materia_alumno_year_month_key")
+  @@index([materiaXCursoXCicloId, year, month])
+  @@map("asistencia_x_materia_x_alumno_x_curso_x_ciclo")
 }
