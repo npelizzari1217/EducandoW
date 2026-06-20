@@ -139,7 +139,10 @@ describe('GenerateBoletinUseCase.getBaseLevel', () => {
   });
 });
 
-// ── buildAsistencia (C2 — attendance aggregation) ─────────────────────────────
+// ── buildAsistencia (C2 — attendance aggregation, SDD-5 repoint) ──────────────
+// T-2 RED: new signature = (client, studentId, courseCycleId, level).
+// Reads asistenciaXAlumnoXCursoXCiclo + attendanceType catalog.
+// Tests FAIL until T-3 rewrites the implementation.
 
 describe('GenerateBoletinUseCase.buildAsistencia', () => {
   let uc: GenerateBoletinUseCase;
@@ -152,57 +155,233 @@ describe('GenerateBoletinUseCase.buildAsistencia', () => {
     );
   });
 
-  it('returns undefined when cycleId is null', async () => {
-    const mockClient = { attendance: { findMany: vi.fn() } };
-    const result = await uc.buildAsistencia(mockClient as never, 'student-1', null);
+  // ── guard: null courseCycleId ───────────────────────────────────────────────
+
+  it('returns undefined when courseCycleId is null', async () => {
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn() },
+      attendanceType: { findMany: vi.fn() },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', null, 20);
     expect(result).toBeUndefined();
-    expect(mockClient.attendance.findMany).not.toHaveBeenCalled();
+    expect(mockClient.asistenciaXAlumnoXCursoXCiclo.findMany).not.toHaveBeenCalled();
   });
 
-  it('returns undefined when no attendance records exist', async () => {
-    const mockClient = { attendance: { findMany: vi.fn().mockResolvedValue([]) } };
-    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cycle-1');
+  // ── guard: zero registers (legacy undefined behavior preserved) ─────────────
+
+  it('returns undefined when no asistenciaXAlumnoXCursoXCiclo rows exist', async () => {
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-1', 20);
     expect(result).toBeUndefined();
   });
 
-  it('aggregates attendance correctly', async () => {
-    const records = [
-      { isPresent: true,  absenceValue: 0 },   // presente
-      { isPresent: true,  absenceValue: 0 },   // presente
-      { isPresent: false, absenceValue: 1 },   // inasistencia
-      { isPresent: false, absenceValue: 0.5 }, // media falta
-      { isPresent: true,  absenceValue: 0 },   // presente
+  // ── S-A: multi-month aggregation (numerical equivalence) ────────────────────
+  // 3 months: days P,P,A / P,M / P → 4P + 1A + 1M = totalDias:6
+  // porcentaje = (4/6*100).toFixed(1) = "66.7"
+
+  it('S-A: aggregates 3 monthly rows → totalDias:6, diasPresente:4, inasistencias:1, mediasFaltas:1, porcentaje:"66.7"', async () => {
+    const registers = [
+      { days: { '1': 'P', '2': 'P', '3': 'A' } },
+      { days: { '1': 'P', '2': 'M' } },
+      { days: { '1': 'P' } },
     ];
-    const mockClient = { attendance: { findMany: vi.fn().mockResolvedValue(records) } };
-    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cycle-1');
+    const types = [
+      { code: 'P', isPresent: true,  absenceValue: 0 },
+      { code: 'A', isPresent: false, absenceValue: 1 },
+      { code: 'M', isPresent: false, absenceValue: 0.5 },
+    ];
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue(types) },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-prim', 20);
 
     expect(result).not.toBeUndefined();
-    expect(result!.totalDias).toBe(5);
-    expect(result!.diasPresente).toBe(3);
+    expect(result!.totalDias).toBe(6);
+    expect(result!.diasPresente).toBe(4);
     expect(result!.inasistencias).toBe(1);
     expect(result!.mediasFaltas).toBe(1);
-    expect(result!.porcentaje).toBe('60.0');
+    expect(result!.porcentaje).toBe('66.7');
   });
 
-  it('calculates 100% when all records are present', async () => {
-    const records = [
-      { isPresent: true, absenceValue: 0 },
-      { isPresent: true, absenceValue: 0 },
-    ];
-    const mockClient = { attendance: { findMany: vi.fn().mockResolvedValue(records) } };
-    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cycle-1');
+  // ── 100% present ────────────────────────────────────────────────────────────
 
+  it('100% present: diasPresente === totalDias, porcentaje === "100.0"', async () => {
+    const registers = [{ days: { '1': 'P', '2': 'P' } }];
+    const types = [{ code: 'P', isPresent: true, absenceValue: 0 }];
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue(types) },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-1', 20);
+    expect(result!.diasPresente).toBe(2);
+    expect(result!.totalDias).toBe(2);
     expect(result!.porcentaje).toBe('100.0');
     expect(result!.inasistencias).toBe(0);
   });
 
-  it('queries with correct filters (studentId, cycleId, active=true)', async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
-    const mockClient = { attendance: { findMany } };
-    await uc.buildAsistencia(mockClient as never, 'stu-abc', 'cyc-xyz');
-    expect(findMany).toHaveBeenCalledWith({
-      where: { studentId: 'stu-abc', cycleId: 'cyc-xyz', active: true },
+  // ── S-C: per-level resolution (Primario vs Secundario) ──────────────────────
+  // Same code "T" resolves differently per level — no cross-level contamination.
+
+  it('S-C: same code "T" — Primario (present) vs Secundario (absence) → different summaries', async () => {
+    const registers = [{ days: { '1': 'T' } }];
+
+    const clientPrimario = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([{ code: 'T', isPresent: true,  absenceValue: 0 }]) },
+    };
+    const resultPrimario = await uc.buildAsistencia(clientPrimario as never, 'stu-p', 'cc-p', 20);
+
+    const clientSecundario = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([{ code: 'T', isPresent: false, absenceValue: 1 }]) },
+    };
+    const resultSecundario = await uc.buildAsistencia(clientSecundario as never, 'stu-s', 'cc-s', 30);
+
+    expect(resultPrimario!.diasPresente).toBe(1);
+    expect(resultPrimario!.inasistencias).toBe(0);
+    expect(resultSecundario!.diasPresente).toBe(0);
+    expect(resultSecundario!.inasistencias).toBe(1);
+  });
+
+  // ── 1.5 absenceValue: counted in totalDias only (ADR-5) ────────────────────
+
+  it('absenceValue 1.5: counted in totalDias, NOT in inasistencias nor mediasFaltas', async () => {
+    const registers = [{ days: { '1': 'X' } }];
+    const types = [{ code: 'X', isPresent: false, absenceValue: 1.5 }];
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue(types) },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-1', 20);
+    expect(result!.totalDias).toBe(1);
+    expect(result!.diasPresente).toBe(0);
+    expect(result!.inasistencias).toBe(0);
+    expect(result!.mediasFaltas).toBe(0);
+    expect(result!.porcentaje).toBe('0.0');
+  });
+
+  // ── unknown code: counted in totalDias only ─────────────────────────────────
+
+  it('unknown code not in catalog: counted in totalDias, not classified', async () => {
+    const registers = [{ days: { '1': 'ZZUNK' } }];
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-1', 20);
+    expect(result!.totalDias).toBe(1);
+    expect(result!.diasPresente).toBe(0);
+    expect(result!.inasistencias).toBe(0);
+    expect(result!.mediasFaltas).toBe(0);
+  });
+
+  // ── S-J: GENERAL-only — per-materia table never queried ─────────────────────
+
+  it('S-J: only asistenciaXAlumnoXCursoXCiclo is queried; per-materia table never called', async () => {
+    const registers = [{ days: { '1': 'P' } }];
+    const types = [{ code: 'P', isPresent: true, absenceValue: 0 }];
+    const perMateria = { findMany: vi.fn().mockResolvedValue([]) };
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue(types) },
+      asistenciaXMateriaXAlumnoXCursoXCiclo: perMateria,
+    };
+    await uc.buildAsistencia(mockClient as never, 'student-1', 'cc-1', 20);
+    expect(perMateria.findMany).not.toHaveBeenCalled();
+  });
+
+  // ── correct query filters ────────────────────────────────────────────────────
+
+  it('queries asistenciaXAlumnoXCursoXCiclo with { courseCycleId, studentId }', async () => {
+    const findManyRegisters = vi.fn().mockResolvedValue([]);
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: findManyRegisters },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    await uc.buildAsistencia(mockClient as never, 'stu-abc', 'cc-xyz', 30);
+    expect(findManyRegisters).toHaveBeenCalledWith({
+      where: { courseCycleId: 'cc-xyz', studentId: 'stu-abc' },
     });
+  });
+
+  // ── Per-level regression (INICIAL / PRIMARIO / SECUNDARIO / TERCIARIO) ───────
+
+  it('per-level INICIAL (10): catalog queried with level=10, summary correct', async () => {
+    const registers = [{ days: { '1': 'PI' } }];
+    const types = [{ code: 'PI', isPresent: true, absenceValue: 0 }];
+    const findManyTypes = vi.fn().mockResolvedValue(types);
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: findManyTypes },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'stu-ini', 'cc-ini', 10);
+    expect(findManyTypes).toHaveBeenCalledWith({ where: { level: 10 } });
+    expect(result!.totalDias).toBe(1);
+    expect(result!.diasPresente).toBe(1);
+    expect(result!.porcentaje).toBe('100.0');
+  });
+
+  it('per-level PRIMARIO (20): catalog queried with level=20, 1P+1A → 50%', async () => {
+    const registers = [{ days: { '1': 'P', '2': 'A' } }];
+    const types = [
+      { code: 'P', isPresent: true,  absenceValue: 0 },
+      { code: 'A', isPresent: false, absenceValue: 1 },
+    ];
+    const findManyTypes = vi.fn().mockResolvedValue(types);
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: findManyTypes },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'stu-prim', 'cc-prim', 20);
+    expect(findManyTypes).toHaveBeenCalledWith({ where: { level: 20 } });
+    expect(result!.totalDias).toBe(2);
+    expect(result!.diasPresente).toBe(1);
+    expect(result!.inasistencias).toBe(1);
+    expect(result!.porcentaje).toBe('50.0');
+  });
+
+  it('per-level SECUNDARIO (30): catalog queried with level=30, 1P+1M → 50%', async () => {
+    const registers = [{ days: { '1': 'PS', '2': 'MS' } }];
+    const types = [
+      { code: 'PS', isPresent: true,  absenceValue: 0 },
+      { code: 'MS', isPresent: false, absenceValue: 0.5 },
+    ];
+    const findManyTypes = vi.fn().mockResolvedValue(types);
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: findManyTypes },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'stu-sec', 'cc-sec', 30);
+    expect(findManyTypes).toHaveBeenCalledWith({ where: { level: 30 } });
+    expect(result!.totalDias).toBe(2);
+    expect(result!.diasPresente).toBe(1);
+    expect(result!.mediasFaltas).toBe(1);
+    expect(result!.porcentaje).toBe('50.0');
+  });
+
+  it('per-level TERCIARIO (40): catalog queried with level=40, 1P+1A+1M → 33.3%', async () => {
+    const registers = [{ days: { '1': 'PT', '2': 'AT', '3': 'MT' } }];
+    const types = [
+      { code: 'PT', isPresent: true,  absenceValue: 0 },
+      { code: 'AT', isPresent: false, absenceValue: 1 },
+      { code: 'MT', isPresent: false, absenceValue: 0.5 },
+    ];
+    const findManyTypes = vi.fn().mockResolvedValue(types);
+    const mockClient = {
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(registers) },
+      attendanceType: { findMany: findManyTypes },
+    };
+    const result = await uc.buildAsistencia(mockClient as never, 'stu-ter', 'cc-ter', 40);
+    expect(findManyTypes).toHaveBeenCalledWith({ where: { level: 40 } });
+    expect(result!.totalDias).toBe(3);
+    expect(result!.diasPresente).toBe(1);
+    expect(result!.inasistencias).toBe(1);
+    expect(result!.mediasFaltas).toBe(1);
+    expect(result!.porcentaje).toBe('33.3');
   });
 });
 
@@ -309,7 +488,9 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
       },
       student: { findUnique: vi.fn().mockResolvedValue(student) },
       salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
-      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+      // SDD-5 repoint: buildAsistencia now reads these two models (not attendance)
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([]) },
     };
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
