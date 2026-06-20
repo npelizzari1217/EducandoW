@@ -59,9 +59,7 @@ export function userToResponse(u: UserRow) {
       actions: um.actions,
     })),
     // Persona fields (UP-R1, UP-R3) — sourced exclusively from User (master DB).
-    // After the backfill script (backfill-user-persona.ts) runs, User is the
-    // authoritative source. Teacher.firstName/lastName/dni/title/phone are
-    // legacy-read-only and MUST NOT take precedence over User values (UP-S6).
+    // User is the authoritative source for persona fields (UP-S6).
     firstName: u.firstName ?? null,
     lastName: u.lastName ?? null,
     dni: u.dni ?? null,
