@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
-import { EnrollmentModule } from '../enrollment/enrollment.module';
 import { CourseCycleModule } from '../course-cycle/course-cycle.module';
 import { StudentObservationWriteController, StudentObservationReadController } from './student-observation.controller';
 import { CreateObservationUseCase } from '../../application/student-observation/create-observation.use-case';
@@ -12,7 +11,7 @@ import { PrismaStudentObservationRepository } from '../../infrastructure/persist
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 
 @Module({
-  imports: [AuthModule, EnrollmentModule, CourseCycleModule],
+  imports: [AuthModule, CourseCycleModule],
   controllers: [StudentObservationWriteController, StudentObservationReadController],
   providers: [
     PrismaStudentObservationRepository,
@@ -21,13 +20,13 @@ import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/pr
     { provide: ListObservationsByStudentUseCase, useFactory: (r) => new ListObservationsByStudentUseCase(r), inject: ['StudentObservationRepository'] },
     {
       provide: ListObservationsByCourseUseCase,
-      useFactory: (obsRepo, cycleRepo, enrollRepo) => new ListObservationsByCourseUseCase(obsRepo, cycleRepo, enrollRepo),
-      inject: ['StudentObservationRepository', PrismaCourseCycleRepository, 'EnrollmentRepository'],
+      useFactory: (obsRepo, cycleRepo) => new ListObservationsByCourseUseCase(obsRepo, cycleRepo),
+      inject: ['StudentObservationRepository', PrismaCourseCycleRepository],
     },
     {
       provide: ListObservationsByCycleUseCase,
-      useFactory: (obsRepo, enrollRepo) => new ListObservationsByCycleUseCase(obsRepo, enrollRepo),
-      inject: ['StudentObservationRepository', 'EnrollmentRepository'],
+      useFactory: (obsRepo) => new ListObservationsByCycleUseCase(obsRepo),
+      inject: ['StudentObservationRepository'],
     },
     { provide: DeleteObservationUseCase, useFactory: (r) => new DeleteObservationUseCase(r), inject: ['StudentObservationRepository'] },
   ],

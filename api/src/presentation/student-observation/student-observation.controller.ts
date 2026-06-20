@@ -26,7 +26,7 @@ export class StudentObservationWriteController {
   @Rank(20) // TEACHER+
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Body() body: { studentId: string; type: string; content: string; enrollmentId?: string },
+    @Body() body: { studentId: string; type: string; content: string; academicCycleId?: string },
     @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.createUC.execute({
@@ -35,7 +35,7 @@ export class StudentObservationWriteController {
       type: body.type,
       content: body.content,
       authorRoles: user.roles,
-      enrollmentId: body.enrollmentId,
+      academicCycleId: body.academicCycleId,
     });
     if (result.isErr()) throw result.unwrapErr();
     const obs = result.unwrap();
@@ -56,14 +56,23 @@ export class StudentObservationWriteController {
     if (result.isErr()) throw result.unwrapErr();
   }
 
-  private mapObservation(obs: { id: { get: () => string }; studentId: { get: () => string }; authorId: { get: () => string }; type: { value: string }; content: string; enrollmentId?: { get: () => string }; createdAt?: Date; deletedAt?: Date }) {
+  private mapObservation(obs: {
+    id: { get: () => string };
+    studentId: { get: () => string };
+    authorId: { get: () => string };
+    type: { value: string };
+    content: string;
+    academicCycleId?: { get: () => string };
+    createdAt?: Date;
+    deletedAt?: Date;
+  }) {
     return {
       id: obs.id.get(),
       studentId: obs.studentId.get(),
       authorId: obs.authorId.get(),
       type: obs.type.value,
       content: obs.content,
-      enrollmentId: obs.enrollmentId?.get() ?? null,
+      academicCycleId: obs.academicCycleId?.get() ?? null,
       createdAt: obs.createdAt?.toISOString(),
       deletedAt: obs.deletedAt?.toISOString() ?? null,
     };
@@ -123,14 +132,23 @@ export class StudentObservationReadController {
     return { data: result.unwrap().map((obs) => this.mapObservation(obs)) };
   }
 
-  private mapObservation(obs: { id: { get: () => string }; studentId: { get: () => string }; authorId: { get: () => string }; type: { value: string }; content: string; enrollmentId?: { get: () => string }; createdAt?: Date; deletedAt?: Date }) {
+  private mapObservation(obs: {
+    id: { get: () => string };
+    studentId: { get: () => string };
+    authorId: { get: () => string };
+    type: { value: string };
+    content: string;
+    academicCycleId?: { get: () => string };
+    createdAt?: Date;
+    deletedAt?: Date;
+  }) {
     return {
       id: obs.id.get(),
       studentId: obs.studentId.get(),
       authorId: obs.authorId.get(),
       type: obs.type.value,
       content: obs.content,
-      enrollmentId: obs.enrollmentId?.get() ?? null,
+      academicCycleId: obs.academicCycleId?.get() ?? null,
       createdAt: obs.createdAt?.toISOString(),
       deletedAt: obs.deletedAt?.toISOString() ?? null,
     };

@@ -9,7 +9,8 @@ export interface StudentObservationProps {
   authorId: Id;
   type: ObservationType;
   content: string;
-  enrollmentId?: Id;
+  /** AcademicCycle uuid. Required for PEDAGOGICAL; forbidden for PSYCHOPEDAGOGICAL. (ADR-3) */
+  academicCycleId?: Id;
   createdAt?: Date;
   deletedAt?: Date;
 }
@@ -24,12 +25,12 @@ export class StudentObservation {
       return err(new ValidationError('Observation content must be between 1 and 2000 characters'));
     }
 
-    if (props.type.value === ObservationTypeValue.PEDAGOGICAL && !props.enrollmentId) {
-      return err(new ValidationError('Pedagogical observations require an enrollment'));
+    if (props.type.value === ObservationTypeValue.PEDAGOGICAL && !props.academicCycleId) {
+      return err(new ValidationError('Pedagogical observations require an academic cycle'));
     }
 
-    if (props.type.value === ObservationTypeValue.PSYCHOPEDAGOGICAL && props.enrollmentId) {
-      return err(new ValidationError('Psychopedagogical observations cannot be linked to an enrollment'));
+    if (props.type.value === ObservationTypeValue.PSYCHOPEDAGOGICAL && props.academicCycleId) {
+      return err(new ValidationError('Psychopedagogical observations cannot be linked to an academic cycle'));
     }
 
     return ok(
@@ -49,7 +50,8 @@ export class StudentObservation {
   get authorId(): Id { return this.props.authorId; }
   get type(): ObservationType { return this.props.type; }
   get content(): string { return this.props.content; }
-  get enrollmentId(): Id | undefined { return this.props.enrollmentId; }
+  /** AcademicCycle uuid. Set for PEDAGOGICAL observations; undefined for PSYCHOPEDAGOGICAL. */
+  get academicCycleId(): Id | undefined { return this.props.academicCycleId; }
   get createdAt(): Date | undefined { return this.props.createdAt; }
   get deletedAt(): Date | undefined { return this.props.deletedAt; }
 

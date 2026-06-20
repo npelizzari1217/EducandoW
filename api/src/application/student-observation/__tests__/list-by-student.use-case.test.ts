@@ -28,6 +28,7 @@ describe('ListObservationsByStudentUseCase — role-based filtering', () => {
       findById: vi.fn(),
       findByStudentId: vi.fn().mockResolvedValue(bothObservations),
       findByStudentIds: vi.fn(),
+      findByAcademicCycleId: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),
     };
     useCase = new ListObservationsByStudentUseCase(repo);
