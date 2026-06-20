@@ -17,20 +17,21 @@ export class ReportesController {
   ) {}
 
   /**
-   * GET /v1/reportes/boletin/:enrollmentId
+   * GET /v1/reportes/boletin/:alumnosXCursoXCicloId
    * Generates and returns a single student report card (PDF).
+   * SDD-2: param renamed from enrollmentId → alumnosXCursoXCicloId.
    */
-  @Get('boletin/:enrollmentId')
+  @Get('boletin/:alumnosXCursoXCicloId')
   @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async getBoletin(
-    @Param('enrollmentId') enrollmentId: string,
+    @Param('alumnosXCursoXCicloId') alumnosXCursoXCicloId: string,
     @Res() res: Response,
   ) {
     try {
-      const pdfBuffer = await this.singleUC.execute(enrollmentId);
+      const pdfBuffer = await this.singleUC.execute(alumnosXCursoXCicloId);
       res.set({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="boletin-${enrollmentId}.pdf"`,
+        'Content-Disposition': `attachment; filename="boletin-${alumnosXCursoXCicloId}.pdf"`,
         'Content-Length': pdfBuffer.length.toString(),
       });
       res.send(pdfBuffer);
@@ -48,20 +49,21 @@ export class ReportesController {
   }
 
   /**
-   * GET /v1/reportes/boletin/curso/:cycleId
-   * Generates a ZIP archive with one PDF per printable student in the cycle.
+   * GET /v1/reportes/boletin/curso/:courseCycleId
+   * Generates a ZIP archive with one PDF per printable student in the CourseCycle.
+   * SDD-2: param renamed from cycleId (AcademicCycle grain) → courseCycleId (CourseCycle grain).
    */
-  @Get('boletin/curso/:cycleId')
+  @Get('boletin/curso/:courseCycleId')
   @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
   async getBoletinBatch(
-    @Param('cycleId') cycleId: string,
+    @Param('courseCycleId') courseCycleId: string,
     @Res() res: Response,
   ) {
     try {
-      const zipBuffer = await this.batchUC.execute(cycleId);
+      const zipBuffer = await this.batchUC.execute(courseCycleId);
       res.set({
         'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="boletines-curso-${cycleId}.zip"`,
+        'Content-Disposition': `attachment; filename="boletines-curso-${courseCycleId}.zip"`,
         'Content-Length': zipBuffer.length.toString(),
       });
       res.send(zipBuffer);

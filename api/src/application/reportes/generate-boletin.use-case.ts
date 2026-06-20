@@ -97,66 +97,101 @@ export class GenerateBoletinUseCase {
   }
 
   /**
-   * Generates a PDF boletín for the given enrollment.
+   * Generates a PDF boletín for the given AlumnosXCursoXCiclo row.
    * Cache-first: returns stored PDF if available; regenerates otherwise.
+   *
+   * Adapter block (SDD-2 repoint):
+   *   axcc = alumnosXCursoXCiclo.findUnique(id)      → gate: axcc.printable
+   *   cc   = courseCycle.findUnique(axcc.courseCycleId, include: course)
+   *   Feeds internal shape:
+   *     studentId   = axcc.studentId
+   *     cycleId     = cc.cycleId          (AcademicCycle uuid)
+   *     level       = cc.level
+   *     academicYear= cc.course.academicYear
+   *     grade       = cc.course.grade
+   *     division    = cc.course.division
+   *   Cache key = axcc.id (was enrollmentId).
+   *   buildMaterias(x)/buildAsistencia/buildMesasExamen signatures UNCHANGED.
    *
    * @returns The PDF Buffer ready to be served as application/pdf.
    */
-  async execute(enrollmentId: string): Promise<Buffer> {
+  async execute(alumnosXCursoXCicloId: string): Promise<Buffer> {
     const client = this.tenantClient();
 
-    // 1. Fetch enrollment
-    const enrollment = await client.enrollment.findUnique({ where: { id: enrollmentId } });
-    if (!enrollment) {
-      throw new BoletinError('Inscripción no encontrada', 'ENROLLMENT_NOT_FOUND', 404);
+    // 1. Fetch AlumnosXCursoXCiclo row (replaces enrollment.findUnique)
+    const axcc = await (client as any).alumnosXCursoXCiclo.findUnique({
+      where: { id: alumnosXCursoXCicloId },
+    });
+    if (!axcc) {
+      throw new BoletinError('Alumno×Curso×Ciclo no encontrado', 'AXCC_NOT_FOUND', 404);
     }
-    if (!enrollment.printable) {
+    if (!axcc.printable) {
       throw new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422);
     }
 
-    // 2. Cache-first: return stored PDF if it already exists
-    const cachedPath = await this.pdfStorage.getPath(enrollmentId);
+    // 2. Cache-first: return stored PDF if it already exists (key = axcc.id)
+    const cachedPath = await this.pdfStorage.getPath(axcc.id);
     if (cachedPath) {
-      this.logger.log(`Returning cached PDF for enrollment ${enrollmentId}`);
+      this.logger.log(`Returning cached PDF for AlumnosXCursoXCiclo ${axcc.id}`);
       return fs.promises.readFile(cachedPath);
     }
 
-    // 3. Fetch student
-    const student = await client.student.findUnique({ where: { id: enrollment.studentId } });
+    // 3. Resolve CourseCycle → CourseSection (grade/division/academicYear) + AcademicCycle (cycleId)
+    const cc = await (client as any).courseCycle.findUnique({
+      where: { uuid: axcc.courseCycleId },
+      include: { course: true },
+    });
+    if (!cc) {
+      throw new BoletinError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404);
+    }
+
+    // Build the internal enrollment-shaped object from axcc + cc (internals unchanged)
+    const resolvedEnrollment = {
+      id: axcc.id,
+      studentId: axcc.studentId,
+      level: cc.level as number,
+      cycleId: cc.cycleId as string,           // AcademicCycle uuid
+      academicYear: (cc.course as any).academicYear as string,
+      grade: (cc.course as any).grade as string | null ?? null,
+      division: (cc.course as any).division as string | null ?? null,
+    };
+
+    // 4. Fetch student
+    const student = await (client as any).student.findUnique({ where: { id: axcc.studentId } });
     if (!student) {
       throw new BoletinError('Alumno no encontrado', 'STUDENT_NOT_FOUND', 404);
     }
 
-    // 4. Fetch institution name (master DB)
+    // 5. Fetch institution name (master DB)
     const institutionId = TenantContext.getInstitutionId();
     const institution = institutionId
       ? await this.prisma.getMasterClient().institution.findUnique({ where: { id: institutionId } })
       : null;
 
-    // 5. Determine level name
-    const levelName = this.resolveLevelName(enrollment.level);
+    // 6. Determine level name
+    const levelName = this.resolveLevelName(resolvedEnrollment.level);
 
-    // 6. Fetch grades and build materias
-    const { materias, previas, informesInicial, carreraName, cuatrimestresTerciario } = await this.buildMaterias(client, enrollment);
+    // 7. Fetch grades and build materias
+    const { materias, previas, informesInicial, carreraName, cuatrimestresTerciario } = await this.buildMaterias(client, resolvedEnrollment);
 
-    // 7. Build attendance summary
-    const asistencia = await this.buildAsistencia(client, enrollment.studentId, enrollment.cycleId ?? null);
+    // 8. Build attendance summary
+    const asistencia = await this.buildAsistencia(client, resolvedEnrollment.studentId, resolvedEnrollment.cycleId ?? null);
 
-    // 7b. Build exam board results (SECUNDARIO only)
-    const baseLevel = this.getBaseLevel(enrollment.level);
+    // 8b. Build exam board results (SECUNDARIO only)
+    const baseLevel = this.getBaseLevel(resolvedEnrollment.level);
     const mesasExamen = baseLevel === 'SECUNDARIO'
-      ? await this.buildMesasExamen(client, enrollment.studentId)
+      ? await this.buildMesasExamen(client, resolvedEnrollment.studentId)
       : undefined;
 
-    // 8. Assemble DatosBoletin
+    // 9. Assemble DatosBoletin — header resolved via CourseCycle→CourseSection (not from enrollment)
     const datos: DatosBoletin = {
-      alumnoNombre: student.firstName,
-      alumnoApellido: student.lastName,
-      alumnoDni: student.dni,
+      alumnoNombre: (student as any).firstName,
+      alumnoApellido: (student as any).lastName,
+      alumnoDni: (student as any).dni,
       institucionNombre: institution?.name ?? 'Institución Educativa',
       nivel: levelName,
-      grado: enrollment.grade ?? enrollment.division ?? levelName,
-      periodo: enrollment.academicYear,
+      grado: resolvedEnrollment.grade ?? resolvedEnrollment.division ?? levelName,
+      periodo: resolvedEnrollment.academicYear,
       materias,
       asistencia,
       mesasExamen,
@@ -166,7 +201,7 @@ export class GenerateBoletinUseCase {
       cuatrimestresTerciario,
     };
 
-    // 9. Choose and render template
+    // 10. Choose and render template
     const template = this.templates.get(baseLevel);
     if (!template) {
       throw new BoletinError(
@@ -177,13 +212,13 @@ export class GenerateBoletinUseCase {
     }
     const html = template(datos);
 
-    // 10. Generate PDF
+    // 11. Generate PDF
     const pdfBuffer = await this.pdfGenerator.generatePdf(html);
 
-    // 11. Store PDF for future requests
-    await this.pdfStorage.save(enrollmentId, pdfBuffer);
+    // 12. Store PDF for future requests (key = axcc.id)
+    await this.pdfStorage.save(axcc.id, pdfBuffer);
 
-    this.logger.log(`Boletín PDF generated for enrollment ${enrollmentId} (${student.lastName}, ${student.firstName})`);
+    this.logger.log(`Boletín PDF generated for AlumnosXCursoXCiclo ${axcc.id} (${(student as any).lastName}, ${(student as any).firstName})`);
 
     return pdfBuffer;
   }

@@ -2,6 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { InformeEvolutivo, Periodo, Id } from '@educandow/domain';
 import type { InformeRepository } from '@educandow/domain';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
+import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+
+vi.mock('../../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn(),
+    getInstitutionId: vi.fn().mockReturnValue(null),
+  },
+}));
 
 // ── Shared mock factories ─────────────────────────────────────────────────────
 
@@ -262,5 +270,36 @@ describe('buildMaterias (Primario, level 20) — no-regression', () => {
     expect(informeRepo.findAll).not.toHaveBeenCalled();
     expect(result.informesInicial).toBeUndefined();
     expect(Array.isArray(result.materias)).toBe(true);
+  });
+});
+
+// ── T12/T13: execute() dispatch via AlumnosXCursoXCiclo adapter (Inicial level) ─
+// RED until T13 rewrites execute(); GREEN after T13.
+// Verifies that execute(axccId) reads axcc (not enrollment) and dispatches to Inicial.
+
+describe('execute() via AlumnosXCursoXCiclo adapter — Inicial (level=10)', () => {
+  it('T12-INI: execute fetches alumnosXCursoXCiclo + courseCycle (not enrollment) for Inicial dispatch', async () => {
+    const axcc = { id: 'axcc-ini', courseCycleId: 'cc-ini', studentId: 'stu-ini', printable: false };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-ini', level: 10, cycleId: 'acyc-ini', course: { grade: null, division: null, academicYear: '2026' }, cycle: {} }) },
+      student: { findUnique: vi.fn().mockResolvedValue(null) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    // printable=false → STUDENT_NOT_PRINTABLE
+    // RED: execute() currently reads enrollment.findUnique (TypeError) instead of axcc
+    await expect(uc.execute('axcc-ini')).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
+    );
+    // After T13 GREEN: alumnosXCursoXCiclo.findUnique IS called; enrollment is NOT
+    expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
   });
 });

@@ -1,6 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GenerateBoletinUseCase, BoletinError } from '../generate-boletin.use-case';
 import type { MesaExamenBoletin } from '../templates/boletin.template';
+import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+
+vi.mock('../../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn(),
+    getInstitutionId: vi.fn().mockReturnValue(null),
+  },
+}));
 
 // ── HOTFIX-2: template path resolution ───────────────────────────────────────
 // Regression guard: constructor must load all 4 HBS templates from the real
@@ -198,27 +206,130 @@ describe('GenerateBoletinUseCase.buildAsistencia', () => {
   });
 });
 
-// ── printable flag enforcement (S1 — key rule) ────────────────────────────────
+// ── T12/T13: execute() repointed to AlumnosXCursoXCiclo (adapter block) ──────
+// RED until T13 rewrites execute(); GREEN after T13.
 
-describe('GenerateBoletinUseCase.execute — printable flag', () => {
-  it('throws STUDENT_NOT_PRINTABLE (422) when enrollment.printable is false', async () => {
-    const mockClient = {
-      enrollment: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'e-1', printable: false }),
-      },
-      attendance: { findMany: vi.fn() },
+describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', () => {
+  function makeAxccClient(opts: {
+    axcc?: object | null;
+    cc?: object | null;
+    student?: object | null;
+  } = {}) {
+    const axcc = opts.axcc !== undefined ? opts.axcc : {
+      id: 'axcc-1',
+      courseCycleId: 'cc-uuid-1',
+      studentId: 'stu-1',
+      printable: true,
     };
+    const cc = opts.cc !== undefined ? opts.cc : {
+      uuid: 'cc-uuid-1',
+      level: 20,
+      cycleId: 'academic-cycle-uuid-1',
+      course: { grade: '2°', division: 'A', academicYear: '2025' },
+    };
+    const student = opts.student !== undefined ? opts.student : {
+      id: 'stu-1', firstName: 'Juan', lastName: 'Pérez', dni: '12345678',
+    };
+    return {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue(cc) },
+      student: { findUnique: vi.fn().mockResolvedValue(student) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+  }
 
-    // Patch TenantContext and PdfStorageService
-    vi.doMock('../../infrastructure/auth/tenant.context', () => ({
-      TenantContext: { getClient: () => mockClient, getInstitutionId: () => null },
-    }));
+  function makeUcForExecute(cachedPath: string | null = null) {
+    return new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      {
+        getPath: vi.fn().mockResolvedValue(cachedPath),
+        save: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+      } as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+  }
 
-    // Since TenantContext is a static class hard to mock here, test the logic
-    // indirectly by verifying the BoletinError shape.
-    const err = new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422);
-    expect(err.code).toBe('STUDENT_NOT_PRINTABLE');
-    expect(err.httpStatus).toBe(422);
+  beforeEach(() => {
+    vi.mocked(TenantContext.getClient).mockReset();
+    vi.mocked(TenantContext.getInstitutionId).mockReturnValue(null);
+  });
+
+  it('T12-A: throws AXCC_NOT_FOUND (404) when AlumnosXCursoXCiclo row does not exist', async () => {
+    const client = makeAxccClient({ axcc: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = makeUcForExecute();
+    await expect(uc.execute('axcc-missing')).rejects.toThrowError(
+      expect.objectContaining({ code: 'AXCC_NOT_FOUND', httpStatus: 404 }),
+    );
+  });
+
+  it('T12-B: throws STUDENT_NOT_PRINTABLE (422) when axcc.printable is false', async () => {
+    const client = makeAxccClient({ axcc: { id: 'axcc-1', courseCycleId: 'cc-1', studentId: 'stu-1', printable: false } });
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = makeUcForExecute();
+    await expect(uc.execute('axcc-1')).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE', httpStatus: 422 }),
+    );
+  });
+
+  it('T12-C: throws COURSE_CYCLE_NOT_FOUND when CourseCycle cannot be resolved from axcc.courseCycleId', async () => {
+    // Verifies that execute() fetches courseCycle (not enrollment), so it can gate on cc being found
+    const axcc = { id: 'axcc-1', courseCycleId: 'cc-missing', studentId: 'stu-1', printable: true };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue(null) }, // cc not found
+      student: { findUnique: vi.fn().mockResolvedValue(null) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = makeUcForExecute(null);
+    await expect(uc.execute('axcc-1')).rejects.toThrowError(
+      expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
+    );
+    expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
+    expect(client.courseCycle.findUnique).toHaveBeenCalled();
+  });
+
+  it('T12-D: cache key is axcc.id (not enrollmentId); storage.getPath called with axcc.id', async () => {
+    // Build a minimal full-path mock (Inicial level = simplest: no Primario repos needed)
+    const axcc = { id: 'axcc-cache-key', courseCycleId: 'cc-1', studentId: 'stu-1', printable: true };
+    const cc = {
+      uuid: 'cc-1', level: 10 /* Inicial */, cycleId: 'cyc-1',
+      course: { grade: null, division: null, academicYear: '2026' },
+    };
+    const student = { id: 'stu-1', firstName: 'Juan', lastName: 'García', dni: '11111111' };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue(cc),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      student: { findUnique: vi.fn().mockResolvedValue(student) },
+      salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const storage = {
+      getPath: vi.fn().mockResolvedValue(null), // cache miss → generate
+      save: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      storage as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    await uc.execute('axcc-cache-key');
+
+    // Cache get MUST use axcc.id
+    expect(storage.getPath).toHaveBeenCalledWith('axcc-cache-key');
+    // Cache save MUST use axcc.id
+    expect(storage.save).toHaveBeenCalledWith('axcc-cache-key', expect.any(Buffer));
   });
 });
 

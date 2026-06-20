@@ -6,11 +6,9 @@ import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.se
  * BoletinInvalidationService — invalidates cached PDF boletines when
  * grade or attendance data changes for a student.
  *
- * Per spec (line 143–148): "A stored PDF MUST be invalidated and regenerated
- * whenever grade or attendance data changes."
- *
- * Strategy: find all active enrollments for the student and delete their PDFs.
- * This is safe because re-generation is triggered on the next GET request.
+ * SDD-2 repoint: replaced enrollment.findMany (by studentId + active) with
+ * alumnosXCursoXCiclo.findMany (by studentId). Cache keys are now axcc.id.
+ * Best-effort semantics preserved: a failure here must not break the grade save.
  */
 @Injectable()
 export class BoletinInvalidationService {
@@ -30,18 +28,20 @@ export class BoletinInvalidationService {
     }
 
     try {
-      const enrollments = await client.enrollment.findMany({
-        where: { studentId, active: true },
+      // SDD-2: read from AlumnosXCursoXCiclo (not Enrollment). No active filter needed —
+      // if the row exists, the student is in that CourseCycle.
+      const rows = await (client as any).alumnosXCursoXCiclo.findMany({
+        where: { studentId },
         select: { id: true },
       });
 
-      for (const enrollment of enrollments) {
-        await this.pdfStorage.delete(enrollment.id);
+      for (const row of rows) {
+        await this.pdfStorage.delete(row.id);
       }
 
-      if (enrollments.length > 0) {
+      if (rows.length > 0) {
         this.logger.log(
-          `Invalidated ${enrollments.length} PDF boletín(es) for student ${studentId}`,
+          `Invalidated ${rows.length} PDF boletín(es) for student ${studentId}`,
         );
       }
     } catch (err) {

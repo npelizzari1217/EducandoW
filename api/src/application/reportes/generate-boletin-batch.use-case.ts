@@ -7,12 +7,11 @@ import { GenerateBoletinUseCase, BoletinError } from './generate-boletin.use-cas
 
 /**
  * GenerateBoletinBatchUseCase — generates report cards for all printable students
- * in a given academic cycle, returning a ZIP archive.
+ * in a given CourseCycle, returning a ZIP archive.
  *
- * Students where enrollment.printable = false are silently excluded.
- * If no printable students are found, throws a 422 error.
- * If ALL per-student PDF generations fail, throws a 422 error instead of
- * returning an empty ZIP with HTTP 200.
+ * SDD-2 repoint: replaced Enrollment (by cycleId) with AlumnosXCursoXCiclo (by courseCycleId).
+ * Zero printable rows → empty ZIP, no error (REQ-PG-4 / Scenario B).
+ * If printable rows exist but ALL PDF generations fail → BATCH_ALL_FAILED (422).
  */
 @Injectable()
 export class GenerateBoletinBatchUseCase {
@@ -24,37 +23,40 @@ export class GenerateBoletinBatchUseCase {
 
   /**
    * Generates a ZIP buffer containing one PDF per printable student
-   * enrolled in the given cycle.
+   * in the given CourseCycle (AlumnosXCursoXCiclo rows with printable=true).
+   *
+   * @param courseCycleId - CourseCycle.uuid (replaces the old cycleId / AcademicCycle grain)
    */
-  async execute(cycleId: string): Promise<Buffer> {
+  async execute(courseCycleId: string): Promise<Buffer> {
     const client = this.tenantClient();
 
-    // Find all printable enrollments in this cycle
-    const enrollments = await client.enrollment.findMany({
+    // Find all printable AlumnosXCursoXCiclo rows for this CourseCycle
+    const rows: Array<{
+      id: string;
+      courseCycleId: string;
+      studentId: string;
+      printable: boolean;
+      student: { id: string; firstName: string; lastName: string };
+    }> = await (client as any).alumnosXCursoXCiclo.findMany({
       where: {
-        cycleId,
+        courseCycleId,
         printable: true,
-        active: true,
       },
       include: {
         student: true,
       },
       orderBy: [
-        { grade: 'asc' },
-        { division: 'asc' },
         { student: { lastName: 'asc' } },
       ],
     });
 
-    if (enrollments.length === 0) {
-      throw new BoletinError(
-        'No hay alumnos imprimibles en este ciclo',
-        'NO_PRINTABLE_STUDENTS',
-        422,
-      );
+    // Zero printable rows → return empty ZIP (REQ-PG-4 / Scenario B — no error)
+    if (rows.length === 0) {
+      this.logger.log(`No printable students in CourseCycle ${courseCycleId} — returning empty ZIP`);
+      return this.buildZip([], []);
     }
 
-    this.logger.log(`Generating batch PDFs for ${enrollments.length} students in cycle ${cycleId}`);
+    this.logger.log(`Generating batch PDFs for ${rows.length} students in CourseCycle ${courseCycleId}`);
 
     // Generate each PDF and collect into a ZIP
     const archive = Archiver('zip', { zlib: { level: 9 } });
@@ -70,27 +72,28 @@ export class GenerateBoletinBatchUseCase {
     archive.pipe(writable);
 
     let successCount = 0;
-    for (let i = 0; i < enrollments.length; i++) {
-      const enrollment = enrollments[i];
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
       try {
-        const pdfBuffer = await this.singleUC.execute(enrollment.id);
-        const studentName = `${enrollment.student.lastName}_${enrollment.student.firstName}`
+        // singleUC.execute now takes alumnosXCursoXCicloId (row.id) — T13 repoint
+        const pdfBuffer = await this.singleUC.execute(row.id);
+        const studentName = `${row.student.lastName}_${row.student.firstName}`
           .replace(/\s+/g, '_')
           .normalize('NFD')
           .replace(/[̀-ͯ]/g, '');
         archive.append(pdfBuffer, { name: `boletin_${studentName}.pdf` });
         successCount++;
 
-        this.logger.log(`[${i + 1}/${enrollments.length}] PDF generated for ${enrollment.student.lastName}`);
+        this.logger.log(`[${i + 1}/${rows.length}] PDF generated for ${row.student.lastName}`);
       } catch (err) {
         this.logger.error(
-          `Failed to generate PDF for enrollment ${enrollment.id}: ${(err as Error).message}`,
+          `Failed to generate PDF for AlumnosXCursoXCiclo ${row.id}: ${(err as Error).message}`,
         );
         // Continue with next student — don't fail the whole batch
       }
     }
 
-    // Guard: if ALL individual PDFs failed, do not return a meaningless empty ZIP
+    // Guard: if printable rows existed but ALL individual PDFs failed, do not return empty ZIP
     if (successCount === 0) {
       throw new BoletinError(
         'No se pudo generar ningún boletín del lote — todos fallaron',
@@ -106,6 +109,23 @@ export class GenerateBoletinBatchUseCase {
       writable.on('finish', () => {
         resolve(Buffer.concat(chunks));
       });
+      writable.on('error', reject);
+    });
+  }
+
+  /**
+   * Builds an empty ZIP archive synchronously for the zero-rows case.
+   */
+  private buildZip(_entries: never[], _extra: never[]): Promise<Buffer> {
+    const archive = Archiver('zip', { zlib: { level: 9 } });
+    const chunks: Buffer[] = [];
+    const writable = new Writable({
+      write(chunk: Buffer, _enc, cb) { chunks.push(chunk); cb(); },
+    });
+    archive.pipe(writable);
+    archive.finalize();
+    return new Promise<Buffer>((resolve, reject) => {
+      writable.on('finish', () => resolve(Buffer.concat(chunks)));
       writable.on('error', reject);
     });
   }

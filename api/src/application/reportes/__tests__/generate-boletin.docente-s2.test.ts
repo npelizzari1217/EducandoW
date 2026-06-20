@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
+import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+
+vi.mock('../../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn(),
+    getInstitutionId: vi.fn().mockReturnValue(null),
+  },
+}));
 
 // ── T1: Shared mock factories ──────────────────────────────────────────────────
 
@@ -296,5 +304,55 @@ describe('legacy branch — subjects + notas regression (INV-2)', () => {
     expect(m.docente).toBe('');
     // notaTrimestral (legacy) NOT called
     expect(client.notaTrimestral.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// ── T12/T13: execute() dispatch via AlumnosXCursoXCiclo adapter (Primario/Secundario) ──
+// RED until T13 rewrites execute(); GREEN after T13.
+
+describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (levels 20/30)', () => {
+  it('T12-PRI: execute fetches alumnosXCursoXCiclo + courseCycle for Primario dispatch', async () => {
+    const axcc = { id: 'axcc-pri', courseCycleId: 'cc-pri', studentId: 'stu-pri', printable: false };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-pri', level: 21, cycleId: 'acyc-pri', course: { grade: '3°', division: 'B', academicYear: '2026' } }) },
+      student: { findUnique: vi.fn().mockResolvedValue(null) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    // printable=false → STUDENT_NOT_PRINTABLE (after T13); RED now because execute reads enrollment
+    await expect(uc.execute('axcc-pri')).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
+    );
+    expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
+  });
+
+  it('T12-SEC: execute fetches alumnosXCursoXCiclo + courseCycle for Secundario dispatch', async () => {
+    const axcc = { id: 'axcc-sec', courseCycleId: 'cc-sec', studentId: 'stu-sec', printable: false };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-sec', level: 30, cycleId: 'acyc-sec', course: { grade: '4°', division: 'A', academicYear: '2026' } }) },
+      student: { findUnique: vi.fn().mockResolvedValue(null) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    await expect(uc.execute('axcc-sec')).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
+    );
+    expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
   });
 });
