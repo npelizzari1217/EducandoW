@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/button';
 import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
 import apiClient from '../../api/client';
 import { downloadBoletinBatch } from '../../hooks/useBoletin';
+import { AlumnosCursoCicloPanel } from './components/AlumnosCursoCicloPanel';
 
 interface Institution { id: string; name: string; }
 
@@ -45,6 +46,7 @@ export default function CourseCyclesPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [boletinBatchLoading, setBoletinBatchLoading] = useState(false);
+  const [alumnosPanelCcId, setAlumnosPanelCcId] = useState<string | null>(null);
 
   const handleBoletinBatch = async () => {
     if (!filters.cycleId) return;
@@ -324,6 +326,16 @@ export default function CourseCyclesPage() {
                   <Link to={`/course-cycles/${cc.uuid}/materias`}>
                     <Button variant="action" size="sm">Materias</Button>
                   </Link>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid={`btn-alumnos-${cc.uuid}`}
+                    onClick={() =>
+                      setAlumnosPanelCcId((prev) => (prev === cc.uuid ? null : cc.uuid))
+                    }
+                  >
+                    Alumnos
+                  </Button>
                   <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
                 </div>
@@ -333,6 +345,18 @@ export default function CourseCyclesPage() {
           />
         )}
       </Card>
+
+      {/* Alumnos del Ciclo panel — inline below the table */}
+      {alumnosPanelCcId && (
+        <Card className="mt-md">
+          <div style={{ padding: 'var(--space-md)' }}>
+            <AlumnosCursoCicloPanel
+              ccId={alumnosPanelCcId}
+              onClose={() => setAlumnosPanelCcId(null)}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Toast */}
       {toast && (
