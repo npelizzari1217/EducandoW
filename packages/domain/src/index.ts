@@ -31,11 +31,6 @@ export { Dni } from './personnel/value-objects';
 export type { StudentRepository } from './personnel/repositories/student-repository';
 export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';
 
-// Enrollment
-export { Enrollment, EnrollmentStatus } from './enrollment/entities';
-export type { EnrollmentStatusValue } from './enrollment/entities';
-export type { EnrollmentRepository, FindByCourseParams } from './enrollment/repositories/enrollment-repository';
-
 // Ingresante
 export { Ingresante, IngresanteStatus, VALID_INGRESANTE_STATUSES } from './ingresante';
 export type { IngresanteProps, IngresanteStatusValue, IngresanteRepository } from './ingresante';

@@ -54,6 +54,7 @@ function makeAlumnosRepo(existing: AlumnosXCursoXCiclo | null = null): AlumnosXC
     remove: vi.fn().mockResolvedValue(undefined),
     setPrintable: vi.fn().mockResolvedValue(existing),
     setPrintableBulk: vi.fn().mockResolvedValue(undefined),
+    findByStudentEnriched: vi.fn().mockResolvedValue([]),
   };
 }
 

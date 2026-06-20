@@ -6,7 +6,7 @@ import {
   CourseCycleNotFoundError,
   GradingPeriod,
 } from '@educandow/domain';
-import type { AcademicCycleRepository, EnrollmentRepository, DateRange } from '@educandow/domain';
+import type { AcademicCycleRepository, DateRange } from '@educandow/domain';
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -91,7 +91,6 @@ export class GetActivePeriodUseCase {
 export class SetActivePeriodUseCase {
   constructor(
     private readonly courseCycleRepo: CourseCycleRepository,
-    private readonly enrollmentRepo: EnrollmentRepository,
   ) {}
 
   async execute(uuid: string, input: SetGradingPeriodInput): Promise<Result<GradingPeriodResult, Error>> {
@@ -110,13 +109,6 @@ export class SetActivePeriodUseCase {
 
     cc.setActiveGradingPeriod(input.activeGradingPeriod);
     await this.courseCycleRepo.save(cc);
-
-    // Denormalize activeGradingPeriod to all enrollments for this AcademicCycle
-    const enrollments = await this.enrollmentRepo.findByCycleId(cc.cycleId);
-    for (const enrollment of enrollments) {
-      enrollment.setActiveGradingPeriod(input.activeGradingPeriod);
-      await this.enrollmentRepo.save(enrollment);
-    }
 
     return ok({
       activeGradingPeriod: input.activeGradingPeriod,

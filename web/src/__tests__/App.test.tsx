@@ -8,7 +8,6 @@ vi.mock('../pages/auth/register', () => ({ default: () => <div>Register Page</di
 vi.mock('../pages/dashboard/dashboard', () => ({ default: () => <div>Dashboard Page</div> }));
 vi.mock('../pages/dashboard/institutions', () => ({ default: () => <div>Institutions Page</div> }));
 vi.mock('../pages/dashboard/students', () => ({ default: () => <div>Students Page</div> }));
-vi.mock('../pages/dashboard/enrollments', () => ({ default: () => <div>Enrollments Page</div> }));
 vi.mock('../pages/dashboard/pedagogy-pages', () => ({
   GradesPage: () => <div>Grades Page</div>,
   AttendancePage: () => <div>Attendance Page</div>,

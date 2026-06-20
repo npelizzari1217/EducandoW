@@ -38,7 +38,6 @@ model Student {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  enrollments             Enrollment[]
   attendances             Attendance[]
   guardians               StudentGuardian[]
   salaEnrollments         SalaEnrollment[]
@@ -279,7 +278,6 @@ model AcademicCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
 
-  enrollments         Enrollment[]
   attendances         Attendance[]
   courseCycles        CourseCycle[]
   gradingPeriodDates  GradingPeriodDate[]
@@ -340,39 +338,6 @@ model CourseCycle {
   @@index([studyPlanId])
   @@index([level])
   @@map("course_cycles")
-}
-
-// ── Enrollment ─────────────────────────────────────────────
-
-model Enrollment {
-  id           String   @id @default(uuid())
-  studentId    String
-  cycleId      String?
-  level        Int
-  modality     Int    @default(0)
-  academicYear String
-  grade        String?
-  division     String?
-  status       String   @default("ACTIVE")
-  enrolledAt   DateTime @default(now())
-  printable    Boolean  @default(true)
-  promoted     Boolean  @default(false)
-
-  activeGradingPeriod Int? @map("active_grading_period")
-
-  active    Boolean   @default(true)
-  deletedAt DateTime?
-
-  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  cycle        AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([studentId])
-  @@index([cycleId])
-  @@index([status])
-  @@map("enrollments")
 }
 
 // ── AlumnosXCursoXCiclo ────────────────────────────────────

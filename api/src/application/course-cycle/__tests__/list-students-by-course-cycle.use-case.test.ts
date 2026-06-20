@@ -20,6 +20,7 @@ function makeRepo(result: AlumnoCursoCicloEnriched[] = []): AlumnosXCursoXCicloR
     remove: vi.fn().mockResolvedValue(undefined),
     setPrintable: vi.fn().mockResolvedValue(null),
     setPrintableBulk: vi.fn().mockResolvedValue(undefined),
+    findByStudentEnriched: vi.fn().mockResolvedValue([]),
   };
 }
 
