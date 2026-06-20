@@ -110,3 +110,135 @@ describe('ListarAlumnosQuery', () => {
     expect(args.take).toBe(20);
   });
 });
+
+// SDD-2 R13: nivel/grado/division/estado must come from
+// AlumnosXCursoXCiclo → CourseCycle → CourseSection (NOT from student.enrollments).
+describe('ListarAlumnosQuery — SDD-2 R13: AlumnosXCursoXCiclo-based roster resolution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('resolves nivel from alumnosXCursoXCiclo[0].courseCycle.level (stringified)', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      {
+        id: 's1',
+        firstName: 'Juan',
+        lastName: 'Perez',
+        dni: '12345678',
+        alumnosXCursoXCiclo: [
+          {
+            courseCycle: {
+              level: 20,
+              course: { grade: '3', division: 'A' },
+            },
+          },
+        ],
+      },
+    ]);
+
+    const query = makeQuery();
+    const result = await query.execute({});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value[0].nivel).toBe('20');
+    }
+  });
+
+  it('resolves grado and division from alumnosXCursoXCiclo[0].courseCycle.course', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      {
+        id: 's1',
+        firstName: 'Ana',
+        lastName: 'López',
+        dni: '87654321',
+        alumnosXCursoXCiclo: [
+          {
+            courseCycle: {
+              level: 30,
+              course: { grade: '1', division: 'B' },
+            },
+          },
+        ],
+      },
+    ]);
+
+    const query = makeQuery();
+    const result = await query.execute({});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value[0].grado).toBe('1');
+      expect(result.value[0].division).toBe('B');
+    }
+  });
+
+  it('estado is ACTIVE when student has at least one alumnosXCursoXCiclo row', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      {
+        id: 's1',
+        firstName: 'Pedro',
+        lastName: 'García',
+        dni: '11111111',
+        alumnosXCursoXCiclo: [
+          {
+            courseCycle: { level: 10, course: { grade: null, division: null } },
+          },
+        ],
+      },
+    ]);
+
+    const query = makeQuery();
+    const result = await query.execute({});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value[0].estado).toBe('ACTIVE');
+    }
+  });
+
+  it('estado is SIN_INSCRIPCION when student has no alumnosXCursoXCiclo rows', async () => {
+    mockFindMany.mockResolvedValueOnce([
+      {
+        id: 's2',
+        firstName: 'María',
+        lastName: 'Rodríguez',
+        dni: '22222222',
+        alumnosXCursoXCiclo: [],
+      },
+    ]);
+
+    const query = makeQuery();
+    const result = await query.execute({});
+
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.value[0].estado).toBe('SIN_INSCRIPCION');
+      expect(result.value[0].nivel).toBe('');
+    }
+  });
+
+  it('does NOT include enrollment table in the Prisma query (no heuristic join)', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const query = makeQuery();
+    await query.execute({});
+
+    const args = mockFindMany.mock.calls[0][0];
+    // After SDD-2 R13 repoint, `enrollments` must NOT appear in include/select
+    const hasEnrollments = JSON.stringify(args).includes('enrollments');
+    expect(hasEnrollments).toBe(false);
+  });
+
+  it('includes alumnosXCursoXCiclo with courseCycle.course in the Prisma query', async () => {
+    mockFindMany.mockResolvedValueOnce([]);
+
+    const query = makeQuery();
+    await query.execute({});
+
+    const args = mockFindMany.mock.calls[0][0];
+    // After SDD-2 R13 repoint, alumnosXCursoXCiclo must be present
+    const hasAxcc = JSON.stringify(args).includes('alumnosXCursoXCiclo');
+    expect(hasAxcc).toBe(true);
+  });
+});

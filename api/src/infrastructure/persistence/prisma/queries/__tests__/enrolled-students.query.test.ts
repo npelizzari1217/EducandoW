@@ -1,21 +1,27 @@
 import { describe, it, expect, vi } from 'vitest';
 import { findEnrolledStudentsByCourseCycle } from '../enrolled-students.query';
 
-describe('findEnrolledStudentsByCourseCycle', () => {
-  it('returns enrolled students with firstName and lastName when cycle exists', async () => {
+// SDD-2 R5: enrolled-students must read from AlumnosXCursoXCiclo (authoritative),
+// NOT from the legacy CourseSection→Enrollment heuristic join.
+describe('findEnrolledStudentsByCourseCycle (SDD-2 R5 — AlumnosXCursoXCiclo authoritative)', () => {
+  it('queries alumnosXCursoXCiclo.findMany with the given courseCycleId', async () => {
+    const mockFindMany = vi.fn().mockResolvedValue([]);
     const mockClient = {
-      courseCycle: {
-        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }),
-      },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({
-          level: 20,
-          grade: '3',
-          division: 'A',
-          academicYear: '2026',
-        }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: { findMany: mockFindMany },
+    };
+
+    await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { courseCycleId: 'cc-uuid-1' },
+      }),
+    );
+  });
+
+  it('returns students mapped from alumnosXCursoXCiclo rows with student relation', async () => {
+    const mockClient = {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'stu-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
           { studentId: 'stu-2', student: { firstName: 'Ana', lastName: 'López' } },
@@ -30,106 +36,19 @@ describe('findEnrolledStudentsByCourseCycle', () => {
     expect(result[1]).toEqual({ studentId: 'stu-2', firstName: 'Ana', lastName: 'López' });
   });
 
-  it('returns [] when courseCycle not found', async () => {
+  it('returns [] when no alumnosXCursoXCiclo rows exist for the courseCycle', async () => {
     const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue(null) },
-    };
-
-    const result = await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-nonexistent');
-    expect(result).toEqual([]);
-  });
-
-  it('returns [] when courseSection not found', async () => {
-    const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-missing' }) },
-      courseSection: { findUnique: vi.fn().mockResolvedValue(null) },
-    };
-
-    const result = await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
-    expect(result).toEqual([]);
-  });
-
-  it('filters by status=ACTIVE and deletedAt=null', async () => {
-    const mockFindMany = vi.fn().mockResolvedValue([]);
-    const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({
-          level: 20,
-          grade: '1',
-          division: 'A',
-          academicYear: '2026',
-        }),
-      },
-      enrollment: { findMany: mockFindMany },
-    };
-
-    await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
-
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: 'ACTIVE', deletedAt: null }),
-      }),
-    );
-  });
-
-  it('decomposes the section composite level into enrollment (level, modality)', async () => {
-    // CourseSection.level=20 is the composite (levelCode 2 * 10 + modality 0);
-    // enrollments store level=2 + modality=0 separately, so the query must decompose.
-    const mockFindMany = vi.fn().mockResolvedValue([]);
-    const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({
-          level: 20,
-          grade: '3',
-          division: 'A',
-          academicYear: '2026',
-        }),
-      },
-      enrollment: { findMany: mockFindMany },
-    };
-
-    await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
-
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ level: 2, modality: 0, grade: '3', division: 'A', academicYear: '2026' }),
-      }),
-    );
-  });
-
-  it('returns [] when no active enrollments exist (SBC-3 precondition)', async () => {
-    const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({
-          level: 20,
-          grade: '1',
-          division: 'A',
-          academicYear: '2026',
-        }),
-      },
-      enrollment: { findMany: vi.fn().mockResolvedValue([]) },
+      alumnosXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
     };
 
     const result = await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-empty');
     expect(result).toEqual([]);
   });
 
-  it('selects studentId and student name fields (includes student relation)', async () => {
+  it('selects studentId + student firstName/lastName from the alumnosXCursoXCiclo relation', async () => {
     const mockFindMany = vi.fn().mockResolvedValue([]);
     const mockClient = {
-      courseCycle: { findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1' }) },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({
-          level: 20,
-          grade: '1',
-          division: 'A',
-          academicYear: '2026',
-        }),
-      },
-      enrollment: { findMany: mockFindMany },
+      alumnosXCursoXCiclo: { findMany: mockFindMany },
     };
 
     await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
@@ -139,5 +58,32 @@ describe('findEnrolledStudentsByCourseCycle', () => {
       studentId: true,
       student: { select: { firstName: true, lastName: true } },
     });
+  });
+
+  it('does NOT query courseCycle, courseSection, or enrollment tables (no heuristic join)', async () => {
+    const mockCourseCycleFn = vi.fn();
+    const mockCourseSectionFn = vi.fn();
+    const mockEnrollmentFn = vi.fn();
+    const mockClient = {
+      alumnosXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
+      courseCycle: { findUnique: mockCourseCycleFn },
+      courseSection: { findUnique: mockCourseSectionFn },
+      enrollment: { findMany: mockEnrollmentFn },
+    };
+
+    await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-uuid-1');
+
+    expect(mockCourseCycleFn).not.toHaveBeenCalled();
+    expect(mockCourseSectionFn).not.toHaveBeenCalled();
+    expect(mockEnrollmentFn).not.toHaveBeenCalled();
+  });
+
+  it('returns [] when courseCycleId does not match any alumnosXCursoXCiclo row', async () => {
+    const mockClient = {
+      alumnosXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+
+    const result = await findEnrolledStudentsByCourseCycle(mockClient as any, 'cc-nonexistent');
+    expect(result).toEqual([]);
   });
 });
