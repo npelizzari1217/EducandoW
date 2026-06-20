@@ -140,6 +140,36 @@ describe('AlumnosXCursoXCicloController — GET /students/:studentId/memberships
   });
 });
 
+// ── POST /course-cycles/:ccId/alumnos/:id/cascade ────────────────────────────
+
+describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos/:id/cascade', () => {
+  it('C-10: 200 — cascadeUC.execute called with { id, ccId }, returns { data: counts }', async () => {
+    const counts = { materiasCreated: 3, materiasSkipped: 0, competenciasCreated: 6, competenciasSkipped: 0 };
+    const cascadeUC = { execute: vi.fn().mockResolvedValue(counts) };
+    const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
+    ctrl.addUC = { execute: vi.fn() };
+    ctrl.listUC = { execute: vi.fn() };
+    ctrl.removeUC = { execute: vi.fn() };
+    ctrl.togglePrintableUC = { execute: vi.fn() };
+    ctrl.setCoursePrintableUC = { execute: vi.fn() };
+    ctrl.listMembershipsUC = { execute: vi.fn() };
+    ctrl.cascadeUC = cascadeUC;
+
+    const result = await ctrl.cascade('cc-1', 'acc-1');
+
+    expect(cascadeUC.execute).toHaveBeenCalledWith({ id: 'acc-1', ccId: 'cc-1' });
+    expect(result).toEqual({ data: counts });
+  });
+
+  it('C-11: 404 — NotFoundError propagates when bridge row does not exist', async () => {
+    const error = new NotFoundError('AlumnosXCursoXCiclo', 'acc-999');
+    const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
+    ctrl.cascadeUC = { execute: vi.fn().mockRejectedValue(error) };
+
+    await expect(ctrl.cascade('cc-1', 'acc-999')).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
 // ── DTO schema — 400 validation ───────────────────────────────────────────────
 
 describe('AddStudentToCourseCycleSchema — Zod validation (400 scenarios)', () => {

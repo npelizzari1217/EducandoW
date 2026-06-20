@@ -91,10 +91,10 @@ export class PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo implements Compete
     });
   }
 
-  async bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<void> {
-    if (valuations.length === 0) return;
+  async bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<{ count: number }> {
+    if (valuations.length === 0) return { count: 0 };
 
-    await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.createMany({
+    const result = await this.client.competenciaXMateriaXAlumnoXCursoXCiclo.createMany({
       data: valuations.map((v) => ({
         id: v.id.get(),
         competencyId: v.competencyId,
@@ -103,6 +103,7 @@ export class PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo implements Compete
       })),
       skipDuplicates: true,
     });
+    return { count: result.count };
   }
 
   async delete(id: string): Promise<void> {

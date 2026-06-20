@@ -109,7 +109,7 @@ describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port signatures (PR2 
       findByStudentAndStudyPlanSubject: async (_studentId: string, _studyPlanSubjectId: string) => [],
       findByCourseCycleAndStudyPlanSubject: async () => [],
       save: async () => {},
-      bulkCreate: async () => {},
+      bulkCreate: async () => ({ count: 0 }),
       delete: async () => {},
     };
     expect(typeof mockRepo.findByStudentAndStudyPlanSubject).toBe('function');

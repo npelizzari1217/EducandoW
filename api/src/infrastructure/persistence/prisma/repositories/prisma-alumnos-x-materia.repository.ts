@@ -98,18 +98,20 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
   }
 
   /**
-   * Bulk-upsert for backfill (skipDuplicates). Does not return records.
+   * Bulk-upsert (skipDuplicates).
+   * Returns `{ count }` = rows actually inserted so callers can compute skipped counts.
    */
   async upsertMany(
     data: Array<{ materiaXCursoXCicloId: string; studentId: string }>
-  ): Promise<void> {
-    await this.client.materiasXAlumnoXCursoXCiclo.createMany({
+  ): Promise<{ count: number }> {
+    const result = await this.client.materiasXAlumnoXCursoXCiclo.createMany({
       data: data.map((d) => ({
         materiaXCursoXCicloId: d.materiaXCursoXCicloId,
         studentId: d.studentId,
       })),
       skipDuplicates: true,
     });
+    return { count: result.count };
   }
 
   private toDomain(row: MateriasXAlumnoRow): MateriasXAlumnoXCursoXCiclo {

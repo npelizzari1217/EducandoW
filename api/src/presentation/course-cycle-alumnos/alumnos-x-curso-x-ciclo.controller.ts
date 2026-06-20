@@ -28,6 +28,7 @@ import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cy
 import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-printable.use-case';
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
+import { CascadeStudentMateriasCompetenciasUseCase, type CascadeResult } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
 import type { StudentMembershipEnriched } from '@educandow/domain';
 
 /**
@@ -49,6 +50,7 @@ export class AlumnosXCursoXCicloController {
     private readonly togglePrintableUC: TogglePrintableUseCase,
     private readonly setCoursePrintableUC: SetCoursePrintableUseCase,
     private readonly listMembershipsUC: ListStudentMembershipsUseCase,
+    private readonly cascadeUC: CascadeStudentMateriasCompetenciasUseCase,
   ) {}
 
   /**
@@ -137,6 +139,30 @@ export class AlumnosXCursoXCicloController {
     @Body(new ZodValidationPipe(SetPrintableSchema)) body: SetPrintableDto,
   ): Promise<void> {
     await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+  }
+
+  /**
+   * POST /course-cycles/:ccId/alumnos/:id/cascade — Materialize all plan materias
+   * and their active competencies for a single enrolled student.
+   *
+   * :id is the AlumnosXCursoXCiclo bridge-row id (same convention as DELETE / PATCH printable).
+   * Additive / idempotent: existing rows are skipped, never updated or deleted.
+   * Grade children (CompetenciaXPeriodo…) are structurally preserved (ADR-7).
+   *
+   * NOTE: registered here (after /printable bulk but before generic :id) — no route
+   * conflict exists since this is POST while DELETE / PATCH use different HTTP methods.
+   *
+   * SDD-3 PR-3, R-17, R-18, R-19.
+   */
+  @Post('course-cycles/:ccId/alumnos/:id/cascade')
+  @HttpCode(HttpStatus.OK)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async cascade(
+    @Param('ccId') ccId: string,
+    @Param('id') id: string,
+  ): Promise<{ data: CascadeResult }> {
+    const data = await this.cascadeUC.execute({ id, ccId });
+    return { data };
   }
 
   /**

@@ -22,7 +22,12 @@ export interface AlumnosXMateriaRepository {
   /** Check if a student is in the universe of a subject. */
   isMember(materiaXCursoXCicloId: string, studentId: string): Promise<boolean>;
   /** Bulk-upsert for backfill (skipDuplicates). */
-  upsertMany(data: Array<{ materiaXCursoXCicloId: string; studentId: string }>): Promise<void>;
+  /**
+   * Bulk-upsert for cascade (skipDuplicates).
+   * Returns `{ count }` = rows actually inserted; callers that don't need the count
+   * can safely ignore the return value.
+   */
+  upsertMany(data: Array<{ materiaXCursoXCicloId: string; studentId: string }>): Promise<{ count: number }>;
   /**
    * Returns alumnos of a materia enriched with studentId + studentName.
    * Resolution: AlumnosXMateria.studentId → Student name.

@@ -369,4 +369,77 @@ describe('AlumnosCursoCicloPanel', () => {
       expect(btn).toBeDisabled();
     });
   });
+
+  // ── SDD-3 cascade button ──────────────────────────────────────────────────
+
+  // W-15: cascade button per row calls POST /course-cycles/:ccId/alumnos/:id/cascade
+  it('W-15: cascade button calls POST /cascade with the bridge-row id', async () => {
+    const user = userEvent.setup();
+    mockPost.mockResolvedValue({
+      data: { data: { materiasCreated: 3, materiasSkipped: 0, competenciasCreated: 6, competenciasSkipped: 0 } },
+    });
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-cascade-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-cascade-row-1'));
+
+    await waitFor(() => {
+      expect(mockPost).toHaveBeenCalledWith('/course-cycles/cc-1/alumnos/row-1/cascade');
+    });
+  });
+
+  // W-16: cascade button is disabled while request is in flight
+  it('W-16: cascade button is disabled while the request is in flight', async () => {
+    let resolve!: () => void;
+    const inflightPromise = new Promise<void>((res) => { resolve = res; });
+    mockPost.mockImplementationOnce(() => inflightPromise.then(() => ({
+      data: { data: { materiasCreated: 0, materiasSkipped: 3, competenciasCreated: 0, competenciasSkipped: 6 } },
+    })));
+
+    const user = userEvent.setup();
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-cascade-row-1')).toBeInTheDocument());
+
+    // Click cascade — promise is pending
+    await user.click(screen.getByTestId('btn-cascade-row-1'));
+
+    // Button must be disabled while in flight
+    const btn = screen.getByTestId('btn-cascade-row-1') as HTMLButtonElement;
+    expect(btn).toBeDisabled();
+
+    // Resolve to unblock
+    resolve();
+  });
+
+  // W-17: success toast shows cascade counts
+  it('W-17: success toast shows returned cascade counts', async () => {
+    const user = userEvent.setup();
+    mockPost.mockResolvedValue({
+      data: { data: { materiasCreated: 3, materiasSkipped: 0, competenciasCreated: 6, competenciasSkipped: 0 } },
+    });
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-cascade-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-cascade-row-1'));
+
+    // Toast must mention materias and competencias created
+    await waitFor(() => {
+      expect(screen.getByTestId('cascade-toast')).toBeInTheDocument();
+    });
+  });
+
+  // W-18: error toast shown when cascade fails
+  it('W-18: error toast shown when cascade endpoint fails', async () => {
+    const user = userEvent.setup();
+    mockPost.mockRejectedValueOnce(new Error('Network error'));
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('btn-cascade-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-cascade-row-1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cascade-toast')).toBeInTheDocument();
+    });
+  });
 });

@@ -45,7 +45,11 @@ export interface CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
     studyPlanSubjectId: string,
   ): Promise<CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]>;
   save(valuation: CompetenciaXMateriaXAlumnoXCursoXCiclo): Promise<void>;
-  /** Batch create valuations, skipping duplicates on (studentId, competencyId, courseCycleId) triple */
-  bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<void>;
+  /**
+   * Batch create valuations, skipping duplicates on (studentId, competencyId, courseCycleId) triple.
+   * Returns `{ count }` = rows actually inserted; callers that don't need the count
+   * can safely ignore the return value.
+   */
+  bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<{ count: number }>;
   delete(id: string): Promise<void>;
 }

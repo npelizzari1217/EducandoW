@@ -33,7 +33,7 @@ describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port — findByCourse
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [row],
       save:                                 async () => {},
-      bulkCreate:                           async () => {},
+      bulkCreate:                           async () => ({ count: 0 }),
       delete:                               async () => {},
     };
 
@@ -50,7 +50,7 @@ describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port — findByCourse
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [],
       save:                                 async () => {},
-      bulkCreate:                           async () => {},
+      bulkCreate:                           async () => ({ count: 0 }),
       delete:                               async () => {},
     };
 
@@ -72,7 +72,7 @@ describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port — findByCourse
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [childless],
       save:                                 async () => {},
-      bulkCreate:                           async () => {},
+      bulkCreate:                           async () => ({ count: 0 }),
       delete:                               async () => {},
     };
 
