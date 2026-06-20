@@ -189,6 +189,19 @@ export function createStudent(
   });
 }
 
+export function createAlumnosXCursoXCiclo(
+  tenant: TenantPrismaClient,
+  data: { courseCycleId: string; studentId: string; printable?: boolean },
+) {
+  return tenant.alumnosXCursoXCiclo.create({
+    data: {
+      courseCycleId: data.courseCycleId,
+      studentId: data.studentId,
+      printable: data.printable ?? false,
+    },
+  });
+}
+
 export function createEnrollment(
   tenant: TenantPrismaClient,
   data: {
