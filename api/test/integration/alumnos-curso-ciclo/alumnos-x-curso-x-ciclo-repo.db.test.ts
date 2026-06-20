@@ -127,6 +127,22 @@ describe('PrismaAlumnosXCursoXCicloRepository — integration', () => {
       expect(result[0].id).toBeDefined();
       expect(typeof result[0].id).toBe('string');
     });
+
+    it('Scenario I (SDD-2): each enriched entry includes the printable field', async () => {
+      const i1 = tenantI1Client();
+      const { courseCycle } = await seedCourseCycle(i1);
+      const student = await createStudent(i1, { firstName: 'Ana', lastName: 'García' });
+      // Newly created rows default to printable=false (REQ-DEF-1)
+      await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
+
+      const result = await runInTenant(i1, () =>
+        repo.findByCourseCycleEnriched(courseCycle.uuid),
+      );
+
+      expect(result).toHaveLength(1);
+      expect(typeof result[0].printable).toBe('boolean');
+      expect(result[0].printable).toBe(false); // default
+    });
   });
 
   // ── findById ────────────────────────────────────────────────────────────────

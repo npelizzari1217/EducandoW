@@ -1,10 +1,12 @@
 import type { AlumnosXCursoXCiclo } from '../entities/alumnos-x-curso-x-ciclo';
 
-/** Enriched projection: AlumnosXCursoXCiclo record with resolved studentId + displayName. */
+/** Enriched projection: AlumnosXCursoXCiclo record with resolved studentId + displayName + printable gate. */
 export interface AlumnoCursoCicloEnriched {
   id: string;
   studentId: string;
   studentName: string;
+  /** Whether this student's boletín is included in the next print batch (SDD-2). */
+  printable: boolean;
 }
 
 /**
@@ -43,4 +45,17 @@ export interface AlumnosXCursoXCicloRepository {
    * Throws NotFoundError if the row does not exist or doesn't belong to the courseCycle.
    */
   remove(courseCycleId: string, id: string): Promise<void>;
+
+  /**
+   * Toggle the printable flag for a single AlumnosXCursoXCiclo row (SDD-2).
+   * Scoped to tenant via TenantContext. Returns the updated entity.
+   */
+  setPrintable(id: string, value: boolean): Promise<AlumnosXCursoXCiclo>;
+
+  /**
+   * Bulk-set printable for ALL rows of a CourseCycle (SDD-2).
+   * Implements Todos (value=true) and Ninguno (value=false).
+   * Scoped to tenant via TenantContext — does NOT affect other tenants or CourseCycles.
+   */
+  setPrintableBulk(courseCycleId: string, value: boolean): Promise<void>;
 }

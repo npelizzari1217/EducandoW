@@ -58,4 +58,12 @@ export class AlumnosXCursoXCiclo {
   get printable(): boolean { return this.props.printable; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
+
+  /**
+   * Mutate the printable flag (SDD-2).
+   * Other fields remain immutable; only the boletín gate changes.
+   */
+  setPrintable(value: boolean): void {
+    this.props.printable = value;
+  }
 }

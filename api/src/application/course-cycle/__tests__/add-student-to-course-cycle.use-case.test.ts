@@ -52,6 +52,8 @@ function makeAlumnosRepo(existing: AlumnosXCursoXCiclo | null = null): AlumnosXC
     addStudent: vi.fn().mockResolvedValue(existing ?? makeEnrollment()),
     isMember: vi.fn().mockResolvedValue(existing !== null),
     remove: vi.fn().mockResolvedValue(undefined),
+    setPrintable: vi.fn().mockResolvedValue(existing),
+    setPrintableBulk: vi.fn().mockResolvedValue(undefined),
   };
 }
 

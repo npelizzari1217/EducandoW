@@ -71,7 +71,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
   }
 
   /**
-   * Returns enrollments enriched with studentId + studentName.
+   * Returns enrollments enriched with studentId + studentName + printable gate (SDD-2).
    * Resolution: AlumnosXCursoXCiclo.studentId → Student firstName + lastName.
    * Throws if no tenant client is available (surfaces the error instead of silently returning []).
    */
@@ -94,10 +94,11 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       ]),
     );
 
-    return rows.map((a: { id: string; studentId: string }) => ({
+    return rows.map((a: { id: string; studentId: string; printable: boolean }) => ({
       id: a.id,
       studentId: a.studentId,
       studentName: studentNameMap.get(a.studentId) ?? a.studentId,
+      printable: a.printable,
     }));
   }
 
@@ -111,6 +112,32 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       throw new NotFoundError('AlumnosXCursoXCiclo', id);
     }
     await this.client.alumnosXCursoXCiclo.delete({ where: { id } });
+  }
+
+  /**
+   * Toggle `printable` for a single row by bridge-row id (SDD-2, REQ-TOG-1).
+   * IDOR is enforced in the use-case layer (TogglePrintableUseCase).
+   * Returns the updated domain entity.
+   */
+  async setPrintable(id: string, value: boolean): Promise<AlumnosXCursoXCiclo> {
+    const row = await this.client.alumnosXCursoXCiclo.update({
+      where: { id },
+      data: { printable: value, updatedAt: new Date() },
+    });
+    return this.toDomain(row);
+  }
+
+  /**
+   * Bulk-set `printable` for ALL rows of a CourseCycle (SDD-2, REQ-TOG-2/3).
+   * Implements "Todos" (value=true) and "Ninguno" (value=false).
+   * Tenant isolation: TenantContext.getClient() already scopes to the tenant DB;
+   * the WHERE clause further restricts to the given courseCycleId.
+   */
+  async setPrintableBulk(courseCycleId: string, value: boolean): Promise<void> {
+    await this.client.alumnosXCursoXCiclo.updateMany({
+      where: { courseCycleId },
+      data: { printable: value, updatedAt: new Date() },
+    });
   }
 
   private toDomain(row: AlumnosXCursoXCicloRow): AlumnosXCursoXCiclo {

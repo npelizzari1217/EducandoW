@@ -7,6 +7,8 @@ import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/pr
 import { AddStudentToCourseCycleUseCase } from '../../application/course-cycle/add-student-to-course-cycle.use-case';
 import { ListStudentsByCourseCycleUseCase } from '../../application/course-cycle/list-students-by-course-cycle.use-case';
 import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cycle/remove-student-from-course-cycle.use-case';
+import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-printable.use-case';
+import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
 
 /**
  * AlumnosXCursoXCicloModule — SDD-1 PR-3 (T-18).
@@ -51,6 +53,20 @@ import { RemoveStudentFromCourseCycleUseCase } from '../../application/course-cy
       useFactory: (ccRepo: PrismaCourseCycleRepository, alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
         new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo),
       inject: [PrismaCourseCycleRepository, PrismaAlumnosXCursoXCicloRepository],
+    },
+
+    {
+      provide: TogglePrintableUseCase,
+      useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
+        new TogglePrintableUseCase(alumnosRepo),
+      inject: [PrismaAlumnosXCursoXCicloRepository],
+    },
+
+    {
+      provide: SetCoursePrintableUseCase,
+      useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
+        new SetCoursePrintableUseCase(alumnosRepo),
+      inject: [PrismaAlumnosXCursoXCicloRepository],
     },
   ],
 })
