@@ -174,8 +174,8 @@ export class GenerateBoletinUseCase {
     // 7. Fetch grades and build materias
     const { materias, previas, informesInicial, carreraName, cuatrimestresTerciario } = await this.buildMaterias(client, resolvedEnrollment);
 
-    // 8. Build attendance summary
-    const asistencia = await this.buildAsistencia(client, resolvedEnrollment.studentId, resolvedEnrollment.cycleId ?? null);
+    // 8. Build attendance summary (SDD-5 repoint: reads asistenciaXAlumnoXCursoXCiclo by courseCycleId+level)
+    const asistencia = await this.buildAsistencia(client, axcc.studentId, axcc.courseCycleId ?? null, resolvedEnrollment.level);
 
     // 8b. Build exam board results (SECUNDARIO only)
     const baseLevel = this.getBaseLevel(resolvedEnrollment.level);
@@ -964,26 +964,60 @@ export class GenerateBoletinUseCase {
   }
 
   /**
-   * Builds an attendance summary for the given student within the given cycle.
-   * Returns undefined when no attendance records exist (no cycleId or no records).
+   * Builds an attendance summary for the given student within the given CourseCycle.
+   * Reads from asistenciaXAlumnoXCursoXCiclo (GENERAL monthly register, SDD-5 repoint).
+   * Returns undefined when courseCycleId is null or no registers exist (section omitted in boletín).
+   *
+   * Formula (numerically identical to the legacy Attendance-based path):
+   *   totalDias     = count of all non-empty day-map entries across all monthly rows
+   *   diasPresente  = entries where AttendanceType.isPresent === true
+   *   inasistencias = entries where AttendanceType.absenceValue === 1 (full)
+   *   mediasFaltas  = entries where AttendanceType.absenceValue === 0.5 (half)
+   *   porcentaje    = (diasPresente / totalDias * 100).toFixed(1) ; '0.0' when totalDias === 0
+   *   absenceValue 1.5 codes count in totalDias only (ADR-5, no reclassification in PR-1)
    */
   async buildAsistencia(
     client: TenantPrismaClient,
     studentId: string,
-    cycleId: string | null,
+    courseCycleId: string | null,
+    level: number,
   ): Promise<AsistenciaBoletin | undefined> {
-    if (!cycleId) return undefined;
+    if (!courseCycleId) return undefined;
 
-    const records = await client.attendance.findMany({
-      where: { studentId, cycleId, active: true },
+    const registers = await client.asistenciaXAlumnoXCursoXCiclo.findMany({
+      where: { courseCycleId, studentId },
     });
 
-    if (records.length === 0) return undefined;
+    if (registers.length === 0) return undefined;
 
-    const totalDias = records.length;
-    const diasPresente = records.filter(r => r.isPresent === true).length;
-    const inasistencias = records.filter(r => r.absenceValue === 1).length;
-    const mediasFaltas = records.filter(r => r.absenceValue === 0.5).length;
+    // Build catalog once per call: code → { isPresent, absenceValue (number) }
+    const rawTypes = await client.attendanceType.findMany({ where: { level } });
+    const catalog = new Map<string, { isPresent: boolean; absenceValue: number }>();
+    for (const t of rawTypes) {
+      catalog.set(t.code as string, {
+        isPresent: t.isPresent as boolean,
+        absenceValue: Number(t.absenceValue),   // Decimal(4,2) → number; exact for 0/0.5/1/1.5
+      });
+    }
+
+    let totalDias = 0;
+    let diasPresente = 0;
+    let inasistencias = 0;
+    let mediasFaltas = 0;
+
+    for (const reg of registers) {
+      const days = reg.days as Record<string, string>;
+      for (const code of Object.values(days)) {
+        if (!code) continue;          // blank/empty = unmarked day, skip
+        totalDias++;
+        const entry = catalog.get(code);
+        if (!entry) continue;         // unknown code: counted in totalDias, not classified
+        if (entry.isPresent === true)    diasPresente++;
+        if (entry.absenceValue === 1)    inasistencias++;
+        if (entry.absenceValue === 0.5)  mediasFaltas++;
+      }
+    }
+
     const porcentaje = totalDias > 0
       ? ((diasPresente / totalDias) * 100).toFixed(1)
       : '0.0';

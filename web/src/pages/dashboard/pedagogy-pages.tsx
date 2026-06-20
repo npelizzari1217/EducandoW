@@ -53,4 +53,3 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
 
 export function SubjectsPage() { return <GenericPage title="Materias" subtitle="Asignaturas por nivel" url="/subjects" columns={[{key:'name',header:'Nombre'},{key:'level',header:'Nivel'}]} fields={[{name:'name',label:'Nombre'},{name:'level',label:'Nivel',placeholder:'INICIAL'},{name:'institutionId',label:'Institución ID'}]} />; }
 export { default as CourseSectionsPage } from './course-sections';
-export function AttendancePage() { return <GenericPage title="Asistencia" subtitle="Registro diario" url="/attendance" columns={[{key:'studentId',header:'Estudiante'},{key:'status',header:'Estado'},{key:'date',header:'Fecha'}]} fields={[{name:'studentId',label:'Estudiante ID'},{name:'courseSectionId',label:'Curso ID'},{name:'date',label:'Fecha',type:'date'},{name:'status',label:'Estado',placeholder:'PRESENT'},{name:'note',label:'Nota'}]} />; }

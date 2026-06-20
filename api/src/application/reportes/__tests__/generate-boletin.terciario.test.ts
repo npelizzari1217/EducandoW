@@ -43,7 +43,6 @@ function makeTerciarioClient(opts: { inscripciones?: any[]; finales?: any[]; lla
     // legacy models — present so level-10 no-regression tests can assert NOT called
     notaTrimestral: { findMany: vi.fn().mockResolvedValue([]) },
     courseCycle: { findMany: vi.fn().mockResolvedValue([]) },
-    attendance: { findMany: vi.fn().mockResolvedValue([]) },
     salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
   };
 }
@@ -614,7 +613,6 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Terciario (level=40)', (
       alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
       courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-ter', level: 40, cycleId: 'acyc-ter', course: { grade: 'Tecnicatura', division: null, academicYear: '2026' } }) },
       student: { findUnique: vi.fn().mockResolvedValue(null) },
-      attendance: { findMany: vi.fn().mockResolvedValue([]) },
     };
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 

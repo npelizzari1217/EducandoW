@@ -10,7 +10,6 @@ vi.mock('../pages/dashboard/institutions', () => ({ default: () => <div>Institut
 vi.mock('../pages/dashboard/students', () => ({ default: () => <div>Students Page</div> }));
 vi.mock('../pages/dashboard/pedagogy-pages', () => ({
   GradesPage: () => <div>Grades Page</div>,
-  AttendancePage: () => <div>Attendance Page</div>,
 }));
 vi.mock('../pages/dashboard/modules', () => ({ default: () => <div>Modules Page</div> }));
 vi.mock('../pages/dashboard/users', () => ({ default: () => <div>Users Page</div> }));

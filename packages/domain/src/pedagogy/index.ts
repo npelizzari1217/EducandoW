@@ -2,8 +2,6 @@ export { Subject } from './entities/subject';
 export type { SubjectProps } from './entities/subject';
 export { CourseSection } from './entities/course-section';
 export type { CourseSectionProps } from './entities/course-section';
-export { Attendance } from './entities/attendance';
-export type { AttendanceProps, AttendanceStatusCode, AttendanceStatusEntity } from './entities/attendance';
 // GradeScale and GradeScaleValue moved to grading/ module — grading-foundations
 export { AcademicCycle } from './entities/academic-cycle';
 export type { AcademicCycleProps, CreateAcademicCycleInput, UpdateAcademicCycleInput } from './entities/academic-cycle';
@@ -63,7 +61,6 @@ export { StudyPlanHasDependenciesError } from './errors/study-plan.errors';
 
 export type { SubjectRepository } from './repositories/subject-repository';
 export type { CourseSectionRepository } from './repositories/course-section-repository';
-export type { AttendanceRepository } from './repositories/attendance-repository';
 // GradeScaleRepository moved to grading/ module — grading-foundations
 export type { AcademicCycleRepository, AcademicCycleFilters, PaginatedResult } from './repositories/academic-cycle-repository';
 export type { StudyPlanRepository, StudyPlanCourseDto } from './repositories/study-plan-repository';

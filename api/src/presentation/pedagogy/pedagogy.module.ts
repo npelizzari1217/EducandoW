@@ -6,7 +6,6 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaSubjectRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject.repository';
 import { PrismaCourseSectionRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-course-section.repository';
-import { PrismaAttendanceRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance.repository';
 import { PrismaAcademicCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-academic-cycle.repository';
 import { PrismaStudyPlanRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-study-plan.repository';
 import { PrismaSubjectCompetencyRepo } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-competency.repository';
@@ -16,8 +15,8 @@ import { PrismaGradeScaleRepository } from '../../infrastructure/persistence/pri
 import { PrismaGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grading-period.repository';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 
-const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaAttendanceRepo, PrismaAcademicCycleRepository, PrismaStudyPlanRepository, PrismaSubjectCompetencyRepo, PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo];
-const tokens = ['SubjectRepository', 'CourseSectionRepository', 'AttendanceRepository', 'AcademicCycleRepository', 'StudyPlanRepository', 'SubjectCompetencyRepository', 'CompetenciaXMateriaXAlumnoXCursoXCicloRepository'];
+const repos = [PrismaSubjectRepo, PrismaCourseSectionRepo, PrismaAcademicCycleRepository, PrismaStudyPlanRepository, PrismaSubjectCompetencyRepo, PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo];
+const tokens = ['SubjectRepository', 'CourseSectionRepository', 'AcademicCycleRepository', 'StudyPlanRepository', 'SubjectCompetencyRepository', 'CompetenciaXMateriaXAlumnoXCursoXCicloRepository'];
 
 @Module({
   imports: [AuthModule, ReportesModule],
@@ -34,9 +33,6 @@ const tokens = ['SubjectRepository', 'CourseSectionRepository', 'AttendanceRepos
     { provide: UC.ListCourseSectionsUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.ListCourseSectionsUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.DeleteCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.DeleteCourseSectionUC(r), inject: ['CourseSectionRepository'] },
     { provide: UC.UpdateCourseSectionUC, useFactory: (r: PrismaCourseSectionRepo) => new UC.UpdateCourseSectionUC(r), inject: ['CourseSectionRepository'] },
-    { provide: UC.CreateAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.CreateAttendanceUC(r), inject: ['AttendanceRepository'] },
-    { provide: UC.ListAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.ListAttendanceUC(r), inject: ['AttendanceRepository'] },
-    { provide: UC.DeleteAttendanceUC, useFactory: (r: PrismaAttendanceRepo) => new UC.DeleteAttendanceUC(r), inject: ['AttendanceRepository'] },
     { provide: UC.ListAcademicCyclesUC, useFactory: (r: PrismaAcademicCycleRepository) => new UC.ListAcademicCyclesUC(r), inject: ['AcademicCycleRepository'] },
     { provide: UC.GetAcademicCycleUC, useFactory: (r: PrismaAcademicCycleRepository) => new UC.GetAcademicCycleUC(r), inject: ['AcademicCycleRepository'] },
     { provide: UC.CreateAcademicCycleUC, useFactory: (r: PrismaAcademicCycleRepository) => new UC.CreateAcademicCycleUC(r), inject: ['AcademicCycleRepository'] },

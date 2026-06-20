@@ -38,7 +38,6 @@ model Student {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  attendances             Attendance[]
   guardians               StudentGuardian[]
   salaEnrollments         SalaEnrollment[]
   informesEvolutivos      InformeEvolutivo[]
@@ -277,7 +276,6 @@ model AcademicCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
 
-  attendances         Attendance[]
   courseCycles        CourseCycle[]
   gradingPeriodDates  GradingPeriodDate[]
   studyPlans          StudyPlan[]         @relation("StudyPlanCycle")
@@ -373,7 +371,6 @@ model Subject {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  attendances              Attendance[]
   studyPlanSubjects        StudyPlanSubject[]
   calificacionesPrimario   CalificacionPrimario[]
   calificacionesSecundario CalificacionSecundario[]
@@ -405,7 +402,6 @@ model CourseSection {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  attendances        Attendance[]
   studyPlanCourses   StudyPlanCourse[]
   grados             Grado[]
   cursos             Curso[]
@@ -551,47 +547,9 @@ model AttendanceType {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  attendances Attendance[]
-
   @@unique([level, code])
   @@index([level])
   @@map("attendance_types")
-}
-
-model Attendance {
-  id              String   @id @default(uuid())
-  studentId       String
-  courseSectionId String
-  subjectId       String?
-  cycleId         String?
-  date            DateTime
-  statusId        String
-  note            String?
-
-  active    Boolean   @default(true)
-  deletedAt DateTime?
-
-  // SNAPSHOT — immutable historical record
-  statusCode        String?   // "PRESENT", "ABSENT" — code at time of recording
-  statusDescription String?   // "Presente", "Ausente" — description at time
-  absenceValue      Float?    // 0, 0.5, 1 — value at time of recording
-  isPresent         Boolean?  // true/false — present flag at time
-
-  student       Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  courseSection CourseSection  @relation(fields: [courseSectionId], references: [id])
-  subject       Subject?       @relation(fields: [subjectId], references: [id])
-  cycle         AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
-  status        AttendanceType @relation(fields: [statusId], references: [id])
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([studentId])
-  @@index([courseSectionId])
-  @@index([date])
-  @@index([cycleId])
-  @@unique([studentId, courseSectionId, subjectId, date])
-  @@map("attendances")
 }
 
 // ── Study Plans ───────────────────────────────────────────

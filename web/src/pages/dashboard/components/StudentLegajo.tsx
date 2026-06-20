@@ -44,14 +44,6 @@ interface Nota {
   gradeLabel: string | null;
 }
 
-interface AttendanceRecord {
-  [key: string]: unknown;
-  id: string;
-  date: string;
-  status: string;
-  statusDescription: string;
-}
-
 // ── Helpers ────────────────────────────────────────────────
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -102,7 +94,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
   // SDD-2 R17: memberships replace enrollments (AlumnosXCursoXCiclo enriched rows)
   const [memberships, setMemberships] = useState<StudentMembership[]>([]);
   const [notas, setNotas] = useState<Nota[]>([]);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loadingLegajo, setLoadingLegajo] = useState(false);
   const [error, setError] = useState('');
 
@@ -112,7 +103,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
     setSelectedStudent(null);
     setMemberships([]);
     setNotas([]);
-    setAttendance([]);
     setError('');
     setLoadingLegajo(true);
 
@@ -123,7 +113,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
       // SDD-2 R17: GET /students/:studentId/memberships replaces GET /enrollments
       apiClient.get(`/students/${studentId}/memberships`),
       apiClient.get('/notas', { params: { studentId, ...tenantParams } }),
-      apiClient.get('/attendance', { params: { studentId, ...tenantParams } }),
     ]).then((results) => {
       // Student detail (required)
       if (
@@ -154,16 +143,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         );
       } else {
         setNotas([]);
-      }
-
-      // Attendance (optional)
-      if (results[3].status === 'fulfilled') {
-        setAttendance(
-          (results[3] as { value?: { data?: { data?: AttendanceRecord[] } } }).value?.data
-            ?.data ?? [],
-        );
-      } else {
-        setAttendance([]);
       }
 
       setLoadingLegajo(false);
@@ -284,42 +263,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
             ]}
             data={notas}
             emptyMessage="Sin calificaciones registradas"
-          />
-        )}
-      </Card>
-
-      {/* ── Asistencia ── */}
-      <Card
-        title={`Asistencia (${attendance.length} registros)${attendance.length === 0 ? ' — sin datos disponibles' : ''}`}
-        className="mt-md"
-      >
-        {attendance.length === 0 ? (
-          <p
-            style={{
-              fontSize: 'var(--text-sm)',
-              color: 'var(--color-text-muted)',
-              padding: 'var(--space-md)',
-            }}
-          >
-            No hay registros de asistencia para este alumno.
-          </p>
-        ) : (
-          <Table
-            columns={[
-              {
-                key: 'date',
-                header: 'Fecha',
-                render: (a: AttendanceRecord) => formatDate(a.date),
-              },
-              { key: 'status', header: 'Código' },
-              {
-                key: 'statusDescription',
-                header: 'Estado',
-                render: (a: AttendanceRecord) => a.statusDescription,
-              },
-            ]}
-            data={attendance}
-            emptyMessage="Sin registros de asistencia"
           />
         )}
       </Card>

@@ -515,7 +515,7 @@ describe('MateriasGruposPage — navigation', () => {
             path="/competency-grading"
             element={<div data-testid="competency-grading-page">Notas Page</div>}
           />
-          <Route path="/attendance" element={<div data-testid="attendance-page">Asistencia Page</div>} />
+          <Route path="/asistencia-mensual" element={<div data-testid="asistencia-mensual-page">Asistencia Mensual Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -535,7 +535,7 @@ describe('MateriasGruposPage — navigation', () => {
     });
   });
 
-  it('F7-T10b: "Ausencias" button navigates to /attendance route', async () => {
+  it('F7-T10b: "Ausencias" button navigates to /asistencia-mensual route', async () => {
     const { userEvent } = await import('@testing-library/user-event');
     const user = userEvent.setup();
 
@@ -547,7 +547,7 @@ describe('MateriasGruposPage — navigation', () => {
             path="/competency-grading"
             element={<div data-testid="competency-grading-page">Notas Page</div>}
           />
-          <Route path="/attendance" element={<div data-testid="attendance-page">Asistencia Page</div>} />
+          <Route path="/asistencia-mensual" element={<div data-testid="asistencia-mensual-page">Asistencia Mensual Page</div>} />
         </Routes>
       </MemoryRouter>,
     );
@@ -561,7 +561,7 @@ describe('MateriasGruposPage — navigation', () => {
     await user.click(screen.getAllByText('Ausencias')[0]);
 
     await waitFor(() => {
-      expect(screen.getByTestId('attendance-page')).toBeInTheDocument();
+      expect(screen.getByTestId('asistencia-mensual-page')).toBeInTheDocument();
     });
   });
 });
