@@ -1,59 +1,92 @@
 /**
- * DTOs for Asistencia (Fase 6, F6-P5).
+ * DTOs for Asistencia Mensual (SDD-4, PR-3).
  *
- * Subject absence: POST/GET /grupos/:grupoId/ausencias
- * Daily attendance: POST/GET /course-cycles/:ccId/asistencia-diaria
+ * Replaces the old daily/absence DTOs.
+ *
+ * Endpoints:
+ *   POST /course-cycles/:ccId/asistencia-mensual/generate  → GenerateMonthlySchema
+ *   GET  /course-cycles/:ccId/asistencia-mensual           → GeneralAttendanceQuerySchema
+ *   PATCH /course-cycles/:ccId/asistencia-mensual/dia      → RecordGeneralDaySchema
+ *   GET  /materias-curso-ciclo/:id/asistencia-mensual      → SubjectAttendanceQuerySchema
+ *   PATCH /materias-curso-ciclo/:id/asistencia-mensual/dia → RecordSubjectDaySchema
  */
 import { z } from 'zod';
 
-// ── Subject Absence (ausencias por materia) ──────────────────────────────────
+// ── Generate monthly attendance ───────────────────────────────────────────────
 
-export const RecordSubjectAbsenceSchema = z.object({
-  studentId: z.string().uuid('studentId must be a valid UUID'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
-  observaciones: z.string().max(500).optional(),
+export const GenerateMonthlySchema = z.object({
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
 });
 
-export type RecordSubjectAbsenceDto = z.infer<typeof RecordSubjectAbsenceSchema>;
+export type GenerateMonthlyDto = z.infer<typeof GenerateMonthlySchema>;
 
-export const GetSubjectAbsencesQuerySchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
-});
-
-export type GetSubjectAbsencesQueryDto = z.infer<typeof GetSubjectAbsencesQuerySchema>;
-
-export interface AusenciaXGrupoResponse {
-  id: string;
-  grupoId: string;
-  studentId: string;
-  date: string;
-  observaciones?: string;
-  createdAt: string;
+export interface GenerationResultResponse {
+  generalCreated: number;
+  generalSkipped: number;
+  materiaCreated: number;
+  materiaSkipped: number;
 }
 
-// ── Daily Attendance (asistencia diaria) ─────────────────────────────────────
+// ── General attendance — list query ──────────────────────────────────────────
 
-export const RecordDailyAttendanceSchema = z.object({
+export const GeneralAttendanceQuerySchema = z.object({
+  year: z.coerce.number().int().min(2020).max(2100),
+  month: z.coerce.number().int().min(1).max(12),
+});
+
+export type GeneralAttendanceQueryDto = z.infer<typeof GeneralAttendanceQuerySchema>;
+
+// ── Record general day ────────────────────────────────────────────────────────
+
+export const RecordGeneralDaySchema = z.object({
   studentId: z.string().uuid('studentId must be a valid UUID'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
   statusCode: z.string().min(1).max(10),
-  observaciones: z.string().max(500).optional(),
 });
 
-export type RecordDailyAttendanceDto = z.infer<typeof RecordDailyAttendanceSchema>;
+export type RecordGeneralDayDto = z.infer<typeof RecordGeneralDaySchema>;
 
-export const GetDailyAttendanceQuerySchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD'),
+// ── Subject attendance — list query ──────────────────────────────────────────
+
+export const SubjectAttendanceQuerySchema = z.object({
+  year: z.coerce.number().int().min(2020).max(2100),
+  month: z.coerce.number().int().min(1).max(12),
+  grupoId: z.string().uuid().optional(),
 });
 
-export type GetDailyAttendanceQueryDto = z.infer<typeof GetDailyAttendanceQuerySchema>;
+export type SubjectAttendanceQueryDto = z.infer<typeof SubjectAttendanceQuerySchema>;
 
-export interface AsistenciaDiariaResponse {
+// ── Record subject day ────────────────────────────────────────────────────────
+
+export const RecordSubjectDaySchema = z.object({
+  studentId: z.string().uuid('studentId must be a valid UUID'),
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+  statusCode: z.string().min(1).max(10),
+});
+
+export type RecordSubjectDayDto = z.infer<typeof RecordSubjectDaySchema>;
+
+// ── Response shapes ───────────────────────────────────────────────────────────
+
+export interface AsistenciaGeneralResponse {
   id: string;
   courseCycleId: string;
   studentId: string;
-  date: string;
-  statusCode: string;
-  observaciones?: string;
-  createdAt: string;
+  year: number;
+  month: number;
+  days: Record<string, string>;
+}
+
+export interface AsistenciaMateriaResponse {
+  id: string;
+  materiaXCursoXCicloId: string;
+  studentId: string;
+  year: number;
+  month: number;
+  days: Record<string, string>;
 }

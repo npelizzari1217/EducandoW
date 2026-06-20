@@ -55,8 +55,8 @@ model Student {
   materiasPrevias         MateriaPrevia[]
   materiasXAlumnoXCursoXCiclo MateriasXAlumnoXCursoXCiclo[]
   alumnosXCursoXCiclo         AlumnosXCursoXCiclo[]
-  ausenciasXGrupo             AusenciaXGrupo[]
-  asistenciaDiaria            AsistenciaDiaria[]
+  asistenciaMensualGeneral    asistenciaXAlumnoXCursoXCiclo[]
+  asistenciaMensualMateria    asistenciaXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,8 +178,9 @@ model MateriaXCursoXCiclo {
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)
 
-  alumnos MateriasXAlumnoXCursoXCiclo[]
-  grupos  GrupoXCursoXMateriaXCiclo[]
+  alumnos           MateriasXAlumnoXCursoXCiclo[]
+  grupos            GrupoXCursoXMateriaXCiclo[]
+  asistenciaMensual asistenciaXMateriaXAlumnoXCursoXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
@@ -224,8 +225,6 @@ model GrupoXCursoXMateriaXCiclo {
   docenteXCiclo DocenteXCiclo       @relation(fields: [docenteXCicloId],       references: [id], onDelete: Restrict)
 
   alumnos    AlumnosXGrupoXCursoXMateriaXCiclo[]
-  ausencias  AusenciaXGrupo[]
-
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
@@ -331,7 +330,7 @@ model CourseCycle {
   materiasXCiclo        MateriaXCursoXCiclo[]
   alumnosXCursoXCiclo   AlumnosXCursoXCiclo[]
   asignacionesCurso     AsignacionCursoXCiclo[]
-  asistenciaDiaria      AsistenciaDiaria[]
+  asistenciaMensual     asistenciaXAlumnoXCursoXCiclo[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -1364,49 +1363,50 @@ model Ingresante {
   @@map("ingresantes")
 }
 
-// ── Asistencia Fase 6 ─────────────────────────────────────
+// ── Asistencia Mensual (SDD-4) ────────────────────────────────────────────────
+// Monthly attendance register — one row per student × scope × month.
+// Replaces the old AsistenciaDiaria + AusenciaXGrupo daily-row stack (deleted in PR-3).
 
-// AusenciaXGrupo — subject-level absence per GrupoXCursoXMateriaXCiclo.
-// Recorded by the DocenteXCiclo assigned to the group. Independent from AsistenciaDiaria.
-// F6-S2
-model AusenciaXGrupo {
-  id           String   @id @default(uuid())
-  grupoId      String   @map("grupo_id")
-  studentId    String   @map("student_id")
-  date         DateTime @db.Date
-  observaciones String? @map("observaciones")
+// General (course-cycle grain): one row per (CourseCycle, Student, Year, Month).
+// days: JSON day-map { "1":"P", "2":"A", ... } — keys 1..31, values = AttendanceType.code.
+// ADR-1, ADR-5.
+model asistenciaXAlumnoXCursoXCiclo {
+  id            String @id @default(uuid())
+  courseCycleId String @map("course_cycle_id")  // → CourseCycle.uuid
+  studentId     String @map("student_id")        // → Student.id
+  year          Int
+  month         Int                               // 1..12
+  days          Json   @default("{}")             // { "1":"P", ... } day→AttendanceType.code
 
-  grupo   GrupoXCursoXMateriaXCiclo @relation(fields: [grupoId],   references: [id], onDelete: Cascade)
-  student Student                   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+  student     Student     @relation(fields: [studentId],     references: [id],   onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([grupoId, studentId, date])
-  @@index([grupoId, date])
-  @@index([studentId])
-  @@map("ausencias_x_grupo")
+  @@unique([courseCycleId, studentId, year, month], map: "asistencia_alumno_cc_year_month_key")
+  @@index([courseCycleId, year, month])
+  @@map("asistencia_x_alumno_x_curso_x_ciclo")
 }
 
-// AsistenciaDiaria — daily attendance per CourseCycle + date recorded by a preceptor.
-// Independent from subject-group absences (asistencia delta spec).
-// F6-S3
-model AsistenciaDiaria {
-  id            String   @id @default(uuid())
-  courseCycleId String   @map("course_cycle_id")
-  studentId     String   @map("student_id")
-  date          DateTime @db.Date
-  statusCode    String   @map("status_code")   // e.g. "P" present, "A" absent — free code from AttendanceType.code
-  observaciones String?  @map("observaciones")
+// Subject (materia grain): one row per (MateriaXCursoXCiclo, Student, Year, Month).
+// Group is NOT stored here — it is a filter at the presentation/authorization layer only (ADR-2).
+// ADR-1, ADR-5.
+model asistenciaXMateriaXAlumnoXCursoXCiclo {
+  id                    String @id @default(uuid())
+  materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")  // → MateriaXCursoXCiclo.id
+  studentId             String @map("student_id")                   // → Student.id
+  year                  Int
+  month                 Int
+  days                  Json   @default("{}")
 
-  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade)
-  student     Student     @relation(fields: [studentId],    references: [id],   onDelete: Cascade)
+  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  student Student             @relation(fields: [studentId],             references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([courseCycleId, studentId, date])
-  @@index([courseCycleId, date])
-  @@index([studentId])
-  @@map("asistencia_diaria")
+  @@unique([materiaXCursoXCicloId, studentId, year, month], map: "asistencia_materia_alumno_year_month_key")
+  @@index([materiaXCursoXCicloId, year, month])
+  @@map("asistencia_x_materia_x_alumno_x_curso_x_ciclo")
 }

@@ -1,46 +1,53 @@
 /**
- * GetDailyAttendanceUseCase — application use-case (Fase 6, F6-A4).
+ * ListGeneralAttendanceUseCase — application use-case (SDD-4 PR-2).
  *
- * Reads daily attendance for a CursoXCiclo on a given date.
+ * Returns all general monthly attendance rows for a CourseCycle + month.
+ * Empty array when the month has not been generated (R-31: not HTTP 404).
  *
- * Scope:
- *   - PRECEPTOR: scoped to their CursoXCiclo (Door 2 check via isPreceptor).
- *   - SECRETARIO/DIRECTOR/ADMIN/ROOT (D3): full scope.
+ * Authorization:
+ *   D3 — SECRETARIO/DIRECTOR/ADMIN/ROOT: full scope
+ *   Door 2 — preceptor of the CourseCycle (same pattern as GetDailyAttendanceUseCase)
+ *
+ * Spec: R-31.
  */
 import { Injectable } from '@nestjs/common';
-import { resolveAccessScope, ForbiddenError } from '@educandow/domain';
+import {
+  resolveAccessScope,
+  ForbiddenError,
+} from '@educandow/domain';
 import type {
-  DailyAttendanceRepository,
+  AsistenciaGeneralRepository,
   DocenteXCicloRepository,
   AsignacionCursoXCicloRepository,
-  AsistenciaDiaria,
+  AsistenciaXAlumnoXCursoXCiclo,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
-export interface GetDailyAttendanceInput {
+export interface ListGeneralAttendanceInput {
   courseCycleId: string;
-  date: Date;
+  year: number;
+  month: number;
   userId: string;
   userRoles: string[];
 }
 
 @Injectable()
-export class GetDailyAttendanceUseCase {
+export class ListGeneralAttendanceUseCase {
   constructor(
-    private readonly attendanceRepo: DailyAttendanceRepository,
+    private readonly generalRepo: AsistenciaGeneralRepository,
     private readonly docenteRepo: DocenteXCicloRepository,
     private readonly asignacionRepo: AsignacionCursoXCicloRepository,
   ) {}
 
-  async execute(input: GetDailyAttendanceInput): Promise<AsistenciaDiaria[]> {
-    const scope = resolveAccessScope({ roles: input.userRoles });
+  async execute(input: ListGeneralAttendanceInput): Promise<AsistenciaXAlumnoXCursoXCiclo[]> {
+    const { courseCycleId, year, month, userId, userRoles } = input;
 
-    // D3: management roles get full scope — no Door 2 check
+    const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
-      await this.checkDoor2(input.courseCycleId, input.userId);
+      await this.checkDoor2(courseCycleId, userId);
     }
 
-    return this.attendanceRepo.findByCourseAndDate(input.courseCycleId, input.date);
+    return this.generalRepo.findByScopeAndMonth(courseCycleId, year, month, undefined);
   }
 
   private async checkDoor2(courseCycleId: string, userId: string): Promise<void> {

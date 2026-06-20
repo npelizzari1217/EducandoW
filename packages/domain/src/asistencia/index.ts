@@ -1,10 +1,18 @@
-// ── Asistencia (Fase 6) ──────────────────────────────────────────────────────
+// ── Asistencia Mensual (SDD-4) ───────────────────────────────────────────────
 
-export { AusenciaXGrupo } from './entities/ausencia-x-grupo';
-export type { AusenciaXGrupoProps, CreateAusenciaXGrupoInput } from './entities/ausencia-x-grupo';
+export { DayMap } from './value-objects/day-map';
 
-export { AsistenciaDiaria } from './entities/asistencia-diaria';
-export type { AsistenciaDiariaProps, CreateAsistenciaDiariaInput } from './entities/asistencia-diaria';
+export { AsistenciaXAlumnoXCursoXCiclo } from './entities/asistencia-x-alumno-x-curso-x-ciclo';
+export type {
+  AsistenciaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXAlumnoXCursoXCicloInput,
+} from './entities/asistencia-x-alumno-x-curso-x-ciclo';
 
-export type { SubjectAbsenceRepository } from './repositories/subject-absence-repository';
-export type { DailyAttendanceRepository } from './repositories/daily-attendance-repository';
+export { AsistenciaXMateriaXAlumnoXCursoXCiclo } from './entities/asistencia-x-materia-x-alumno-x-curso-x-ciclo';
+export type {
+  AsistenciaXMateriaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXMateriaXAlumnoXCursoXCicloInput,
+} from './entities/asistencia-x-materia-x-alumno-x-curso-x-ciclo';
+
+export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './repositories/asistencia-general-repository';
+export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './repositories/asistencia-materia-repository';

@@ -247,10 +247,17 @@ export { ROLE_HIERARCHY, ROLE_LABELS, getHighestRoleRank, canManageUser, canView
 export { resolveAccessScope } from './auth/access-scope';
 export type { AccessScope } from './auth/access-scope';
 
-// ── Asistencia (Fase 6) ─────────────────────────────────────────────────────
-export { AusenciaXGrupo } from './asistencia';
-export type { AusenciaXGrupoProps, CreateAusenciaXGrupoInput } from './asistencia';
-export { AsistenciaDiaria } from './asistencia';
-export type { AsistenciaDiariaProps, CreateAsistenciaDiariaInput } from './asistencia';
-export type { SubjectAbsenceRepository } from './asistencia';
-export type { DailyAttendanceRepository } from './asistencia';
+// ── Asistencia Mensual (SDD-4) ───────────────────────────────────────────────
+export { DayMap } from './asistencia';
+export { AsistenciaXAlumnoXCursoXCiclo } from './asistencia';
+export type {
+  AsistenciaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXAlumnoXCursoXCicloInput,
+} from './asistencia';
+export { AsistenciaXMateriaXAlumnoXCursoXCiclo } from './asistencia';
+export type {
+  AsistenciaXMateriaXAlumnoXCursoXCicloProps,
+  CreateAsistenciaXMateriaXAlumnoXCursoXCicloInput,
+} from './asistencia';
+export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './asistencia';
+export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './asistencia';
