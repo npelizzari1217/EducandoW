@@ -49,18 +49,6 @@ function makeLocalRepos() {
   };
 }
 
-/** Constructs UC without repos — for resolver-only tests. */
-function makeUC(users: Array<{ id: string; firstName: string; lastName: string }> = []) {
-  const master = makeMasterClient(users);
-  const prisma = { getMasterClient: vi.fn().mockReturnValue(master) };
-  const uc = new GenerateBoletinUseCase(
-    { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
-    { getPath: vi.fn().mockResolvedValue(null), save: vi.fn() } as never,
-    prisma as never,
-  );
-  return { uc, master };
-}
-
 /** Constructs UC with all repos — for buildMaterias* tests. */
 function makeUCWithRepos(
   users: Array<{ id: string; firstName: string; lastName: string }> = [],
