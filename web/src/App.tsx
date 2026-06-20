@@ -46,6 +46,7 @@ import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-su
 import SubjectGradingByCoursePage from './pages/dashboard/subject-grading-by-course';
 import IngresantesPage from './pages/dashboard/ingresantes';
 import GestionGruposPage from './pages/dashboard/gestion-grupos';
+import AsistenciaMensualPage from './pages/dashboard/asistencia-mensual';
 
 function App() {
   return (
@@ -98,6 +99,7 @@ function App() {
               <Route path="/grading/by-course" element={<SubjectGradingByCoursePage />} />
               <Route path="/ingresantes" element={<IngresantesPage />} />
               <Route path="/grupos" element={<GestionGruposPage />} />
+              <Route path="/asistencia-mensual" element={<ProtectedRoute moduleCode="ATTENDANCE" action="READ"><AsistenciaMensualPage /></ProtectedRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

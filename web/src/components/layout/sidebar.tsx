@@ -54,6 +54,7 @@ const navGroups: NavGroupDef[] = [
       { label: 'Alumnos por Materia', path: '/competency-grading', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Alumnos por Curso', path: '/grading/by-course', moduleCode: 'GRADES', requiresLevel: true },
       { label: 'Asistencia del día', path: '/attendance', moduleCode: 'ATTENDANCE', requiresLevel: true },
+      { label: 'Asistencia Mensual', path: '/asistencia-mensual', moduleCode: 'ATTENDANCE', requiresLevel: true },
     ],
     subGroups: [
       {

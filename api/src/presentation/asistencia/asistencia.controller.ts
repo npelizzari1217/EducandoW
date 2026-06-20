@@ -1,13 +1,14 @@
 /**
- * AsistenciaController — Fase 6 (F6-P1..P4).
+ * AsistenciaController — Monthly attendance register (SDD-4, PR-3).
  *
- * Subject absences (ausencias por materia):
- *   POST /grupos/:grupoId/ausencias      — F6-P1: record absence (teacher of group)
- *   GET  /grupos/:grupoId/ausencias      — F6-P2: list absences by date
+ * Replaces the old daily/absence endpoints (F6-P1..P4) with the monthly register.
  *
- * Daily attendance (asistencia diaria):
- *   POST /course-cycles/:ccId/asistencia-diaria  — F6-P3: record daily attendance
- *   GET  /course-cycles/:ccId/asistencia-diaria  — F6-P4: list by date
+ * Endpoints:
+ *   POST  /course-cycles/:ccId/asistencia-mensual/generate → generate register for CC+month (admin)
+ *   GET   /course-cycles/:ccId/asistencia-mensual          → list general register for CC+month
+ *   PATCH /course-cycles/:ccId/asistencia-mensual/dia      → record a day in general register
+ *   GET   /materias-curso-ciclo/:materiaId/asistencia-mensual → list subject register (+ optional grupoId)
+ *   PATCH /materias-curso-ciclo/:materiaId/asistencia-mensual/dia → record a day in subject register
  *
  * Door 1 (module check) is enforced via @Roles at each endpoint.
  * Door 2 (scope check) is enforced inside the use-cases.
@@ -16,6 +17,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -25,6 +27,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { ForbiddenError } from '@educandow/domain';
+import type {
+  AsistenciaXAlumnoXCursoXCiclo,
+  AsistenciaXMateriaXAlumnoXCursoXCiclo,
+} from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -32,118 +38,121 @@ import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.d
 import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
-  RecordSubjectAbsenceSchema,
-  RecordSubjectAbsenceDto,
-  GetSubjectAbsencesQuerySchema,
-  GetSubjectAbsencesQueryDto,
-  RecordDailyAttendanceSchema,
-  RecordDailyAttendanceDto,
-  GetDailyAttendanceQuerySchema,
-  GetDailyAttendanceQueryDto,
-  type AusenciaXGrupoResponse,
-  type AsistenciaDiariaResponse,
+  GenerateMonthlySchema,
+  GenerateMonthlyDto,
+  GenerationResultResponse,
+  GeneralAttendanceQuerySchema,
+  GeneralAttendanceQueryDto,
+  RecordGeneralDaySchema,
+  RecordGeneralDayDto,
+  SubjectAttendanceQuerySchema,
+  SubjectAttendanceQueryDto,
+  RecordSubjectDaySchema,
+  RecordSubjectDayDto,
+  AsistenciaGeneralResponse,
+  AsistenciaMateriaResponse,
 } from './dto/asistencia.dto';
-import { RecordSubjectAbsenceUseCase } from '../../application/asistencia/record-subject-absence.use-case';
-import { GetSubjectAbsencesUseCase } from '../../application/asistencia/get-subject-absences.use-case';
-import { RecordDailyAttendanceUseCase } from '../../application/asistencia/record-daily-attendance.use-case';
-import { GetDailyAttendanceUseCase } from '../../application/asistencia/get-daily-attendance.use-case';
+import { GenerateMonthlyAttendanceUseCase } from '../../application/asistencia/generate-monthly-attendance.use-case';
+import { ListGeneralAttendanceUseCase } from '../../application/asistencia/list-general-attendance.use-case';
+import { RecordGeneralAttendanceDayUseCase } from '../../application/asistencia/record-general-attendance-day.use-case';
+import { ListSubjectAttendanceUseCase } from '../../application/asistencia/list-subject-attendance.use-case';
+import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/record-subject-attendance-day.use-case';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
 export class AsistenciaController {
   constructor(
-    private readonly recordSubjectAbsenceUC: RecordSubjectAbsenceUseCase,
-    private readonly getSubjectAbsencesUC: GetSubjectAbsencesUseCase,
-    private readonly recordDailyAttendanceUC: RecordDailyAttendanceUseCase,
-    private readonly getDailyAttendanceUC: GetDailyAttendanceUseCase,
+    private readonly generateMonthlyUC: GenerateMonthlyAttendanceUseCase,
+    private readonly listGeneralUC: ListGeneralAttendanceUseCase,
+    private readonly recordGeneralUC: RecordGeneralAttendanceDayUseCase,
+    private readonly listSubjectUC: ListSubjectAttendanceUseCase,
+    private readonly recordSubjectUC: RecordSubjectAttendanceDayUseCase,
   ) {}
 
   /**
-   * POST /grupos/:grupoId/ausencias — F6-P1
-   * Record a subject-level absence for a student in a group.
-   * Door 1: ATTENDANCE module with CREATE action.
-   * Door 2: teacher must be assigned to the group (use-case enforced).
+   * POST /course-cycles/:ccId/asistencia-mensual/generate
+   * Materializes the monthly attendance register for a CourseCycle+month.
+   * Admin-only (D3 — SECRETARIO/DIRECTOR/ADMIN/ROOT). Idempotent (ADR-3).
+   * Returns row counts: { generalCreated, generalSkipped, materiaCreated, materiaSkipped }.
    */
-  @Post('grupos/:grupoId/ausencias')
-  @HttpCode(HttpStatus.CREATED)
+  @Post('course-cycles/:ccId/asistencia-mensual/generate')
+  @HttpCode(HttpStatus.OK)
   @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
-  async recordSubjectAbsence(
-    @Param('grupoId') grupoId: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(RecordSubjectAbsenceSchema)) body: RecordSubjectAbsenceDto,
-  ): Promise<{ data: AusenciaXGrupoResponse }> {
-    try {
-      const result = await this.recordSubjectAbsenceUC.execute({
-        grupoId,
-        studentId: body.studentId,
-        date: new Date(body.date),
-        observaciones: body.observaciones,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      return { data: this.toAusenciaResponse(result) };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * GET /grupos/:grupoId/ausencias?date=YYYY-MM-DD — F6-P2
-   * List subject absences for a group on a given date.
-   * Door 1: ATTENDANCE module with READ action.
-   * Door 2: teacher must be assigned to the group.
-   */
-  @Get('grupos/:grupoId/ausencias')
-  @Roles('ROOT', { module: 'ATTENDANCE', action: 'READ' })
-  async getSubjectAbsences(
-    @Param('grupoId') grupoId: string,
-    @CurrentUser() user: AuthenticatedUser,
-    @Query(new ZodValidationPipe(GetSubjectAbsencesQuerySchema)) query: GetSubjectAbsencesQueryDto,
-  ): Promise<{ data: AusenciaXGrupoResponse[] }> {
-    try {
-      const items = await this.getSubjectAbsencesUC.execute({
-        grupoId,
-        date: new Date(query.date),
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      return { data: items.map((a) => this.toAusenciaResponse(a)) };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * POST /course-cycles/:ccId/asistencia-diaria — F6-P3
-   * Record daily attendance for a student in a CursoXCiclo.
-   * Door 1: ATTENDANCE module with CREATE action.
-   * Door 2: user must be a preceptor of the CC (use-case enforced).
-   */
-  @Post('course-cycles/:ccId/asistencia-diaria')
-  @HttpCode(HttpStatus.CREATED)
-  @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
-  async recordDailyAttendance(
+  async generateMonthly(
     @Param('ccId') ccId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(RecordDailyAttendanceSchema)) body: RecordDailyAttendanceDto,
-  ): Promise<{ data: AsistenciaDiariaResponse }> {
+    @Body(new ZodValidationPipe(GenerateMonthlySchema)) body: GenerateMonthlyDto,
+  ): Promise<{ data: GenerationResultResponse }> {
     try {
-      const result = await this.recordDailyAttendanceUC.execute({
+      const result = await this.generateMonthlyUC.execute({
+        courseCycleId: ccId,
+        year: body.year,
+        month: body.month,
+        userId: user.userId,
+        userRoles: user.roles,
+      });
+      return { data: result };
+    } catch (err) {
+      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
+        throw new ForbiddenException((err as Error).message);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * GET /course-cycles/:ccId/asistencia-mensual?year=&month=
+   * Returns the general monthly register rows for a CourseCycle+month.
+   * Door 2: preceptor of the CC or D3 admin.
+   */
+  @Get('course-cycles/:ccId/asistencia-mensual')
+  @Roles('ROOT', { module: 'ATTENDANCE', action: 'READ' })
+  async listGeneral(
+    @Param('ccId') ccId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(GeneralAttendanceQuerySchema)) query: GeneralAttendanceQueryDto,
+  ): Promise<{ data: AsistenciaGeneralResponse[] }> {
+    try {
+      const rows = await this.listGeneralUC.execute({
+        courseCycleId: ccId,
+        year: query.year,
+        month: query.month,
+        userId: user.userId,
+        userRoles: user.roles,
+      });
+      return { data: rows.map((r) => this.toGeneralResponse(r)) };
+    } catch (err) {
+      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
+        throw new ForbiddenException((err as Error).message);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * PATCH /course-cycles/:ccId/asistencia-mensual/dia
+   * Sets a single day's attendance status in the general monthly register.
+   * Door 2: preceptor of the CC or D3 admin.
+   */
+  @Patch('course-cycles/:ccId/asistencia-mensual/dia')
+  @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
+  async recordGeneralDay(
+    @Param('ccId') ccId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(RecordGeneralDaySchema)) body: RecordGeneralDayDto,
+  ): Promise<{ data: AsistenciaGeneralResponse }> {
+    try {
+      const row = await this.recordGeneralUC.execute({
         courseCycleId: ccId,
         studentId: body.studentId,
-        date: new Date(body.date),
+        year: body.year,
+        month: body.month,
+        day: body.day,
         statusCode: body.statusCode,
-        observaciones: body.observaciones,
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: this.toDiariaResponse(result) };
+      return { data: this.toGeneralResponse(row) };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -153,26 +162,60 @@ export class AsistenciaController {
   }
 
   /**
-   * GET /course-cycles/:ccId/asistencia-diaria?date=YYYY-MM-DD — F6-P4
-   * List daily attendance for a CursoXCiclo on a given date.
-   * Door 1: ATTENDANCE module with READ action.
-   * Door 2: user must be a preceptor (use-case enforced).
+   * GET /materias-curso-ciclo/:materiaId/asistencia-mensual?year=&month=&grupoId=
+   * Returns per-materia monthly register rows.
+   * Optional grupoId filter: when provided, scopes rows to that group's students (ADR-2).
+   * Door 2: teacher with a group in the materia or D3 admin.
    */
-  @Get('course-cycles/:ccId/asistencia-diaria')
+  @Get('materias-curso-ciclo/:materiaId/asistencia-mensual')
   @Roles('ROOT', { module: 'ATTENDANCE', action: 'READ' })
-  async getDailyAttendance(
-    @Param('ccId') ccId: string,
+  async listSubject(
+    @Param('materiaId') materiaId: string,
     @CurrentUser() user: AuthenticatedUser,
-    @Query(new ZodValidationPipe(GetDailyAttendanceQuerySchema)) query: GetDailyAttendanceQueryDto,
-  ): Promise<{ data: AsistenciaDiariaResponse[] }> {
+    @Query(new ZodValidationPipe(SubjectAttendanceQuerySchema)) query: SubjectAttendanceQueryDto,
+  ): Promise<{ data: AsistenciaMateriaResponse[] }> {
     try {
-      const items = await this.getDailyAttendanceUC.execute({
-        courseCycleId: ccId,
-        date: new Date(query.date),
+      const rows = await this.listSubjectUC.execute({
+        materiaXCursoXCicloId: materiaId,
+        year: query.year,
+        month: query.month,
+        grupoId: query.grupoId,
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: items.map((a) => this.toDiariaResponse(a)) };
+      return { data: rows.map((r) => this.toMateriaResponse(r)) };
+    } catch (err) {
+      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
+        throw new ForbiddenException((err as Error).message);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * PATCH /materias-curso-ciclo/:materiaId/asistencia-mensual/dia
+   * Sets a single day's attendance status in the per-materia monthly register.
+   * Door 2: teacher who owns a group for the materia AND target student ∈ that group, or D3 admin.
+   */
+  @Patch('materias-curso-ciclo/:materiaId/asistencia-mensual/dia')
+  @Roles('ROOT', { module: 'ATTENDANCE', action: 'CREATE' })
+  async recordSubjectDay(
+    @Param('materiaId') materiaId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(RecordSubjectDaySchema)) body: RecordSubjectDayDto,
+  ): Promise<{ data: AsistenciaMateriaResponse }> {
+    try {
+      const row = await this.recordSubjectUC.execute({
+        materiaXCursoXCicloId: materiaId,
+        studentId: body.studentId,
+        year: body.year,
+        month: body.month,
+        day: body.day,
+        statusCode: body.statusCode,
+        userId: user.userId,
+        userRoles: user.roles,
+      });
+      return { data: this.toMateriaResponse(row) };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -183,26 +226,25 @@ export class AsistenciaController {
 
   // ── Response mappers ───────────────────────────────────────────────────────
 
-  private toAusenciaResponse(a: import('@educandow/domain').AusenciaXGrupo): AusenciaXGrupoResponse {
+  private toGeneralResponse(row: AsistenciaXAlumnoXCursoXCiclo): AsistenciaGeneralResponse {
     return {
-      id: a.id.get(),
-      grupoId: a.grupoId,
-      studentId: a.studentId,
-      date: a.date.toISOString().split('T')[0],
-      observaciones: a.observaciones,
-      createdAt: (a.createdAt ?? new Date()).toISOString(),
+      id: row.id.get(),
+      courseCycleId: row.courseCycleId,
+      studentId: row.studentId,
+      year: row.year,
+      month: row.month,
+      days: row.days.toJSON(),
     };
   }
 
-  private toDiariaResponse(a: import('@educandow/domain').AsistenciaDiaria): AsistenciaDiariaResponse {
+  private toMateriaResponse(row: AsistenciaXMateriaXAlumnoXCursoXCiclo): AsistenciaMateriaResponse {
     return {
-      id: a.id.get(),
-      courseCycleId: a.courseCycleId,
-      studentId: a.studentId,
-      date: a.date.toISOString().split('T')[0],
-      statusCode: a.statusCode,
-      observaciones: a.observaciones,
-      createdAt: (a.createdAt ?? new Date()).toISOString(),
+      id: row.id.get(),
+      materiaXCursoXCicloId: row.materiaXCursoXCicloId,
+      studentId: row.studentId,
+      year: row.year,
+      month: row.month,
+      days: row.days.toJSON(),
     };
   }
 }
