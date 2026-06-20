@@ -55,6 +55,7 @@ model Student {
   subjectFinalGrades      SubjectFinalGrade[]
   materiasPrevias         MateriaPrevia[]
   alumnosXMateriaXCursoXCiclo AlumnosXMateriaXCursoXCiclo[]
+  alumnosXCursoXCiclo         AlumnosXCursoXCiclo[]
   ausenciasXGrupo             AusenciaXGrupo[]
   asistenciaDiaria            AsistenciaDiaria[]
 
@@ -329,6 +330,7 @@ model CourseCycle {
   subjectFinalGrades    SubjectFinalGrade[]
   materiasPrevias       MateriaPrevia[]
   materiasXCiclo        MateriaXCursoXCiclo[]
+  alumnosXCursoXCiclo   AlumnosXCursoXCiclo[]
   asignacionesCurso     AsignacionCursoXCiclo[]
   asistenciaDiaria      AsistenciaDiaria[]
 
@@ -371,6 +373,29 @@ model Enrollment {
   @@index([cycleId])
   @@index([status])
   @@map("enrollments")
+}
+
+// ── AlumnosXCursoXCiclo ────────────────────────────────────
+// Authoritative universe of students enrolled in a CourseCycle.
+// Students must be added one by one; the @@unique enforces 1 row per (courseCycle, student).
+// `printable`: gate for boletín generation (SDD-2). DORMANT in SDD-1.
+// Both FKs use onDelete: Restrict (owner ADR #1243) — deleting a CourseCycle or Student
+// with active enrollments MUST fail; desinscribir first.
+model AlumnosXCursoXCiclo {
+  id            String  @id @default(uuid())
+  courseCycleId String  @map("course_cycle_id")  // → CourseCycle.uuid
+  studentId     String  @map("student_id")       // → Student.id
+  printable     Boolean @default(false)          // dormant SDD-1; gate boletín SDD-2
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+  student     Student     @relation(fields: [studentId],     references: [id],   onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, studentId], map: "alumnos_x_curso_x_ciclo_curso_student_key")
+  @@index([courseCycleId])
+  @@map("alumnos_x_curso_x_ciclo")
 }
 
 // ── Pedagogical ────────────────────────────────────────────
