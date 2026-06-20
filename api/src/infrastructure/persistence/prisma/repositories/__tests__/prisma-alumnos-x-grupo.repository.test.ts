@@ -1,7 +1,7 @@
 /**
  * PrismaAlumnosXGrupoRepository — findStudentIdsByGrupoIds unit tests.
  *
- * Two-hop resolution: AlumnosXGrupo → AlumnosXMateriaXCursoXCiclo.studentId.
+ * Two-hop resolution: AlumnosXGrupo → MateriasXAlumnoXCursoXCiclo.studentId.
  * Mocks the tenant Prisma client via TenantContext.
  *
  * Satisfies: ADR-2, spec "Student ID Deduplication for Multi-Grupo Teachers"
@@ -27,7 +27,7 @@ type MockClient = {
     createMany: ReturnType<typeof vi.fn>;
     orderBy?: unknown;
   };
-  alumnosXMateriaXCursoXCiclo: {
+  materiasXAlumnoXCursoXCiclo: {
     findMany: ReturnType<typeof vi.fn>;
   };
 };
@@ -47,7 +47,7 @@ function makeMockClient(overrides: Partial<{
       deleteMany: vi.fn(),
       createMany: vi.fn(),
     },
-    alumnosXMateriaXCursoXCiclo: {
+    materiasXAlumnoXCursoXCiclo: {
       findMany: vi.fn().mockResolvedValue(axmRows),
     },
   };
@@ -70,7 +70,7 @@ describe('PrismaAlumnosXGrupoRepository.findStudentIdsByGrupoIds', () => {
     const result = await repo.findStudentIdsByGrupoIds([]);
     expect(result).toEqual([]);
     expect(mockClient.alumnosXGrupoXCursoXMateriaXCiclo.findMany).not.toHaveBeenCalled();
-    expect(mockClient.alumnosXMateriaXCursoXCiclo.findMany).not.toHaveBeenCalled();
+    expect(mockClient.materiasXAlumnoXCursoXCiclo.findMany).not.toHaveBeenCalled();
   });
 
   it('hop-1 returns no rows → returns [] without calling hop-2', async () => {
@@ -79,7 +79,7 @@ describe('PrismaAlumnosXGrupoRepository.findStudentIdsByGrupoIds', () => {
     const repo = new PrismaAlumnosXGrupoRepository();
     const result = await repo.findStudentIdsByGrupoIds(['grupo-1']);
     expect(result).toEqual([]);
-    expect(mockClient.alumnosXMateriaXCursoXCiclo.findMany).not.toHaveBeenCalled();
+    expect(mockClient.materiasXAlumnoXCursoXCiclo.findMany).not.toHaveBeenCalled();
   });
 
   it('hop-1 returns rows, hop-2 returns student IDs → correct string[]', async () => {
@@ -134,7 +134,7 @@ describe('PrismaAlumnosXGrupoRepository.findStudentIdsByGrupoIds', () => {
     const repo = new PrismaAlumnosXGrupoRepository();
     const result = await repo.findStudentIdsByGrupoIds(['grupo-1']);
     // hop-2 must receive deduped axmIds
-    expect(mockClient.alumnosXMateriaXCursoXCiclo.findMany).toHaveBeenCalledWith({
+    expect(mockClient.materiasXAlumnoXCursoXCiclo.findMany).toHaveBeenCalledWith({
       where: { id: { in: ['axm-1'] } },
       select: { studentId: true },
     });

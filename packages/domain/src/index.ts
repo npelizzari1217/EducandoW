@@ -212,8 +212,8 @@ export { MateriaXCursoXCiclo } from './materia-grupo-ciclo';
 export type { MateriaXCursoXCicloProps, CreateMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
 export type { MateriaXCursoXCicloRepository } from './materia-grupo-ciclo';
 
-export { AlumnosXMateriaXCursoXCiclo } from './materia-grupo-ciclo';
-export type { AlumnosXMateriaXCursoXCicloProps, CreateAlumnosXMateriaXCursoXCicloInput } from './materia-grupo-ciclo';
+export { MateriasXAlumnoXCursoXCiclo } from './materia-grupo-ciclo';
+export type { MateriasXAlumnoXCursoXCicloProps, CreateMateriasXAlumnoXCursoXCicloInput } from './materia-grupo-ciclo';
 export type { AlumnosXMateriaRepository, AlumnoMateriaEnriched } from './materia-grupo-ciclo';
 
 export { GrupoXCursoXMateriaXCiclo } from './materia-grupo-ciclo';

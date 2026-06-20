@@ -4,7 +4,7 @@ import { Id } from '../../shared/value-objects/id';
  * AlumnosXGrupoXCursoXMateriaXCiclo — maps a student (via their materia membership)
  * into a specific group (Fase 3, MGC-R4, MGC-R5).
  *
- * The FK is to AlumnosXMateriaXCursoXCiclo (not to Student directly).
+ * The FK is to MateriasXAlumnoXCursoXCiclo (not to Student directly).
  * This enforces grupo ⊆ materia at the database level:
  *   - You can only add a student to a group if they already exist in the materia's universe.
  *   - Cross-course membership is impossible because the alumnoMateria row itself
@@ -18,7 +18,7 @@ import { Id } from '../../shared/value-objects/id';
 export interface AlumnosXGrupoXCursoXMateriaXCicloProps {
   id: string;
   grupoId: string;
-  /** FK → AlumnosXMateriaXCursoXCiclo.id (enforces grupo ⊆ materia at DB level). */
+  /** FK → MateriasXAlumnoXCursoXCiclo.id (enforces grupo ⊆ materia at DB level). */
   alumnosXMateriaXCursoXCicloId: string;
   createdAt: Date;
   updatedAt: Date;

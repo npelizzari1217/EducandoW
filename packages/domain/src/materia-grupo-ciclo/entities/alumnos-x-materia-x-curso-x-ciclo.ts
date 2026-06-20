@@ -1,7 +1,7 @@
 import { Id } from '../../shared/value-objects/id';
 
 /**
- * AlumnosXMateriaXCursoXCiclo — authoritative universe of students for a subject
+ * MateriasXAlumnoXCursoXCiclo — authoritative universe of students for a subject
  * within a CursoXCiclo (Fase 3, MGC-R2).
  *
  * Students must be added one by one from the enrolled registry (not from ingresantes).
@@ -11,7 +11,7 @@ import { Id } from '../../shared/value-objects/id';
  * grupo ⊆ materia at the database level (MGC-R4).
  */
 
-export interface AlumnosXMateriaXCursoXCicloProps {
+export interface MateriasXAlumnoXCursoXCicloProps {
   id: string;
   materiaXCursoXCicloId: string;
   /** Reference to Student.id in the tenant DB. */
@@ -20,23 +20,23 @@ export interface AlumnosXMateriaXCursoXCicloProps {
   updatedAt: Date;
 }
 
-export interface CreateAlumnosXMateriaXCursoXCicloInput {
+export interface CreateMateriasXAlumnoXCursoXCicloInput {
   materiaXCursoXCicloId: string;
   studentId: string;
 }
 
-export class AlumnosXMateriaXCursoXCiclo {
-  private constructor(private readonly props: AlumnosXMateriaXCursoXCicloProps) {}
+export class MateriasXAlumnoXCursoXCiclo {
+  private constructor(private readonly props: MateriasXAlumnoXCursoXCicloProps) {}
 
-  static create(input: CreateAlumnosXMateriaXCursoXCicloInput): AlumnosXMateriaXCursoXCiclo {
+  static create(input: CreateMateriasXAlumnoXCursoXCicloInput): MateriasXAlumnoXCursoXCiclo {
     if (!input.materiaXCursoXCicloId) {
-      throw new Error('AlumnosXMateriaXCursoXCiclo: materiaXCursoXCicloId is required');
+      throw new Error('MateriasXAlumnoXCursoXCiclo: materiaXCursoXCicloId is required');
     }
     if (!input.studentId) {
-      throw new Error('AlumnosXMateriaXCursoXCiclo: studentId is required');
+      throw new Error('MateriasXAlumnoXCursoXCiclo: studentId is required');
     }
     const now = new Date();
-    return new AlumnosXMateriaXCursoXCiclo({
+    return new MateriasXAlumnoXCursoXCiclo({
       id: Id.create().get(),
       materiaXCursoXCicloId: input.materiaXCursoXCicloId,
       studentId: input.studentId,
@@ -45,8 +45,8 @@ export class AlumnosXMateriaXCursoXCiclo {
     });
   }
 
-  static reconstruct(props: AlumnosXMateriaXCursoXCicloProps): AlumnosXMateriaXCursoXCiclo {
-    return new AlumnosXMateriaXCursoXCiclo(props);
+  static reconstruct(props: MateriasXAlumnoXCursoXCicloProps): MateriasXAlumnoXCursoXCiclo {
+    return new MateriasXAlumnoXCursoXCiclo(props);
   }
 
   get id(): string { return this.props.id; }

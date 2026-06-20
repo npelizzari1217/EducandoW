@@ -35,7 +35,7 @@ import type { StudentMembershipEnriched } from '@educandow/domain';
  *
  * Manages the authoritative student roster for a CourseCycle.
  * Endpoints are nested under /course-cycles/:ccId/alumnos.
- * Mirrors the AlumnosXMateriaXCursoXCiclo slice pattern exactly.
+ * Mirrors the MateriasXAlumnoXCursoXCiclo slice pattern exactly.
  *
  * DELETE uses bridge-row :id (ADR #1243), not :studentId.
  */

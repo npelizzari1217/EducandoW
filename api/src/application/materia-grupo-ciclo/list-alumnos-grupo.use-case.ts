@@ -5,7 +5,7 @@ import type { AlumnosXGrupoRepository, AlumnoGrupoEnriched } from '@educandow/do
  * ListAlumnosGrupoUseCase — GET /grupos/:grupoId/alumnos (F3-P6 enrichment).
  *
  * Delegates the 2-step resolution
- *   AlumnosXGrupo → AlumnosXMateriaXCursoXCiclo.studentId → Student name
+ *   AlumnosXGrupo → MateriasXAlumnoXCursoXCiclo.studentId → Student name
  * to the repository, keeping the controller free of Prisma knowledge.
  *
  * Throws (via TenantContext) when no tenant client is available — surfaces

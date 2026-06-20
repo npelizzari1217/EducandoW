@@ -53,7 +53,7 @@ model Student {
   subjectPeriodGrades     SubjectPeriodGrade[]
   subjectFinalGrades      SubjectFinalGrade[]
   materiasPrevias         MateriaPrevia[]
-  alumnosXMateriaXCursoXCiclo AlumnosXMateriaXCursoXCiclo[]
+  materiasXAlumnoXCursoXCiclo MateriasXAlumnoXCursoXCiclo[]
   alumnosXCursoXCiclo         AlumnosXCursoXCiclo[]
   ausenciasXGrupo             AusenciaXGrupo[]
   asistenciaDiaria            AsistenciaDiaria[]
@@ -178,7 +178,7 @@ model MateriaXCursoXCiclo {
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)
 
-  alumnos AlumnosXMateriaXCursoXCiclo[]
+  alumnos MateriasXAlumnoXCursoXCiclo[]
   grupos  GrupoXCursoXMateriaXCiclo[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -189,10 +189,10 @@ model MateriaXCursoXCiclo {
   @@map("materias_x_curso_x_ciclo")
 }
 
-// AlumnosXMateriaXCursoXCiclo — authoritative universe of students for a subject.
+// MateriasXAlumnoXCursoXCiclo — authoritative universe of students for a subject.
 // Students must be added one by one (MGC-R2); bulk endpoint is out of scope.
 // The @@unique([materiaXCursoXCicloId, studentId]) enforces 1 row per student-materia.
-model AlumnosXMateriaXCursoXCiclo {
+model MateriasXAlumnoXCursoXCiclo {
   id                    String @id @default(uuid())
   materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")
   studentId             String @map("student_id")                  // → Student.id
@@ -235,7 +235,7 @@ model GrupoXCursoXMateriaXCiclo {
 }
 
 // AlumnosXGrupoXCursoXMateriaXCiclo — maps a student (via their materia membership)
-// into a specific group. The FK to AlumnosXMateriaXCursoXCiclo (not to Student directly)
+// into a specific group. The FK to MateriasXAlumnoXCursoXCiclo (not to Student directly)
 // enforces grupo ⊆ materia at the DB level (MGC-R4). Cross-course students are
 // impossible because the alumnoMateria row itself belongs to a specific CourseCycle.
 model AlumnosXGrupoXCursoXMateriaXCiclo {
@@ -244,7 +244,7 @@ model AlumnosXGrupoXCursoXMateriaXCiclo {
   alumnosXMateriaXCursoXCicloId String @map("alumnos_x_materia_x_curso_x_ciclo_id")
 
   grupo         GrupoXCursoXMateriaXCiclo   @relation(fields: [grupoId],                        references: [id], onDelete: Cascade)
-  alumnoMateria AlumnosXMateriaXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
+  alumnoMateria MateriasXAlumnoXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")

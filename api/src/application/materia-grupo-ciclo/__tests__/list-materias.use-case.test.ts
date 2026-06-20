@@ -4,7 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ListMateriasUseCase } from '../list-materias.use-case';
 import type { MateriaXCursoXCicloRepository, AlumnosXMateriaRepository, GrupoRepository } from '@educandow/domain';
-import { MateriaXCursoXCiclo, AlumnosXMateriaXCursoXCiclo, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
+import { MateriaXCursoXCiclo, MateriasXAlumnoXCursoXCiclo, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
 
 function makeMateria(id: string, subjectId: string): MateriaXCursoXCiclo {
   return MateriaXCursoXCiclo.reconstruct({
@@ -16,8 +16,8 @@ function makeMateria(id: string, subjectId: string): MateriaXCursoXCiclo {
   });
 }
 
-function makeAxm(id: string, materiaId: string): AlumnosXMateriaXCursoXCiclo {
-  return AlumnosXMateriaXCursoXCiclo.reconstruct({
+function makeAxm(id: string, materiaId: string): MateriasXAlumnoXCursoXCiclo {
+  return MateriasXAlumnoXCursoXCiclo.reconstruct({
     id,
     materiaXCursoXCicloId: materiaId,
     studentId: `student-${id}`,

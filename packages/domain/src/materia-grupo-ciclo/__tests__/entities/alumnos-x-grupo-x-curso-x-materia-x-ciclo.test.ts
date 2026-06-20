@@ -46,7 +46,7 @@ describe('AlumnosXGrupoXCursoXMateriaXCiclo entity', () => {
 
   /**
    * MGC-R4 — Hard containment: grupo ⊆ materia
-   * The DB FK enforces grupo ⊆ materia (alumnosXMateriaXCursoXCicloId → AlumnosXMateriaXCursoXCiclo).
+   * The DB FK enforces grupo ⊆ materia (alumnosXMateriaXCursoXCicloId → MateriasXAlumnoXCursoXCiclo).
    * At the domain entity level: we only guarantee the reference is non-empty.
    * The actual cross-course check (MGC-S10) and universe check (MGC-S11)
    * are enforced by the use-case layer (F3-A4), not the entity.

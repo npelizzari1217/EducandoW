@@ -10,7 +10,7 @@ import { NotFoundError } from '@educandow/domain';
 /**
  * AddStudentToGrupoUseCase — Fase 3c (F3-A4).
  *
- * Adds a student (via their AlumnosXMateriaXCursoXCiclo membership) to a group.
+ * Adds a student (via their MateriasXAlumnoXCursoXCiclo membership) to a group.
  *
  * Hard containment (MGC-R4): verifies that the alumnosXMateriaXCursoXCicloId
  * belongs to the same materiaXCursoXCicloId as the group. If not → rejected.
@@ -42,7 +42,7 @@ export class AddStudentToGrupoUseCase {
     // Validate AlumnosXMateria exists
     const axm = await this.alumnosMateriaRepo.findById(input.alumnosXMateriaXCursoXCicloId);
     if (!axm) {
-      throw new NotFoundError('AlumnosXMateriaXCursoXCiclo', input.alumnosXMateriaXCursoXCicloId);
+      throw new NotFoundError('MateriasXAlumnoXCursoXCiclo', input.alumnosXMateriaXCursoXCicloId);
     }
 
     // Hard containment check: grupo ⊆ materia (MGC-R4, MGC-S11, MGC-S10)

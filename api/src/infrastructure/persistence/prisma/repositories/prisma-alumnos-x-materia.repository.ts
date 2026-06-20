@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
-  AlumnosXMateriaXCursoXCiclo,
+  MateriasXAlumnoXCursoXCiclo,
   AlumnosXMateriaRepository,
   type AlumnoMateriaEnriched,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
-type AlumnosXMateriaRow = {
+type MateriasXAlumnoRow = {
   id: string;
   materiaXCursoXCicloId: string;
   studentId: string;
@@ -27,16 +27,16 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
     return c;
   }
 
-  async findByMateria(materiaXCursoXCicloId: string): Promise<AlumnosXMateriaXCursoXCiclo[]> {
-    const rows = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+  async findByMateria(materiaXCursoXCicloId: string): Promise<MateriasXAlumnoXCursoXCiclo[]> {
+    const rows = await this.client.materiasXAlumnoXCursoXCiclo.findMany({
       where: { materiaXCursoXCicloId },
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((r) => this.toDomain(r));
   }
 
-  async findById(id: string): Promise<AlumnosXMateriaXCursoXCiclo | null> {
-    const row = await this.client.alumnosXMateriaXCursoXCiclo.findUnique({ where: { id } });
+  async findById(id: string): Promise<MateriasXAlumnoXCursoXCiclo | null> {
+    const row = await this.client.materiasXAlumnoXCursoXCiclo.findUnique({ where: { id } });
     return row ? this.toDomain(row) : null;
   }
 
@@ -47,9 +47,9 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
   async addStudent(
     materiaXCursoXCicloId: string,
     studentId: string
-  ): Promise<AlumnosXMateriaXCursoXCiclo> {
+  ): Promise<MateriasXAlumnoXCursoXCiclo> {
     const now = new Date();
-    const row = await this.client.alumnosXMateriaXCursoXCiclo.upsert({
+    const row = await this.client.materiasXAlumnoXCursoXCiclo.upsert({
       where: {
         materiaXCursoXCicloId_studentId: { materiaXCursoXCicloId, studentId },
       },
@@ -60,7 +60,7 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
   }
 
   async isMember(materiaXCursoXCicloId: string, studentId: string): Promise<boolean> {
-    const count = await this.client.alumnosXMateriaXCursoXCiclo.count({
+    const count = await this.client.materiasXAlumnoXCursoXCiclo.count({
       where: { materiaXCursoXCicloId, studentId },
     });
     return count > 0;
@@ -72,7 +72,7 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
    * Throws if no tenant client (surfaces the error instead of silently returning []).
    */
   async findByMateriaEnriched(materiaXCursoXCicloId: string): Promise<AlumnoMateriaEnriched[]> {
-    const axmRows = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+    const axmRows = await this.client.materiasXAlumnoXCursoXCiclo.findMany({
       where: { materiaXCursoXCicloId },
       orderBy: { createdAt: 'asc' },
     });
@@ -103,7 +103,7 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
   async upsertMany(
     data: Array<{ materiaXCursoXCicloId: string; studentId: string }>
   ): Promise<void> {
-    await this.client.alumnosXMateriaXCursoXCiclo.createMany({
+    await this.client.materiasXAlumnoXCursoXCiclo.createMany({
       data: data.map((d) => ({
         materiaXCursoXCicloId: d.materiaXCursoXCicloId,
         studentId: d.studentId,
@@ -112,8 +112,8 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
     });
   }
 
-  private toDomain(row: AlumnosXMateriaRow): AlumnosXMateriaXCursoXCiclo {
-    return AlumnosXMateriaXCursoXCiclo.reconstruct({
+  private toDomain(row: MateriasXAlumnoRow): MateriasXAlumnoXCursoXCiclo {
+    return MateriasXAlumnoXCursoXCiclo.reconstruct({
       id: row.id,
       materiaXCursoXCicloId: row.materiaXCursoXCicloId,
       studentId: row.studentId,

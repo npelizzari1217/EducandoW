@@ -82,7 +82,7 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
 
   /**
    * Returns alumnos of a group enriched with studentId + studentName.
-   * Resolution: AlumnosXGrupo → AlumnosXMateriaXCursoXCiclo.studentId → Student name.
+   * Resolution: AlumnosXGrupo → MateriasXAlumnoXCursoXCiclo.studentId → Student name.
    * Throws if no tenant client (surfaces the error instead of silently returning []).
    */
   async findByGrupoEnriched(grupoId: string): Promise<AlumnoGrupoEnriched[]> {
@@ -93,7 +93,7 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
     if (axgRows.length === 0) return [];
 
     const axmIds = axgRows.map((r: { alumnosXMateriaXCursoXCicloId: string }) => r.alumnosXMateriaXCursoXCicloId);
-    const axmRows = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+    const axmRows = await this.client.materiasXAlumnoXCursoXCiclo.findMany({
       where: { id: { in: axmIds } },
       select: { id: true, studentId: true },
     });
@@ -127,7 +127,7 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
    * Returns deduplicated studentIds for a list of grupoIds.
    * Two-hop resolution:
    *   Hop 1: AlumnosXGrupo (no studentId) → alumnosXMateriaXCursoXCicloId
-   *   Hop 2: AlumnosXMateriaXCursoXCiclo → studentId
+   *   Hop 2: MateriasXAlumnoXCursoXCiclo → studentId
    * Deduplicates via Set to handle co-docencia (same student in multiple grupos).
    * Guard: returns [] immediately when grupoIds is empty (avoids empty IN query).
    */
@@ -144,8 +144,8 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
     // Dedup axmIds before hop-2 to minimize the IN clause
     const axmIds = [...new Set(axg.map((r: { alumnosXMateriaXCursoXCicloId: string }) => r.alumnosXMateriaXCursoXCicloId))];
 
-    // Hop 2: resolve studentId from AlumnosXMateriaXCursoXCiclo
-    const axm = await this.client.alumnosXMateriaXCursoXCiclo.findMany({
+    // Hop 2: resolve studentId from MateriasXAlumnoXCursoXCiclo
+    const axm = await this.client.materiasXAlumnoXCursoXCiclo.findMany({
       where: { id: { in: axmIds } },
       select: { studentId: true },
     });
