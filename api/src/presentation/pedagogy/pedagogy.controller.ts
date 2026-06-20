@@ -10,8 +10,8 @@ import * as UC from '../../application/pedagogy/use-cases/pedagogy.use-cases';
 import * as CUC from '../../application/pedagogy/use-cases/competency.use-cases';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import type { AcademicCycle } from '@educandow/domain';
-import { StudyPlanHasDependenciesError, NotFoundError, CompetencyValuationNotFoundError, ValueNotFoundError } from '@educandow/domain';
-import type { CompetencyPeriodValuation } from '@educandow/domain';
+import { StudyPlanHasDependenciesError, NotFoundError, CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError, ValueNotFoundError } from '@educandow/domain';
+import type { CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from '@educandow/domain';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -36,8 +36,8 @@ export class PedagogyController {
     private getCompUC: CUC.GetSubjectCompetencyUC, private updateCompUC: CUC.UpdateSubjectCompetencyUC,
     private deleteCompUC: CUC.DeleteSubjectCompetencyUC,
     private copyCompUC: CUC.CopySubjectCompetenciesUC,
-    private listValUC: CUC.ListCompetencyValuationsUC, private getValUC: CUC.GetCompetencyValuationUC,
-    private listBulkValUC: CUC.ListBulkCompetencyValuationsUC,
+    private listValUC: CUC.ListCompetenciasXMateriaXAlumnoXCursoXCicloUC, private getValUC: CUC.GetCompetenciaXMateriaXAlumnoXCursoXCicloUC,
+    private listBulkValUC: CUC.ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC,
     private gradePeriodUC: CUC.GradePeriodValuationUC,
     private boletinInvalidation: BoletinInvalidationService,
   ) {}
@@ -380,7 +380,7 @@ export class PedagogyController {
     const client = TenantContext.getClient();
     let studentId: string | undefined;
     if (client) {
-      const v = await client.competencyValuation.findUnique({
+      const v = await client.competenciaXMateriaXAlumnoXCursoXCiclo.findUnique({
         where: { id: uuid },
         select: { studentId: true },
       });
@@ -396,7 +396,7 @@ export class PedagogyController {
 
     if (result.isErr()) {
       const e = result.unwrapErr();
-      if (e instanceof CompetencyValuationNotFoundError || e instanceof ValueNotFoundError) {
+      if (e instanceof CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError || e instanceof ValueNotFoundError) {
         throw new HttpException({ error: { message: e.message, code: e.code } }, HttpStatus.NOT_FOUND);
       }
       throw new HttpException({ error: { message: e.message, code: e.code } }, HttpStatus.BAD_REQUEST);
@@ -410,7 +410,7 @@ export class PedagogyController {
     return { data: this.toPeriodValuationResponse(result.unwrap()) };
   }
 
-  private toValuationResponse(v: import('@educandow/domain').CompetencyValuation) {
+  private toValuationResponse(v: import('@educandow/domain').CompetenciaXMateriaXAlumnoXCursoXCiclo) {
     return {
       uuid: v.id.get(),
       competencyId: v.competencyId,
@@ -419,7 +419,7 @@ export class PedagogyController {
     };
   }
 
-  private toPeriodValuationResponse(child: CompetencyPeriodValuation) {
+  private toPeriodValuationResponse(child: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo) {
     return {
       id: child.id,
       valuationId: child.valuationId,

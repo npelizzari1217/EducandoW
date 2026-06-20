@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import {
-  CompetencyPeriodValuation,
-  CompetencyPeriodValuationRepository,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository,
 } from '@educandow/domain';
 import type { GradeInternalStatusValue } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, CompetencyPeriodValuation as PrismaRow } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo as PrismaRow } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class PrismaCompetencyPeriodValuationRepository
-  implements CompetencyPeriodValuationRepository
+export class PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository
+  implements CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository
 {
   private get client(): TenantPrismaClient {
     const c = TenantContext.getClient();
@@ -24,15 +24,15 @@ export class PrismaCompetencyPeriodValuationRepository
   async findByValuationAndPeriod(
     valuationId: string,
     periodItemId: string,
-  ): Promise<CompetencyPeriodValuation | null> {
-    const r = await this.client.competencyPeriodValuation.findFirst({
+  ): Promise<CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo | null> {
+    const r = await this.client.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findFirst({
       where: { valuationId, periodItemId },
     });
     return r ? this.toDomain(r) : null;
   }
 
-  async listByValuation(valuationId: string): Promise<CompetencyPeriodValuation[]> {
-    const rows = await this.client.competencyPeriodValuation.findMany({
+  async listByValuation(valuationId: string): Promise<CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo[]> {
+    const rows = await this.client.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findMany({
       where: { valuationId },
       orderBy: { createdAt: 'asc' },
     });
@@ -44,7 +44,7 @@ export class PrismaCompetencyPeriodValuationRepository
   /**
    * Upserts on the unique (valuationId, periodItemId) pair.
    */
-  async save(child: CompetencyPeriodValuation): Promise<void> {
+  async save(child: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo): Promise<void> {
     const data = {
       valuationId: child.valuationId,
       periodItemId: child.periodItemId,
@@ -55,7 +55,7 @@ export class PrismaCompetencyPeriodValuationRepository
       imprimible: child.imprimible,
     };
 
-    await this.client.competencyPeriodValuation.upsert({
+    await this.client.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.upsert({
       where: {
         valuationId_periodItemId: {
           valuationId: child.valuationId,
@@ -69,8 +69,8 @@ export class PrismaCompetencyPeriodValuationRepository
 
   // ── Private helpers ────────────────────────────────────
 
-  private toDomain(r: PrismaRow): CompetencyPeriodValuation {
-    return CompetencyPeriodValuation.reconstruct({
+  private toDomain(r: PrismaRow): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo {
+    return CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: r.id,
       valuationId: r.valuationId,
       periodItemId: r.periodItemId,

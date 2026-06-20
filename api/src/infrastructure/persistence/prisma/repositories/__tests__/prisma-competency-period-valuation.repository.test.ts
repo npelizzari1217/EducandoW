@@ -1,13 +1,13 @@
 /**
- * T1.8 [RED] → GREEN — PrismaCompetencyPeriodValuationRepository tests.
+ * T1.8 [RED] → GREEN — PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository tests.
  * Mocks TenantContext; no real DB.
  * Note: The `competency_period_valuations` table does not exist until PR2 migration.
  * These tests work because TenantContext is mocked and vitest uses esbuild (no type checking).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PrismaCompetencyPeriodValuationRepository } from '../prisma-competency-period-valuation.repository';
+import { PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository } from '../prisma-competency-period-valuation.repository';
 import { TenantContext } from '../../../../auth/tenant.context';
-import { CompetencyPeriodValuation } from '@educandow/domain';
+import { CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from '@educandow/domain';
 
 // ── Mock TenantContext ────────────────────────────────────────
 
@@ -39,7 +39,7 @@ function makePeriodValuationRow(overrides: Record<string, unknown> = {}) {
 
 function makeMockClient() {
   return {
-    competencyPeriodValuation: {
+    competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo: {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       upsert: vi.fn(),
@@ -51,23 +51,23 @@ function makeMockClient() {
 // findByValuationAndPeriod
 // ═══════════════════════════════════════════════════════════
 
-describe('PrismaCompetencyPeriodValuationRepository — findByValuationAndPeriod', () => {
-  let repo: PrismaCompetencyPeriodValuationRepository;
+describe('PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository — findByValuationAndPeriod', () => {
+  let repo: PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository;
   let mockClient: ReturnType<typeof makeMockClient>;
 
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    repo = new PrismaCompetencyPeriodValuationRepository();
+    repo = new PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository();
   });
 
   it('returns null when the child row does not exist', async () => {
-    mockClient.competencyPeriodValuation.findFirst.mockResolvedValue(null);
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findFirst.mockResolvedValue(null);
 
     const result = await repo.findByValuationAndPeriod('valuation-uuid-1', 'period-item-uuid-1');
 
     expect(result).toBeNull();
-    expect(mockClient.competencyPeriodValuation.findFirst).toHaveBeenCalledWith(
+    expect(mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           valuationId: 'valuation-uuid-1',
@@ -77,12 +77,12 @@ describe('PrismaCompetencyPeriodValuationRepository — findByValuationAndPeriod
     );
   });
 
-  it('returns mapped CompetencyPeriodValuation when row exists', async () => {
-    mockClient.competencyPeriodValuation.findFirst.mockResolvedValue(makePeriodValuationRow());
+  it('returns mapped entity when row exists', async () => {
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findFirst.mockResolvedValue(makePeriodValuationRow());
 
     const result = await repo.findByValuationAndPeriod('valuation-uuid-1', 'period-item-uuid-1');
 
-    expect(result).toBeInstanceOf(CompetencyPeriodValuation);
+    expect(result).toBeInstanceOf(CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo);
     expect(result!.id).toBe('child-uuid-1');
     expect(result!.valuationId).toBe('valuation-uuid-1');
     expect(result!.gradeScaleValueId).toBeNull();
@@ -90,7 +90,7 @@ describe('PrismaCompetencyPeriodValuationRepository — findByValuationAndPeriod
   });
 
   it('maps graded row correctly', async () => {
-    mockClient.competencyPeriodValuation.findFirst.mockResolvedValue(
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findFirst.mockResolvedValue(
       makePeriodValuationRow({
         gradeScaleValueId: 'sv-uuid-1',
         gradeCode: 'A',
@@ -114,23 +114,23 @@ describe('PrismaCompetencyPeriodValuationRepository — findByValuationAndPeriod
 // save (upsert on valuationId + periodItemId)
 // ═══════════════════════════════════════════════════════════
 
-describe('PrismaCompetencyPeriodValuationRepository — save', () => {
-  let repo: PrismaCompetencyPeriodValuationRepository;
+describe('PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository — save', () => {
+  let repo: PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository;
   let mockClient: ReturnType<typeof makeMockClient>;
 
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    repo = new PrismaCompetencyPeriodValuationRepository();
+    repo = new PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository();
   });
 
   it('calls upsert keyed on the (valuationId, periodItemId) unique pair', async () => {
-    mockClient.competencyPeriodValuation.upsert.mockResolvedValue({});
-    const child = CompetencyPeriodValuation.create({ valuationId: 'val-uuid', periodItemId: 'pi-uuid' });
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.upsert.mockResolvedValue({});
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: 'val-uuid', periodItemId: 'pi-uuid' });
 
     await repo.save(child);
 
-    expect(mockClient.competencyPeriodValuation.upsert).toHaveBeenCalledWith(
+    expect(mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           valuationId_periodItemId: {
@@ -143,8 +143,8 @@ describe('PrismaCompetencyPeriodValuationRepository — save', () => {
   });
 
   it('includes all grade fields in create and update payloads', async () => {
-    mockClient.competencyPeriodValuation.upsert.mockResolvedValue({});
-    const child = CompetencyPeriodValuation.reconstruct({
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.upsert.mockResolvedValue({});
+    const child = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-uuid-1',
       valuationId: 'val-uuid',
       periodItemId: 'pi-uuid',
@@ -157,7 +157,7 @@ describe('PrismaCompetencyPeriodValuationRepository — save', () => {
 
     await repo.save(child);
 
-    expect(mockClient.competencyPeriodValuation.upsert).toHaveBeenCalledWith(
+    expect(mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({
           id: 'child-uuid-1',
@@ -182,26 +182,26 @@ describe('PrismaCompetencyPeriodValuationRepository — save', () => {
 // listByValuation
 // ═══════════════════════════════════════════════════════════
 
-describe('PrismaCompetencyPeriodValuationRepository — listByValuation', () => {
-  let repo: PrismaCompetencyPeriodValuationRepository;
+describe('PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository — listByValuation', () => {
+  let repo: PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository;
   let mockClient: ReturnType<typeof makeMockClient>;
 
   beforeEach(() => {
     mockClient = makeMockClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
-    repo = new PrismaCompetencyPeriodValuationRepository();
+    repo = new PrismaCompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository();
   });
 
   it('returns empty array when no children exist', async () => {
-    mockClient.competencyPeriodValuation.findMany.mockResolvedValue([]);
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([]);
 
     const result = await repo.listByValuation('valuation-uuid-1');
 
     expect(result).toHaveLength(0);
   });
 
-  it('returns mapped array of CompetencyPeriodValuation', async () => {
-    mockClient.competencyPeriodValuation.findMany.mockResolvedValue([
+  it('returns mapped array of entities', async () => {
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([
       makePeriodValuationRow({ id: 'child-uuid-1', periodItemId: 'pi-uuid-1' }),
       makePeriodValuationRow({ id: 'child-uuid-2', periodItemId: 'pi-uuid-2' }),
     ]);
@@ -209,16 +209,16 @@ describe('PrismaCompetencyPeriodValuationRepository — listByValuation', () => 
     const result = await repo.listByValuation('valuation-uuid-1');
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toBeInstanceOf(CompetencyPeriodValuation);
-    expect(result[1]).toBeInstanceOf(CompetencyPeriodValuation);
+    expect(result[0]).toBeInstanceOf(CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo);
+    expect(result[1]).toBeInstanceOf(CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo);
   });
 
   it('filters by valuationId', async () => {
-    mockClient.competencyPeriodValuation.findMany.mockResolvedValue([]);
+    mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findMany.mockResolvedValue([]);
 
     await repo.listByValuation('valuation-uuid-1');
 
-    expect(mockClient.competencyPeriodValuation.findMany).toHaveBeenCalledWith(
+    expect(mockClient.competenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { valuationId: 'valuation-uuid-1' },
       }),

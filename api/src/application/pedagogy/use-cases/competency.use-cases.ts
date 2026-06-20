@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result, ValidationError, NotFoundError, DomainError } from '@educandow/domain';
-import { SubjectCompetency, CompetencyValuation, CompetencyPeriodValuation } from '@educandow/domain';
+import { SubjectCompetency, CompetenciaXMateriaXAlumnoXCursoXCiclo, CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo } from '@educandow/domain';
 import {
-  CompetencyValuationNotFoundError,
+  CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError,
   GradeScaleNotConfiguredError,
   PeriodItemNotInTemplateError,
   GradeScaleValueMismatchError,
@@ -10,9 +10,9 @@ import {
 import { PeriodTemplateNotFoundError, ValueNotFoundError } from '@educandow/domain';
 import type {
   SubjectCompetencyRepository,
-  CompetencyValuationRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
   StudyPlanRepository,
-  CompetencyPeriodValuationRepository,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository,
   CourseCycleRepository,
   GradeScaleRepository,
   GradingPeriodRepository,
@@ -161,11 +161,11 @@ export class CopySubjectCompetenciesUC {
   }
 }
 
-// ── CompetencyValuation Read Use Cases ─────────────────
+// ── CompetenciaXMateriaXAlumnoXCursoXCiclo Read Use Cases ─────────────────
 
 @Injectable()
-export class ListBulkCompetencyValuationsUC {
-  constructor(private repo: CompetencyValuationRepository) {}
+export class ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC {
+  constructor(private repo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository) {}
 
   async execute(input: {
     courseCycleId:      string;
@@ -179,10 +179,10 @@ export class ListBulkCompetencyValuationsUC {
 }
 
 @Injectable()
-export class GetCompetencyValuationUC {
-  constructor(private repo: CompetencyValuationRepository) {}
+export class GetCompetenciaXMateriaXAlumnoXCursoXCicloUC {
+  constructor(private repo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository) {}
 
-  async execute(uuid: string): Promise<Result<CompetencyValuation, Error>> {
+  async execute(uuid: string): Promise<Result<CompetenciaXMateriaXAlumnoXCursoXCiclo, Error>> {
     const v = await this.repo.findById(uuid);
     if (!v) return err(new ValidationError('Valoración no encontrada'));
     return ok(v);
@@ -190,10 +190,10 @@ export class GetCompetencyValuationUC {
 }
 
 @Injectable()
-export class ListCompetencyValuationsUC {
-  constructor(private repo: CompetencyValuationRepository) {}
+export class ListCompetenciasXMateriaXAlumnoXCursoXCicloUC {
+  constructor(private repo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository) {}
 
-  async execute(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]> {
+  async execute(studentId: string, studyPlanSubjectId: string): Promise<CompetenciaXMateriaXAlumnoXCursoXCiclo[]> {
     return this.repo.findByStudentAndStudyPlanSubject(studentId, studyPlanSubjectId);
   }
 }
@@ -205,17 +205,17 @@ export class ListCompetencyValuationsUC {
 // per Design §3 decision: cycle-blind paths can't derive courseCycleId without Fase-4 FK.
 
 @Injectable()
-export class AutoCreateCompetencyValuationsUC {
+export class AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC {
   constructor(
     private competencyRepo: SubjectCompetencyRepository,
-    private valuationRepo: CompetencyValuationRepository,
+    private valuationRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
     private studyPlanRepo: StudyPlanRepository,
   ) {}
 
   /**
    * Resolves a CourseCycle → StudyPlan subjects → active competencies, then
    * finds enrolled students for the CourseCycle's courseSection, and batch-creates
-   * CompetencyValuation parent rows (studentId, competencyId, courseCycleId).
+   * CompetenciaXMateriaXAlumnoXCursoXCiclo parent rows (studentId, competencyId, courseCycleId).
    * skipDuplicates at DB level ensures idempotency.
    */
   async execute({ courseCycleId }: { courseCycleId: string }): Promise<void> {
@@ -246,7 +246,7 @@ export class AutoCreateCompetencyValuationsUC {
     // 5. Batch-create parent valuations — DB skipDuplicates handles re-runs
     const valuations = studentIds.flatMap((studentId) =>
       competencies.map((c) =>
-        CompetencyValuation.create({ competencyId: c.id.get(), studentId, courseCycleId }),
+        CompetenciaXMateriaXAlumnoXCursoXCiclo.create({ competencyId: c.id.get(), studentId, courseCycleId }),
       ),
     );
 
@@ -263,7 +263,7 @@ export class AutoCreateCompetencyValuationsUC {
 // ── GradePeriodValuationUC ─────────────────────────────
 
 /**
- * Grades (or clears the grade of) a specific period within a CompetencyValuation.
+ * Grades (or clears the grade of) a specific period within a CompetenciaXMateriaXAlumnoXCursoXCiclo.
  *
  * Validates:
  *   - Parent valuation exists.
@@ -278,11 +278,11 @@ export class AutoCreateCompetencyValuationsUC {
 @Injectable()
 export class GradePeriodValuationUC {
   constructor(
-    private valuationRepo: CompetencyValuationRepository,
+    private valuationRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
     private courseCycleRepo: CourseCycleRepository,
     private gradingPeriodRepo: GradingPeriodRepository,
     private gradeScaleRepo: GradeScaleRepository,
-    private periodRepo: CompetencyPeriodValuationRepository,
+    private periodRepo: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository,
   ) {}
 
   async execute(input: {
@@ -290,14 +290,14 @@ export class GradePeriodValuationUC {
     periodItemId: string;
     gradeScaleValueId?: string | null;
     imprimible?: boolean;
-  }): Promise<Result<CompetencyPeriodValuation, DomainError>> {
+  }): Promise<Result<CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo, DomainError>> {
     // 1. Resolve parent valuation
     const parent = await this.valuationRepo.findById(input.valuationUuid);
-    if (!parent) return err(new CompetencyValuationNotFoundError(input.valuationUuid));
+    if (!parent) return err(new CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError(input.valuationUuid));
 
     // 2. Resolve (level, modality) from CourseCycle via StudyPlan (Design §2)
     const ctx = await this.courseCycleRepo.findGradingContextByUuid(parent.courseCycleId);
-    if (!ctx) return err(new CompetencyValuationNotFoundError(input.valuationUuid));
+    if (!ctx) return err(new CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError(input.valuationUuid));
 
     // 3. Resolve active grading period template for (level, modality)
     const template = await this.gradingPeriodRepo.findActiveTemplateByLevelModality(ctx.level, ctx.modality);
@@ -311,7 +311,7 @@ export class GradePeriodValuationUC {
     // 5. Lazy-create or load existing child row
     let child =
       (await this.periodRepo.findByValuationAndPeriod(parent.id.get(), input.periodItemId)) ??
-      CompetencyPeriodValuation.create({ valuationId: parent.id.get(), periodItemId: input.periodItemId });
+      CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: parent.id.get(), periodItemId: input.periodItemId });
 
     // 6. Apply grade or clear when gradeScaleValueId is present in input
     //    When absent (undefined), leave grade fields unchanged (imprimible-only call).

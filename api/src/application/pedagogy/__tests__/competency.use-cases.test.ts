@@ -1,24 +1,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  AutoCreateCompetencyValuationsUC,
+  AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC,
   CreateSubjectCompetencyUC,
   ListSubjectCompetenciesUC,
-  ListCompetencyValuationsUC,
+  ListCompetenciasXMateriaXAlumnoXCursoXCicloUC,
   CopySubjectCompetenciesUC,
   UpdateSubjectCompetencyUC,
   GradePeriodValuationUC,
-  ListBulkCompetencyValuationsUC,
+  ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC,
 } from '../use-cases/competency.use-cases';
-import type { CompetencyValuationWithPeriods } from '@educandow/domain';
+import type { CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos } from '@educandow/domain';
 import {
   SubjectCompetency,
-  CompetencyValuation,
-  CompetencyPeriodValuation,
+  CompetenciaXMateriaXAlumnoXCursoXCiclo,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo,
   GradingPeriodTemplate,
   GradeScale,
   GradeScaleValue,
   Id,
-  CompetencyValuationNotFoundError,
+  CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError,
   PeriodItemNotInTemplateError,
   GradeScaleValueMismatchError,
   PeriodLockedError,
@@ -27,9 +27,9 @@ import {
 } from '@educandow/domain';
 import type {
   SubjectCompetencyRepository,
-  CompetencyValuationRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
   StudyPlanRepository,
-  CompetencyPeriodValuationRepository,
+  CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository,
   CourseCycleRepository,
   GradeScaleRepository,
   GradingPeriodRepository,
@@ -66,14 +66,14 @@ function makeCompetencyRepo(competencies: SubjectCompetency[] = []): SubjectComp
   } as unknown as SubjectCompetencyRepository;
 }
 
-function makeValuationRepo(): CompetencyValuationRepository {
+function makeValuationRepo(): CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
   return {
     findByStudentAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
     findById: vi.fn().mockResolvedValue(null),
     bulkCreate: vi.fn().mockResolvedValue(undefined),
     save: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
-  } as unknown as CompetencyValuationRepository;
+  } as unknown as CompetenciaXMateriaXAlumnoXCursoXCicloRepository;
 }
 
 function makeStudyPlanRepo(spsIdsByPlan: string[] = []): StudyPlanRepository {
@@ -151,11 +151,11 @@ describe('ListSubjectCompetenciesUC', () => {
   });
 });
 
-// ── AutoCreateCompetencyValuationsUC.execute({ courseCycleId }) ──
+// ── AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC.execute({ courseCycleId }) ──
 // [TDD RED→GREEN] New trigger: CourseCycle instantiation is the sole creation path.
 // Old executeForSubjectAssignment / executeForEnrollment / executeForNewEnrollment removed.
 
-describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
+describe('AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC.execute({ courseCycleId })', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -180,7 +180,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(studyPlanRepo.findStudyPlanSubjectIdsByPlan).toHaveBeenCalledWith('plan-1');
@@ -209,10 +209,10 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
-    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetencyValuation[];
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetenciaXMateriaXAlumnoXCursoXCiclo[];
     expect(created[0].courseCycleId).toBe('cc-uuid-1');
     expect(created[0].studentId).toBe('student-1');
     expect(created[0].competencyId).toBe('comp-uuid-1');
@@ -228,7 +228,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-nonexistent' });
 
     expect(studyPlanRepo.findStudyPlanSubjectIdsByPlan).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
@@ -266,7 +266,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     expect(valuationRepo.bulkCreate).not.toHaveBeenCalled();
@@ -312,7 +312,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     // bulkCreate is always called with the full set; the DB handles skipDuplicates
@@ -350,7 +350,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-uuid-1' });
 
     const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0];
@@ -380,10 +380,10 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
-    const uc = new AutoCreateCompetencyValuationsUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
     await uc.execute({ courseCycleId: 'cc-regression' });
 
-    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetencyValuation[];
+    const created = vi.mocked(valuationRepo.bulkCreate).mock.calls[0][0] as CompetenciaXMateriaXAlumnoXCursoXCiclo[];
     // 3 students × 1 competency = 3 valuations
     expect(created).toHaveLength(3);
     const createdStudentIds = created.map((v) => v.studentId).sort();
@@ -536,12 +536,12 @@ describe('UpdateSubjectCompetencyUC', () => {
   });
 });
 
-// ── ListCompetencyValuationsUC ────────────────────────────
+// ── ListCompetenciasXMateriaXAlumnoXCursoXCicloUC ────────────────────────────────────────────
 
-describe('ListCompetencyValuationsUC', () => {
+describe('ListCompetenciasXMateriaXAlumnoXCursoXCicloUC', () => {
   it('calls findByStudentAndStudyPlanSubject with studyPlanSubjectId', async () => {
     const valuationRepo = makeValuationRepo();
-    const uc = new ListCompetencyValuationsUC(valuationRepo);
+    const uc = new ListCompetenciasXMateriaXAlumnoXCursoXCicloUC(valuationRepo);
     await uc.execute('student-1', 'sps-1');
     expect(valuationRepo.findByStudentAndStudyPlanSubject).toHaveBeenCalledWith('student-1', 'sps-1');
   });
@@ -553,8 +553,8 @@ describe('ListCompetencyValuationsUC', () => {
 describe('GradePeriodValuationUC', () => {
   // ── Internal helpers (scoped to this describe) ─────────
 
-  function makeParent(): CompetencyValuation {
-    return CompetencyValuation.reconstruct({
+  function makeParent(): CompetenciaXMateriaXAlumnoXCursoXCiclo {
+    return CompetenciaXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: Id.reconstruct('v-1'),
       competencyId: 'comp-1',
       studentId: 'student-1',
@@ -592,14 +592,14 @@ describe('GradePeriodValuationUC', () => {
     });
   }
 
-  function makeValRepo(val?: CompetencyValuation | null): CompetencyValuationRepository {
+  function makeValRepo(val?: CompetenciaXMateriaXAlumnoXCursoXCiclo | null): CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
     return {
       findById: vi.fn().mockResolvedValue(val ?? null),
       findByStudentAndStudyPlanSubject: vi.fn().mockResolvedValue([]),
       bulkCreate: vi.fn().mockResolvedValue(undefined),
       save: vi.fn().mockResolvedValue(undefined),
       delete: vi.fn().mockResolvedValue(undefined),
-    } as unknown as CompetencyValuationRepository;
+    } as unknown as CompetenciaXMateriaXAlumnoXCursoXCicloRepository;
   }
 
   function makeCCRepo(ctx?: { level: number; modality: number } | null): CourseCycleRepository {
@@ -646,12 +646,12 @@ describe('GradePeriodValuationUC', () => {
     } as unknown as GradeScaleRepository;
   }
 
-  function makePeriodRepo(child?: CompetencyPeriodValuation | null): CompetencyPeriodValuationRepository {
+  function makePeriodRepo(child?: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo | null): CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository {
     return {
       findByValuationAndPeriod: vi.fn().mockResolvedValue(child ?? null),
       save: vi.fn().mockResolvedValue(undefined),
       listByValuation: vi.fn().mockResolvedValue([]),
-    } as unknown as CompetencyPeriodValuationRepository;
+    } as unknown as CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloRepository;
   }
 
   // ── GPE-1: Happy path lazy create ─────────────────────
@@ -690,7 +690,7 @@ describe('GradePeriodValuationUC', () => {
     const template = makeTemplate(['item-7']);
     const scale = makeScale();
     const newValue = makeScaleValue('gsv-mb', 'scale-1');
-    const existingChild = CompetencyPeriodValuation.reconstruct({
+    const existingChild = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -725,7 +725,7 @@ describe('GradePeriodValuationUC', () => {
   it('GPE-3: clears grade when gradeScaleValueId is null', async () => {
     const parent = makeParent();
     const template = makeTemplate(['item-7']);
-    const existingChild = CompetencyPeriodValuation.reconstruct({
+    const existingChild = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -762,7 +762,7 @@ describe('GradePeriodValuationUC', () => {
     const template = makeTemplate(['item-7']);
     const scale = makeScale();
     const scaleValue = makeScaleValue();
-    const lockedChild = CompetencyPeriodValuation.reconstruct({
+    const lockedChild = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -789,7 +789,7 @@ describe('GradePeriodValuationUC', () => {
 
   // ── GPE-5: Valuation not found ────────────────────────
 
-  it('GPE-5: returns CompetencyValuationNotFoundError when valuation not found', async () => {
+  it('GPE-5: returns CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError when valuation not found', async () => {
     const uc = new GradePeriodValuationUC(
       makeValRepo(null),
       makeCCRepo(),
@@ -801,7 +801,7 @@ describe('GradePeriodValuationUC', () => {
     const result = await uc.execute({ valuationUuid: 'nonexistent', periodItemId: 'item-7', gradeScaleValueId: 'gsv-a' });
 
     expect(result.isOk()).toBe(false);
-    expect(result.unwrapErr()).toBeInstanceOf(CompetencyValuationNotFoundError);
+    expect(result.unwrapErr()).toBeInstanceOf(CompetenciaXMateriaXAlumnoXCursoXCicloNotFoundError);
   });
 
   // ── GPE-6: Template not configured ────────────────────
@@ -895,7 +895,7 @@ describe('GradePeriodValuationUC', () => {
     const template = makeTemplate(['item-7']);
     const scale = makeScale();
     const newValue = makeScaleValue('gsv-mb', 'scale-1');
-    const existingChild = CompetencyPeriodValuation.reconstruct({
+    const existingChild = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -928,7 +928,7 @@ describe('GradePeriodValuationUC', () => {
   it('GPE-12: sets imprimible only when gradeScaleValueId is absent', async () => {
     const parent = makeParent();
     const template = makeTemplate(['item-7']);
-    const existingChild = CompetencyPeriodValuation.reconstruct({
+    const existingChild = CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: 'child-1',
       valuationId: 'v-1',
       periodItemId: 'item-7',
@@ -981,11 +981,11 @@ describe('GradePeriodValuationUC', () => {
   });
 });
 
-// ── ListBulkCompetencyValuationsUC ────────────────────────
+// ── ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC ────────────────────────────────────
 // [1a-T2 RED→GREEN] Bulk-read use case delegating to findByCourseCycleAndStudyPlanSubject.
 
-describe('ListBulkCompetencyValuationsUC', () => {
-  function makeBulkValuationRepo(rows: CompetencyValuationWithPeriods[] = []): import('@educandow/domain').CompetencyValuationRepository {
+describe('ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC', () => {
+  function makeBulkValuationRepo(rows: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[] = []): CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
     return {
       findById:                             vi.fn().mockResolvedValue(null),
       findByStudentAndStudyPlanSubject:     vi.fn().mockResolvedValue([]),
@@ -993,12 +993,12 @@ describe('ListBulkCompetencyValuationsUC', () => {
       save:                                 vi.fn().mockResolvedValue(undefined),
       bulkCreate:                           vi.fn().mockResolvedValue(undefined),
       delete:                               vi.fn().mockResolvedValue(undefined),
-    } as unknown as import('@educandow/domain').CompetencyValuationRepository;
+    } as unknown as CompetenciaXMateriaXAlumnoXCursoXCicloRepository;
   }
 
   it('delegates to findByCourseCycleAndStudyPlanSubject with the given params', async () => {
     const repo = makeBulkValuationRepo();
-    const uc = new ListBulkCompetencyValuationsUC(repo);
+    const uc = new ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC(repo);
 
     await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
 
@@ -1006,7 +1006,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
   });
 
   it('returns the read-model list from the repo (BVR-1)', async () => {
-    const row: CompetencyValuationWithPeriods = {
+    const row: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos = {
       valuationId:      'v-1',
       studentId:        's-1',
       competencyId:     'c-1',
@@ -1023,7 +1023,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
       ],
     };
     const repo = makeBulkValuationRepo([row]);
-    const uc = new ListBulkCompetencyValuationsUC(repo);
+    const uc = new ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC(repo);
 
     const result = await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
 
@@ -1034,7 +1034,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
 
   it('returns [] when repo returns empty (BVR-4 — not 404)', async () => {
     const repo = makeBulkValuationRepo([]);
-    const uc = new ListBulkCompetencyValuationsUC(repo);
+    const uc = new ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC(repo);
 
     const result = await uc.execute({ courseCycleId: 'cc-new', studyPlanSubjectId: 'sps-1' });
 
@@ -1042,7 +1042,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
   });
 
   it('returns parent with periodValuations: [] when no children graded (BVR-5)', async () => {
-    const childless: CompetencyValuationWithPeriods = {
+    const childless: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos = {
       valuationId:      'v-2',
       studentId:        's-2',
       competencyId:     'c-1',
@@ -1050,7 +1050,7 @@ describe('ListBulkCompetencyValuationsUC', () => {
       periodValuations: [],
     };
     const repo = makeBulkValuationRepo([childless]);
-    const uc = new ListBulkCompetencyValuationsUC(repo);
+    const uc = new ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC(repo);
 
     const result = await uc.execute({ courseCycleId: 'cc-1', studyPlanSubjectId: 'sps-1' });
 

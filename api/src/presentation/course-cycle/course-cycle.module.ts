@@ -18,7 +18,7 @@ import {
   GetActivePeriodUseCase,
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
-import { AutoCreateCompetencyValuationsUC } from '../../application/pedagogy/use-cases/competency.use-cases';
+import { AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asignacion-curso-x-ciclo.repository';
 import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
@@ -80,10 +80,10 @@ const StudyPlanRepo = 'StudyPlanRepository';
         cc: PrismaCourseCycleRepository,
         sp: StudyPlanRepository,
         ac: AcademicCycleRepository,
-        autoCreate: AutoCreateCompetencyValuationsUC,
+        autoCreate: AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC,
         materialize: MaterializeMateriasUseCase,
       ) => new GenerateCourseCyclesUseCase(cc, sp, ac, autoCreate, materialize),
-      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo, AutoCreateCompetencyValuationsUC, MaterializeMateriasUseCase],
+      inject: [PrismaCourseCycleRepository, StudyPlanRepo, AcademicCycleRepo, AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC, MaterializeMateriasUseCase],
     },
     {
       provide: GetActivePeriodUseCase,

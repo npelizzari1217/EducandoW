@@ -1,17 +1,17 @@
 /**
- * PR2 slim port — CompetencyValuationRepository.
+ * PR2 slim port — CompetenciaXMateriaXAlumnoXCursoXCicloRepository.
  * findByStudentAndCompetency removed (only served removed cycle-blind paths).
  * bulkCreate semantics updated to skipDuplicates on (studentId, competencyId, courseCycleId) triple.
  */
 
-import type { CompetencyValuation } from '../entities/competency-valuation';
+import type { CompetenciaXMateriaXAlumnoXCursoXCiclo } from '../entities/competency-valuation';
 import type { GradeInternalStatusValue } from '../../grading/value-objects/grade-internal-status';
 
 // ── Bulk read projection ────────────────────────────────────────────────────
-// Used by ListBulkCompetencyValuationsUC (PR slice 1a).
+// Used by ListBulkCompetenciasXMateriaXAlumnoXCursoXCicloUC (PR slice 1a).
 // This is a read-model (query result), not a write entity.
 
-export interface CompetencyPeriodValuationData {
+export interface CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData {
   periodItemId:      string;
   gradeScaleValueId: string | null;
   gradeCode:         string | null;
@@ -20,21 +20,21 @@ export interface CompetencyPeriodValuationData {
   imprimible:        boolean;
 }
 
-export interface CompetencyValuationWithPeriods {
+export interface CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos {
   valuationId:      string;
   studentId:        string;
   competencyId:     string;
   /** Human-readable competency name (from SubjectCompetency.name). */
   competencyName:   string;
   /** Lazily-created period children. Empty array if none graded yet (BVR-5). */
-  periodValuations: CompetencyPeriodValuationData[];
+  periodValuations: CompetenciaXPeriodoXMateriaXAlumnoXCursoXCicloData[];
 }
 
 // ── Port ───────────────────────────────────────────────────────────────────
 
-export interface CompetencyValuationRepository {
-  findById(id: string): Promise<CompetencyValuation | null>;
-  findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetencyValuation[]>;
+export interface CompetenciaXMateriaXAlumnoXCursoXCicloRepository {
+  findById(id: string): Promise<CompetenciaXMateriaXAlumnoXCursoXCiclo | null>;
+  findByStudentAndStudyPlanSubject(studentId: string, studyPlanSubjectId: string): Promise<CompetenciaXMateriaXAlumnoXCursoXCiclo[]>;
   /**
    * Bulk read: returns all parent valuations for a given (courseCycleId, studyPlanSubjectId)
    * pair, each with their period children. A parent with no graded periods returns
@@ -43,9 +43,9 @@ export interface CompetencyValuationRepository {
   findByCourseCycleAndStudyPlanSubject(
     courseCycleId:      string,
     studyPlanSubjectId: string,
-  ): Promise<CompetencyValuationWithPeriods[]>;
-  save(valuation: CompetencyValuation): Promise<void>;
+  ): Promise<CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]>;
+  save(valuation: CompetenciaXMateriaXAlumnoXCursoXCiclo): Promise<void>;
   /** Batch create valuations, skipping duplicates on (studentId, competencyId, courseCycleId) triple */
-  bulkCreate(valuations: CompetencyValuation[]): Promise<void>;
+  bulkCreate(valuations: CompetenciaXMateriaXAlumnoXCursoXCiclo[]): Promise<void>;
   delete(id: string): Promise<void>;
 }

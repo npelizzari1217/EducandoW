@@ -1,17 +1,17 @@
 /**
- * 1a-T1 [RED→GREEN] — CompetencyValuationRepository port contract.
+ * 1a-T1 [RED→GREEN] — CompetenciaXMateriaXAlumnoXCursoXCicloRepository port contract.
  * Verifies the port exposes findByCourseCycleAndStudyPlanSubject returning
- * CompetencyValuationWithPeriods[]. TypeScript tsc enforces the shape at build time.
+ * CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]. TypeScript tsc enforces the shape at build time.
  */
 import { describe, it, expect } from 'vitest';
 import type {
-  CompetencyValuationRepository,
-  CompetencyValuationWithPeriods,
+  CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
+  CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos,
 } from '../repositories/competency-valuation-repository';
 
-describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSubject', () => {
-  it('port exposes the method and returns CompetencyValuationWithPeriods[]', async () => {
-    const row: CompetencyValuationWithPeriods = {
+describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port — findByCourseCycleAndStudyPlanSubject', () => {
+  it('port exposes the method and returns CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos[]', async () => {
+    const row: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos = {
       valuationId: 'v-1',
       studentId:   's-1',
       competencyId: 'c-1',
@@ -28,7 +28,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
       ],
     };
 
-    const mockRepo: CompetencyValuationRepository = {
+    const mockRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository = {
       findById:                             async () => null,
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [row],
@@ -45,7 +45,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
   });
 
   it('returns [] for a cycle with no valuations (BVR-4)', async () => {
-    const mockRepo: CompetencyValuationRepository = {
+    const mockRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository = {
       findById:                             async () => null,
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [],
@@ -59,7 +59,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
   });
 
   it('parent with no children returns periodValuations: [] — not null (BVR-5)', async () => {
-    const childless: CompetencyValuationWithPeriods = {
+    const childless: CompetenciaXMateriaXAlumnoXCursoXCicloConPeriodos = {
       valuationId:      'v-2',
       studentId:        's-2',
       competencyId:     'c-1',
@@ -67,7 +67,7 @@ describe('CompetencyValuationRepository port — findByCourseCycleAndStudyPlanSu
       periodValuations: [],
     };
 
-    const mockRepo: CompetencyValuationRepository = {
+    const mockRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository = {
       findById:                             async () => null,
       findByStudentAndStudyPlanSubject:     async () => [],
       findByCourseCycleAndStudyPlanSubject: async () => [childless],

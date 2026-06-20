@@ -1,6 +1,6 @@
 /**
  * T2.3 [RED] → T2.4 [GREEN]
- * Rewrites CompetencyValuation tests to the slim entity that carries
+ * Rewrites CompetenciaXMateriaXAlumnoXCursoXCiclo tests to the slim entity that carries
  * courseCycleId instead of flat period fields.
  * Specs: MVM-1 (parent with courseCycleId), MVM-3 (different cycles OK).
  */
@@ -8,9 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import { Id } from '../../../shared/value-objects/id';
 import { SubjectCompetency } from '../../entities/subject-competency';
-import { CompetencyValuation } from '../../entities/competency-valuation';
+import { CompetenciaXMateriaXAlumnoXCursoXCiclo } from '../../entities/competency-valuation';
 import type { SubjectCompetencyRepository } from '../../repositories/subject-competency-repository';
-import type { CompetencyValuationRepository } from '../../repositories/competency-valuation-repository';
+import type { CompetenciaXMateriaXAlumnoXCursoXCicloRepository } from '../../repositories/competency-valuation-repository';
 import type { StudyPlanRepository } from '../../repositories/study-plan-repository';
 import type { CourseCycleRepository } from '../../../course-cycle/repositories/course-cycle-repository';
 
@@ -102,9 +102,9 @@ describe('SubjectCompetencyRepository port signatures', () => {
   });
 });
 
-describe('CompetencyValuationRepository port signatures (PR2 slim)', () => {
+describe('CompetenciaXMateriaXAlumnoXCursoXCicloRepository port signatures (PR2 slim)', () => {
   it('exposes findByStudentAndStudyPlanSubject and bulkCreate; NOT findByStudentAndCompetency', () => {
-    const mockRepo: CompetencyValuationRepository = {
+    const mockRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository = {
       findById: async () => null,
       findByStudentAndStudyPlanSubject: async (_studentId: string, _studyPlanSubjectId: string) => [],
       findByCourseCycleAndStudyPlanSubject: async () => [],
@@ -140,11 +140,11 @@ describe('CourseCycleRepository port signatures', () => {
   });
 });
 
-// ── CompetencyValuation slim entity (PR2) ────────────────
+// ── CompetenciaXMateriaXAlumnoXCursoXCiclo slim entity (PR2) ────────────────
 
-describe('CompetencyValuation slim', () => {
+describe('CompetenciaXMateriaXAlumnoXCursoXCiclo slim', () => {
   it('create({competencyId, studentId, courseCycleId}) sets all three fields', () => {
-    const v = CompetencyValuation.create({
+    const v = CompetenciaXMateriaXAlumnoXCursoXCiclo.create({
       competencyId: 'comp-1',
       studentId: 'student-1',
       courseCycleId: 'cc-uuid-1',
@@ -158,12 +158,12 @@ describe('CompetencyValuation slim', () => {
   });
 
   it('two valuations for same student+competency but different cycles are distinct (MVM-3)', () => {
-    const v1 = CompetencyValuation.create({
+    const v1 = CompetenciaXMateriaXAlumnoXCursoXCiclo.create({
       competencyId: 'comp-1',
       studentId: 'student-1',
       courseCycleId: 'cc-uuid-A',
     });
-    const v2 = CompetencyValuation.create({
+    const v2 = CompetenciaXMateriaXAlumnoXCursoXCiclo.create({
       competencyId: 'comp-1',
       studentId: 'student-1',
       courseCycleId: 'cc-uuid-B',
@@ -174,7 +174,7 @@ describe('CompetencyValuation slim', () => {
   });
 
   it('softDelete sets active=false and deletedAt', () => {
-    const v = CompetencyValuation.create({
+    const v = CompetenciaXMateriaXAlumnoXCursoXCiclo.create({
       competencyId: 'comp-1',
       studentId: 'student-1',
       courseCycleId: 'cc-uuid-1',
@@ -187,7 +187,7 @@ describe('CompetencyValuation slim', () => {
 
   it('reconstruct preserves all slim fields', () => {
     const deletedAt = new Date('2026-01-01');
-    const v = CompetencyValuation.reconstruct({
+    const v = CompetenciaXMateriaXAlumnoXCursoXCiclo.reconstruct({
       id: Id.create(),
       competencyId: 'comp-2',
       studentId: 'student-2',
@@ -203,7 +203,7 @@ describe('CompetencyValuation slim', () => {
   });
 
   it('does NOT expose flat period fields (valuation1, modificable1, etc.)', () => {
-    const v = CompetencyValuation.create({
+    const v = CompetenciaXMateriaXAlumnoXCursoXCiclo.create({
       competencyId: 'comp-1',
       studentId: 'student-1',
       courseCycleId: 'cc-uuid-1',
