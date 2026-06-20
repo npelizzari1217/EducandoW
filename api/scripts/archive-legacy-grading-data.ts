@@ -199,7 +199,9 @@ Resumen:
   }
 }
 
-main().catch((e) => {
-  console.error('Error inesperado:', e);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error('Error inesperado:', e);
+    process.exit(1);
+  });
+}
