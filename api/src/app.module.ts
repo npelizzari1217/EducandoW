@@ -24,6 +24,7 @@ import { DocenteCicloModule } from './presentation/docente-ciclo/docente-ciclo.m
 import { MateriasGruposModule } from './presentation/materia-grupo-ciclo/materia-grupo-ciclo.module';
 import { AsignacionCursoModule } from './presentation/asignacion-curso/asignacion-curso.module';
 import { AsistenciaModule } from './presentation/asistencia/asistencia.module';
+import { AlumnosXCursoXCicloModule } from './presentation/course-cycle-alumnos/alumnos-x-curso-x-ciclo.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
 import { CatalogController } from './presentation/shared/controllers/catalog.controller';
 import { AppExceptionFilter } from './presentation/shared/filters/exception.filter';
@@ -63,6 +64,7 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     MateriasGruposModule,
     AsignacionCursoModule,
     AsistenciaModule,
+    AlumnosXCursoXCicloModule,
   ],
   controllers: [HealthController, CatalogController],
   providers: [
