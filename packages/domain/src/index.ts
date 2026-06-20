@@ -31,11 +31,6 @@ export { Dni } from './personnel/value-objects';
 export type { StudentRepository } from './personnel/repositories/student-repository';
 export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';
 
-// Enrollment
-export { Enrollment, EnrollmentStatus } from './enrollment/entities';
-export type { EnrollmentStatusValue } from './enrollment/entities';
-export type { EnrollmentRepository, FindByCourseParams } from './enrollment/repositories/enrollment-repository';
-
 // Ingresante
 export { Ingresante, IngresanteStatus, VALID_INGRESANTE_STATUSES } from './ingresante';
 export type { IngresanteProps, IngresanteStatusValue, IngresanteRepository } from './ingresante';
@@ -51,7 +46,7 @@ export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFo
 // AlumnosXCursoXCiclo (SDD-1)
 export { AlumnosXCursoXCiclo } from './course-cycle';
 export type { AlumnosXCursoXCicloProps, CreateAlumnosXCursoXCicloInput } from './course-cycle';
-export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched } from './course-cycle';
+export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched, StudentMembershipEnriched } from './course-cycle';
 
 // Student Observation
 export { StudentObservation, ObservationType, ObservationTypeValue } from './student-observation';

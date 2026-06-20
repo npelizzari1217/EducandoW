@@ -3,6 +3,7 @@ import {
   AlumnosXCursoXCiclo,
   AlumnosXCursoXCicloRepository,
   type AlumnoCursoCicloEnriched,
+  type StudentMembershipEnriched,
 } from '@educandow/domain';
 import { NotFoundError } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
@@ -71,7 +72,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
   }
 
   /**
-   * Returns enrollments enriched with studentId + studentName.
+   * Returns enrollments enriched with studentId + studentName + printable gate (SDD-2).
    * Resolution: AlumnosXCursoXCiclo.studentId → Student firstName + lastName.
    * Throws if no tenant client is available (surfaces the error instead of silently returning []).
    */
@@ -94,10 +95,11 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       ]),
     );
 
-    return rows.map((a: { id: string; studentId: string }) => ({
+    return rows.map((a: { id: string; studentId: string; printable: boolean }) => ({
       id: a.id,
       studentId: a.studentId,
       studentName: studentNameMap.get(a.studentId) ?? a.studentId,
+      printable: a.printable,
     }));
   }
 
@@ -111,6 +113,73 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       throw new NotFoundError('AlumnosXCursoXCiclo', id);
     }
     await this.client.alumnosXCursoXCiclo.delete({ where: { id } });
+  }
+
+  /**
+   * Toggle `printable` for a single row by bridge-row id (SDD-2, REQ-TOG-1).
+   * IDOR is enforced in the use-case layer (TogglePrintableUseCase).
+   * Returns the updated domain entity.
+   */
+  async setPrintable(id: string, value: boolean): Promise<AlumnosXCursoXCiclo> {
+    const row = await this.client.alumnosXCursoXCiclo.update({
+      where: { id },
+      data: { printable: value, updatedAt: new Date() },
+    });
+    return this.toDomain(row);
+  }
+
+  /**
+   * Bulk-set `printable` for ALL rows of a CourseCycle (SDD-2, REQ-TOG-2/3).
+   * Implements "Todos" (value=true) and "Ninguno" (value=false).
+   * Tenant isolation: TenantContext.getClient() already scopes to the tenant DB;
+   * the WHERE clause further restricts to the given courseCycleId.
+   */
+  async setPrintableBulk(courseCycleId: string, value: boolean): Promise<void> {
+    await this.client.alumnosXCursoXCiclo.updateMany({
+      where: { courseCycleId },
+      data: { printable: value, updatedAt: new Date() },
+    });
+  }
+
+  /**
+   * Returns all AlumnosXCursoXCiclo rows for a student enriched with CourseCycle display info.
+   * SDD-2 R16/R17: replaces GET /enrollments?studentId in the web StudentLegajo and boletín dropdown.
+   */
+  async findByStudentEnriched(studentId: string): Promise<StudentMembershipEnriched[]> {
+    const rows = await this.client.alumnosXCursoXCiclo.findMany({
+      where: { studentId },
+      include: {
+        courseCycle: {
+          select: {
+            uuid: true,
+            level: true,
+            course: { select: { grade: true, division: true, academicYear: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return rows.map((r: {
+      id: string;
+      courseCycleId: string;
+      printable: boolean;
+      createdAt: Date;
+      courseCycle: {
+        uuid: string;
+        level: number;
+        course: { grade: string | null; division: string | null; academicYear: string };
+      };
+    }) => ({
+      id: r.id,
+      courseCycleId: r.courseCycleId,
+      printable: r.printable,
+      level: r.courseCycle.level,
+      academicYear: r.courseCycle.course.academicYear,
+      grade: r.courseCycle.course.grade,
+      division: r.courseCycle.course.division,
+      createdAt: r.createdAt.toISOString(),
+    }));
   }
 
   private toDomain(row: AlumnosXCursoXCicloRow): AlumnosXCursoXCiclo {

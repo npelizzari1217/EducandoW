@@ -13,7 +13,7 @@ function validProps() {
     authorId: Id.create(),
     type: makeType(),
     content: 'Valid observation content',
-    enrollmentId: Id.create(),
+    academicCycleId: Id.create(), // replaces enrollmentId (ADR-3)
   };
 }
 
@@ -98,66 +98,66 @@ describe('StudentObservation.create()', () => {
   });
 });
 
-// ── enrollmentId invariant ─────────────────────────────────────────────────────
+// ── academicCycleId invariant (ADR-3: replaces enrollmentId) ─────────────────
 
-describe('StudentObservation — enrollmentId invariant', () => {
-  it('returns err when PEDAGOGICAL and no enrollmentId', () => {
+describe('StudentObservation — academicCycleId invariant', () => {
+  it('returns err when PEDAGOGICAL and no academicCycleId', () => {
     const result = StudentObservation.create({
       studentId: Id.create(),
       authorId: Id.create(),
       type: makeType(ObservationTypeValue.PEDAGOGICAL),
       content: 'Some pedagogical note',
-      // no enrollmentId
+      // no academicCycleId
     });
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().message).toBe('Pedagogical observations require an enrollment');
+    expect(result.unwrapErr().message).toBe('Pedagogical observations require an academic cycle');
   });
 
-  it('succeeds when PEDAGOGICAL and enrollmentId is present', () => {
+  it('succeeds when PEDAGOGICAL and academicCycleId is present', () => {
     const result = StudentObservation.create({
       studentId: Id.create(),
       authorId: Id.create(),
       type: makeType(ObservationTypeValue.PEDAGOGICAL),
       content: 'Some pedagogical note',
-      enrollmentId: Id.create(),
+      academicCycleId: Id.create(),
     });
     expect(result.isOk()).toBe(true);
-    expect(result.unwrap().enrollmentId).toBeDefined();
+    expect(result.unwrap().academicCycleId).toBeDefined();
   });
 
-  it('returns err when PSYCHOPEDAGOGICAL and enrollmentId is present', () => {
+  it('returns err when PSYCHOPEDAGOGICAL and academicCycleId is present', () => {
     const result = StudentObservation.create({
       studentId: Id.create(),
       authorId: Id.create(),
       type: makeType(ObservationTypeValue.PSYCHOPEDAGOGICAL),
       content: 'EOE note',
-      enrollmentId: Id.create(),
+      academicCycleId: Id.create(),
     });
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr().message).toBe('Psychopedagogical observations cannot be linked to an enrollment');
+    expect(result.unwrapErr().message).toBe('Psychopedagogical observations cannot be linked to an academic cycle');
   });
 
-  it('succeeds when PSYCHOPEDAGOGICAL and no enrollmentId', () => {
+  it('succeeds when PSYCHOPEDAGOGICAL and no academicCycleId', () => {
     const result = StudentObservation.create({
       studentId: Id.create(),
       authorId: Id.create(),
       type: makeType(ObservationTypeValue.PSYCHOPEDAGOGICAL),
       content: 'EOE note',
-      // no enrollmentId
+      // no academicCycleId
     });
     expect(result.isOk()).toBe(true);
   });
 
-  it('reconstruct passes enrollmentId through without validation', () => {
-    const enrollmentId = Id.create();
+  it('reconstruct passes academicCycleId through without validation', () => {
+    const academicCycleId = Id.create();
     const obs = StudentObservation.reconstruct({
       id: Id.create(),
       studentId: Id.create(),
       authorId: Id.create(),
       type: makeType(ObservationTypeValue.PEDAGOGICAL),
       content: 'legacy',
-      enrollmentId,
+      academicCycleId,
     });
-    expect(obs.enrollmentId?.get()).toBe(enrollmentId.get());
+    expect(obs.academicCycleId?.get()).toBe(academicCycleId.get());
   });
 });

@@ -1,9 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ListObservationsByCycleUseCase } from '../list-by-cycle.use-case';
-import type {
-  StudentObservationRepository,
-  EnrollmentRepository,
-} from '@educandow/domain';
+import type { StudentObservationRepository } from '@educandow/domain';
 import { StudentObservation, ObservationType, ObservationTypeValue, Id } from '@educandow/domain';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -11,7 +8,7 @@ import { StudentObservation, ObservationType, ObservationTypeValue, Id } from '@
 function makeObs(
   type: ObservationTypeValue,
   studentId: Id,
-  enrollmentId?: Id,
+  academicCycleId?: Id,
 ): StudentObservation {
   return StudentObservation.reconstruct({
     id: Id.create(),
@@ -19,38 +16,22 @@ function makeObs(
     authorId: Id.create(),
     type: ObservationType.reconstruct(type),
     content: 'Test content',
-    enrollmentId,
+    academicCycleId,
     createdAt: new Date(),
   });
 }
 
-function makeEnrollment(id: string, studentId: string) {
-  return {
-    id: Id.reconstruct(id),
-    studentId: Id.reconstruct(studentId),
-  };
-}
-
 // ── Test suite ────────────────────────────────────────────────────────────────
 
-describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () => {
+describe('ListObservationsByCycleUseCase — academicCycleId equality filter (ADR-3)', () => {
   let useCase: ListObservationsByCycleUseCase;
   let observationRepo: StudentObservationRepository;
-  let enrollmentRepo: EnrollmentRepository;
 
   const academicCycleId = 'academic-cycle-uuid';
+  const otherCycleId = 'other-cycle-uuid';
 
   const studentId1 = Id.reconstruct('student-1');
   const studentId2 = Id.reconstruct('student-2');
-
-  const enrollment1Id = 'enrollment-1';
-  const enrollment2Id = 'enrollment-2';
-  const otherEnrollmentId = 'enrollment-other-cycle';
-
-  const mockEnrollments = [
-    makeEnrollment(enrollment1Id, 'student-1'),
-    makeEnrollment(enrollment2Id, 'student-2'),
-  ];
 
   beforeEach(() => {
     observationRepo = {
@@ -58,32 +39,42 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
       findById: vi.fn(),
       findByStudentId: vi.fn(),
       findByStudentIds: vi.fn().mockResolvedValue([]),
+      findByAcademicCycleId: vi.fn().mockResolvedValue([]),
       delete: vi.fn(),
-    };
-    enrollmentRepo = {
-      findByCycleId: vi.fn().mockResolvedValue(mockEnrollments),
-    } as unknown as EnrollmentRepository;
+    } as unknown as StudentObservationRepository;
 
-    useCase = new ListObservationsByCycleUseCase(observationRepo, enrollmentRepo);
+    // No enrollmentRepo — constructor takes observationRepo only (ADR-3)
+    useCase = new ListObservationsByCycleUseCase(observationRepo);
   });
 
-  // ── Core: uses AcademicCycle uuid directly (no CourseCycle lookup) ────────
+  // ── Core: calls findByAcademicCycleId directly (no enrollment join) ───────
 
-  it('calls findByCycleId with the provided academicCycleId directly', async () => {
+  it('calls findByAcademicCycleId with the provided academicCycleId', async () => {
     await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
-    expect(enrollmentRepo.findByCycleId).toHaveBeenCalledWith(academicCycleId);
+    expect(observationRepo.findByAcademicCycleId).toHaveBeenCalledWith(
+      expect.objectContaining({ get: expect.any(Function) }),
+    );
+    const callArg = (observationRepo.findByAcademicCycleId as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(callArg.get()).toBe(academicCycleId);
   });
 
-  // ── PEDAGOGICAL: only observations from this cycle's enrollments ──────────
+  it('does NOT call findByCycleId on any enrollment repo (no enrollment dependency)', async () => {
+    // Passing no enrollmentRepo to constructor confirms the use-case doesn't need it
+    // Just verifying execute() completes without throwing due to undefined enrollmentRepo
+    const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
+    expect(result.isOk()).toBe(true);
+  });
 
-  it('includes PEDAGOGICAL observation tied to this cycle enrollment', async () => {
+  // ── PEDAGOGICAL: included only if academicCycleId matches ────────────────
+
+  it('includes PEDAGOGICAL observation with matching academicCycleId', async () => {
     const pedagogicalThisCycle = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId1,
-      Id.reconstruct(enrollment1Id),
+      Id.reconstruct(academicCycleId),
     );
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([pedagogicalThisCycle]);
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([pedagogicalThisCycle]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
@@ -92,13 +83,13 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(result.unwrap()[0].type.value).toBe(ObservationTypeValue.PEDAGOGICAL);
   });
 
-  it('excludes PEDAGOGICAL observation tied to a different cycle enrollment', async () => {
+  it('excludes PEDAGOGICAL observation with different academicCycleId', async () => {
     const pedagogicalOtherCycle = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId1,
-      Id.reconstruct(otherEnrollmentId),
+      Id.reconstruct(otherCycleId),
     );
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([pedagogicalOtherCycle]);
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([pedagogicalOtherCycle]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
@@ -106,13 +97,13 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(result.unwrap()).toHaveLength(0);
   });
 
-  it('excludes legacy PEDAGOGICAL with null enrollmentId', async () => {
+  it('excludes legacy PEDAGOGICAL with undefined academicCycleId', async () => {
     const legacyPedagogical = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId1,
-      undefined, // no enrollmentId — legacy record
+      undefined,
     );
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([legacyPedagogical]);
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([legacyPedagogical]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
@@ -120,9 +111,11 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(result.unwrap()).toHaveLength(0);
   });
 
-  it('includes EOE (PSYCHOPEDAGOGICAL) observation regardless of enrollment', async () => {
+  // ── PSYCHOPEDAGOGICAL: always included ───────────────────────────────────
+
+  it('includes EOE (PSYCHOPEDAGOGICAL) regardless of academicCycleId', async () => {
     const eoeObs = makeObs(ObservationTypeValue.PSYCHOPEDAGOGICAL, studentId1, undefined);
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([eoeObs]);
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([eoeObs]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
@@ -131,25 +124,23 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(result.unwrap()[0].type.value).toBe(ObservationTypeValue.PSYCHOPEDAGOGICAL);
   });
 
-  it('mixes correctly: includes this-cycle PEDAGOGICAL and EOE, excludes other-cycle and null-enrollment PEDAGOGICAL', async () => {
+  // ── Mixed set ─────────────────────────────────────────────────────────────
+
+  it('mixed: includes this-cycle PEDAGOGICAL and EOE, excludes other-cycle PEDAGOGICAL', async () => {
     const pedagogicalThisCycle = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId1,
-      Id.reconstruct(enrollment1Id),
+      Id.reconstruct(academicCycleId),
     );
     const pedagogicalOtherCycle = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId2,
-      Id.reconstruct(otherEnrollmentId),
+      Id.reconstruct(otherCycleId),
     );
-    const legacyPedagogical = makeObs(
-      ObservationTypeValue.PEDAGOGICAL,
-      studentId1,
-      undefined,
-    );
+    const legacyPedagogical = makeObs(ObservationTypeValue.PEDAGOGICAL, studentId1, undefined);
     const eoeObs = makeObs(ObservationTypeValue.PSYCHOPEDAGOGICAL, studentId1, undefined);
 
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([
       pedagogicalThisCycle,
       pedagogicalOtherCycle,
       legacyPedagogical,
@@ -165,16 +156,16 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(obs.some((o) => o.type.value === ObservationTypeValue.PSYCHOPEDAGOGICAL)).toBe(true);
   });
 
-  // ── Rank filter: EOE hidden from callers below DIRECTOR (rank < 50) ───────
+  // ── Rank filter: EOE hidden from non-DIRECTOR ────────────────────────────
 
   it('hides EOE from callers below DIRECTOR (rank < 50)', async () => {
     const eoeObs = makeObs(ObservationTypeValue.PSYCHOPEDAGOGICAL, studentId1, undefined);
     const pedagogicalThisCycle = makeObs(
       ObservationTypeValue.PEDAGOGICAL,
       studentId1,
-      Id.reconstruct(enrollment1Id),
+      Id.reconstruct(academicCycleId),
     );
-    vi.mocked(observationRepo.findByStudentIds).mockResolvedValue([eoeObs, pedagogicalThisCycle]);
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([eoeObs, pedagogicalThisCycle]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['TEACHER'] });
 
@@ -184,15 +175,14 @@ describe('ListObservationsByCycleUseCase — direct academic-cycle scoping', () 
     expect(obs[0].type.value).toBe(ObservationTypeValue.PEDAGOGICAL);
   });
 
-  // ── Edge: no enrollments → empty result ───────────────────────────────────
+  // ── Edge: empty result ───────────────────────────────────────────────────
 
-  it('returns empty array when no enrollments exist for the cycle', async () => {
-    vi.mocked(enrollmentRepo.findByCycleId).mockResolvedValue([]);
+  it('returns empty array when findByAcademicCycleId returns empty', async () => {
+    vi.mocked(observationRepo.findByAcademicCycleId).mockResolvedValue([]);
 
     const result = await useCase.execute({ cycleId: academicCycleId, callerRoles: ['DIRECTOR'] });
 
     expect(result.isOk()).toBe(true);
     expect(result.unwrap()).toHaveLength(0);
-    expect(observationRepo.findByStudentIds).not.toHaveBeenCalled();
   });
 });

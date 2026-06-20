@@ -7,6 +7,17 @@ export const AddStudentToCourseCycleSchema = z.object({
 });
 export type AddStudentToCourseCycleDto = z.infer<typeof AddStudentToCourseCycleSchema>;
 
+// ── PrintableToggle (SDD-2) ───────────────────────────────────────────────────
+
+/**
+ * Body for PATCH /course-cycles/:ccId/alumnos/:id/printable (single toggle).
+ * Body for PATCH /course-cycles/:ccId/alumnos/printable (bulk toggle).
+ */
+export const SetPrintableSchema = z.object({
+  value: z.boolean(),
+});
+export type SetPrintableDto = z.infer<typeof SetPrintableSchema>;
+
 // ── Response types ────────────────────────────────────────────────────────────
 
 /**
@@ -22,9 +33,12 @@ export interface AlumnoXCursoCicloResponse {
 /**
  * Shape returned per item by GET /course-cycles/:ccId/alumnos (200).
  * Enriched with studentName resolved from Student.firstName + lastName.
+ * SDD-2: includes printable boolean gate for boletín printing (REQ-LIST-1).
  */
 export interface AlumnoCursoCicloItem {
   id: string;
   studentId: string;
   studentName: string;
+  /** Whether this student is included in the next print batch. SDD-2. */
+  printable: boolean;
 }

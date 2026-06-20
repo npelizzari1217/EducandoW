@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useApiList, useApiCreate } from '../../../hooks/use-api';
 import { Card } from '../../../components/ui/card';
 import { Button } from '../../../components/ui/button';
-import apiClient from '../../../api/client';
 
 // ── Interfaces ─────────────────────────────────────────────
 
@@ -13,12 +12,6 @@ interface Observation {
   content: string;
   author?: string;
   createdAt?: string;
-}
-
-interface Enrollment {
-  id: string;
-  studentId: string;
-  status: string;
 }
 
 const TYPE_BADGE: Record<string, { bg: string; color: string; label: string }> = {
@@ -37,12 +30,19 @@ interface StudentObservationsPanelProps {
   studentId: string;
   institutionId?: string;
   type: 'PEDAGOGICAL' | 'PSYCHOPEDAGOGICAL';
+  /**
+   * SDD-2 R15: academicCycleId passed from the cycle context (e.g. CourseCycle.cycleId).
+   * When provided, PEDAGOGICAL observations use it directly — no enrollment lookup needed.
+   * When absent, PEDAGOGICAL form is disabled (no cycle context available).
+   */
+  academicCycleId?: string;
 }
 
 export function StudentObservationsPanel({
   studentId,
   institutionId,
   type,
+  academicCycleId,
 }: StudentObservationsPanelProps) {
   const tenantParams: Record<string, string> | undefined = institutionId
     ? { institutionId }
@@ -57,50 +57,23 @@ export function StudentObservationsPanel({
     studentId: string;
     type: string;
     content: string;
-    enrollmentId?: string;
+    academicCycleId?: string;
     institutionId?: string;
   }>('/student-observations', tenantParams);
 
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState('');
 
-  // ── PEDAGOGICAL: resolve active enrollment on mount ────────
-  const [activeEnrollmentId, setActiveEnrollmentId] = useState<string | null>(null);
-  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
-  const [noActiveEnrollment, setNoActiveEnrollment] = useState(false);
-
-  useEffect(() => {
-    if (type !== 'PEDAGOGICAL') return;
-    setEnrollmentLoading(true);
-    const params: Record<string, string> = { studentId };
-    if (institutionId) params.institutionId = institutionId;
-    apiClient
-      .get('/enrollments', { params })
-      .then((res) => {
-        const list = (res.data?.data ?? []) as Enrollment[];
-        const active = list.find((e) => e.status === 'ACTIVE') ?? null;
-        if (active) {
-          setActiveEnrollmentId(active.id);
-          setNoActiveEnrollment(false);
-        } else {
-          setNoActiveEnrollment(true);
-        }
-      })
-      .catch(() => {
-        setNoActiveEnrollment(true);
-      })
-      .finally(() => setEnrollmentLoading(false));
-  }, [type, studentId, institutionId]);
-
-  const isCreateDisabled =
-    type === 'PEDAGOGICAL' && (enrollmentLoading || noActiveEnrollment);
+  // SDD-2 R15: PEDAGOGICAL requires academicCycleId from the caller — no enrollment fetch.
+  const noCycleContext = type === 'PEDAGOGICAL' && !academicCycleId;
+  const isCreateDisabled = noCycleContext;
 
   const handleCreate = async () => {
     const body: {
       studentId: string;
       type: string;
       content: string;
-      enrollmentId?: string;
+      academicCycleId?: string;
       institutionId?: string;
     } = {
       studentId,
@@ -108,8 +81,8 @@ export function StudentObservationsPanel({
       content,
       ...(institutionId ? { institutionId } : {}),
     };
-    if (type === 'PEDAGOGICAL' && activeEnrollmentId) {
-      body.enrollmentId = activeEnrollmentId;
+    if (type === 'PEDAGOGICAL' && academicCycleId) {
+      body.academicCycleId = academicCycleId;
     }
     const ok = await create(body);
     if (ok) {
@@ -137,8 +110,8 @@ export function StudentObservationsPanel({
         </Button>
       </div>
 
-      {/* No active enrollment warning */}
-      {type === 'PEDAGOGICAL' && !enrollmentLoading && noActiveEnrollment && (
+      {/* No cycle context warning (replaces old no-enrollment warning) */}
+      {noCycleContext && (
         <div
           style={{
             background: '#fefce8',
@@ -149,7 +122,7 @@ export function StudentObservationsPanel({
             fontSize: 'var(--text-sm)',
           }}
         >
-          El alumno no tiene una inscripción activa para registrar observaciones pedagógicas.
+          No hay un ciclo lectivo activo en este contexto para registrar observaciones pedagógicas.
         </div>
       )}
 

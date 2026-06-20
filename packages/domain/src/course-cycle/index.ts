@@ -16,7 +16,7 @@ export type { DateRange } from './services/grading-period-calculator';
 
 // Repository ports
 export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult, EnrolledStudent } from './repositories/course-cycle-repository';
-export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched } from './repositories/alumnos-x-curso-x-ciclo-repository';
+export type { AlumnosXCursoXCicloRepository, AlumnoCursoCicloEnriched, StudentMembershipEnriched } from './repositories/alumnos-x-curso-x-ciclo-repository';
 
 // Errors
 export {

@@ -100,11 +100,8 @@ function makePrismaClient(overrides: Record<string, unknown> = {}) {
     courseCycle: {
       findUnique: vi.fn().mockResolvedValue(null),
     },
-    courseSection: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      findMany: vi.fn().mockResolvedValue([]),
-    },
-    enrollment: {
+    // SDD-2 R5: findEnrolledStudentsByCourseCycle now reads from alumnosXCursoXCiclo (authoritative).
+    alumnosXCursoXCiclo: {
       findMany: vi.fn().mockResolvedValue([]),
     },
     ...overrides,
@@ -174,11 +171,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
-        // Shape updated: helper returns { studentId, student: { firstName, lastName } }
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
           { studentId: 'student-2', student: { firstName: 'Ana', lastName: 'López' } },
@@ -208,10 +201,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
         ]),
@@ -272,12 +262,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
-        findMany: vi.fn().mockResolvedValue([{ studentId: 'student-1' }]),
-      },
+      // UC exits at step 3 (no competencies) — enrolled students not reached
     });
     vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
 
@@ -297,10 +282,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([]), // no students
       },
     });
@@ -322,10 +304,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
         ]),
@@ -363,10 +342,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 1, grade: '1°', division: 'A', academicYear: '2026' }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
         ]),
@@ -394,10 +370,7 @@ describe('AutoCreateCompetencyValuationsUC.execute({ courseCycleId })', () => {
       courseCycle: {
         findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
       },
-      courseSection: {
-        findUnique: vi.fn().mockResolvedValue({ level: 2, grade: '2°', division: 'B', academicYear: '2026' }),
-      },
-      enrollment: {
+      alumnosXCursoXCiclo: {
         findMany: vi.fn().mockResolvedValue([
           { studentId: 'stu-a', student: { firstName: 'Mario', lastName: 'García' } },
           { studentId: 'stu-b', student: { firstName: 'Lucia', lastName: 'Martínez' } },

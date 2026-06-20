@@ -5,7 +5,8 @@ import * as path from 'path';
 /**
  * PdfStorageService — stores generated PDFs on local disk.
  *
- * Files are saved to api/uploads/boletines/{enrollmentId}.pdf
+ * Files are saved to api/uploads/boletines/{boletinKey}.pdf where boletinKey is the
+ * AlumnosXCursoXCiclo.id (SDD-2: replaced the former enrollmentId key).
  * The uploads directory is already served as static assets by main.ts.
  */
 @Injectable()
@@ -21,10 +22,10 @@ export class PdfStorageService {
    * Saves a PDF buffer to disk.
    * @returns The public URL path accessible via the static assets server.
    */
-  async save(enrollmentId: string, pdfBuffer: Buffer): Promise<string> {
+  async save(boletinKey: string, pdfBuffer: Buffer): Promise<string> {
     await fs.mkdir(this.baseDir, { recursive: true });
 
-    const fileName = `${enrollmentId}.pdf`;
+    const fileName = `${boletinKey}.pdf`;
     const filePath = path.join(this.baseDir, fileName);
 
     await fs.writeFile(filePath, pdfBuffer);
@@ -37,8 +38,8 @@ export class PdfStorageService {
   }
 
   /** Returns the full path of a previously stored PDF, or null if not found. */
-  async getPath(enrollmentId: string): Promise<string | null> {
-    const filePath = path.join(this.baseDir, `${enrollmentId}.pdf`);
+  async getPath(boletinKey: string): Promise<string | null> {
+    const filePath = path.join(this.baseDir, `${boletinKey}.pdf`);
     try {
       await fs.access(filePath);
       return filePath;
@@ -48,11 +49,11 @@ export class PdfStorageService {
   }
 
   /** Deletes a stored PDF. No-op if the file doesn't exist. */
-  async delete(enrollmentId: string): Promise<void> {
-    const filePath = path.join(this.baseDir, `${enrollmentId}.pdf`);
+  async delete(boletinKey: string): Promise<void> {
+    const filePath = path.join(this.baseDir, `${boletinKey}.pdf`);
     try {
       await fs.unlink(filePath);
-      this.logger.log(`PDF deleted: ${enrollmentId}.pdf`);
+      this.logger.log(`PDF deleted: ${boletinKey}.pdf`);
     } catch {
       // file doesn't exist, nothing to do
     }

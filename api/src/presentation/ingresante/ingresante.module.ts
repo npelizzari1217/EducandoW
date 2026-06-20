@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyModule } from '../pedagogy/pedagogy.module';
-import { EnrollmentModule } from '../enrollment/enrollment.module';
 import { StudentModule } from '../student/student.module';
 import { IngresanteController } from './ingresante.controller';
 import {
@@ -13,10 +12,9 @@ import {
 import { PrismaIngresanteRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-ingresante.repository';
 import { PrismaTenantTransactionRunner } from '../../infrastructure/persistence/prisma/tenant-transaction-runner';
 import { CreateStudentUseCase } from '../../application/student/use-cases/student.use-cases';
-import { CreateEnrollmentUseCase } from '../../application/enrollment/use-cases/enrollment.use-cases';
 
 @Module({
-  imports: [AuthModule, PedagogyModule, EnrollmentModule, StudentModule],
+  imports: [AuthModule, PedagogyModule, StudentModule],
   controllers: [IngresanteController],
   providers: [
     PrismaIngresanteRepository,
@@ -41,27 +39,20 @@ import { CreateEnrollmentUseCase } from '../../application/enrollment/use-cases/
       inject: ['IngresanteRepository'],
     },
 
-    // Internal UC instances needed by PromoteIngresanteUseCase
-    // Using namespaced tokens to avoid conflicts with sibling modules
+    // Internal UC instance needed by PromoteIngresanteUseCase
     {
       provide: 'Ingresante_CreateStudentUC',
       useFactory: (r) => new CreateStudentUseCase(r),
       inject: ['StudentRepository'],
     },
-    {
-      provide: 'Ingresante_CreateEnrollmentUC',
-      useFactory: (r) => new CreateEnrollmentUseCase(r),
-      inject: ['EnrollmentRepository'],
-    },
 
     {
       provide: PromoteIngresanteUseCase,
-      useFactory: (ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo, runner) =>
-        new PromoteIngresanteUseCase(ingresanteRepo, createStudentUC, createEnrollmentUC, cycleRepo, runner),
+      useFactory: (ingresanteRepo, createStudentUC, cycleRepo, runner) =>
+        new PromoteIngresanteUseCase(ingresanteRepo, createStudentUC, cycleRepo, runner),
       inject: [
         'IngresanteRepository',
         'Ingresante_CreateStudentUC',
-        'Ingresante_CreateEnrollmentUC',
         'AcademicCycleRepository',
         'TenantTransactionRunner',
       ],

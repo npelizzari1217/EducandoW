@@ -94,29 +94,16 @@ const mockObservations = [
   },
 ];
 
-// student-enrolled has an enrollment in CYCLE_2026; any other studentId does not
 function setupDefaultMocks() {
   mockApiGet.mockReset();
   mockApiPost.mockReset();
 
-  mockApiGet.mockImplementation((url: string, config?: { params?: Record<string, string> }) => {
+  mockApiGet.mockImplementation((url: string) => {
     if (url === '/academic-cycles') {
       return Promise.resolve({ data: { data: [CYCLE_2026] } });
     }
     if (url === `/cycles/${CYCLE_2026.uuid}/observations`) {
       return Promise.resolve({ data: { data: mockObservations } });
-    }
-    if (url === '/enrollments') {
-      const studentId = config?.params?.studentId;
-      if (studentId === 'student-enrolled') {
-        return Promise.resolve({
-          data: {
-            data: [{ id: 'enroll-123', cycleId: CYCLE_2026.uuid, studentId }],
-          },
-        });
-      }
-      // Any other student: no enrollment in this cycle
-      return Promise.resolve({ data: { data: [] } });
     }
     return Promise.resolve({ data: { data: [] } });
   });
@@ -183,9 +170,9 @@ describe('ObservationsByCyclePage', () => {
     expect(screen.getByText('Psicopedagógica')).toBeInTheDocument();
   });
 
-  // ── OBC-2: PEDAGOGICAL create resolves enrollment and includes enrollmentId in POST ──
+  // ── OBC-2: PEDAGOGICAL create POSTs with academicCycleId (SDD-2 R14) ──────────
 
-  it('OBC-2: PEDAGOGICAL create resolves enrollment and includes enrollmentId in POST', async () => {
+  it('OBC-2: PEDAGOGICAL create POSTs with academicCycleId from selected cycle (no enrollment lookup)', async () => {
     const user = userEvent.setup();
     renderPage();
 
@@ -205,74 +192,32 @@ describe('ObservationsByCyclePage', () => {
     await user.click(screen.getByRole('button', { name: /nueva observación/i }));
 
     // Fill in the form (type defaults to PEDAGOGICAL)
-    await user.type(screen.getByLabelText('Estudiante ID'), 'student-enrolled');
+    await user.type(screen.getByLabelText('Estudiante ID'), 'student-any');
     await user.type(screen.getByLabelText('Contenido'), 'Observación de desempeño');
 
     // Submit
     await user.click(screen.getByRole('button', { name: /guardar observación/i }));
 
-    // Enrollment resolution call
-    await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalledWith('/enrollments', {
-        params: { studentId: 'student-enrolled' },
-      });
-    });
+    // No enrollment lookup must happen
+    const getUrls = mockApiGet.mock.calls.map((c: unknown[]) => c[0] as string);
+    expect(getUrls).not.toContain('/enrollments');
 
-    // POST must include enrollmentId
+    // POST must include academicCycleId from the selected cycle
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith(
         '/student-observations',
         {
-          studentId: 'student-enrolled',
+          studentId: 'student-any',
           type: 'PEDAGOGICAL',
           content: 'Observación de desempeño',
-          enrollmentId: 'enroll-123',
+          academicCycleId: CYCLE_2026.uuid,
         },
         expect.anything(),
       );
     });
   });
 
-  // ── OBC-3: PEDAGOGICAL for non-enrolled student shows error and blocks POST ──
-
-  it('OBC-3: PEDAGOGICAL for non-enrolled student shows error and does NOT POST', async () => {
-    const user = userEvent.setup();
-    renderPage();
-
-    // Wait for cycle dropdown
-    await waitFor(() => {
-      expect(screen.getByRole('option', { name: 'Ciclo Lectivo 2026' })).toBeInTheDocument();
-    });
-
-    // Select the cycle
-    const cycleSelect = screen.getByLabelText('Ciclo lectivo') as HTMLSelectElement;
-    await user.selectOptions(cycleSelect, CYCLE_2026.uuid);
-
-    // Open form
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /nueva observación/i })).toBeInTheDocument();
-    });
-    await user.click(screen.getByRole('button', { name: /nueva observación/i }));
-
-    // Fill form with a student who is NOT enrolled in this cycle
-    await user.type(screen.getByLabelText('Estudiante ID'), 'student-not-enrolled');
-    await user.type(screen.getByLabelText('Contenido'), 'Algún contenido');
-
-    // Submit
-    await user.click(screen.getByRole('button', { name: /guardar observación/i }));
-
-    // Error message must be shown
-    await waitFor(() => {
-      expect(
-        screen.getByText('El alumno no está inscripto en este ciclo lectivo'),
-      ).toBeInTheDocument();
-    });
-
-    // POST must NOT have been called
-    expect(mockApiPost).not.toHaveBeenCalled();
-  });
-
-  // ── OBC-4: PSYCHOPEDAGOGICAL posts without enrollmentId ──────────────────────
+  // ── OBC-4: PSYCHOPEDAGOGICAL posts without academicCycleId ───────────────────
 
   it('OBC-4: PSYCHOPEDAGOGICAL posts without enrollmentId and skips enrollment lookup', async () => {
     const user = userEvent.setup();

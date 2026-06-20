@@ -18,6 +18,9 @@ function makeRepo(result: AlumnoCursoCicloEnriched[] = []): AlumnosXCursoXCicloR
     addStudent: vi.fn(),
     isMember: vi.fn().mockResolvedValue(false),
     remove: vi.fn().mockResolvedValue(undefined),
+    setPrintable: vi.fn().mockResolvedValue(null),
+    setPrintableBulk: vi.fn().mockResolvedValue(undefined),
+    findByStudentEnriched: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -46,8 +49,8 @@ describe('ListStudentsByCourseCycleUseCase', () => {
 
   it('S-03: returns enriched list of students with names', async () => {
     const enriched: AlumnoCursoCicloEnriched[] = [
-      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García' },
-      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López' },
+      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García', printable: false },
+      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López', printable: true },
     ];
     const repo = makeRepo(enriched);
     const uc = new ListStudentsByCourseCycleUseCase(repo);

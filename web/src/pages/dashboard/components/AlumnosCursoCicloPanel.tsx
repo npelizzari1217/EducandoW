@@ -1,27 +1,31 @@
 /**
- * AlumnosCursoCicloPanel — T-21
+ * AlumnosCursoCicloPanel — SDD-1 T-21 + SDD-2 T40
  *
  * Inline panel that lists students assigned to a CourseCycle, lets the user
- * add students one-by-one, and remove them.  Mirrors AlumnosPanelInline from
- * materia-grupos.tsx exactly in look & interaction.
+ * add students one-by-one, remove them, toggle their printable flag, and
+ * trigger boletín batch download.
  *
- * API contract (PR-3):
- *   GET    /course-cycles/:ccId/alumnos           → enriched list { id, studentId, studentName }
- *   POST   /course-cycles/:ccId/alumnos           body { studentId } → 201
- *   DELETE /course-cycles/:ccId/alumnos/:id       (bridge-row id)   → 204
- *   GET    /students                               → universe of students { id, firstName, lastName, fullName }
+ * API contract (PR-1 + PR-5):
+ *   GET    /course-cycles/:ccId/alumnos              → enriched list { id, studentId, studentName, printable }
+ *   POST   /course-cycles/:ccId/alumnos              body { studentId } → 201
+ *   DELETE /course-cycles/:ccId/alumnos/:id          (bridge-row id)   → 204
+ *   PATCH  /course-cycles/:ccId/alumnos/:id/printable body { value }   → 204
+ *   PATCH  /course-cycles/:ccId/alumnos/printable    body { value }    → 204 (bulk)
+ *   GET    /students                                  → universe of students
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '../../../components/ui/button';
 import apiClient from '../../../api/client';
+import { downloadBoletinBatch } from '../../../hooks/useBoletin';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
 interface AlumnoCursoCicloItem {
-  id: string;        // bridge-row id — used for DELETE
+  id: string;        // bridge-row id — used for DELETE and PATCH printable
   studentId: string;
   studentName: string;
+  printable: boolean;
 }
 
 interface StudentItem {
@@ -34,6 +38,16 @@ interface StudentItem {
 export interface AlumnosCursoCicloPanelProps {
   ccId: string;
   onClose: () => void;
+}
+
+// ── Derived printable state ───────────────────────────────────────────────────
+
+function derivePrintableState(rows: AlumnoCursoCicloItem[]): 'Todos' | 'Algunos' | 'Ninguno' {
+  if (rows.length === 0) return 'Ninguno';
+  const printableCount = rows.filter((r) => r.printable).length;
+  if (printableCount === rows.length) return 'Todos';
+  if (printableCount === 0) return 'Ninguno';
+  return 'Algunos';
 }
 
 // ── Shared style tokens ───────────────────────────────────────────────────────
@@ -109,10 +123,41 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
     }
   };
 
+  const handleTogglePrintable = async (rowId: string, currentValue: boolean) => {
+    try {
+      await apiClient.patch(`/course-cycles/${ccId}/alumnos/${rowId}/printable`, { value: !currentValue });
+      // Optimistic local update
+      setCurrent((prev) =>
+        prev.map((r) => (r.id === rowId ? { ...r, printable: !currentValue } : r)),
+      );
+    } catch {
+      setToast({ message: 'Error al actualizar impresión', type: 'error' });
+    }
+  };
+
+  const handleBulkPrintable = async (value: boolean) => {
+    try {
+      await apiClient.patch(`/course-cycles/${ccId}/alumnos/printable`, { value });
+      setCurrent((prev) => prev.map((r) => ({ ...r, printable: value })));
+    } catch {
+      setToast({ message: 'Error al actualizar impresión en masa', type: 'error' });
+    }
+  };
+
+  const handleImprimir = async () => {
+    try {
+      await downloadBoletinBatch(ccId);
+    } catch {
+      setToast({ message: 'Error al descargar boletines', type: 'error' });
+    }
+  };
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const assignedStudentIds = new Set(current.map((c) => c.studentId));
   const unassigned = allStudents.filter((s) => !assignedStudentIds.has(s.id));
+  const printableState = derivePrintableState(current);
+  const printableCount = current.filter((r) => r.printable).length;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -149,9 +194,28 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
         <>
           {/* Currently assigned */}
           <div style={{ marginBottom: 'var(--space-sm)' }}>
-            <span style={{ ...labelStyle }}>
-              Asignados ({current.length})
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+              <span style={{ ...labelStyle }}>
+                Asignados ({current.length})
+              </span>
+              {/* Printable aggregate state label */}
+              {current.length > 0 && (
+                <span
+                  data-testid="printable-state-label"
+                  style={{
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 600,
+                    color: printableState === 'Todos'
+                      ? 'var(--color-success, #16a34a)'
+                      : printableState === 'Ninguno'
+                        ? 'var(--color-danger, #dc2626)'
+                        : 'var(--color-warning, #d97706)',
+                  }}
+                >
+                  {printableState}
+                </span>
+              )}
+            </div>
 
             {current.length === 0 && (
               <p
@@ -163,7 +227,18 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
 
             {current.map((alumno) => (
               <div key={alumno.id} style={rowStyle}>
-                <span style={{ fontSize: 'var(--text-sm)' }}>{alumno.studentName}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {/* Per-row printable toggle */}
+                  <input
+                    type="checkbox"
+                    data-testid={`printable-${alumno.id}`}
+                    checked={alumno.printable}
+                    onChange={() => handleTogglePrintable(alumno.id, alumno.printable)}
+                    title={alumno.printable ? 'Quitar del boletín' : 'Incluir en boletín'}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: 'var(--text-sm)' }}>{alumno.studentName}</span>
+                </div>
                 <Button
                   variant="danger-soft"
                   size="sm"
@@ -175,6 +250,38 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
               </div>
             ))}
           </div>
+
+          {/* Printable controls */}
+          {current.length > 0 && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: 'var(--space-sm)', flexWrap: 'wrap' }}>
+              <Button
+                variant="action"
+                size="sm"
+                data-testid="btn-todos"
+                onClick={() => handleBulkPrintable(true)}
+              >
+                Todos
+              </Button>
+              <Button
+                variant="action"
+                size="sm"
+                data-testid="btn-ninguno"
+                onClick={() => handleBulkPrintable(false)}
+              >
+                Ninguno
+              </Button>
+              <Button
+                variant="success-soft"
+                size="sm"
+                data-testid="btn-imprimir"
+                onClick={handleImprimir}
+                disabled={printableCount === 0}
+                title={printableCount === 0 ? 'Sin alumnos para imprimir' : `Imprimir ${printableCount} boletín(es)`}
+              >
+                🖨 Imprimir ({printableCount})
+              </Button>
+            </div>
+          )}
 
           {/* Available to add */}
           {unassigned.length > 0 && (

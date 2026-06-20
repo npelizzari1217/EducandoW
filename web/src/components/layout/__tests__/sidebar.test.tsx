@@ -333,8 +333,8 @@ describe('Sidebar filtering', () => {
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     expect(screen.getByText('Terciario')).toBeInTheDocument();
 
-    // Two Inscripciones: Secretarios + Academico/Terciario
-    expect(screen.getAllByText('Inscripciones').length).toBe(2);
+    // One Inscripciones: Academico/Terciario (Secretarios item was removed in SDD-2 PR-6)
+    expect(screen.getAllByText('Inscripciones').length).toBe(1);
   });
 
   it('renders group labels (Secretarios, Académico, Sistema)', () => {

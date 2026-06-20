@@ -9,14 +9,12 @@ import { ok, err, ValidationError, NotFoundError, EducationalLevelCode } from '@
 import type { IngresanteRepository, AcademicCycleRepository } from '@educandow/domain';
 import { Ingresante, IngresanteStatus, Id, Level, LevelType } from '@educandow/domain';
 import type { CreateStudentUseCase } from '../../../student/use-cases/student.use-cases';
-import type { CreateEnrollmentUseCase } from '../../../enrollment/use-cases/enrollment.use-cases';
 import type { TenantTransactionRunner } from '../../../shared/ports/tenant-transaction-runner';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 const CYCLE_UUID = '00000000-0000-0000-0000-000000000001';
 const STUDENT_UUID = '00000000-0000-0000-0000-000000000010';
-const ENROLLMENT_UUID = '00000000-0000-0000-0000-000000000020';
 const INGRESANTE_UUID = '00000000-0000-0000-0000-000000000030';
 
 function makeIngresante(status: 'INSCRIPTO' | 'PAGO_MATRICULA' | 'ACEPTADO' | 'INGRESO' | 'NO_INGRESARA' = 'INSCRIPTO'): Ingresante {
@@ -31,18 +29,6 @@ function makeIngresante(status: 'INSCRIPTO' | 'PAGO_MATRICULA' | 'ACEPTADO' | 'I
   });
 }
 
-function makeIngresanteWithCycle(status: 'ACEPTADO' = 'ACEPTADO'): Ingresante {
-  return Ingresante.reconstruct({
-    id: Id.reconstruct(INGRESANTE_UUID),
-    firstName: 'Juan',
-    lastName: 'Pérez',
-    dni: '12345678',
-    level: Level.reconstruct(LevelType.PRIMARIO),
-    status: IngresanteStatus.reconstruct(status),
-    cycleId: Id.reconstruct(CYCLE_UUID),
-    createdAt: new Date(),
-  });
-}
 
 function makeMockIngresanteRepo(overrides: Partial<IngresanteRepository> = {}): IngresanteRepository {
   return {
@@ -74,13 +60,6 @@ function makeMockStudentUC(studentId = STUDENT_UUID): CreateStudentUseCase {
   return {
     execute: vi.fn().mockResolvedValue(ok(mockStudent)),
   } as unknown as CreateStudentUseCase;
-}
-
-function makeMockEnrollmentUC(enrollmentId = ENROLLMENT_UUID): CreateEnrollmentUseCase {
-  const mockEnrollment = { id: { get: () => enrollmentId } };
-  return {
-    execute: vi.fn().mockResolvedValue(ok(mockEnrollment)),
-  } as unknown as CreateEnrollmentUseCase;
 }
 
 /** Passthrough runner: executes the work callback directly (no real transaction). */
@@ -385,7 +364,7 @@ describe('PromoteIngresanteUseCase', () => {
 
   it('rejects promote when ingresante is not found', async () => {
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(null) });
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockCycleRepo(), makeMockRunner());
     const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
@@ -393,7 +372,7 @@ describe('PromoteIngresanteUseCase', () => {
 
   it('rejects promote when ingresante status is not ACEPTADO', async () => {
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(makeIngresante('INSCRIPTO')) });
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockCycleRepo(), makeMockRunner());
     const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
@@ -402,7 +381,7 @@ describe('PromoteIngresanteUseCase', () => {
 
   it('rejects promote when status is PAGO_MATRICULA', async () => {
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(makeIngresante('PAGO_MATRICULA')) });
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockCycleRepo(), makeMockRunner());
     const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
     expect(result.isErr()).toBe(true);
   });
@@ -411,7 +390,7 @@ describe('PromoteIngresanteUseCase', () => {
     const ingresante = makeIngresante('ACEPTADO');
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
     const createStudentUC = makeMockStudentUC();
-    const uc = new PromoteIngresanteUseCase(repo, createStudentUC, makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, createStudentUC, makeMockCycleRepo(), makeMockRunner());
 
     await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
 
@@ -425,61 +404,10 @@ describe('PromoteIngresanteUseCase', () => {
     );
   });
 
-  it('on ACEPTADO: creates enrollment with correct studentId and cycleId', async () => {
-    const ingresante = makeIngresanteWithCycle('ACEPTADO');
-    const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-    const createEnrollmentUC = makeMockEnrollmentUC();
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), createEnrollmentUC, makeMockCycleRepo(), makeMockRunner());
-
-    await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
-
-    expect(createEnrollmentUC.execute).toHaveBeenCalledWith(
-      expect.objectContaining({
-        studentId: STUDENT_UUID,
-        cycleId: CYCLE_UUID,
-        institutionId: INSTITUTION_ID,
-        level: 'PRIMARIO',
-      }),
-    );
-  });
-
-  it('on ACEPTADO: academicYear derived from AcademicCycle startDate', async () => {
-    const ingresante = makeIngresanteWithCycle('ACEPTADO');
-    const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-
-    const mockCycle = { startDate: new Date('2025-03-01') };
-    const cycleRepo = makeMockCycleRepo({
-      findByUuid: vi.fn().mockResolvedValue(mockCycle),
-    });
-
-    const createEnrollmentUC = makeMockEnrollmentUC();
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), createEnrollmentUC, cycleRepo, makeMockRunner());
-
-    await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
-
-    expect(createEnrollmentUC.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ academicYear: '2025' }),
-    );
-  });
-
-  it('on ACEPTADO: uses current year when no cycleId', async () => {
-    const ingresante = makeIngresante('ACEPTADO'); // no cycleId
-    const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-    const createEnrollmentUC = makeMockEnrollmentUC();
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), createEnrollmentUC, makeMockCycleRepo(), makeMockRunner());
-
-    await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
-
-    const currentYear = String(new Date().getFullYear());
-    expect(createEnrollmentUC.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ academicYear: currentYear }),
-    );
-  });
-
   it('on ACEPTADO: ingresante is saved with status INGRESO', async () => {
     const ingresante = makeIngresante('ACEPTADO');
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockCycleRepo(), makeMockRunner());
 
     await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
 
@@ -487,15 +415,15 @@ describe('PromoteIngresanteUseCase', () => {
     expect(ingresante.status.value).toBe('INGRESO');
   });
 
-  it('on ACEPTADO: returns studentId and enrollmentId', async () => {
+  it('on ACEPTADO: returns studentId', async () => {
     const ingresante = makeIngresante('ACEPTADO');
     const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), makeMockCycleRepo(), makeMockRunner());
 
     const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
 
     expect(result.isOk()).toBe(true);
-    expect(result.unwrap()).toEqual({ studentId: STUDENT_UUID, enrollmentId: ENROLLMENT_UUID });
+    expect(result.unwrap()).toEqual({ studentId: STUDENT_UUID });
   });
 
   it('SC-PRM-02: CreateStudentUseCase fails → repo.save not called, ingresante remains ACEPTADO', async () => {
@@ -505,22 +433,7 @@ describe('PromoteIngresanteUseCase', () => {
       execute: vi.fn().mockResolvedValue(err(new ValidationError('Ya existe un estudiante con ese DNI'))),
     } as unknown as CreateStudentUseCase;
 
-    const uc = new PromoteIngresanteUseCase(repo, createStudentUC, makeMockEnrollmentUC(), makeMockCycleRepo(), makeMockRunner());
-    const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
-
-    expect(result.isErr()).toBe(true);
-    expect(repo.save).not.toHaveBeenCalled();
-    expect(ingresante.status.value).toBe('ACEPTADO');
-  });
-
-  it('SC-PRM-03: CreateEnrollmentUseCase fails → repo.save not called, ingresante remains ACEPTADO', async () => {
-    const ingresante = makeIngresante('ACEPTADO');
-    const repo = makeMockIngresanteRepo({ findById: vi.fn().mockResolvedValue(ingresante) });
-    const createEnrollmentUC = {
-      execute: vi.fn().mockResolvedValue(err(new ValidationError('Enrollment failed'))),
-    } as unknown as CreateEnrollmentUseCase;
-
-    const uc = new PromoteIngresanteUseCase(repo, makeMockStudentUC(), createEnrollmentUC, makeMockCycleRepo(), makeMockRunner());
+    const uc = new PromoteIngresanteUseCase(repo, createStudentUC, makeMockCycleRepo(), makeMockRunner());
     const result = await uc.execute({ ingresanteId: INGRESANTE_UUID, institutionId: INSTITUTION_ID });
 
     expect(result.isErr()).toBe(true);

@@ -1,7 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { PedagogyModule } from '../pedagogy/pedagogy.module';
-import { EnrollmentModule } from '../enrollment/enrollment.module';
 import { MateriasGruposModule } from '../materia-grupo-ciclo/materia-grupo-ciclo.module';
 import { MaterializeMateriasUseCase } from '../../application/materia-grupo-ciclo/materialize-materias.use-case';
 import { CourseCycleController } from './course-cycle.controller';
@@ -28,16 +27,15 @@ import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-t
 import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
 import { ListAdminSubjectsInCourseCycleUseCase } from '../../application/grading/list-admin-subjects-in-course-cycle.use-case';
 import { PrismaMateriaXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-x-curso-x-ciclo.repository';
-import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository, EnrollmentRepository } from '@educandow/domain';
+import type { CourseSectionRepository, AcademicCycleRepository, StudyPlanRepository } from '@educandow/domain';
 
 // Tokens exported by PedagogyModule
 const CourseSectionRepo = 'CourseSectionRepository';
 const AcademicCycleRepo = 'AcademicCycleRepository';
 const StudyPlanRepo = 'StudyPlanRepository';
-const EnrollmentRepo = 'EnrollmentRepository';
 
 @Module({
-  imports: [AuthModule, PedagogyModule, EnrollmentModule, forwardRef(() => MateriasGruposModule)],
+  imports: [AuthModule, PedagogyModule, forwardRef(() => MateriasGruposModule)],
   controllers: [CourseCycleController],
   providers: [
     PrismaCourseCycleRepository,
@@ -97,8 +95,8 @@ const EnrollmentRepo = 'EnrollmentRepository';
     },
     {
       provide: SetActivePeriodUseCase,
-      useFactory: (cc: PrismaCourseCycleRepository, er: EnrollmentRepository) => new SetActivePeriodUseCase(cc, er),
-      inject: [PrismaCourseCycleRepository, EnrollmentRepo],
+      useFactory: (cc: PrismaCourseCycleRepository) => new SetActivePeriodUseCase(cc),
+      inject: [PrismaCourseCycleRepository],
     },
     {
       provide: ListStudentsByCourseCycleUC,

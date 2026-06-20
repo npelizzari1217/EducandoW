@@ -38,7 +38,6 @@ model Student {
   active    Boolean   @default(true)
   deletedAt DateTime?
 
-  enrollments             Enrollment[]
   attendances             Attendance[]
   guardians               StudentGuardian[]
   salaEnrollments         SalaEnrollment[]
@@ -279,13 +278,13 @@ model AcademicCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
 
-  enrollments         Enrollment[]
   attendances         Attendance[]
   courseCycles        CourseCycle[]
   gradingPeriodDates  GradingPeriodDate[]
   studyPlans          StudyPlan[]         @relation("StudyPlanCycle")
   ingresantes         Ingresante[]
   docentesXCiclo      DocenteXCiclo[]
+  observations        StudentObservation[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -339,40 +338,6 @@ model CourseCycle {
   @@index([studyPlanId])
   @@index([level])
   @@map("course_cycles")
-}
-
-// ── Enrollment ─────────────────────────────────────────────
-
-model Enrollment {
-  id           String   @id @default(uuid())
-  studentId    String
-  cycleId      String?
-  level        Int
-  modality     Int    @default(0)
-  academicYear String
-  grade        String?
-  division     String?
-  status       String   @default("ACTIVE")
-  enrolledAt   DateTime @default(now())
-  printable    Boolean  @default(true)
-  promoted     Boolean  @default(false)
-
-  activeGradingPeriod Int? @map("active_grading_period")
-
-  active    Boolean   @default(true)
-  deletedAt DateTime?
-
-  student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  cycle        AcademicCycle? @relation(fields: [cycleId], references: [uuid], onDelete: SetNull)
-  observations StudentObservation[]
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@index([studentId])
-  @@index([cycleId])
-  @@index([status])
-  @@map("enrollments")
 }
 
 // ── AlumnosXCursoXCiclo ────────────────────────────────────
@@ -1163,23 +1128,23 @@ model Titulo {
 // ── Student Observations ───────────────────────────────────
 
 model StudentObservation {
-  id           String   @id @default(uuid())
-  studentId    String   @map("student_id")
-  authorId     String   @map("author_id")
-  type         String
-  content      String   @db.Text
-  enrollmentId String?  @map("enrollment_id")
-  active       Boolean  @default(true)
-  deletedAt    DateTime? @map("deleted_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id              String   @id @default(uuid())
+  studentId       String   @map("student_id")
+  authorId        String   @map("author_id")
+  type            String
+  content         String   @db.Text
+  academicCycleId String?  @map("academic_cycle_id")
+  active          Boolean  @default(true)
+  deletedAt       DateTime? @map("deleted_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+  student       Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicCycle AcademicCycle? @relation(fields: [academicCycleId], references: [uuid], onDelete: SetNull)
 
   @@index([studentId])
   @@index([authorId])
-  @@index([enrollmentId])
+  @@index([academicCycleId])
   @@map("student_observations")
 }
 

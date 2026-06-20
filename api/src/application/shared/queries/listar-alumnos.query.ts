@@ -26,6 +26,16 @@ interface ListarAlumnosDeps {
   prisma: TenantPrismaClient;
 }
 
+/**
+ * ListarAlumnosQuery — SDD-2 R13.
+ *
+ * nivel/grado/division/estado are resolved from AlumnosXCursoXCiclo → CourseCycle → CourseSection
+ * instead of the legacy student.enrollments include.
+ * - nivel  = String(alumnosXCursoXCiclo[0].courseCycle.level)
+ * - grado  = courseCycle.course.grade
+ * - division = courseCycle.course.division
+ * - estado = 'ACTIVE' when row exists; 'SIN_INSCRIPCION' when not.
+ */
 export class ListarAlumnosQuery implements Query<ListarAlumnosInput, ListadoAlumno[]> {
   constructor(private readonly deps: ListarAlumnosDeps) {}
 
@@ -42,25 +52,38 @@ export class ListarAlumnosQuery implements Query<ListarAlumnosInput, ListadoAlum
     const alumnos = await this.deps.prisma.student.findMany({
       where: where as Record<string, unknown>,
       include: {
-        enrollments: {
-          where: { status: 'ACTIVE' },
-          select: { level: true, grade: true, division: true },
+        alumnosXCursoXCiclo: {
+          take: 1,
+          orderBy: { createdAt: 'desc' as const },
+          include: {
+            courseCycle: {
+              select: {
+                level: true,
+                course: { select: { grade: true, division: true } },
+              },
+            },
+          },
         },
       },
       skip: ((input.page ?? 1) - 1) * (input.pageSize ?? 20),
       take: input.pageSize ?? 20,
     });
 
-    const result = alumnos.map((a: Record<string, unknown>) => ({
-      id: a.id as string,
-      nombre: a.firstName as string,
-      apellido: a.lastName as string,
-      dni: a.dni as string,
-      nivel: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.level as string ?? '',
-      grado: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.grade as string | undefined,
-      division: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.division as string | undefined,
-      estado: (a.enrollments as Array<Record<string, unknown>>)?.[0]?.status as string ?? 'SIN_INSCRIPCION',
-    }));
+    const result = alumnos.map((a: Record<string, unknown>) => {
+      const axcc = (a.alumnosXCursoXCiclo as Array<Record<string, unknown>>)?.[0];
+      const cc = axcc?.courseCycle as Record<string, unknown> | undefined;
+      const course = cc?.course as Record<string, unknown> | undefined;
+      return {
+        id: a.id as string,
+        nombre: a.firstName as string,
+        apellido: a.lastName as string,
+        dni: a.dni as string,
+        nivel: axcc ? String(cc?.level ?? '') : '',
+        grado: course?.grade as string | undefined,
+        division: course?.division as string | undefined,
+        estado: axcc ? 'ACTIVE' : 'SIN_INSCRIPCION',
+      };
+    });
 
     return ok(result);
   }

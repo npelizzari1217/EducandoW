@@ -19,7 +19,7 @@ const ALLOWED_LEVELS: [string, ...string[]] = [
   'ADMINISTRACION',
 ];
 
-/** Niveles pedagógicos solamente (excluye ADMINISTRACION). Para enrollment, subjects, course-sections */
+/** Niveles pedagógicos solamente (excluye ADMINISTRACION). Para subjects, course-sections, course-cycles */
 const PEDAGOGICAL_LEVEL_NAMES: [string, ...string[]] = [
   'INICIAL', 'TALLERES_INICIAL', 'BILINGÜISMO_INICIAL',
   'PRIMARIO', 'TALLERES_PRIMARIO', 'BILINGÜISMO_PRIMARIO',
@@ -73,18 +73,6 @@ export const CreateStudentSchema = z.object({
   institutionId: uuidField,
 });
 export type CreateStudentDTO = z.infer<typeof CreateStudentSchema>;
-
-export const CreateEnrollmentSchema = z.object({
-  studentId: uuidField,
-  institutionId: uuidField,
-  level: pedagogicalLevelField,
-  modality: modalityField,
-  academicYear: z.string().length(4).regex(/^\d+$/, 'Año inválido'),
-  grade: codeField.optional(),
-  division: codeField.optional(),
-  cycleId: z.string().optional(),
-});
-export type CreateEnrollmentDTO = z.infer<typeof CreateEnrollmentSchema>;
 
 export const CreateSubjectSchema = z.object({
   name: textField,

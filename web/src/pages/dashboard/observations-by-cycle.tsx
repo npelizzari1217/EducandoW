@@ -18,22 +18,17 @@ interface Observation {
   studentId: string;
   type: 'PEDAGOGICAL' | 'PSYCHOPEDAGOGICAL';
   content: string;
-  enrollmentId?: string;
+  academicCycleId?: string;
   author?: string;
   createdAt?: string;
-}
-
-interface Enrollment {
-  id: string;
-  studentId: string;
-  cycleId: string;
 }
 
 interface CreateObservationBody {
   studentId: string;
   type: string;
   content: string;
-  enrollmentId?: string;
+  /** SDD-2 R14: academicCycleId replaces enrollmentId. Passed directly from selected cycle. */
+  academicCycleId?: string;
 }
 
 const TYPE_BADGE: Record<string, { bg: string; color: string; label: string }> = {
@@ -54,7 +49,6 @@ export default function ObservationsByCyclePage() {
 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ studentId: '', type: 'PEDAGOGICAL', content: '' });
-  const [enrollmentError, setEnrollmentError] = useState('');
 
   useEffect(() => {
     apiClient
@@ -63,56 +57,35 @@ export default function ObservationsByCyclePage() {
   }, []);
 
   const handleCreate = async () => {
-    setEnrollmentError('');
     setCreateError('');
-
-    if (form.type === 'PSYCHOPEDAGOGICAL') {
-      const ok = await create({ studentId: form.studentId, type: form.type, content: form.content });
-      if (ok) {
-        setShowForm(false);
-        setForm({ studentId: '', type: 'PEDAGOGICAL', content: '' });
-        reload();
-      }
-      return;
-    }
-
-    // PEDAGOGICAL: must resolve the student's enrollment for the selected cycle
     if (!selectedCycle) return;
 
-    try {
-      const res = await apiClient.get('/enrollments', { params: { studentId: form.studentId } });
-      const enrollments: Enrollment[] = res.data?.data ?? [];
-      const enrollment = enrollments.find(e => e.cycleId === selectedCycle.uuid);
+    // SDD-2 R14: pass academicCycleId = selectedCycle.uuid directly — no enrollment lookup.
+    // PEDAGOGICAL and PSYCHOPEDAGOGICAL both use academicCycleId; backend now accepts it.
+    const body: CreateObservationBody = {
+      studentId: form.studentId,
+      type: form.type,
+      content: form.content,
+    };
+    if (form.type === 'PEDAGOGICAL') {
+      body.academicCycleId = selectedCycle.uuid;
+    }
 
-      if (!enrollment) {
-        setEnrollmentError('El alumno no está inscripto en este ciclo lectivo');
-        return;
-      }
-
-      const ok = await create({
-        studentId: form.studentId,
-        type: form.type,
-        content: form.content,
-        enrollmentId: enrollment.id,
-      });
-      if (ok) {
-        setShowForm(false);
-        setForm({ studentId: '', type: 'PEDAGOGICAL', content: '' });
-        reload();
-      }
-    } catch {
-      setEnrollmentError('Error al verificar inscripción del alumno');
+    const ok = await create(body);
+    if (ok) {
+      setShowForm(false);
+      setForm({ studentId: '', type: 'PEDAGOGICAL', content: '' });
+      reload();
     }
   };
 
   const handleCycleChange = (uuid: string) => {
     setSelectedCycleUuid(uuid);
     setShowForm(false);
-    setEnrollmentError('');
     setCreateError('');
   };
 
-  const displayError = enrollmentError || createError;
+  const displayError = createError;
 
   return (
     <div>
@@ -126,7 +99,6 @@ export default function ObservationsByCyclePage() {
             variant={showForm ? 'danger-soft' : 'success-soft'}
             onClick={() => {
               setShowForm(!showForm);
-              setEnrollmentError('');
               setCreateError('');
             }}
           >
@@ -187,10 +159,7 @@ export default function ObservationsByCyclePage() {
                 id="obs-type"
                 className="input"
                 value={form.type}
-                onChange={e => {
-                  setForm({ ...form, type: e.target.value });
-                  setEnrollmentError('');
-                }}
+                onChange={e => setForm({ ...form, type: e.target.value })}
               >
                 <option value="PEDAGOGICAL">Pedagógica</option>
                 <option value="PSYCHOPEDAGOGICAL">Psicopedagógica</option>

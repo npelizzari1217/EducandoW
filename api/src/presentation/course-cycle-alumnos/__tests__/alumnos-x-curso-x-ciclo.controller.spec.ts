@@ -112,6 +112,34 @@ describe('AlumnosXCursoXCicloController — DELETE /course-cycles/:ccId/alumnos/
   });
 });
 
+// ── GET /students/:studentId/memberships ──────────────────────────────────────
+
+describe('AlumnosXCursoXCicloController — GET /students/:studentId/memberships', () => {
+  it('C-08: 200 — returns { data: StudentMembershipEnriched[] }', async () => {
+    const memberships = [
+      { id: 'axcc-1', courseCycleId: 'cc-1', printable: true, level: 3, academicYear: '2026', grade: '1', division: 'A', createdAt: '2026-01-01T00:00:00.000Z' },
+    ];
+    const listMembershipsUC = { execute: vi.fn().mockResolvedValue(memberships) };
+    const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
+    ctrl.listMembershipsUC = listMembershipsUC;
+
+    const result = await ctrl.listStudentMemberships('stu-1');
+
+    expect(listMembershipsUC.execute).toHaveBeenCalledWith('stu-1');
+    expect(result).toEqual({ data: memberships });
+  });
+
+  it('C-09: 200 — returns { data: [] } when student has no memberships', async () => {
+    const listMembershipsUC = { execute: vi.fn().mockResolvedValue([]) };
+    const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
+    ctrl.listMembershipsUC = listMembershipsUC;
+
+    const result = await ctrl.listStudentMemberships('stu-no-cc');
+
+    expect(result).toEqual({ data: [] });
+  });
+});
+
 // ── DTO schema — 400 validation ───────────────────────────────────────────────
 
 describe('AddStudentToCourseCycleSchema — Zod validation (400 scenarios)', () => {

@@ -302,6 +302,8 @@ interface StudentAction {
       level: number;
       modality: number | null;
       institutionId?: string;
+      /** SDD-2 R15: AcademicCycle.uuid for StudentObservationsPanel. */
+      academicCycleId?: string;
     },
   ) => React.ReactNode;
 }
@@ -328,6 +330,7 @@ const STUDENT_ACTIONS: StudentAction[] = [
         studentId={s.studentId}
         institutionId={ctx.institutionId}
         type="PEDAGOGICAL"
+        academicCycleId={ctx.academicCycleId}
       />
     ),
   },
@@ -473,6 +476,7 @@ export default function SubjectGradingByCoursePage() {
             level: ccContext!.level,
             modality: ccContext!.modality,
             institutionId: ccContext!.institutionId,
+            academicCycleId: ccContext!.academicCycleId,
           })}
       </Modal>
     </div>

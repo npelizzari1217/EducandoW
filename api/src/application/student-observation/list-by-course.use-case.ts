@@ -4,7 +4,6 @@ import {
   NotFoundError,
   StudentObservation, Id,
   StudentObservationRepository,
-  EnrollmentRepository,
   CourseCycleRepository,
   getHighestRoleRank,
 } from '@educandow/domain';
@@ -20,31 +19,23 @@ export class ListObservationsByCourseUseCase {
   constructor(
     private readonly observationRepo: StudentObservationRepository,
     private readonly courseCycleRepo: CourseCycleRepository,
-    private readonly enrollmentRepo: EnrollmentRepository,
   ) {}
 
   async execute(input: ListByCourseInput): Promise<Result<StudentObservation[], Error>> {
     const callerRank = getHighestRoleRank(input.callerRoles);
 
-    // 1. Find the CourseCycle by its uuid
+    // 1. Resolve AcademicCycle uuid via CourseCycle (ADR-3)
     const courseCycle = await this.courseCycleRepo.findByUuid(input.cycleId);
     if (!courseCycle) {
       return err(new NotFoundError('CourseCycle', input.cycleId));
     }
 
-    // 2. Find all enrollments for this academic cycle
-    const enrollments = await this.enrollmentRepo.findByCycleId(courseCycle.cycleId);
-    const studentIds = enrollments.map((e) => Id.reconstruct(e.studentId.get()));
+    // 2. Fetch observations scoped to the resolved AcademicCycle
+    const observations = await this.observationRepo.findByAcademicCycleId(
+      Id.reconstruct(courseCycle.cycleId),
+    );
 
-    if (studentIds.length === 0) {
-      return ok([]);
-    }
-
-    // 3. Fetch observations for all these students
-    const observations = await this.observationRepo.findByStudentIds(studentIds);
-
-    // 4. Apply cycle-scope + rank filter via shared helper
-    const cycleEnrollmentIds = new Set(enrollments.map((e) => e.id.get()));
-    return ok(filterCycleObservations(observations, cycleEnrollmentIds, callerRank));
+    // 3. Apply academicCycleId equality filter + rank visibility
+    return ok(filterCycleObservations(observations, courseCycle.cycleId, callerRank));
   }
 }

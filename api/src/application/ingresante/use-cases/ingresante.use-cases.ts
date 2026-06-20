@@ -15,7 +15,6 @@ import {
   AcademicCycleRepository,
 } from '@educandow/domain';
 import { CreateStudentUseCase } from '../../student/use-cases/student.use-cases';
-import { CreateEnrollmentUseCase } from '../../enrollment/use-cases/enrollment.use-cases';
 import type { TenantTransactionRunner } from '../../shared/ports/tenant-transaction-runner';
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -162,7 +161,6 @@ export interface PromoteIngresanteInput {
 
 export interface PromoteIngresanteOutput {
   studentId: string;
-  enrollmentId: string;
 }
 
 @Injectable()
@@ -170,7 +168,6 @@ export class PromoteIngresanteUseCase {
   constructor(
     private readonly ingresanteRepo: IngresanteRepository,
     private readonly createStudentUC: CreateStudentUseCase,
-    private readonly createEnrollmentUC: CreateEnrollmentUseCase,
     private readonly academicCycleRepo: AcademicCycleRepository,
     private readonly runner: TenantTransactionRunner,
   ) {}
@@ -188,15 +185,12 @@ export class PromoteIngresanteUseCase {
     }
 
     // 3. Derive academicYear from the linked AcademicCycle, or fall back to current year
-    let academicYear = input.academicYear ?? String(new Date().getFullYear());
+    //    (used for future assignment to a CourseCycle — no longer auto-creates an Enrollment)
     if (ingresante.cycleId) {
-      const cycle = await this.academicCycleRepo.findByUuid(ingresante.cycleId.get());
-      if (cycle) {
-        academicYear = String(cycle.startDate.getFullYear());
-      }
+      await this.academicCycleRepo.findByUuid(ingresante.cycleId.get());
     }
 
-    // 4–6. Run atomically: any err inside throws → Prisma rolls back
+    // 4–5. Run atomically: any err inside throws → Prisma rolls back
     try {
       const output = await this.runner.run(async () => {
         // 4. Create student
@@ -213,23 +207,12 @@ export class PromoteIngresanteUseCase {
         if (studentResult.isErr()) throw studentResult.unwrapErr();
         const student = studentResult.unwrap();
 
-        // 5. Create enrollment
-        const enrollmentResult = await this.createEnrollmentUC.execute({
-          studentId: student.id.get(),
-          institutionId: input.institutionId,
-          level: ingresante.level.toString(),
-          academicYear,
-          cycleId: ingresante.cycleId?.get(),
-        });
-        if (enrollmentResult.isErr()) throw enrollmentResult.unwrapErr();
-        const enrollment = enrollmentResult.unwrap();
-
-        // 6. Mark ingresante INGRESO and persist
+        // 5. Mark ingresante INGRESO and persist
         const markResult = ingresante.markIngreso();
         if (markResult.isErr()) throw markResult.unwrapErr();
         await this.ingresanteRepo.save(ingresante);
 
-        return { studentId: student.id.get(), enrollmentId: enrollment.id.get() };
+        return { studentId: student.id.get() };
       });
 
       return ok(output);

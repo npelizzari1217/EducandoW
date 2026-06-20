@@ -1,5 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
+import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+
+vi.mock('../../../infrastructure/auth/tenant.context', () => ({
+  TenantContext: {
+    getClient: vi.fn(),
+    getInstitutionId: vi.fn().mockReturnValue(null),
+  },
+}));
 
 // ── Shared mock factories ─────────────────────────────────────────────────────
 
@@ -593,5 +601,30 @@ describe('expiry filter — llamadoExamen.findMany called exactly once (ADR-2 no
     await (uc as any).buildMateriasTerciario(mockClient, makeTerciarioEnrollment());
 
     expect(mockClient.llamadoExamen.findMany).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ── T12/T13: execute() dispatch via AlumnosXCursoXCiclo adapter (Terciario) ────
+// RED until T13 rewrites execute(); GREEN after T13.
+
+describe('execute() via AlumnosXCursoXCiclo adapter — Terciario (level=40)', () => {
+  it('T12-TER: execute fetches alumnosXCursoXCiclo + courseCycle (not enrollment) for Terciario dispatch', async () => {
+    const axcc = { id: 'axcc-ter', courseCycleId: 'cc-ter', studentId: 'stu-ter', printable: false };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue({ uuid: 'cc-ter', level: 40, cycleId: 'acyc-ter', course: { grade: 'Tecnicatura', division: null, academicYear: '2026' } }) },
+      student: { findUnique: vi.fn().mockResolvedValue(null) },
+      attendance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = makeTerciarioUseCase();
+
+    // printable=false → STUDENT_NOT_PRINTABLE (GREEN after T13)
+    // RED now: execute() reads enrollment.findUnique → TypeError instead
+    await expect(uc.execute('axcc-ter')).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
+    );
+    expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
   });
 });
