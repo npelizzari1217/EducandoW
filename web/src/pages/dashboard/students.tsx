@@ -4,6 +4,7 @@ import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, useApiCreate, useApiUpdate, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
+import { Modal } from '../../components/ui/modal';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -370,8 +371,11 @@ export default function StudentsPage() {
         <Button variant="ghost" onClick={adminReload} style={{ marginTop: '1.25rem' }}>Buscar</Button>
       </div>
 
-      {showForm && (
-        <Card title={editingId ? 'Editar estudiante' : 'Nuevo estudiante'} className="mt-md">
+      <Modal
+        open={showForm}
+        title={editingId ? 'Editar estudiante' : 'Nuevo estudiante'}
+        onClose={resetForm}
+      >
           {(formError || createError) && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{formError || createError || updateError}</div>}
           <div className="flex flex-col gap-md">
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-md)' }}>
@@ -413,8 +417,7 @@ export default function StudentsPage() {
               <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>
             </div>
           </div>
-        </Card>
-      )}
+      </Modal>
 
       <Card className="mt-lg">
         <Table

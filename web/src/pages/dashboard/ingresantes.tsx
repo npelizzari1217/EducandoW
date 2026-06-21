@@ -6,6 +6,7 @@ import { useCan } from '../../hooks/use-can';
 import apiClient from '../../api/client';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
+import { Modal } from '../../components/ui/modal';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { LEVEL_CATALOG } from '../../constants/levels';
@@ -238,8 +239,11 @@ export default function IngresantesPage() {
       </div>
 
       {/* ── Create form ──────────────────────────────────────── */}
-      {showForm && can('ENROLLMENTS', 'CREATE') && (
-        <Card title="Nuevo ingresante" className="mt-md">
+      <Modal
+        open={showForm && can('ENROLLMENTS', 'CREATE')}
+        title="Nuevo ingresante"
+        onClose={() => setShowForm(false)}
+      >
           {createError && (
             <div style={{
               background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem',
@@ -350,8 +354,7 @@ export default function IngresantesPage() {
               <Button variant="danger-soft" onClick={() => setShowForm(false)}>Cancelar</Button>
             </div>
           </div>
-        </Card>
-      )}
+      </Modal>
 
       {/* ── Status transition error ───────────────────────────── */}
       {statusError && (
