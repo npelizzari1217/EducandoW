@@ -38,6 +38,8 @@ interface StudentItem {
 export interface AlumnosCursoCicloPanelProps {
   ccId: string;
   onClose: () => void;
+  /** When rendered inside a Modal, hide the panel's own header (Modal provides title + close). */
+  embedded?: boolean;
 }
 
 // ── Derived printable state ───────────────────────────────────────────────────
@@ -66,13 +68,13 @@ const rowStyle: React.CSSProperties = {
   justifyContent: 'space-between',
   padding: '0.25rem 0.5rem',
   borderRadius: 'var(--radius-sm)',
-  background: 'var(--color-surface-2, #f8fafc)',
+  background: 'var(--color-surface-secondary)',
   marginBottom: '0.25rem',
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanelProps) {
+export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCursoCicloPanelProps) {
   const [current, setCurrent] = useState<AlumnoCursoCicloItem[]>([]);
   const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,7 +208,8 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
         background: 'var(--color-surface)',
       }}
     >
-      {/* Header */}
+      {/* Header — hidden when embedded in a Modal (Modal provides title + close) */}
+      {!embedded && (
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
         <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
           Alumnos del Ciclo
@@ -220,6 +223,7 @@ export function AlumnosCursoCicloPanel({ ccId, onClose }: AlumnosCursoCicloPanel
           Cerrar
         </Button>
       </div>
+      )}
 
       {/* Loading */}
       {loading && <p style={{ ...labelStyle }}>Cargando...</p>}

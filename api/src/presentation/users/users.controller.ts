@@ -49,12 +49,24 @@ export class UsersController {
     @Query('institutionId') institutionId?: string,
     @Query('includeInactive') includeInactive?: string,
     @Query('role') role?: string,
+    @Query('roles') rolesParam?: string,
+    @Query('level') levelParam?: string,
   ) {
+    // Parse CSV roles: "TEACHER,PRECEPTOR" → ["TEACHER", "PRECEPTOR"]
+    const roles = rolesParam
+      ? rolesParam.split(',').map((r) => r.trim()).filter(Boolean)
+      : undefined;
+
+    // Parse level as integer (base level: 1-4)
+    const level = levelParam !== undefined ? parseInt(levelParam, 10) : undefined;
+
     return this.listUC.execute({
       creatorRoles: this.getCreatorRoles(req),
       institutionId,
       includeInactive: includeInactive === 'true',
       role,
+      roles,
+      level: Number.isNaN(level) ? undefined : level,
     });
   }
 

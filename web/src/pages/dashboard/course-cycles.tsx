@@ -6,6 +6,7 @@ import { useCourseCycles, useCreateCourseCycle, useUpdateCourseCycle, useDeleteC
 import type { CourseCycle, CreateCourseCycleDto, UpdateCourseCycleDto } from '../../types/course-cycle';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
+import { Modal } from '../../components/ui/modal';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
@@ -346,17 +347,21 @@ export default function CourseCyclesPage() {
         )}
       </Card>
 
-      {/* Alumnos del Ciclo panel — inline below the table */}
-      {alumnosPanelCcId && (
-        <Card className="mt-md">
-          <div style={{ padding: 'var(--space-md)' }}>
-            <AlumnosCursoCicloPanel
-              ccId={alumnosPanelCcId}
-              onClose={() => setAlumnosPanelCcId(null)}
-            />
-          </div>
-        </Card>
-      )}
+      {/* Alumnos del Ciclo — popup modal above the listing */}
+      <Modal
+        open={!!alumnosPanelCcId}
+        title="Alumnos del Ciclo"
+        size="lg"
+        onClose={() => setAlumnosPanelCcId(null)}
+      >
+        {alumnosPanelCcId && (
+          <AlumnosCursoCicloPanel
+            ccId={alumnosPanelCcId}
+            onClose={() => setAlumnosPanelCcId(null)}
+            embedded
+          />
+        )}
+      </Modal>
 
       {/* Toast */}
       {toast && (

@@ -504,7 +504,7 @@ export default function AsistenciaMensualPage() {
                       padding: '0.25rem 0.5rem',
                       borderBottom: '2px solid var(--color-border, #e2e8f0)',
                       minWidth: 120,
-                      background: 'var(--color-surface-2, #f8fafc)',
+                      background: 'var(--color-surface-secondary)',
                     }}
                   >
                     Alumno
@@ -517,7 +517,7 @@ export default function AsistenciaMensualPage() {
                         borderBottom: '2px solid var(--color-border, #e2e8f0)',
                         minWidth: 36,
                         textAlign: 'center',
-                        background: 'var(--color-surface-2, #f8fafc)',
+                        background: 'var(--color-surface-secondary)',
                       }}
                     >
                       {d}

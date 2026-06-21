@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   EducationalLevelCode,
   EducationalModalityCode,
@@ -8,6 +8,7 @@ import {
 import {
   userToResponse,
   validateLevelsSubset,
+  ListUsersUseCase,
 } from '../use-cases/users.use-cases';
 
 // ── userToResponse tests ──────────────────────────────────
@@ -207,5 +208,130 @@ describe('validateLevelsSubset', () => {
       [],
     );
     expect(result.isErr()).toBe(true);
+  });
+});
+
+// ── ListUsersUseCase — new filter params ─────────────────────
+
+/**
+ * Helper to build a fake UserRow as returned by Prisma's user.findMany().
+ */
+function makeUserRow(overrides: {
+  id: string;
+  roles?: string[];
+  levels?: { level: number; modality: number }[];
+  active?: boolean;
+}) {
+  return {
+    id: overrides.id,
+    email: `${overrides.id}@test.com`,
+    name: overrides.id,
+    passwordHash: 'hash',
+    institutionId: 'inst-1',
+    active: overrides.active ?? true,
+    failedAttempts: 0,
+    lockedUntil: null,
+    deletedAt: null,
+    createdAt: new Date('2025-01-01'),
+    updatedAt: new Date('2025-01-02'),
+    userRoles: (overrides.roles ?? []).map((name) => ({
+      role: { id: `role-${name}`, name, description: name },
+    })),
+    institution: { id: 'inst-1', name: 'Escuela Test' },
+    userModules: [],
+    userLevels: (overrides.levels ?? []).map((l) => ({ level: l.level, modality: l.modality })),
+    firstName: null,
+    lastName: null,
+    dni: null,
+    title: null,
+    phone: null,
+  };
+}
+
+/**
+ * Build a mock PrismaService that returns the given rows from getMasterClient().user.findMany().
+ */
+function makeMockPrisma(rows: ReturnType<typeof makeUserRow>[]) {
+  return {
+    getMasterClient: () => ({
+      user: {
+        findMany: vi.fn().mockResolvedValue(rows),
+      },
+    }),
+  } as unknown as import('../../../infrastructure/persistence/prisma/prisma.service').PrismaService;
+}
+
+describe('ListUsersUseCase — level and roles filters', () => {
+  const userPrimario = makeUserRow({
+    id: 'u-primario',
+    roles: ['TEACHER'],
+    levels: [{ level: 2, modality: 0 }], // Primario Común
+  });
+  const userSecundario = makeUserRow({
+    id: 'u-secundario',
+    roles: ['PRECEPTOR'],
+    levels: [{ level: 3, modality: 0 }], // Secundario Común
+  });
+  const userBothLevels = makeUserRow({
+    id: 'u-both',
+    roles: ['DIRECTOR'],
+    levels: [
+      { level: 2, modality: 0 },
+      { level: 3, modality: 0 },
+    ],
+  });
+  const userNoLevel = makeUserRow({
+    id: 'u-no-level',
+    roles: ['SECRETARIO'],
+    levels: [],
+  });
+
+  const allUsers = [userPrimario, userSecundario, userBothLevels, userNoLevel];
+
+  // T-L1: level=2 returns only users with userLevel.level === 2
+  it('T-L1: level=2 filters users with Primario level only', async () => {
+    const uc = new ListUsersUseCase(makeMockPrisma(allUsers));
+    const result = await uc.execute({ creatorRoles: ['ROOT'], level: 2 });
+    const ids = result.data.map((u) => u.id);
+    expect(ids).toContain('u-primario');
+    expect(ids).toContain('u-both');
+    expect(ids).not.toContain('u-secundario');
+    expect(ids).not.toContain('u-no-level');
+  });
+
+  // T-L2: roles=['TEACHER','PRECEPTOR'] returns users with any of those roles (OR)
+  it('T-L2: roles=["TEACHER","PRECEPTOR"] applies OR filter', async () => {
+    const uc = new ListUsersUseCase(makeMockPrisma(allUsers));
+    const result = await uc.execute({ creatorRoles: ['ROOT'], roles: ['TEACHER', 'PRECEPTOR'] });
+    const ids = result.data.map((u) => u.id);
+    expect(ids).toContain('u-primario'); // TEACHER
+    expect(ids).toContain('u-secundario'); // PRECEPTOR
+    expect(ids).not.toContain('u-both'); // DIRECTOR — no match
+    expect(ids).not.toContain('u-no-level'); // SECRETARIO — no match
+  });
+
+  // T-L3: level + roles combined (AND)
+  it('T-L3: level=2 + roles=["TEACHER"] returns only intersection', async () => {
+    const uc = new ListUsersUseCase(makeMockPrisma(allUsers));
+    const result = await uc.execute({
+      creatorRoles: ['ROOT'],
+      level: 2,
+      roles: ['TEACHER'],
+    });
+    const ids = result.data.map((u) => u.id);
+    expect(ids).toContain('u-primario'); // Primario + TEACHER
+    expect(ids).not.toContain('u-both'); // Primario but DIRECTOR, not TEACHER
+    expect(ids).not.toContain('u-secundario'); // PRECEPTOR, not Primario
+  });
+
+  // T-L4: back-compat — role (singular string) still works
+  it('T-L4: role (singular, back-compat) still filters correctly', async () => {
+    const uc = new ListUsersUseCase(makeMockPrisma(allUsers));
+    const result = await uc.execute({ creatorRoles: ['ROOT'], role: 'DIRECTOR' });
+    const ids = result.data.map((u) => u.id);
+    expect(ids).toContain('u-both'); // DIRECTOR
+    expect(ids).not.toContain('u-primario'); // TEACHER, not DIRECTOR
+    expect(ids).not.toContain('u-secundario'); // PRECEPTOR, not DIRECTOR
+    expect(ids).not.toContain('u-no-level'); // SECRETARIO, not DIRECTOR
   });
 });

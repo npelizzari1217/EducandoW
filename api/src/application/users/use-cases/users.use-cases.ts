@@ -110,7 +110,12 @@ export class ListUsersUseCase {
     creatorRoles: string[];
     institutionId?: string;
     includeInactive?: boolean;
+    /** @deprecated Use `roles` for multi-role OR filtering. Kept for back-compat. */
     role?: string;
+    /** OR filter: include users that have ANY of these roles. Takes priority over `role`. */
+    roles?: string[];
+    /** Filter users that have a UserLevel entry with this base level (1=Inicial, 2=Primario, 3=Secundario, 4=Terciario). */
+    level?: number;
   }) {
     const isRoot = options.creatorRoles.includes('ROOT');
     const client = this.prisma.getMasterClient();
@@ -138,14 +143,32 @@ export class ListUsersUseCase {
           return canViewUser(options.creatorRoles, targetRoles);
         });
 
-    // Filtrar por rol específico cuando se pasa el query param ?role=
-    const byRole = options.role
+    // Normalizar: `roles` tiene prioridad; si viene `role` (back-compat), lo convierte a array
+    const roleFilter: string[] | null =
+      options.roles && options.roles.length > 0
+        ? options.roles
+        : options.role
+          ? [options.role]
+          : null;
+
+    // Filtrar por roles (OR) cuando se especifican
+    const byRole = roleFilter
       ? filtered.filter((u) =>
-          (u.userRoles ?? []).some((ur: { role: { name: string } }) => ur.role.name === options.role),
+          (u.userRoles ?? []).some((ur: { role: { name: string } }) =>
+            roleFilter.includes(ur.role.name),
+          ),
         )
       : filtered;
 
-    return { data: byRole.map((r) => userToResponse(r)) };
+    // Filtrar por nivel base (UserLevel.level) cuando se especifica
+    const byLevel =
+      options.level !== undefined
+        ? byRole.filter((u) =>
+            (u.userLevels ?? []).some((ul) => ul.level === options.level),
+          )
+        : byRole;
+
+    return { data: byLevel.map((r) => userToResponse(r)) };
   }
 }
 

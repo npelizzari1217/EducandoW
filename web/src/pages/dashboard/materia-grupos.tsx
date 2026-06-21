@@ -356,7 +356,7 @@ export default function MateriasGruposPage() {
                     justifyContent: 'space-between',
                     padding: 'var(--space-sm) var(--space-md)',
                     borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-surface-2, #f8fafc)',
+                    background: 'var(--color-surface-secondary)',
                     marginBottom: 'var(--space-xs)',
                   }}
                 >
@@ -499,7 +499,7 @@ function TeacherPickerInline({
         padding: 'var(--space-sm)',
         border: '1px solid var(--color-border)',
         borderRadius: 'var(--radius-sm)',
-        background: 'var(--color-surface-2, #f8fafc)',
+        background: 'var(--color-surface-secondary)',
       }}
       data-testid="teacher-picker"
     >
@@ -607,7 +607,7 @@ function AlumnosPanelInline({ state, onAdd, onClose }: AlumnosPanelInlineProps) 
             justifyContent: 'space-between',
             padding: '0.25rem 0.5rem',
             borderRadius: 'var(--radius-sm)',
-            background: 'var(--color-surface-2, #f8fafc)',
+            background: 'var(--color-surface-secondary)',
             marginBottom: '0.25rem',
           }}
         >
@@ -641,7 +641,16 @@ interface AsignacionDto {
   lastName?: string | null;
 }
 
+interface DocenteOption {
+  id: string;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  roles: string[];
+}
+
 function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
+  const { user } = useAuth();
   const [asignaciones, setAsignaciones] = useState<AsignacionDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -649,6 +658,8 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
   const [formRol, setFormRol] = useState<'PRECEPTOR' | 'TITULAR'>('PRECEPTOR');
   const [formTurno, setFormTurno] = useState('');
   const [saving, setSaving] = useState(false);
+  const [docentes, setDocentes] = useState<DocenteOption[]>([]);
+  const [loadingDocentes, setLoadingDocentes] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -662,6 +673,49 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Carga docentes cuando se abre el formulario de asignación
+  useEffect(() => {
+    if (!showForm) return;
+
+    let cancelled = false;
+    setLoadingDocentes(true);
+    setDocentes([]);
+
+    // Primero obtenemos el course-cycle para saber el nivel base
+    apiClient
+      .get<{ data: { level?: number } }>(`/course-cycles/${ccId}`)
+      .then((ccRes) => {
+        if (cancelled) return;
+        const compositeLevel = ccRes.data?.data?.level;
+        const baseLevel =
+          compositeLevel !== undefined && compositeLevel > 0
+            ? Math.floor(compositeLevel / 10)
+            : undefined;
+
+        const params = new URLSearchParams({
+          roles: 'DIRECTOR,SECRETARIO,TEACHER,PRECEPTOR',
+        });
+        if (user?.institutionId) params.set('institutionId', user.institutionId);
+        if (baseLevel !== undefined) params.set('level', String(baseLevel));
+
+        return apiClient.get<{ data: DocenteOption[] }>(`/users?${params.toString()}`);
+      })
+      .then((res) => {
+        if (cancelled || !res) return;
+        setDocentes(res.data?.data ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setDocentes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDocentes(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showForm, ccId, user?.institutionId]);
 
   const handleAssign = async () => {
     if (!formUserId) return;
@@ -722,7 +776,7 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: 'var(--space-xs) var(--space-sm)',
             borderRadius: 'var(--radius-sm)',
-            background: 'var(--color-surface-2, #f8fafc)',
+            background: 'var(--color-surface-secondary)',
             marginBottom: 'var(--space-xs)',
           }}
         >
@@ -758,15 +812,34 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
           <div style={{ display: 'grid', gap: 'var(--space-sm)', gridTemplateColumns: '1fr 1fr 1fr' }}>
             <div>
               <label style={{ ...labelStyle, display: 'block', marginBottom: '0.25rem' }}>
-                Usuario (userId)
+                Docente
               </label>
-              <input
-                type="text"
+              <select
                 value={formUserId}
                 onChange={(e) => setFormUserId(e.target.value)}
-                placeholder="ID del docente"
+                disabled={loadingDocentes}
                 style={inputStyle}
-              />
+              >
+                {loadingDocentes ? (
+                  <option value="">Cargando docentes...</option>
+                ) : (
+                  <>
+                    <option value="">— Seleccioná un docente —</option>
+                    {docentes.map((d) => {
+                      const fullName =
+                        d.lastName && d.firstName
+                          ? `${d.lastName}, ${d.firstName}`
+                          : d.name;
+                      const rol = d.roles?.[0] ?? '';
+                      return (
+                        <option key={d.id} value={d.id}>
+                          {rol ? `${fullName} — ${rol}` : fullName}
+                        </option>
+                      );
+                    })}
+                  </>
+                )}
+              </select>
             </div>
             <div>
               <label style={{ ...labelStyle, display: 'block', marginBottom: '0.25rem' }}>
