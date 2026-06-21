@@ -34,7 +34,6 @@ import AcademicCyclesPage from './pages/dashboard/academic-cycles';
 import ObservationsPage from './pages/dashboard/observations';
 import ObservationsByCyclePage from './pages/dashboard/observations-by-cycle';
 import GradingScalesPage from './pages/dashboard/grading-scales';
-import GradingPeriodsPage from './pages/dashboard/grading-periods';
 import SubjectGradingBySubjectPage from './pages/dashboard/subject-grading-by-subject';
 import SubjectGradingByCoursePage from './pages/dashboard/subject-grading-by-course';
 import IngresantesPage from './pages/dashboard/ingresantes';
@@ -77,7 +76,6 @@ function App() {
               <Route path="/observations-by-cycle" element={<ObservationsByCyclePage />} />
               <Route path="/attendance-types" element={<ProtectedRoute moduleCode="ATTENDANCE_TYPES" action="READ"><AttendanceTypesPage /></ProtectedRoute>} />
               <Route path="/grading-scales" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingScalesPage /></ProtectedRoute>} />
-              <Route path="/grading-periods" element={<ProtectedRoute moduleCode="GRADING_CONFIG" action="READ"><GradingPeriodsPage /></ProtectedRoute>} />
               {/* PR5-T7 / PR6: /competency-grading serves SubjectGradingBySubject (Primario + Secundario) */}
               <Route path="/competency-grading" element={<SubjectGradingBySubjectPage />} />
               {/* PR6-T3: /grading/by-course — SubjectGradingByCourse (homeroom/student view, Primario + Secundario) */}
