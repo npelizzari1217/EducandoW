@@ -19,6 +19,7 @@ import { useCan } from '../../hooks/use-can';
 import apiClient from '../../api/client';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Modal } from '../../components/ui/modal';
 import PremiumHeader from '../../components/ui/premium-header';
 import { GrupoSelector } from './components/GrupoSelector';
 import type { MateriaXCursoXCiclo, GrupoXCursoXMateriaXCiclo } from '../../types/materia-grupo';
@@ -468,6 +469,14 @@ interface DocenteOption {
   roles: string[];
 }
 
+interface PlanificacionDto {
+  id: string;
+  asignacionCursoId: string;
+  nombre: string;
+  periodOrdinal?: number;
+  descripcion?: string;
+}
+
 function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
   const { user } = useAuth();
   const [asignaciones, setAsignaciones] = useState<AsignacionDto[]>([]);
@@ -479,6 +488,9 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
   const [saving, setSaving] = useState(false);
   const [docentes, setDocentes] = useState<DocenteOption[]>([]);
   const [loadingDocentes, setLoadingDocentes] = useState(false);
+  const [planifModalOpen, setPlanifModalOpen] = useState<string | null>(null);
+  const [planificaciones, setPlanificaciones] = useState<Record<string, PlanificacionDto[]>>({});
+  const [loadingPlanif, setLoadingPlanif] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -487,6 +499,20 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
       .then((res) => setAsignaciones(res.data?.data ?? []))
       .catch(() => setAsignaciones([]))
       .finally(() => setLoading(false));
+  }, [ccId]);
+
+  const loadPlanificaciones = useCallback(async (asignacionId: string) => {
+    setLoadingPlanif(true);
+    try {
+      const res = await apiClient.get<{ data: PlanificacionDto[] }>(
+        `/course-cycles/${ccId}/asignaciones/${asignacionId}/planificaciones`
+      );
+      setPlanificaciones(prev => ({ ...prev, [asignacionId]: res.data?.data ?? [] }));
+    } catch {
+      setPlanificaciones(prev => ({ ...prev, [asignacionId]: [] }));
+    } finally {
+      setLoadingPlanif(false);
+    }
   }, [ccId]);
 
   useEffect(() => {
@@ -607,6 +633,16 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
               {a.rol} {a.turno ? `· ${a.turno}` : ''}
             </span>
           </div>
+          <Button
+            variant="action"
+            size="sm"
+            onClick={() => {
+              setPlanifModalOpen(a.id);
+              loadPlanificaciones(a.id);
+            }}
+          >
+            Planificaciones
+          </Button>
           <Button variant="danger-soft" size="sm" onClick={() => handleRemove(a.id)}>
             Quitar
           </Button>
@@ -696,6 +732,241 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
               {saving ? 'Guardando...' : 'Asignar'}
             </Button>
             <Button variant="ghost" onClick={() => setShowForm(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {planifModalOpen && (
+        <Modal
+          open={!!planifModalOpen}
+          title="Planificaciones del Docente"
+          onClose={() => setPlanifModalOpen(null)}
+          size="lg"
+        >
+          <PlanificacionesPanelInModal
+            ccId={ccId}
+            asignacionId={planifModalOpen}
+            planificaciones={planificaciones[planifModalOpen] ?? []}
+            loading={loadingPlanif}
+            onRefresh={() => loadPlanificaciones(planifModalOpen)}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ── PlanificacionesPanelInModal ───────────────────────────────────────────────
+
+interface PlanificacionesPanelProps {
+  ccId: string;
+  asignacionId: string;
+  planificaciones: PlanificacionDto[];
+  loading: boolean;
+  onRefresh: () => void;
+}
+
+const BIMESTRES = [
+  { value: 1, label: '1° Bimestre' },
+  { value: 2, label: '2° Bimestre' },
+  { value: 3, label: '3° Bimestre' },
+  { value: 4, label: '4° Bimestre' },
+];
+
+function PlanificacionesPanelInModal({
+  ccId,
+  asignacionId,
+  planificaciones,
+  loading,
+  onRefresh,
+}: PlanificacionesPanelProps) {
+  const [showForm, setShowForm] = useState(false);
+  const [formNombre, setFormNombre] = useState('');
+  const [formPeriod, setFormPeriod] = useState<string>('');
+  const [formDesc, setFormDesc] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const inputStyle: React.CSSProperties = {
+    padding: '0.375rem 0.75rem',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    background: 'var(--color-surface)',
+    color: 'var(--color-text)',
+    fontSize: 'var(--text-sm)',
+    width: '100%',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: 'var(--text-xs)',
+    fontWeight: 500,
+    color: 'var(--color-text-muted)',
+    textTransform: 'uppercase',
+    display: 'block',
+    marginBottom: '0.25rem',
+  };
+
+  const openAdd = () => {
+    setEditId(null);
+    setFormNombre('');
+    setFormPeriod('');
+    setFormDesc('');
+    setShowForm(true);
+  };
+
+  const openEdit = (p: PlanificacionDto) => {
+    setEditId(p.id);
+    setFormNombre(p.nombre);
+    setFormPeriod(p.periodOrdinal !== undefined ? String(p.periodOrdinal) : '');
+    setFormDesc(p.descripcion ?? '');
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!formNombre.trim()) return;
+    setSaving(true);
+    try {
+      if (editId) {
+        await apiClient.patch(`/course-cycles/${ccId}/planificaciones/${editId}`, {
+          nombre: formNombre.trim(),
+          periodOrdinal: formPeriod ? parseInt(formPeriod, 10) : null,
+          descripcion: formDesc.trim() || null,
+        });
+      } else {
+        await apiClient.post(
+          `/course-cycles/${ccId}/asignaciones/${asignacionId}/planificaciones`,
+          {
+            nombre: formNombre.trim(),
+            periodOrdinal: formPeriod ? parseInt(formPeriod, 10) : undefined,
+            descripcion: formDesc.trim() || undefined,
+          }
+        );
+      }
+      setShowForm(false);
+      setEditId(null);
+      onRefresh();
+    } catch {
+      // ignore for now
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    await apiClient.delete(`/course-cycles/${ccId}/planificaciones/${id}`);
+    onRefresh();
+  };
+
+  return (
+    <div>
+      {loading && (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
+          Cargando planificaciones...
+        </p>
+      )}
+
+      {!loading && planificaciones.length === 0 && (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>
+          No hay planificaciones para esta asignación.
+        </p>
+      )}
+
+      {!loading && planificaciones.map((p) => (
+        <div
+          key={p.id}
+          style={{
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+            padding: 'var(--space-sm)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--color-surface-secondary)',
+            marginBottom: 'var(--space-xs)',
+            gap: 'var(--space-sm)',
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>{p.nombre}</span>
+            {p.periodOrdinal !== undefined && (
+              <span style={{ marginLeft: 'var(--space-sm)', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                {BIMESTRES.find((b) => b.value === p.periodOrdinal)?.label ?? `Período ${p.periodOrdinal}`}
+              </span>
+            )}
+            {p.descripcion && (
+              <p style={{ margin: '0.25rem 0 0', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                {p.descripcion}
+              </p>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 'var(--space-xs)', flexShrink: 0 }}>
+            <Button variant="action" size="sm" onClick={() => openEdit(p)}>
+              Editar
+            </Button>
+            <Button variant="danger-soft" size="sm" onClick={() => handleDelete(p.id)}>
+              Borrar
+            </Button>
+          </div>
+        </div>
+      ))}
+
+      {!showForm && (
+        <Button
+          variant="action"
+          size="sm"
+          onClick={openAdd}
+          style={{ marginTop: 'var(--space-sm)' }}
+        >
+          + Nueva planificación
+        </Button>
+      )}
+
+      {showForm && (
+        <div
+          style={{
+            marginTop: 'var(--space-md)',
+            padding: 'var(--space-md)',
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-md)',
+          }}
+        >
+          <div style={{ display: 'grid', gap: 'var(--space-sm)' }}>
+            <div>
+              <label style={labelStyle}>Nombre</label>
+              <input
+                type="text"
+                value={formNombre}
+                onChange={(e) => setFormNombre(e.target.value)}
+                placeholder="Ej: Planificación Anual"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Período (opcional)</label>
+              <select value={formPeriod} onChange={(e) => setFormPeriod(e.target.value)} style={inputStyle}>
+                <option value="">— Sin período —</option>
+                {BIMESTRES.map((b) => (
+                  <option key={b.value} value={String(b.value)}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Descripción (opcional)</label>
+              <textarea
+                value={formDesc}
+                onChange={(e) => setFormDesc(e.target.value)}
+                rows={3}
+                placeholder="Descripción de la planificación..."
+                style={{ ...inputStyle, resize: 'vertical' }}
+              />
+            </div>
+          </div>
+          <div style={{ marginTop: 'var(--space-sm)', display: 'flex', gap: 'var(--space-xs)' }}>
+            <Button onClick={handleSave} disabled={!formNombre.trim() || saving}>
+              {saving ? 'Guardando...' : editId ? 'Actualizar' : 'Crear'}
+            </Button>
+            <Button variant="ghost" onClick={() => { setShowForm(false); setEditId(null); }}>
               Cancelar
             </Button>
           </div>

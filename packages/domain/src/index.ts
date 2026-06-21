@@ -262,3 +262,8 @@ export type {
 } from './asistencia';
 export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './asistencia';
 export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './asistencia';
+
+// PlanificacionCurso (Fase 7)
+export { PlanificacionCurso } from './planificacion-curso';
+export type { PlanificacionCursoProps, CreatePlanificacionCursoInput } from './planificacion-curso';
+export type { PlanificacionCursoRepository } from './planificacion-curso';

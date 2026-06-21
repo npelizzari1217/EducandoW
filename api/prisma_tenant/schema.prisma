@@ -123,6 +123,8 @@ model AsignacionCursoXCiclo {
   courseCycle   CourseCycle  @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade)
   docenteXCiclo DocenteXCiclo @relation(fields: [docenteXCicloId], references: [id], onDelete: Cascade)
 
+  planificaciones PlanificacionCurso[]
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
@@ -1367,4 +1369,24 @@ model asistenciaXMateriaXAlumnoXCursoXCiclo {
   @@unique([materiaXCursoXCicloId, studentId, year, month], map: "asistencia_materia_alumno_year_month_key")
   @@index([materiaXCursoXCicloId, year, month])
   @@map("asistencia_x_materia_x_alumno_x_curso_x_ciclo")
+}
+
+// ── Planificaciones de Curso ───────────────────────────────
+
+model PlanificacionCurso {
+  id                 String    @id @default(uuid())
+  asignacionCursoId  String    @map("asignacion_curso_id")
+  nombre             String
+  periodOrdinal      Int?      @map("period_ordinal")
+  descripcion        String?   @db.Text
+  active             Boolean   @default(true)
+  deletedAt          DateTime? @map("deleted_at")
+
+  asignacionCurso AsignacionCursoXCiclo @relation(fields: [asignacionCursoId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@index([asignacionCursoId])
+  @@map("planificaciones_curso")
 }
