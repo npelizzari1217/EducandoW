@@ -88,19 +88,29 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       where: { id: { in: studentIds } },
       select: { id: true, firstName: true, lastName: true },
     });
-    const studentNameMap = new Map<string, string>(
+    const studentMap = new Map<string, { firstName: string; lastName: string }>(
       students.map((s: { id: string; firstName: string; lastName: string }) => [
         s.id,
-        `${s.firstName} ${s.lastName}`.trim(),
+        { firstName: s.firstName, lastName: s.lastName },
       ]),
     );
+    // Orden por Apellido + Nombre (es-AR, case/acento-insensible)
+    const sortKey = (studentId: string): string => {
+      const s = studentMap.get(studentId);
+      return s ? `${s.lastName} ${s.firstName}`.trim().toLowerCase() : '';
+    };
 
-    return rows.map((a: { id: string; studentId: string; printable: boolean }) => ({
-      id: a.id,
-      studentId: a.studentId,
-      studentName: studentNameMap.get(a.studentId) ?? a.studentId,
-      printable: a.printable,
-    }));
+    return rows
+      .map((a: { id: string; studentId: string; printable: boolean }) => {
+        const s = studentMap.get(a.studentId);
+        return {
+          id: a.id,
+          studentId: a.studentId,
+          studentName: s ? `${s.firstName} ${s.lastName}`.trim() : a.studentId,
+          printable: a.printable,
+        };
+      })
+      .sort((x, y) => sortKey(x.studentId).localeCompare(sortKey(y.studentId), 'es'));
   }
 
   /**

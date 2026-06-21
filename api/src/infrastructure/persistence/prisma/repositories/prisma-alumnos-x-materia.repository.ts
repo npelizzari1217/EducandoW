@@ -83,18 +83,28 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
       where: { id: { in: studentIds } },
       select: { id: true, firstName: true, lastName: true },
     });
-    const studentNameMap = new Map<string, string>(
+    const studentMap = new Map<string, { firstName: string; lastName: string }>(
       students.map((s: { id: string; firstName: string; lastName: string }) => [
         s.id,
-        `${s.firstName} ${s.lastName}`.trim(),
+        { firstName: s.firstName, lastName: s.lastName },
       ]),
     );
+    // Orden por Apellido + Nombre (es-AR, case/acento-insensible)
+    const sortKey = (studentId: string): string => {
+      const s = studentMap.get(studentId);
+      return s ? `${s.lastName} ${s.firstName}`.trim().toLowerCase() : '';
+    };
 
-    return axmRows.map((a: { id: string; studentId: string }) => ({
-      id: a.id,
-      studentId: a.studentId,
-      studentName: studentNameMap.get(a.studentId) ?? a.studentId,
-    }));
+    return axmRows
+      .map((a: { id: string; studentId: string }) => {
+        const s = studentMap.get(a.studentId);
+        return {
+          id: a.id,
+          studentId: a.studentId,
+          studentName: s ? `${s.firstName} ${s.lastName}`.trim() : a.studentId,
+        };
+      })
+      .sort((x, y) => sortKey(x.studentId).localeCompare(sortKey(y.studentId), 'es'));
   }
 
   /**

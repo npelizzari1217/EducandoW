@@ -216,4 +216,26 @@ describe('PrismaAlumnosXCursoXCicloRepository.findByCourseCycleEnriched — prin
 
     expect(result).toEqual([]);
   });
+
+  it('orders enriched result by lastName + firstName (es)', async () => {
+    // Insertion order (createdAt) is intentionally NOT alphabetical.
+    const client = makeMockClient({
+      axccRows: [
+        makeRow({ id: 'axcc-1', studentId: 's-zarate' }),
+        makeRow({ id: 'axcc-2', studentId: 's-alvarez-c' }),
+        makeRow({ id: 'axcc-3', studentId: 's-alvarez-a' }),
+      ],
+      students: [
+        { id: 's-zarate', firstName: 'Beto', lastName: 'Zárate' },
+        { id: 's-alvarez-c', firstName: 'Carlos', lastName: 'Álvarez' },
+        { id: 's-alvarez-a', firstName: 'Ana', lastName: 'Álvarez' },
+      ],
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as unknown as ReturnType<typeof TenantContext.getClient>);
+
+    const result = await repo.findByCourseCycleEnriched('cc-1');
+
+    // Álvarez before Zárate; within Álvarez, Ana before Carlos
+    expect(result.map((r) => r.studentName)).toEqual(['Ana Álvarez', 'Carlos Álvarez', 'Beto Zárate']);
+  });
 });
