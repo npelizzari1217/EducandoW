@@ -123,7 +123,6 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Estudiantes')).not.toBeInTheDocument();
     expect(screen.queryByText('Docentes')).not.toBeInTheDocument();
     expect(screen.queryByText('Inscripciones')).not.toBeInTheDocument();
-    expect(screen.queryByText('Legajos')).not.toBeInTheDocument();
     expect(screen.queryByText('Planes de Estudio')).not.toBeInTheDocument();
     expect(screen.queryByText('Notas y Calificaciones')).not.toBeInTheDocument();
     // Level-specific items also hidden
@@ -140,7 +139,6 @@ describe('Sidebar filtering', () => {
 
     // Generic items visible (any level exists)
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    expect(screen.getByText('Legajos')).toBeInTheDocument();
     expect(screen.getByText('Planes de Estudio')).toBeInTheDocument();
 
     // Dead link removed — verify it's NOT present
@@ -148,7 +146,6 @@ describe('Sidebar filtering', () => {
 
     // Inicial items visible (levelId: 1, base level from Math.floor(10/10) = 1)
     expect(screen.getByText('Salas')).toBeInTheDocument();
-    expect(screen.getByText('Informes Evolutivos')).toBeInTheDocument();
     expect(screen.getByText('Planificaciones')).toBeInTheDocument();
 
     // Primario items NOT visible
@@ -189,7 +186,6 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Grados')).not.toBeInTheDocument();
 
     // Secundario visible
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
     expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
 
     // Terciario NOT visible
@@ -216,18 +212,14 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Informes Evolutivos')).not.toBeInTheDocument();
     expect(screen.queryByText('Planificaciones')).not.toBeInTheDocument();
 
-    // Primario visible
-    expect(screen.getByText('Grados')).toBeInTheDocument();
-
     // Secundario visible
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
     expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
 
     // Terciario NOT visible
     expect(screen.queryByText('Carreras')).not.toBeInTheDocument();
 
-    // Sub-headings: Nivel Primario and Secundario visible
-    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    // Secundario sub-heading visible (Primario subGroup is empty — removed)
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     // Others NOT visible
     expect(screen.queryByText('Inicial')).not.toBeInTheDocument();
@@ -250,14 +242,16 @@ describe('Sidebar filtering', () => {
 
     // ROOT sees all nav items even without levels
     expect(screen.getByText('Estudiantes')).toBeInTheDocument();
-    // ROOT bypasses level filtering — all level items visible
+    // ROOT bypasses level filtering — remaining level items visible
     expect(screen.getByText('Salas')).toBeInTheDocument();
-    expect(screen.getByText('Grados')).toBeInTheDocument();
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
     expect(screen.getByText('Carreras')).toBeInTheDocument();
-    // All 4 sub-headings visible for ROOT
+    // Deleted items NOT present
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
+    // Active sub-headings visible for ROOT (Primario subGroup is empty — removed)
     expect(screen.getByText('Inicial')).toBeInTheDocument();
-    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     expect(screen.getByText('Terciario')).toBeInTheDocument();
     // Placeholder should NOT appear for ROOT
@@ -314,15 +308,17 @@ describe('Sidebar filtering', () => {
     expect(screen.queryByText('Configuración SMTP')).not.toBeInTheDocument();
     expect(screen.queryByText('WebSocket')).not.toBeInTheDocument();
 
-    // All level items visible
+    // Remaining level items visible
     expect(screen.getByText('Salas')).toBeInTheDocument();
-    expect(screen.getByText('Grados')).toBeInTheDocument();
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
     expect(screen.getByText('Carreras')).toBeInTheDocument();
+    // Deleted items NOT present
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
 
-    // All 4 sub-headings visible
+    // Active sub-headings visible (Primario subGroup is empty — removed)
     expect(screen.getByText('Inicial')).toBeInTheDocument();
-    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     expect(screen.getByText('Terciario')).toBeInTheDocument();
 
@@ -342,11 +338,11 @@ describe('Sidebar filtering', () => {
     renderSidebar();
     // Sub-groups are rendered as <details> inside <div class="sidebar-sub-groups">
     const subGroups = document.querySelectorAll('.sidebar-sub-groups details');
-    expect(subGroups.length).toBe(4);
+    expect(subGroups.length).toBe(3);
     const labelSpans = document.querySelectorAll('.sidebar-sub-groups .sidebar-group-label');
     const labelTexts = Array.from(labelSpans).map((el) => el.textContent?.trim());
     expect(labelTexts).toContain('Inicial');
-    expect(labelTexts).toContain('Nivel Primario');
+    expect(labelTexts).not.toContain('Nivel Primario');
     expect(labelTexts).toContain('Secundario');
     expect(labelTexts).toContain('Terciario');
   });
@@ -413,15 +409,17 @@ describe('Sidebar filtering', () => {
     setRole('ROOT');
     renderSidebar();
 
-    // ROOT sees ALL level items regardless of config
+    // ROOT sees ALL remaining level items regardless of config
     expect(screen.getByText('Salas')).toBeInTheDocument();
-    expect(screen.getByText('Grados')).toBeInTheDocument();
-    expect(screen.getByText('Cursos')).toBeInTheDocument();
+    expect(screen.getByText('Mesas de Examen')).toBeInTheDocument();
     expect(screen.getByText('Carreras')).toBeInTheDocument();
+    // Deleted items NOT present
+    expect(screen.queryByText('Grados')).not.toBeInTheDocument();
+    expect(screen.queryByText('Cursos')).not.toBeInTheDocument();
 
-    // All 4 sub-headings visible
+    // Active sub-headings visible (Primario subGroup is empty — removed)
     expect(screen.getByText('Inicial')).toBeInTheDocument();
-    expect(screen.getByText('Nivel Primario')).toBeInTheDocument();
+    expect(screen.queryByText('Nivel Primario')).not.toBeInTheDocument();
     expect(screen.getByText('Secundario')).toBeInTheDocument();
     expect(screen.getByText('Terciario')).toBeInTheDocument();
   });

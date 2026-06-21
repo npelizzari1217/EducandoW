@@ -13,15 +13,10 @@ vi.mock('../pages/dashboard/pedagogy-pages', () => ({
 }));
 vi.mock('../pages/dashboard/modules', () => ({ default: () => <div>Modules Page</div> }));
 vi.mock('../pages/dashboard/users', () => ({ default: () => <div>Users Page</div> }));
-vi.mock('../pages/dashboard/legajos', () => ({ default: () => <div>Legajos Page</div> }));
 vi.mock('../pages/dashboard/study-plans', () => ({ default: () => <div>Study Plans Page</div> }));
 vi.mock('../pages/dashboard/profiles', () => ({ default: () => <div>Profiles Page</div> }));
 vi.mock('../niveles/inicial/salas/page', () => ({ default: () => <div>Salas Page</div> }));
-vi.mock('../niveles/inicial/informes/page', () => ({ default: () => <div>Informes Page</div> }));
 vi.mock('../niveles/inicial/planificaciones/page', () => ({ default: () => <div>Planificaciones Page</div> }));
-vi.mock('../niveles/primario/grados/page', () => ({ default: () => <div>Grados Page</div> }));
-vi.mock('../niveles/primario/calificaciones/page', () => ({ default: () => <div>Calificaciones Primario Page</div> }));
-vi.mock('../niveles/secundario/cursos/page', () => ({ default: () => <div>Cursos Page</div> }));
 vi.mock('../niveles/secundario/mesas-examen/page', () => ({ default: () => <div>Mesas Examen Page</div> }));
 vi.mock('../niveles/terciario/carreras/page', () => ({ default: () => <div>Carreras Page</div> }));
 vi.mock('../niveles/terciario/inscripciones/page', () => ({ default: () => <div>Inscripciones Terciario Page</div> }));

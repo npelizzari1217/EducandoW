@@ -36,7 +36,6 @@ const navGroups: NavGroupDef[] = [
     items: [
       { label: 'Estudiantes', path: '/students', moduleCode: 'STUDENTS', requiresLevel: true },
       { label: 'Ingresantes', path: '/ingresantes', moduleCode: 'ENROLLMENTS', requiresLevel: true },
-      { label: 'Legajos', path: '/legajos', moduleCode: 'STUDENTS', requiresLevel: true },
       { label: 'Planes de Estudio', path: '/study-plans', moduleCode: 'STUDY_PLANS', requiresLevel: true },
       { label: 'Cursos por Ciclo', path: '/course-cycles', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
       { label: 'Gestión de Grupos', path: '/grupos', moduleCode: 'COURSE_CYCLES', requiresLevel: true },
@@ -62,17 +61,7 @@ const navGroups: NavGroupDef[] = [
         label: 'Inicial',
         items: [
           { label: 'Salas', path: '/inicial/salas', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
-          { label: 'Informes Evolutivos', path: '/inicial/informes', moduleCode: 'REPORTS', requiresLevel: true, levelId: 1 },
           { label: 'Planificaciones', path: '/inicial/planificaciones', moduleCode: 'CLASSROOMS', requiresLevel: true, levelId: 1 },
-        ],
-      },
-      {
-        id: 'academico-primario',
-        levelId: 2,
-        label: 'Nivel Primario',
-        items: [
-          { label: 'Grados', path: '/primario/grados', moduleCode: 'COURSES', requiresLevel: true, levelId: 2 },
-          { label: 'Calificaciones', path: '/primario/calificaciones', moduleCode: 'GRADES', requiresLevel: true, levelId: 2 },
         ],
       },
       {
@@ -80,9 +69,7 @@ const navGroups: NavGroupDef[] = [
         levelId: 3,
         label: 'Secundario',
         items: [
-          { label: 'Cursos', path: '/secundario/cursos', moduleCode: 'COURSES', requiresLevel: true, levelId: 3 },
           { label: 'Mesas de Examen', path: '/secundario/mesas-examen', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
-          { label: 'Exámenes Suplementarios', path: '/secundario/examenes-suplementarios', moduleCode: 'GRADES', requiresLevel: true, levelId: 3 },
         ],
       },
       {

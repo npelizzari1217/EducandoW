@@ -21,10 +21,10 @@ export class PrismaInformeRepository implements InformeRepository {
   }
 
   async findAll(filters?: InformeFilters): Promise<InformeEvolutivo[]> {
-    const where: Record<string, unknown> = {};
+    const where: Record<string, unknown> = { active: true };
 
-    if (filters?.studentId) where.studentId = filters.studentId;
     if (filters?.salaId) where.salaId = filters.salaId;
+    if (filters?.studentId) where.studentId = filters.studentId;
     if (filters?.periodo) where.periodo = filters.periodo;
 
     const records = await this.client.informeEvolutivo.findMany({
@@ -45,6 +45,7 @@ export class PrismaInformeRepository implements InformeRepository {
         periodo: informe.periodo.get(),
         fecha: informe.fecha,
         observacionesGenerales: informe.observacionesGenerales ?? null,
+        active: true,
       },
       update: {
         periodo: informe.periodo.get(),
@@ -58,6 +59,7 @@ export class PrismaInformeRepository implements InformeRepository {
     for (const area of informe.areas) {
       await this.client.areaDesarrollo.create({
         data: {
+          id: area.id,
           informeId: informe.id.get(),
           area: area.area,
           observacion: area.observacion,

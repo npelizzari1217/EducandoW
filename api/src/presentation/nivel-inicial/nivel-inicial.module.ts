@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { SalaController } from './sala.controller';
-import { InformeEvolutivoController } from './informe-evolutivo.controller';
 import { PlanificacionController } from './planificacion.controller';
 import {
   CreateSalaUseCase,
@@ -11,28 +10,19 @@ import {
   DeleteSalaUseCase,
 } from '../../application/nivel-inicial/use-cases/sala.use-cases';
 import {
-  CreateInformeUseCase,
-  GetInformeUseCase,
-  ListInformesUseCase,
-  UpdateInformeUseCase,
-} from '../../application/nivel-inicial/use-cases/informe-evolutivo.use-cases';
-import {
   CreatePlanificacionUseCase,
   ListPlanificacionesUseCase,
   UpdatePlanificacionUseCase,
 } from '../../application/nivel-inicial/use-cases/planificacion.use-cases';
 import { PrismaSalaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-sala.repository';
-import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-informe.repository';
 import { PrismaPlanificacionRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-planificacion.repository';
 
 @Module({
   imports: [AuthModule],
-  controllers: [SalaController, InformeEvolutivoController, PlanificacionController],
+  controllers: [SalaController, PlanificacionController],
   providers: [
     PrismaSalaRepository,
     { provide: 'SalaRepository', useExisting: PrismaSalaRepository },
-    PrismaInformeRepository,
-    { provide: 'InformeRepository', useExisting: PrismaInformeRepository },
     PrismaPlanificacionRepository,
     { provide: 'PlanificacionRepository', useExisting: PrismaPlanificacionRepository },
 
@@ -42,12 +32,6 @@ import { PrismaPlanificacionRepository } from '../../infrastructure/persistence/
     { provide: GetSalaUseCase, useFactory: (r) => new GetSalaUseCase(r), inject: ['SalaRepository'] },
     { provide: UpdateSalaUseCase, useFactory: (r) => new UpdateSalaUseCase(r), inject: ['SalaRepository'] },
     { provide: DeleteSalaUseCase, useFactory: (r) => new DeleteSalaUseCase(r), inject: ['SalaRepository'] },
-
-    // Informe use cases
-    { provide: CreateInformeUseCase, useFactory: (r) => new CreateInformeUseCase(r), inject: ['InformeRepository'] },
-    { provide: GetInformeUseCase, useFactory: (r) => new GetInformeUseCase(r), inject: ['InformeRepository'] },
-    { provide: ListInformesUseCase, useFactory: (r) => new ListInformesUseCase(r), inject: ['InformeRepository'] },
-    { provide: UpdateInformeUseCase, useFactory: (r) => new UpdateInformeUseCase(r), inject: ['InformeRepository'] },
 
     // Planificacion use cases
     { provide: CreatePlanificacionUseCase, useFactory: (r) => new CreatePlanificacionUseCase(r), inject: ['PlanificacionRepository'] },
