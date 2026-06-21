@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PremiumPrintReport, { type PrintBranding } from './PremiumPrintReport';
+import apiClient from '../../api/client';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -248,8 +249,6 @@ export function StudyPlanDetailPrintLoader({
   useEffect(() => {
     (async () => {
       try {
-        const { default: apiClient } = await import('../../api/client');
-
         // 1. Fetch all courses for the plan
         const coursesRes = await apiClient.get(`/study-plans/${planId}/courses`);
         const rawCourses: Array<Record<string, unknown>> = coursesRes.data?.data ?? [];
