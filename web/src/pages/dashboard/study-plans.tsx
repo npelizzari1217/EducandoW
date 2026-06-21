@@ -805,7 +805,7 @@ export default function StudyPlansPage() {
               {isExpanded && (
                 <div className="plan-courses">
                   <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <h4 style={{ margin: 0 }}>Cursos</h4>
+                    <h4 style={{ margin: 0, color: '#1e293b' }}>Cursos</h4>
                     <Button
                       variant={showCourseForm === plan.id ? 'danger-soft' : 'success-soft'}
                       size="sm"
@@ -860,7 +860,7 @@ export default function StudyPlansPage() {
                           <div className="course-row-header" onClick={() => !isEditingCourse && togglePlanCourseSubjects(pc.id)}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                               <span className={`chevron ${isCourseExpanded ? 'open' : ''}`}>▶</span>
-                              <span style={{ fontWeight: 500 }}>{pc.courseSectionName || pc.courseSectionId}</span>
+                              <span style={{ fontWeight: 500, color: '#1e293b' }}>{pc.courseSectionName || pc.courseSectionId}</span>
                               {pc.subjectCount > 0 && (
                                 <span className="badge badge-count">{pc.subjectCount} {pc.subjectCount === 1 ? 'materia' : 'materias'}</span>
                               )}
