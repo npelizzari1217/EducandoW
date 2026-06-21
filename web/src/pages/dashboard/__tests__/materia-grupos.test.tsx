@@ -293,33 +293,20 @@ describe('Route guard — GRADES module required', () => {
 // F7-T6 — "Asignar docente" button visibility
 // ═════════════════════════════════════════════════════════════════════════════
 
-describe('MateriasGruposPage — assignment button visibility', () => {
+describe('MateriasGruposPage — assign-docente button removed (Fase 3)', () => {
   beforeEach(() => {
     setupDefaultMateriasApiMocks();
   });
 
-  // F7-T6a: hidden for TEACHER
-  it('F7-T6a: "Asignar docente" button is hidden for TEACHER', async () => {
-    mockUser = teacherUser;
-
-    renderMateriasPage();
-
-    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
-
-    // No assignment button should be visible for a pure TEACHER
-    expect(screen.queryByTestId('btn-asignar-docente')).not.toBeInTheDocument();
-  });
-
-  // F7-T6b: visible for ADMIN
-  it('F7-T6b: "Asignar docente" button is visible for ADMIN', async () => {
+  // The "Asignar docente a grupo" flow was moved out of Materias into
+  // Gestión de Grupos; the button must no longer appear, not even for ADMIN.
+  it('F7-T6: no longer renders the "Asignar docente" button for ADMIN', async () => {
     mockUser = adminUser;
 
     renderMateriasPage();
 
     await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
-    await waitFor(() => {
-      expect(screen.getAllByTestId('btn-asignar-docente').length).toBeGreaterThan(0);
-    });
+    expect(screen.queryByTestId('btn-asignar-docente')).not.toBeInTheDocument();
   });
 });
 
@@ -363,63 +350,6 @@ describe('CourseCyclesPage — regeneration warning (F7-D1/D2)', () => {
     expect(
       screen.getByText(/materias faltantes del plan/i),
     ).toBeInTheDocument();
-  });
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
-// F7-T8 — Teacher picker inline
-// ═════════════════════════════════════════════════════════════════════════════
-
-describe('MateriasGruposPage — teacher picker', () => {
-  const mockTeachers = [
-    { id: 'teacher-1', name: 'Ana García', firstName: 'Ana', lastName: 'García', roles: ['TEACHER'] },
-    { id: 'teacher-2', name: 'Carlos López', firstName: 'Carlos', lastName: 'López', roles: ['TEACHER'] },
-  ];
-
-  beforeEach(() => {
-    mockUser = adminUser;
-    mockApiGet.mockImplementation((url: string) => {
-      if (url === '/course-cycles/cc-1/materias') {
-        return Promise.resolve({ data: { data: mockMaterias } });
-      }
-      if (url === '/course-cycles/cc-1/materias/m-1/grupos') {
-        return Promise.resolve({ data: { data: mockGruposMateria1 } });
-      }
-      if (url === '/course-cycles/cc-1/materias/m-2/grupos') {
-        return Promise.resolve({ data: { data: mockGruposMateria2 } });
-      }
-      if (url.startsWith('/users')) {
-        return Promise.resolve({ data: { data: mockTeachers } });
-      }
-      return Promise.resolve({ data: { data: [] } });
-    });
-  });
-
-  it('F7-T8: shows teacher dropdown inline when "Asignar docente" is clicked', async () => {
-    const { userEvent } = await import('@testing-library/user-event');
-    const user = userEvent.setup();
-
-    renderMateriasPage();
-
-    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
-
-    // Wait for grupos and asignar buttons to appear
-    await waitFor(() => {
-      expect(screen.getAllByTestId('btn-asignar-docente').length).toBeGreaterThan(0);
-    });
-
-    // Click the first "Asignar docente" button
-    await user.click(screen.getAllByTestId('btn-asignar-docente')[0]);
-
-    // Teacher picker should now be visible
-    await waitFor(() => {
-      expect(screen.getByTestId('teacher-picker')).toBeInTheDocument();
-    });
-
-    // Teacher select should contain teacher options
-    await waitFor(() => {
-      expect(screen.getByTestId('teacher-select')).toBeInTheDocument();
-    });
   });
 });
 

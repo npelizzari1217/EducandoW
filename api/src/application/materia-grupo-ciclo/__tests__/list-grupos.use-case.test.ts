@@ -50,6 +50,7 @@ describe('ListGruposUseCase', () => {
         .mockResolvedValueOnce([makeAxg('axg-3', 'g-2', 'axm-3')]),                                    // g-2: 1 alumno
       findByGrupoEnriched: vi.fn().mockResolvedValue([]),
       findStudentIdsByGrupoIds: vi.fn().mockResolvedValue([]),
+      findAssignedAlumnosMateriaIds: vi.fn().mockResolvedValue([]),
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),
@@ -81,6 +82,7 @@ describe('ListGruposUseCase', () => {
       findByGrupo: vi.fn(),
       findByGrupoEnriched: vi.fn().mockResolvedValue([]),
       findStudentIdsByGrupoIds: vi.fn().mockResolvedValue([]),
+      findAssignedAlumnosMateriaIds: vi.fn().mockResolvedValue([]),
       addStudent: vi.fn(),
       isMember: vi.fn(),
       upsertMany: vi.fn(),

@@ -142,9 +142,11 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 
     {
       provide: ListAlumnosMateriaUseCase,
-      useFactory: (alumnosMateriaRepo: PrismaAlumnosXMateriaRepository) =>
-        new ListAlumnosMateriaUseCase(alumnosMateriaRepo),
-      inject: [PrismaAlumnosXMateriaRepository],
+      useFactory: (
+        alumnosMateriaRepo: PrismaAlumnosXMateriaRepository,
+        alumnosGrupoRepo: PrismaAlumnosXGrupoRepository,
+      ) => new ListAlumnosMateriaUseCase(alumnosMateriaRepo, alumnosGrupoRepo),
+      inject: [PrismaAlumnosXMateriaRepository, PrismaAlumnosXGrupoRepository],
     },
   ],
   exports: [MaterializeMateriasUseCase, PrismaMateriaXCursoXCicloRepository],

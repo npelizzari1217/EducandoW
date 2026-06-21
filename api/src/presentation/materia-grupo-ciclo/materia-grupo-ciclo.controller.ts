@@ -239,6 +239,7 @@ export class MateriasGruposController {
   /**
    * GET /course-cycles/:ccId/materias/:materiaId/alumnos — F7
    * Lists all students enrolled in a materia (universe), enriched with studentName.
+   * Supports ?unassigned=true to return only students not yet in any group of this materia.
    * Resolution is delegated to ListAlumnosMateriaUseCase → PrismaAlumnosXMateriaRepository
    * (Clean Arch: no raw Prisma in the controller).
    */
@@ -246,8 +247,12 @@ export class MateriasGruposController {
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listAlumnosMateria(
     @Param('materiaId') materiaId: string,
+    @Query('unassigned') unassigned?: string,
   ): Promise<{ data: AlumnoMateriaItem[] }> {
-    const data = await this.listAlumnosMateriaUC.execute(materiaId);
+    const data = await this.listAlumnosMateriaUC.execute({
+      materiaXCursoXCicloId: materiaId,
+      unassigned: unassigned === 'true',
+    });
     return { data };
   }
 

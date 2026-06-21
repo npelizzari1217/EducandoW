@@ -1,6 +1,10 @@
 /**
  * AddStudentToGrupoUseCase — unit tests (TDD, Fase 3c)
- * Covers: F3-T3 (MGC-S9), F3-T4 (MGC-S11 rejection), F3-T5 (MGC-S10), F3-T6 (MGC-S12 co-docencia)
+ * Covers: F3-T3 (MGC-S9), F3-T4 (MGC-S11 rejection), F3-T5 (MGC-S10), F3-T6 (MGC-S12 co-docencia REMOVED)
+ *
+ * Fase 3 (Phase 3 enforcement):
+ *   MGC-S12: co-docencia removed — student cannot be in two groups of the same materia.
+ *   MGC-S13: student already in another group → AlumnoAlreadyInGrupoError (409).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { AddStudentToGrupoUseCase } from '../add-student-to-grupo.use-case';
@@ -14,6 +18,7 @@ import {
   MateriasXAlumnoXCursoXCiclo,
   AlumnosXGrupoXCursoXMateriaXCiclo,
   NotFoundError,
+  AlumnoAlreadyInGrupoError,
 } from '@educandow/domain';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -61,7 +66,12 @@ function makeGrupoRepo(grupo: GrupoXCursoXMateriaXCiclo | null): GrupoRepository
   };
 }
 
-function makeAlumnosGrupoRepo(): AlumnosXGrupoRepository {
+/**
+ * makeAlumnosGrupoRepo — mock for AlumnosXGrupoRepository.
+ * By default findAssignedAlumnosMateriaIds returns [] (nobody assigned).
+ * Pass preAssigned to simulate an already-assigned student.
+ */
+function makeAlumnosGrupoRepo(preAssigned: string[] = []): AlumnosXGrupoRepository {
   return {
     findByGrupo: vi.fn().mockResolvedValue([]),
     findByGrupoEnriched: vi.fn().mockResolvedValue([]),
@@ -69,7 +79,8 @@ function makeAlumnosGrupoRepo(): AlumnosXGrupoRepository {
     addStudent: vi.fn().mockResolvedValue(makeAlumnosXGrupo()),
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),
-    removeStudent: vi.fn().mockResolvedValue(undefined), // (grupoId, id)
+    removeStudent: vi.fn().mockResolvedValue(undefined),
+    findAssignedAlumnosMateriaIds: vi.fn().mockResolvedValue(preAssigned),
   };
 }
 
@@ -92,7 +103,7 @@ describe('AddStudentToGrupoUseCase', () => {
     const grupo = makeGrupo('grupo-1', 'm-1');
     const axm = makeAlumnosXMateria('axm-1', 'm-1'); // same materia
     const grupoRepo = makeGrupoRepo(grupo);
-    const alumnosGrupoRepo = makeAlumnosGrupoRepo();
+    const alumnosGrupoRepo = makeAlumnosGrupoRepo(); // nobody pre-assigned
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
@@ -135,28 +146,48 @@ describe('AddStudentToGrupoUseCase', () => {
     expect(alumnosGrupoRepo.addStudent).not.toHaveBeenCalled();
   });
 
-  // F3-T6 / MGC-S12: same student in G1 and G2 of the same materia (co-docencia)
-  it('allows same student in two groups of the same materia (co-docencia, MGC-S12)', async () => {
+  // F3-T6 / MGC-S12: co-docencia REMOVED — student cannot be in two groups of the same materia.
+  // G1 succeeds; G2 fails because the student is already in G1.
+  it('rejects student already in another group of same materia — co-docencia removed (MGC-S12)', async () => {
     const grupoG1 = makeGrupo('grupo-1', 'm-1');
     const grupoG2 = makeGrupo('grupo-2', 'm-1');
     const axm = makeAlumnosXMateria('axm-1', 'm-1');
-
-    // Add to G1
-    const grupoRepoG1 = makeGrupoRepo(grupoG1);
-    const alumnosGrupoRepoG1 = makeAlumnosGrupoRepo();
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
+
+    // G1: nothing pre-assigned → succeeds
+    const grupoRepoG1 = makeGrupoRepo(grupoG1);
+    const alumnosGrupoRepoG1 = makeAlumnosGrupoRepo([]); // nobody assigned yet
     const ucG1 = new AddStudentToGrupoUseCase(grupoRepoG1, alumnosGrupoRepoG1, alumnosMateriaRepo);
     await ucG1.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
-
-    // Add to G2 (same student, same materia, different grupo)
-    const grupoRepoG2 = makeGrupoRepo(grupoG2);
-    const alumnosGrupoRepoG2 = makeAlumnosGrupoRepo();
-    const ucG2 = new AddStudentToGrupoUseCase(grupoRepoG2, alumnosGrupoRepoG2, alumnosMateriaRepo);
-    await ucG2.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' });
-
-    // Both should succeed
     expect(alumnosGrupoRepoG1.addStudent).toHaveBeenCalledWith('grupo-1', 'axm-1');
-    expect(alumnosGrupoRepoG2.addStudent).toHaveBeenCalledWith('grupo-2', 'axm-1');
+
+    // G2: axm-1 already in G1 → rejected
+    const grupoRepoG2 = makeGrupoRepo(grupoG2);
+    const alumnosGrupoRepoG2 = makeAlumnosGrupoRepo(['axm-1']); // axm-1 pre-assigned (via G1)
+    const ucG2 = new AddStudentToGrupoUseCase(grupoRepoG2, alumnosGrupoRepoG2, alumnosMateriaRepo);
+
+    await expect(
+      ucG2.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' })
+    ).rejects.toBeInstanceOf(AlumnoAlreadyInGrupoError);
+
+    expect(alumnosGrupoRepoG2.addStudent).not.toHaveBeenCalled();
+  });
+
+  // MGC-S13: student already in another group of the same materia → 409
+  it('throws AlumnoAlreadyInGrupoError when student already in another grupo of same materia (MGC-S13)', async () => {
+    const grupo = makeGrupo('grupo-2', 'm-1');
+    const axm = makeAlumnosXMateria('axm-1', 'm-1');
+    const grupoRepo = makeGrupoRepo(grupo);
+    // Student is already in grupo-1 (another group of the same materia)
+    const alumnosGrupoRepo = makeAlumnosGrupoRepo(['axm-1']);
+    const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
+    const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
+
+    await expect(
+      uc.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' })
+    ).rejects.toBeInstanceOf(AlumnoAlreadyInGrupoError);
+
+    expect(alumnosGrupoRepo.addStudent).not.toHaveBeenCalled();
   });
 
   it('throws NotFoundError when grupo not found', async () => {

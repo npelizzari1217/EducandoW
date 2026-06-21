@@ -49,4 +49,11 @@ export interface AlumnosXGrupoRepository {
    * Satisfies: MGC-GET-AUTHZ / F5-T8 (multi-grupo dedup).
    */
   findStudentIdsByGrupoIds(grupoIds: string[]): Promise<string[]>;
+  /**
+   * Returns the deduplicated set of alumnosXMateriaXCursoXCicloId values
+   * for all AlumnosXGrupo records belonging to groups of the given materia.
+   * Used to enforce the "one group per student per materia" rule (MGC-S13).
+   * Returns [] when no memberships exist for the materia.
+   */
+  findAssignedAlumnosMateriaIds(materiaXCursoXCicloId: string): Promise<string[]>;
 }

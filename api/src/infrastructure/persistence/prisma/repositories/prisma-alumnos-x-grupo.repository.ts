@@ -154,6 +154,36 @@ export class PrismaAlumnosXGrupoRepository implements AlumnosXGrupoRepository {
   }
 
   /**
+   * Returns the deduplicated set of alumnosXMateriaXCursoXCicloId values for all
+   * AlumnosXGrupo records belonging to groups of the given materia.
+   *
+   * Two-step query:
+   *   1. Find all GrupoIds for this materia.
+   *   2. Find all AlumnosXGrupo records for those grupoIds, return deduplicated axmIds.
+   *
+   * Used by AddStudentToGrupoUseCase and ListAlumnosMateriaUseCase (unassigned filter).
+   * Enforces the exclusión estricta rule: one student per materia per group (MGC-S13).
+   */
+  async findAssignedAlumnosMateriaIds(materiaXCursoXCicloId: string): Promise<string[]> {
+    // Step 1: get all grupo IDs for this materia
+    const grupos = await this.client.grupoXCursoXMateriaXCiclo.findMany({
+      where: { materiaXCursoXCicloId },
+      select: { id: true },
+    });
+    if (grupos.length === 0) return [];
+
+    const grupoIds = grupos.map((g: { id: string }) => g.id);
+
+    // Step 2: get all alumnosXMateriaXCursoXCicloId values for those grupos
+    const axgRows = await this.client.alumnosXGrupoXCursoXMateriaXCiclo.findMany({
+      where: { grupoId: { in: grupoIds } },
+      select: { alumnosXMateriaXCursoXCicloId: true },
+    });
+
+    return [...new Set(axgRows.map((r: { alumnosXMateriaXCursoXCicloId: string }) => r.alumnosXMateriaXCursoXCicloId))];
+  }
+
+  /**
    * Bulk-upsert for backfill (skipDuplicates).
    */
   async upsertMany(

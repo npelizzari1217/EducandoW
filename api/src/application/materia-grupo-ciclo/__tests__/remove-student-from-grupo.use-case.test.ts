@@ -36,6 +36,7 @@ function makeAlumnosGrupoRepo(): AlumnosXGrupoRepository {
     findByGrupo: vi.fn().mockResolvedValue([]),
     findByGrupoEnriched: vi.fn().mockResolvedValue([]),
     findStudentIdsByGrupoIds: vi.fn().mockResolvedValue([]),
+    findAssignedAlumnosMateriaIds: vi.fn().mockResolvedValue([]),
     addStudent: vi.fn(),
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),

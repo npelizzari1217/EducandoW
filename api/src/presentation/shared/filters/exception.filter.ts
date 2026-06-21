@@ -40,6 +40,8 @@ const DOMAIN_STATUS: Record<string, number> = {
   // Terciario — docente-grade-entry (Fase D)
   DOCENTE_ALREADY_ASSIGNED: 409,
   ASSIGNMENT_ALREADY_INACTIVE: 409,
+  // Materia-grupo-ciclo — Fase 3 (exclusión estricta: un alumno = un grupo por materia)
+  ALUMNO_ALREADY_IN_GRUPO: 409,
 };
 
 @Catch()

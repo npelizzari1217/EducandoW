@@ -15,6 +15,7 @@ import { extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
+import { Modal } from '../../components/ui/modal';
 import { LEVEL_CATALOG, LEVEL_LABELS } from '../../constants/levels';
 import PremiumPrintReport, { buildBranding } from '../../components/reports/PremiumPrintReport';
 
@@ -137,6 +138,20 @@ export default function GestionGruposPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [printGrupo, setPrintGrupo] = useState<Grupo | null>(null);
   const [printAlumnos, setPrintAlumnos] = useState<AlumnoItem[]>([]);
+
+  // ── Alumnos Modal (B5) ────────────────────────────────────────────────────
+
+  const [alumnosModal, setAlumnosModal] = useState<{
+    open: boolean;
+    grupoId: string;
+    grupoName: string;
+    materiaXCursoXCicloId: string;
+    courseCycleId: string;
+  } | null>(null);
+  const [modalGrupoAlumnos, setModalGrupoAlumnos] = useState<AlumnoItem[]>([]);
+  const [modalDisponibles, setModalDisponibles] = useState<AlumnoItem[]>([]);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
 
   // ── Reload grupos ─────────────────────────────────────────────────────────
 
@@ -310,6 +325,84 @@ export default function GestionGruposPage() {
     const alumnos: AlumnoItem[] = r.data?.data ?? r.data ?? [];
     setPrintAlumnos(alumnos);
     setPrintGrupo(grupo);
+  }
+
+  // ── Alumnos Modal handlers ────────────────────────────────────────────────
+
+  async function refreshModalData(grupoId: string, materiaXCursoXCicloId: string, courseCycleId: string) {
+    setModalLoading(true);
+    setModalError(null);
+    try {
+      const [grupoR, disponiblesR] = await Promise.all([
+        apiClient.get(`/grupos/${grupoId}/alumnos`, { params: tenantParams }),
+        apiClient.get(
+          `/course-cycles/${courseCycleId}/materias/${materiaXCursoXCicloId}/alumnos`,
+          { params: { ...tenantParams, unassigned: 'true' } },
+        ),
+      ]);
+      setModalGrupoAlumnos(grupoR.data?.data ?? grupoR.data ?? []);
+      setModalDisponibles(disponiblesR.data?.data ?? disponiblesR.data ?? []);
+    } catch {
+      setModalError('Error al cargar los alumnos');
+    } finally {
+      setModalLoading(false);
+    }
+  }
+
+  async function openAlumnosModal(grupo: Grupo) {
+    const state = {
+      open: true,
+      grupoId: grupo.id,
+      grupoName: grupo.name ?? `${grupo.subjectName} — ${grupo.docenteName}`,
+      materiaXCursoXCicloId: grupo.materiaId,
+      courseCycleId: grupo.courseCycleId,
+    };
+    setAlumnosModal(state);
+    setModalGrupoAlumnos([]);
+    setModalDisponibles([]);
+    await refreshModalData(grupo.id, grupo.materiaId, grupo.courseCycleId);
+  }
+
+  async function handleModalAdd(alumnoXMateriaId: string) {
+    if (!alumnosModal) return;
+    setModalError(null);
+    try {
+      await apiClient.post(
+        `/grupos/${alumnosModal.grupoId}/alumnos`,
+        { alumnosXMateriaXCursoXCicloId: alumnoXMateriaId },
+        { params: tenantParams },
+      );
+      await refreshModalData(
+        alumnosModal.grupoId,
+        alumnosModal.materiaXCursoXCicloId,
+        alumnosModal.courseCycleId,
+      );
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setModalError('Este alumno ya está asignado a otro grupo de esta materia');
+      } else {
+        setModalError(extractErrorMessage(err) || 'Error al agregar el alumno');
+      }
+    }
+  }
+
+  async function handleModalRemove(alumnoXGrupoId: string) {
+    if (!alumnosModal) return;
+    setModalError(null);
+    try {
+      await apiClient.delete(
+        `/grupos/${alumnosModal.grupoId}/alumnos/${alumnoXGrupoId}`,
+        { params: tenantParams },
+      );
+      await refreshModalData(
+        alumnosModal.grupoId,
+        alumnosModal.materiaXCursoXCicloId,
+        alumnosModal.courseCycleId,
+      );
+    } catch (err: unknown) {
+      setModalError(extractErrorMessage(err) || 'Error al quitar el alumno');
+    }
   }
 
   async function reloadGrupoAndMateriaAlumnos(grupoId: string, courseCycleId: string, materiaId: string) {
@@ -520,6 +613,14 @@ export default function GestionGruposPage() {
                             <td style={{ padding: '0.5rem' }}>{LEVEL_LABELS[grupo.level] ?? grupo.level}</td>
                             <td style={{ padding: '0.5rem' }}>{grupo.alumnosCount}</td>
                             <td style={{ padding: '0.5rem', display: 'flex', gap: '0.25rem' }}>
+                              <Button
+                                size="sm"
+                                variant="action"
+                                data-testid={`btn-alumnos-${grupo.id}`}
+                                onClick={() => openAlumnosModal(grupo)}
+                              >
+                                Alumnos
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="action"
@@ -768,6 +869,102 @@ export default function GestionGruposPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de alumnos (B5) */}
+      {alumnosModal && (
+        <Modal
+          open={alumnosModal.open}
+          title={`Alumnos — ${alumnosModal.grupoName}`}
+          onClose={() => { setAlumnosModal(null); setModalError(null); }}
+          size="lg"
+        >
+          {modalError && (
+            <p style={{ color: '#dc2626', fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }}>
+              {modalError}
+            </p>
+          )}
+          {modalLoading && (
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+              Cargando...
+            </p>
+          )}
+          {!modalLoading && (
+            <>
+              {/* Alumnos ya en el grupo */}
+              <div style={{ marginBottom: '0.75rem' }}>
+                <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }}>
+                  Alumnos del grupo ({modalGrupoAlumnos.length})
+                </p>
+                {modalGrupoAlumnos.length === 0 && (
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                    Sin alumnos en el grupo.
+                  </p>
+                )}
+                {modalGrupoAlumnos.map((a: AlumnoItem) => (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
+                      border: '1px solid var(--color-border)',
+                    }}
+                  >
+                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                      {a.studentName}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="action"
+                      data-testid={`btn-remove-modal-${a.id}`}
+                      onClick={() => handleModalRemove(a.id)}
+                    >
+                      −
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Alumnos disponibles para agregar */}
+              {modalDisponibles.length > 0 && (
+                <div>
+                  <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)', marginBottom: '0.25rem' }}>
+                    Disponibles para agregar:
+                  </p>
+                  {modalDisponibles.map((a: AlumnoItem) => (
+                    <div
+                      key={a.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
+                        border: '1px solid var(--color-border)',
+                      }}
+                    >
+                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
+                        {a.studentName}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="action"
+                        data-testid={`btn-add-modal-${a.id}`}
+                        onClick={() => handleModalAdd(a.id)}
+                      >
+                        +
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {modalDisponibles.length === 0 && modalGrupoAlumnos.length > 0 && (
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+                  Todos los alumnos de la materia ya están asignados a un grupo.
+                </p>
+              )}
+            </>
+          )}
+        </Modal>
       )}
 
       {/* Vista de impresión */}

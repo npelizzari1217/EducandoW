@@ -5,7 +5,7 @@ import type {
   AlumnosXMateriaRepository,
   AlumnosXGrupoXCursoXMateriaXCiclo,
 } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, AlumnoAlreadyInGrupoError } from '@educandow/domain';
 
 /**
  * AddStudentToGrupoUseCase — Fase 3c (F3-A4).
@@ -15,11 +15,14 @@ import { NotFoundError } from '@educandow/domain';
  * Hard containment (MGC-R4): verifies that the alumnosXMateriaXCursoXCicloId
  * belongs to the same materiaXCursoXCicloId as the group. If not → rejected.
  *
- * This check also covers MGC-S10 (cross-CC rejection) because a student from a
- * different CC has an alumnosXMateriaId referencing a different courseCycleId chain.
+ * Cross-CC rejection (MGC-S10) is also covered by the containment check because
+ * a student from a different CC has an alumnosXMateriaId referencing a different
+ * courseCycleId chain, so the materiaIds won't match.
  *
- * Co-docencia (MGC-R5 / MGC-S12): same student can be in multiple groups of the
- * same materia — the @@unique is (grupoId, alumnosXMateriaId) so overlap is valid.
+ * Exclusión estricta (MGC-S13 / Fase 3): one student = one group per materia.
+ * Co-docencia (multiple groups, same materia) is no longer allowed.
+ * Throws AlumnoAlreadyInGrupoError (409) if the student is already in any group
+ * of the same materia.
  */
 @Injectable()
 export class AddStudentToGrupoUseCase {
@@ -53,7 +56,16 @@ export class AddStudentToGrupoUseCase {
       );
     }
 
-    // Add to group — co-docencia allowed (MGC-R5 / MGC-S12)
+    // Exclusión estricta (MGC-S13): one student per materia per group.
+    // Check if this alumnosXMateriaId is already assigned to any group of the materia.
+    const assignedIds = await this.alumnosGrupoRepo.findAssignedAlumnosMateriaIds(
+      grupo.materiaXCursoXCicloId,
+    );
+    if (assignedIds.includes(input.alumnosXMateriaXCursoXCicloId)) {
+      throw new AlumnoAlreadyInGrupoError();
+    }
+
+    // Add to group
     return this.alumnosGrupoRepo.addStudent(input.grupoId, input.alumnosXMateriaXCursoXCicloId);
   }
 }
