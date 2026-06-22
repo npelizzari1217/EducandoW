@@ -133,6 +133,7 @@ export type AddCourseToPlanDTO = z.infer<typeof AddCourseToPlanSchema>;
 export const AddSubjectToPlanCourseSchema = z.object({
   subjectId: uuidField,
   hoursPerWeek: z.number().int().min(1).max(40).optional(),
+  esOptativa: z.boolean().optional(),
 });
 export type AddSubjectToPlanCourseDTO = z.infer<typeof AddSubjectToPlanCourseSchema>;
 
