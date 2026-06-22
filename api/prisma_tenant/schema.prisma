@@ -120,15 +120,15 @@ model AsignacionCursoXCiclo {
   rol              RolCurso
   turno            TurnoCurso? // optional and informational (D2)
 
-  courseCycle   CourseCycle  @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade)
-  docenteXCiclo DocenteXCiclo @relation(fields: [docenteXCicloId], references: [id], onDelete: Cascade)
+  courseCycle   CourseCycle  @relation(fields: [courseCycleId], references: [uuid], onDelete: Cascade, map: "asignaciones_curso_x_ciclo_course_cycle_fkey")
+  docenteXCiclo DocenteXCiclo @relation(fields: [docenteXCicloId], references: [id], onDelete: Cascade, map: "asignaciones_curso_x_ciclo_docente_x_ciclo_fkey")
 
   planificaciones PlanificacionCurso[]
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
-  @@unique([courseCycleId, docenteXCicloId, rol, turno])
+  @@unique([courseCycleId, docenteXCicloId, rol, turno], map: "asignaciones_curso_x_ciclo_cc_dxc_rol_turno_key")
   @@index([courseCycleId])
   @@index([docenteXCicloId])
   @@map("asignaciones_curso_x_ciclo")
@@ -148,10 +148,10 @@ model DocenteXCiclo {
   cycleId   String    @map("cycle_id")  // → AcademicCycle.uuid
 
   active    Boolean   @default(true)
-  deletedAt DateTime? @map("deleted_at")
+  deletedAt DateTime? @db.Timestamptz(6) @map("deleted_at")
 
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt      @map("updated_at")
+  createdAt DateTime  @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime  @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   cycle AcademicCycle @relation(fields: [cycleId], references: [uuid])
 
@@ -184,8 +184,8 @@ model MateriaXCursoXCiclo {
   grupos            GrupoXCursoXMateriaXCiclo[]
   asistenciaMensual asistenciaXMateriaXAlumnoXCursoXCiclo[]
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   @@unique([courseCycleId, subjectId])
   @@index([courseCycleId])
@@ -200,16 +200,16 @@ model MateriasXAlumnoXCursoXCiclo {
   materiaXCursoXCicloId String @map("materia_x_curso_x_ciclo_id")
   studentId             String @map("student_id")                  // → Student.id
 
-  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade, map: "alumnos_x_materia_x_curso_x_ciclo_materia_fkey")
   student Student              @relation(fields: [studentId],             references: [id], onDelete: Cascade)
 
   grupoMemberships AlumnosXGrupoXCursoXMateriaXCiclo[]
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   @@unique([materiaXCursoXCicloId, studentId], map: "alumnos_x_materia_x_curso_x_ciclo_materia_student_key")
-  @@index([materiaXCursoXCicloId])
+  @@index([materiaXCursoXCicloId], map: "alumnos_x_materia_x_curso_x_ciclo_materia_idx")
   @@map("alumnos_x_materia_x_curso_x_ciclo")
 }
 
@@ -223,14 +223,14 @@ model GrupoXCursoXMateriaXCiclo {
   docenteXCicloId       String  @map("docente_x_ciclo_id")           // → DocenteXCiclo.id
   name                  String?
 
-  materia       MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  materia       MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade, map: "grupos_x_curso_x_materia_x_ciclo_materia_fkey")
   docenteXCiclo DocenteXCiclo       @relation(fields: [docenteXCicloId],       references: [id], onDelete: Restrict)
 
   alumnos    AlumnosXGrupoXCursoXMateriaXCiclo[]
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
-  @@index([materiaXCursoXCicloId])
+  @@index([materiaXCursoXCicloId], map: "grupos_x_curso_x_materia_x_ciclo_materia_idx")
   @@index([docenteXCicloId])
   @@map("grupos_x_curso_x_materia_x_ciclo")
 }
@@ -245,14 +245,14 @@ model AlumnosXGrupoXCursoXMateriaXCiclo {
   alumnosXMateriaXCursoXCicloId String @map("alumnos_x_materia_x_curso_x_ciclo_id")
 
   grupo         GrupoXCursoXMateriaXCiclo   @relation(fields: [grupoId],                        references: [id], onDelete: Cascade)
-  alumnoMateria MateriasXAlumnoXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade)
+  alumnoMateria MateriasXAlumnoXCursoXCiclo @relation(fields: [alumnosXMateriaXCursoXCicloId], references: [id], onDelete: Cascade, map: "axgxcxmxc_alumno_materia_fkey")
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   @@unique([grupoId, alumnosXMateriaXCursoXCicloId], map: "alumnos_x_grupo_x_materia_x_ciclo_grupo_alumno_key")
   @@index([grupoId])
-  @@index([alumnosXMateriaXCursoXCicloId])
+  @@index([alumnosXMateriaXCursoXCicloId], map: "axgxcxmxc_alumno_materia_idx")
   @@map("alumnos_x_grupo_x_curso_x_materia_x_ciclo")
 }
 
@@ -355,8 +355,8 @@ model AlumnosXCursoXCiclo {
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   student     Student     @relation(fields: [studentId],     references: [id],   onDelete: Restrict)
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   @@unique([courseCycleId, studentId], map: "alumnos_x_curso_x_ciclo_curso_student_key")
   @@index([courseCycleId])
@@ -456,7 +456,7 @@ model CompetenciaXMateriaXAlumnoXCursoXCiclo {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@unique([studentId, competencyId, courseCycleId])
+  @@unique([studentId, competencyId, courseCycleId], map: "competency_valuations_studentId_competencyId_course_cycle_id_ke")
   @@index([competencyId])
   @@index([studentId])
   @@index([courseCycleId])
@@ -942,11 +942,11 @@ model DocenteXMateriaCarrera {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt      @map("updated_at")
 
-  materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade)
+  materiaCarrera MateriaCarrera @relation(fields: [materiaCarreraId], references: [id], onDelete: Cascade, map: "dxmc_materia_carrera_fkey")
 
-  @@unique([userId, materiaCarreraId, anioAcademico])
-  @@index([materiaCarreraId, anioAcademico])
-  @@index([userId])
+  @@unique([userId, materiaCarreraId, anioAcademico], map: "dxmc_user_materia_anio_key")
+  @@index([materiaCarreraId, anioAcademico], map: "dxmc_materia_anio_idx")
+  @@index([userId], map: "dxmc_user_idx")
   @@map("docentes_x_materia_carrera")
 }
 
@@ -1125,7 +1125,7 @@ model SubjectGradingPeriod {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([courseCycleId, subjectId, periodOrdinal])
+  @@unique([courseCycleId, subjectId, periodOrdinal], map: "subject_grading_periods_course_cycle_id_subject_id_period_ordin")
   @@index([courseCycleId, subjectId])
   @@map("subject_grading_periods")
 }
@@ -1153,7 +1153,7 @@ model SubjectPeriodGrade {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([studentId, courseCycleId, subjectId, periodOrdinal])
+  @@unique([studentId, courseCycleId, subjectId, periodOrdinal], map: "subject_period_grades_student_id_course_cycle_id_subject_id_per")
   @@index([courseCycleId, subjectId])
   @@index([studentId])
   @@map("subject_period_grades")
@@ -1197,7 +1197,7 @@ model SubjectFinalGrade {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
-  @@unique([studentId, courseCycleId, subjectId, type])
+  @@unique([studentId, courseCycleId, subjectId, type], map: "subject_final_grades_student_id_course_cycle_id_subject_id_type")
   @@index([courseCycleId, subjectId])
   @@index([studentId])
   @@map("subject_final_grades")
@@ -1347,7 +1347,7 @@ model asistenciaXAlumnoXCursoXCiclo {
   updatedAt DateTime @updatedAt      @map("updated_at")
 
   @@unique([courseCycleId, studentId, year, month], map: "asistencia_alumno_cc_year_month_key")
-  @@index([courseCycleId, year, month])
+  @@index([courseCycleId, year, month], map: "asistencia_x_alumno_x_curso_x_ciclo_course_cycle_id_year_month_")
   @@map("asistencia_x_alumno_x_curso_x_ciclo")
 }
 
@@ -1362,14 +1362,14 @@ model asistenciaXMateriaXAlumnoXCursoXCiclo {
   month                 Int
   days                  Json   @default("{}")
 
-  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade)
+  materia MateriaXCursoXCiclo @relation(fields: [materiaXCursoXCicloId], references: [id], onDelete: Cascade, map: "asistencia_x_materia_x_alumno_x_curso_x_ciclo_materia_fkey")
   student Student             @relation(fields: [studentId],             references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt      @map("updated_at")
 
   @@unique([materiaXCursoXCicloId, studentId, year, month], map: "asistencia_materia_alumno_year_month_key")
-  @@index([materiaXCursoXCicloId, year, month])
+  @@index([materiaXCursoXCicloId, year, month], map: "asistencia_x_materia_x_alumno_x_curso_x_ciclo_materia_year_mont")
   @@map("asistencia_x_materia_x_alumno_x_curso_x_ciclo")
 }
 
@@ -1382,12 +1382,12 @@ model PlanificacionCurso {
   periodOrdinal      Int?      @map("period_ordinal")
   descripcion        String?   @db.Text
   active             Boolean   @default(true)
-  deletedAt          DateTime? @map("deleted_at")
+  deletedAt          DateTime? @db.Timestamptz(6) @map("deleted_at")
 
   asignacionCurso AsignacionCursoXCiclo @relation(fields: [asignacionCursoId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @db.Timestamptz(6) @map("created_at")
+  updatedAt DateTime @updatedAt      @db.Timestamptz(6) @map("updated_at")
 
   @@index([asignacionCursoId])
   @@map("planificaciones_curso")
