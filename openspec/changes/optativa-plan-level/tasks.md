@@ -234,10 +234,10 @@ Write tests RED, implement if anything is missing in T05/T07/T09/T11, run GREEN.
 
 File: `api/src/presentation/pedagogy/__tests__/study-plan.controller.test.ts`
 
-- [ ] **Test A (MGC-S29 / MGC-R16):** `POST /study-plan-courses/:id/subjects` with body `{ subjectId, esOptativa: true }` → Zod schema parses successfully → mocked `addSubjectUC.execute` called with `esOptativa: true`.
-- [ ] **Test B (MGC-S28 / D4):** body without `esOptativa` → Zod parses (optional field), UC called with `esOptativa: undefined`.
-- [ ] **Test C (MGC-S38):** `GET /study-plan-courses/:id/subjects` (`listPlanCourseSubjects`) response body for each subject includes `esOptativa` field.
-- [ ] **Test D (MGC-S38):** `getPlan` subjects map in response includes `esOptativa` per subject entry.
+- [x] **Test A (MGC-S29 / MGC-R16):** `POST /study-plan-courses/:id/subjects` with body `{ subjectId, esOptativa: true }` → Zod schema parses successfully → mocked `addSubjectUC.execute` called with `esOptativa: true`.
+- [x] **Test B (MGC-S28 / D4):** body without `esOptativa` → Zod parses (optional field), UC called with `esOptativa: undefined`.
+- [x] **Test C (MGC-S38):** `GET /study-plan-courses/:id/subjects` (`listPlanCourseSubjects`) response body for each subject includes `esOptativa` field.
+- [x] **Test D (MGC-S38):** `getPlan` subjects map in response includes `esOptativa` per subject entry.
 
 All tests must be RED before T15/T16.
 
@@ -250,8 +250,8 @@ All tests must be RED before T15/T16.
 
 File: `api/src/presentation/auth/dto/register.request.ts` (L133)
 
-- [ ] Add `esOptativa: z.boolean().optional()` to `AddSubjectToPlanCourseSchema`.
-- [ ] `AddSubjectToPlanCourseDTO` type is inferred automatically via `z.infer<>`.
+- [x] Add `esOptativa: z.boolean().optional()` to `AddSubjectToPlanCourseSchema`.
+- [x] `AddSubjectToPlanCourseDTO` type is inferred automatically via `z.infer<>`.
 
 **Req:** MGC-R16, MGC-S29 | **Design:** D3, D4
 **Sequential after T14; can run in parallel with T16 (different line).**
@@ -262,10 +262,10 @@ File: `api/src/presentation/auth/dto/register.request.ts` (L133)
 
 File: `api/src/presentation/pedagogy/pedagogy.controller.ts`
 
-- [ ] `addSubjectToPlanCourse` handler (L259): pass `b.esOptativa` to `addSubjectUC.execute(...)`.
-- [ ] `getPlan` subjects map (L192): add `esOptativa: s.esOptativa` to the response shape for each subject entry.
-- [ ] `listPlanCourseSubjects` (L250): add `esOptativa: s.esOptativa ?? false` to each subject in the response array.
-- [ ] Run T14 tests → all GREEN.
+- [x] `addSubjectToPlanCourse` handler (L259): pass `b.esOptativa` to `addSubjectUC.execute(...)`.
+- [x] `getPlan` subjects map (L192): add `esOptativa: s.esOptativa` to the response shape for each subject entry.
+- [x] `listPlanCourseSubjects` (L250): add `esOptativa: s.esOptativa ?? false` to each subject in the response array.
+- [x] Run T14 tests → all GREEN.
 
 **Req:** MGC-R16, MGC-S37, MGC-S38 | **Design:** D3
 **Sequential after T14 + T15.**
@@ -276,10 +276,10 @@ File: `api/src/presentation/pedagogy/pedagogy.controller.ts`
 
 File: `web/src/pages/dashboard/study-plans.tsx`
 
-- [ ] `PlanCourseSubject` interface (L46): add `esOptativa?: boolean`.
-- [ ] Subject row (L940–973): add **standalone** optativa toggle/badge — NOT inside the inline name-edit state (D6). When `esOptativa` is true, show an "Optativa" badge next to the subject name. When false, badge is absent or shows "Obligatoria".
-- [ ] Near the toggle control, show hint text: `"aplica en la próxima generación de CC"` (communicates that existing CCs are not retroactively updated — MGC-R15).
-- [ ] api-client POST body at L391 (`/study-plan-courses/${planCourseId}/subjects`): include `esOptativa` from the toggle state in the request body. The existing `hoursPerWeek: 4` hardcode stays (additive change, D4).
+- [x] `PlanCourseSubject` interface (L46): add `esOptativa?: boolean`.
+- [x] Subject row (L940–973): add **standalone** optativa toggle/badge — NOT inside the inline name-edit state (D6). When `esOptativa` is true, show an "Optativa" badge next to the subject name. When false, badge is absent or shows "Obligatoria".
+- [x] Near the toggle control, show hint text: `"aplica en la próxima generación de CC"` (communicates that existing CCs are not retroactively updated — MGC-R15).
+- [x] api-client POST body at L391 (`/study-plan-courses/${planCourseId}/subjects`): include `esOptativa` from the toggle state in the request body. The existing `hoursPerWeek: 4` hardcode stays (additive change, D4).
 
 **Req:** MGC-R16, MGC-S38 | **Design:** D6
 **Can run in parallel with T15/T16 — independent file.**
@@ -288,9 +288,9 @@ File: `web/src/pages/dashboard/study-plans.tsx`
 
 ### T18 [VERIFY] — PR2 test run
 
-- [ ] `pnpm --filter api test` → all tests pass, coverage ≥ 80%.
-- [ ] `pnpm --filter api typecheck` → no TypeScript errors.
-- [ ] `pnpm --filter web typecheck` → no TypeScript errors.
+- [x] `pnpm --filter api test` → all tests pass, coverage ≥ 80%.
+- [x] `pnpm --filter api typecheck` → no TypeScript errors.
+- [x] `pnpm --filter web typecheck` → no TypeScript errors.
 - [ ] Open PR2 for review.
 
 **Sequential after T16 + T17.**

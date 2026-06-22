@@ -48,6 +48,7 @@ interface PlanCourseSubject {
   subjectId: string;
   subjectName: string | null;
   hoursPerWeek: number | null;
+  esOptativa?: boolean;
 }
 
 interface CourseSection {
@@ -391,6 +392,7 @@ export default function StudyPlansPage() {
         await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, {
           subjectId,
           hoursPerWeek: 4,
+          esOptativa: false,
         }, { params: tenantQueryParams });
         setShowSubjectForm(null);
         setSubjectForm({ name: '', modality: 'COMUN' });
@@ -437,6 +439,17 @@ export default function StudyPlansPage() {
         courses.some(c => c.id === planCourseId)
       )?.[0];
       if (planId) fetchPlanCourses(planId);
+    } catch { /* ignore */ }
+  };
+
+  // ── Toggle esOptativa (standalone, D6: not inside name-edit state) ──
+  const handleToggleOptativa = async (planCourseId: string, ps: PlanCourseSubject) => {
+    try {
+      await apiClient.post(`/study-plan-courses/${planCourseId}/subjects`, {
+        subjectId: ps.subjectId,
+        esOptativa: !ps.esOptativa,
+      }, { params: tenantQueryParams });
+      fetchCourseSubjects(planCourseId);
     } catch { /* ignore */ }
   };
 
@@ -952,10 +965,19 @@ export default function StudyPlansPage() {
                                         ) : (
                                           <>
                                             <span>{ps.subjectName || ps.subjectId}</span>
+                                            {ps.esOptativa && (
+                                              <span className="badge badge-optativa" style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: '0.25rem', fontWeight: 600 }}>Optativa</span>
+                                            )}
                                             <div className="subject-actions no-print">
                                               <Button variant="action" size="sm" onClick={() => toggleSubjectComps(ps.id)}>
                                                 {compsOpen ? '▾ Competencias' : '▸ Competencias'}
                                               </Button>
+                                              <Button variant="action" size="sm" onClick={() => handleToggleOptativa(pc.id, ps)}>
+                                                {ps.esOptativa ? 'Marcar como obligatoria' : 'Marcar como optativa'}
+                                              </Button>
+                                              <span className="context-hint no-print" style={{ fontSize: '0.68rem', color: '#94a3b8', alignSelf: 'center' }}>
+                                                aplica en la próxima generación de CC
+                                              </span>
                                               <Button variant="action" size="sm" onClick={() => handleEditSubject(ps)}>Editar</Button>
                                               <Button variant="danger-soft" size="sm" onClick={() => handleDeleteSubject(pc.id, ps.subjectId)}>Eliminar</Button>
                                             </div>

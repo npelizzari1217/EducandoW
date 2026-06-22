@@ -194,6 +194,7 @@ export class PedagogyController {
             subjectId: s.subjectId,
             subjectName: s.subjectName,
             hoursPerWeek: s.hoursPerWeek,
+            esOptativa: s.esOptativa,
           })) ?? [],
         })),
       },
@@ -252,12 +253,13 @@ export class PedagogyController {
       subjectId: s.subjectId,
       subjectName: s.subjectName || null,
       hoursPerWeek: s.hoursPerWeek ?? null,
+      esOptativa: s.esOptativa ?? false,
     })) };
   }
 
   @Post('study-plan-courses/:id/subjects') @Roles('ROOT', { module: 'STUDY_PLANS', action: 'UPDATE' })
   async addSubjectToPlanCourse(@Param('id') id: string, @Body(new ZodValidationPipe(DTO.AddSubjectToPlanCourseSchema)) b: DTO.AddSubjectToPlanCourseDTO) {
-    const r = await this.addSubjectUC.execute(id, b.subjectId, b.hoursPerWeek);
+    const r = await this.addSubjectUC.execute(id, b.subjectId, b.hoursPerWeek, b.esOptativa);
     if (r.isErr()) throw new HttpException({ error: { message: r.unwrapErr().message } }, HttpStatus.BAD_REQUEST);
     return { data: { ok: true } };
   }
