@@ -101,6 +101,7 @@ When `name` is not provided in `CreateCourseSectionDTO`, the use case SHALL gene
 ### Requirement: CursoXCiclo Generation Materializes Plan Subjects
 
 > Declared by: `docente-ciclo-grupos/specs/smart-course-creation/delta.md` · Fase 3
+> Modified by: `optativa-plan-level` (2026-06-22) — added `esOptativa` propagation chain
 > Decision D1 governs regeneration behavior (additive; never blocks; never removes rows).
 
 When a user generates a `CursoXCiclo` by selecting a `CicloLectivo`, a study plan,
@@ -108,6 +109,14 @@ and confirming ("Generar"), the system SHALL create one `MateriaXCursoXCiclo` re
 for every subject in the selected study plan, linked to the newly created `CursoXCiclo`,
 using `createMany skipDuplicates` (idempotent). Creating a `CicloLectivo` alone MUST NOT
 produce subject rows.
+
+`GenerateCourseCyclesUseCase` MUST forward `esOptativa` from each `StudyPlanSubject`
+through the full chain — `StudyPlanCourseDto` → use case input → `upsertMany` payload —
+so that each `MateriaXCursoXCiclo` row created at generation time receives the plan-level
+designation as its initial value. The plan-level `esOptativa` is the materialization
+DEFAULT; the per-CC PATCH override (MGC-R10) remains authoritative and is never
+overwritten. The `createMany skipDuplicates` strategy (D1) is unchanged, which
+automatically preserves `esOptativa` on already-materialized rows.
 
 #### Scenario: Generating CursoXCiclo materializes all plan subjects
 
@@ -130,6 +139,30 @@ produce subject rows.
   using createMany skipDuplicates — it NEVER removes existing rows
 - AND grades, groups, student-subject records, and docente assignments are NEVER touched
 - AND the operation is accepted without error regardless of whether grades exist
+
+#### Scenario: Generation propagates esOptativa from each plan subject to its CC row
+
+- GIVEN a study plan with subject SPS1 (`esOptativa = true`) and SPS2 (`esOptativa = false`)
+- WHEN a `CursoXCiclo` is generated from that plan
+- THEN the `MateriaXCursoXCiclo` for SPS1 has `esOptativa = true`
+- AND the `MateriaXCursoXCiclo` for SPS2 has `esOptativa = false`
+
+#### Scenario: Generation with all obligatoria subjects produces no optativa CC rows
+
+- GIVEN a study plan with 4 subjects all having `esOptativa = false`
+- WHEN a `CursoXCiclo` is generated from that plan
+- THEN all 4 `MateriaXCursoXCiclo` rows have `esOptativa = false`
+- AND no row is created with `esOptativa = true`
+
+#### Scenario: Re-generation (skipDuplicates) does not overwrite existing esOptativa on CC rows
+
+- GIVEN `CursoXCiclo` CC1 was generated from plan P with SPS1 (`esOptativa = false`) and SPS2 (`esOptativa = false`)
+- AND the `MateriaXCursoXCiclo` M1 for SPS1 was subsequently toggled to `esOptativa = true` via PATCH (MGC-R10)
+- AND SPS2 is updated on the plan to `esOptativa = true`
+- WHEN CC1 is re-generated
+- THEN `M1.esOptativa` remains `true` (PATCH override preserved; `skipDuplicates` bypassed M1)
+- AND `M2.esOptativa` remains `false` (existing row not overwritten by the plan change)
+- AND no rows are removed or modified; only new-subject rows would be inserted
 
 ---
 
