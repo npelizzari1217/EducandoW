@@ -94,9 +94,9 @@ Source spec: `openspec/changes/archive/2026-06-16-docente-ciclo-grupos/specs/use
 | # | Item | Status |
 |---|---|---|
 | 1 | Migrar GET de notas a authz grupo-based (F5-A2 + F5-T8/T9) | **RESUELTO** por `notas-get-authz-grupo` (2026-06-16). Unit tests closed. |
-| 2 | Retiro de `Teacher` y `SubjectAssignment` (D5) | **PENDIENTE** — SDD posterior requerido |
-| 3 | Optativas: asignación de subconjunto de alumnos a materia | **PENDIENTE** — diferido explícitamente |
-| 4 | Tests de integración multi-tenant (F1-T4..T6, F2-T6..T8, F3-T9..T12, F4-T5..T7, F6-T8/T9) | **PENDIENTE** — requieren contexto DB tenant real. F5-T8/T9 cerrados a nivel unit. |
+| 2 | Retiro de `Teacher` y `SubjectAssignment` (D5) | **RESUELTO** (2026-06-22) — serie `retiro-*` (17-19 jun) dropeó los modelos; verificado, modelos inexistentes en todo schema. |
+| 3 | Optativas: asignación de subconjunto de alumnos a materia | **RESUELTO** (2026-06-22) — change `optativas-inscripcion` (3 PRs, archivado). |
+| 4 | Tests de integración multi-tenant (F1-T4..T6, F2-T6..T8, F3-T9..T12, F4-T5..T7, F6-T8/T9) | **RESUELTO** (2026-06-22) — 10/15 ya estaban escritos; **F6-T8/T9** agregados (`api/test/integration/asistencia/attendance-independence.db.test.ts`, `3-door-enforcement.db.test.ts`). **F1-T4, F1-T5, F3-T11 OBSOLETOS**: testean scripts de backfill de `Teacher`/`SubjectAssignment`, modelos dropeados en deuda #2 — no pueden correr ni tienen sentido. |
 | 5 | Asistencia delta — mergear al canonical spec correcto | **RESUELTO** — `openspec/specs/attendance-recording/spec.md` (ATR-R1..R3) creado 2026-06-16 |
 | 6 | User persona — mergear al canonical spec correcto | **RESUELTO** — `openspec/specs/user-persona/spec.md` (UP-R1..R3) creado 2026-06-16 |
 
