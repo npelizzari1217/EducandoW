@@ -41,7 +41,7 @@ Este proyecto trabaja con **Spec-Driven Development**. Respetá el ciclo complet
 - No saltees fases ni implementes sin pasar por el flujo.
 - Reglas del workflow viven en `openspec/config.yaml` (acatalas: nivel pedagógico afectado, Given/When/Then + RFC 2119 en specs, Clean Arch en design, TDD en apply).
 - **TDD estricto:** test primero. `test_command: pnpm test`, `build_command: pnpm build`, coverage ≥ 80%.
-- Changes activos en `openspec/changes/` (hoy: `docente-ciclo-grupos`); archivados en `openspec/changes/archive/` y `sdd/archive/`.
+- Changes activos en `openspec/changes/` (si está vacío salvo `archive/`, no hay ninguno en curso); los cerrados en `openspec/changes/archive/` y `sdd/archive/`.
 - Seguí el plan hasta el último change previsto; no lo des por terminado antes del `archive`.
 
 ## Convenciones
