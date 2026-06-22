@@ -313,6 +313,31 @@ The Fase 3 migration applies to empty tables (user-confirmed). No backfill neede
 
 ---
 
+### Requirement: CourseCycle-Scoped Uniqueness Constraint Correctness
+
+> Added: tenant-migration-drift-baseline (2026-06-22)
+
+The uniqueness constraint enforced on the `competency_valuations` table MUST be exclusively
+the 3-column key `(studentId, competencyId, courseCycleId)`. No 2-column unique index or
+constraint on `(studentId, competencyId)` alone MUST exist in the database after migration
+`20260623000000_reconcile_tenant_drift_baseline` has been applied.
+
+**Background**: Migration `20260608201000_competency_scope_remodel` created a 2-column UNIQUE
+INDEX via `CREATE UNIQUE INDEX "competency_valuations_studentId_competencyId_key"`. The subsequent
+`ALTER TABLE "competency_valuations" DROP CONSTRAINT IF EXISTS "competency_valuations_studentId_competencyId_key"`
+(in `20260608210000_competency_instantiation_fase3`) silently no-op'd — in PostgreSQL,
+`DROP CONSTRAINT IF EXISTS` does not act on indexes created with `CREATE UNIQUE INDEX`, only on
+named CONSTRAINT objects. The stranded 2-col index coexisted with the correct 3-col UNIQUE
+CONSTRAINT, making the 2-col index the effective (more-restrictive) enforcer and blocking the
+intended CourseCycle-scoped uniqueness model. Corrected by migration
+`20260623000000_reconcile_tenant_drift_baseline` via `DROP INDEX`.
+
+Behavioral scenarios MVM-3 (same student + competency in different CourseCycles accepted) and
+MVM-2 (same student + competency + CourseCycle triple rejected) exercise this constraint directly
+and remain the authoritative acceptance tests.
+
+---
+
 ### Requirement: CompetencyValuation Endpoints
 
 The system MUST expose the following REST endpoints:
