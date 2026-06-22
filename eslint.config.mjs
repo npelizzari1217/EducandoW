@@ -16,7 +16,6 @@ export default tseslint.config(
       '**/.next/',
       '**/.turbo/',
       '**/coverage/',
-      'api/prisma/generated/',
       '**/*.js',
       '**/*.mjs',
     ],
