@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CreateStudyPlanUC, UpdateStudyPlanUC, DeleteStudyPlanUC } from '../use-cases/pedagogy.use-cases';
+import { CreateStudyPlanUC, UpdateStudyPlanUC, DeleteStudyPlanUC, AddSubjectToPlanCourseUC } from '../use-cases/pedagogy.use-cases';
 import {
   StudyPlan,
   Id,
@@ -38,6 +38,13 @@ const mockRepo = {
   findPlanCoursesByPlan: vi.fn(),
   saveWithLevelCascade: vi.fn(),
   getDependencies: vi.fn(),
+};
+
+const mockSubjectRepo = {
+  findById: vi.fn(),
+  findAll: vi.fn(),
+  save: vi.fn(),
+  softDelete: vi.fn(),
 };
 
 describe('UpdateStudyPlanUC', () => {
@@ -299,5 +306,39 @@ describe('DeleteStudyPlanUC', () => {
     expect(result.isOk()).toBe(true);
     expect(mockRepo.getDependencies).not.toHaveBeenCalled();
     expect(mockRepo.softDelete).not.toHaveBeenCalled();
+  });
+});
+
+// ── AddSubjectToPlanCourseUC — esOptativa forwarding (T06 RED → T07 GREEN) ──
+
+describe('AddSubjectToPlanCourseUC — esOptativa forwarding', () => {
+  let uc: AddSubjectToPlanCourseUC;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // planCourse found
+    mockRepo.findPlanCourseById.mockResolvedValue({ id: 'pc-1', studyPlanId: 'plan-1', courseSectionId: 'cs-1' });
+    // subject found
+    mockSubjectRepo.findById.mockResolvedValue({ id: 'subj-1', name: 'Math' });
+    mockRepo.addSubject.mockResolvedValue(undefined);
+    uc = new AddSubjectToPlanCourseUC(mockRepo as any, mockSubjectRepo as any);
+  });
+
+  it('Test A (MGC-S29): esOptativa:true is forwarded to planRepo.addSubject', async () => {
+    await uc.execute('pc-1', 'subj-1', 3, true);
+
+    expect(mockRepo.addSubject).toHaveBeenCalledWith('pc-1', 'subj-1', 3, true);
+  });
+
+  it('Test B (MGC-S37): esOptativa:false is forwarded to planRepo.addSubject', async () => {
+    await uc.execute('pc-1', 'subj-1', 3, false);
+
+    expect(mockRepo.addSubject).toHaveBeenCalledWith('pc-1', 'subj-1', 3, false);
+  });
+
+  it('Test C (D5): omitting esOptativa calls planRepo.addSubject with undefined as 4th arg', async () => {
+    await uc.execute('pc-1', 'subj-1', 3);
+
+    expect(mockRepo.addSubject).toHaveBeenCalledWith('pc-1', 'subj-1', 3, undefined);
   });
 });

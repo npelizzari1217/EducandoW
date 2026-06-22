@@ -666,6 +666,91 @@ describe('GenerateCourseCyclesUseCase', () => {
     ).rejects.toThrow(AcademicCycleClosedError);
   });
 
+  // T10 RED → T11 GREEN: esOptativa mapping through GenerateCourseCyclesUseCase
+  describe('esOptativa forwarding to materializeMateriasUC (T10)', () => {
+    const mockMaterializeUC = { execute: vi.fn().mockResolvedValue(undefined) };
+
+    beforeEach(() => {
+      mockMaterializeUC.execute.mockClear();
+    });
+
+    it('Test A (MGC-S30/S31): mixed esOptativa values forwarded to planSubjects', async () => {
+      const uc = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, mockAutoCreateUC, mockMaterializeUC as any);
+      mockPlanRepo.findById = vi.fn().mockResolvedValue({
+        id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+        academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+      });
+      mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+        {
+          id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Mat', studyPlanId: 'plan-1',
+          subjects: [
+            { id: 'sps-1', subjectId: 'subj-1', esOptativa: false },
+            { id: 'sps-2', subjectId: 'subj-2', esOptativa: true },
+          ],
+        },
+      ]);
+      mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+      await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+      // Allow fire-and-forget to resolve
+      await new Promise(r => setTimeout(r, 10));
+
+      expect(mockMaterializeUC.execute).toHaveBeenCalledOnce();
+      const planSubjects = mockMaterializeUC.execute.mock.calls[0][0].planSubjects as Array<{ subjectId: string; esOptativa?: boolean }>;
+      expect(planSubjects.find(s => s.subjectId === 'subj-1')?.esOptativa).toBe(false);
+      expect(planSubjects.find(s => s.subjectId === 'subj-2')?.esOptativa).toBe(true);
+    });
+
+    it('Test B (MGC-S32): 3 subjects [false, true, false] forwarded in order', async () => {
+      const uc = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, mockAutoCreateUC, mockMaterializeUC as any);
+      mockPlanRepo.findById = vi.fn().mockResolvedValue({
+        id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+        academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+      });
+      mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+        {
+          id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Mat', studyPlanId: 'plan-1',
+          subjects: [
+            { id: 'sps-1', subjectId: 'subj-1', esOptativa: false },
+            { id: 'sps-2', subjectId: 'subj-2', esOptativa: true },
+            { id: 'sps-3', subjectId: 'subj-3', esOptativa: false },
+          ],
+        },
+      ]);
+      mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+      await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+      await new Promise(r => setTimeout(r, 10));
+
+      const planSubjects = mockMaterializeUC.execute.mock.calls[0][0].planSubjects as Array<{ esOptativa?: boolean }>;
+      expect(planSubjects[0].esOptativa).toBe(false);
+      expect(planSubjects[1].esOptativa).toBe(true);
+      expect(planSubjects[2].esOptativa).toBe(false);
+    });
+
+    it('Test C (MGC-S33 backward compat): subject with no esOptativa → forwarded as undefined (not coerced to false)', async () => {
+      const uc = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, mockAutoCreateUC, mockMaterializeUC as any);
+      mockPlanRepo.findById = vi.fn().mockResolvedValue({
+        id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+        academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+      });
+      mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+        {
+          id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Mat', studyPlanId: 'plan-1',
+          subjects: [{ id: 'sps-1', subjectId: 'subj-1' /* no esOptativa */ }],
+        },
+      ]);
+      mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+      await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+      await new Promise(r => setTimeout(r, 10));
+
+      const planSubjects = mockMaterializeUC.execute.mock.calls[0][0].planSubjects as Array<{ esOptativa?: boolean }>;
+      expect(planSubjects[0].esOptativa).toBeUndefined();
+    });
+  });
+
   // ACT-5: autoCreateUC rejection is fire-and-forget — generate still succeeds
   it('succeeds even when autoCreateUC.execute rejects (fire-and-forget isolation)', async () => {
     const failingAutoCreateUC = { execute: vi.fn().mockRejectedValue(new Error('boom')) } as never;

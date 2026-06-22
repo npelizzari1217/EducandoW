@@ -598,6 +598,7 @@ model StudyPlanSubject {
   studyPlanCourseId String
   subjectId         String
   hoursPerWeek      Int?
+  esOptativa        Boolean @default(false) @map("es_optativa")
 
   studyPlanCourse StudyPlanCourse @relation(fields: [studyPlanCourseId], references: [id], onDelete: Cascade)
   subject         Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
