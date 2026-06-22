@@ -22,7 +22,7 @@
     "prisma:migrate": "pnpm prisma:migrate:master",
     "prisma:seed": "ts-node prisma/seed.ts",
     "bootstrap": "tsx scripts/bootstrap.ts",
-    "migrate-tenants": "tsx scripts/migrate-all-tenants.ts",
+    "migrate-tenants": "ts-node scripts/migrate-all-tenants.ts",
     "tenant:create": "ts-node scripts/create-tenant-db.ts",
     "diagnose:auth": "ts-node scripts/diagnose-auth.ts",
     "typecheck": "tsc --noEmit",

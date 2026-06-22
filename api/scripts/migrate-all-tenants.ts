@@ -60,7 +60,7 @@ async function main() {
   let totalFailed = 0;
   for (const row of rows) {
     const dbName = row.db_name;
-    const tenantUrl = MASTER_URL.replace(/\/[^/]+$/, `/${dbName}`);
+    const tenantUrl = MASTER_URL!.replace(/\/[^/]+$/, `/${dbName}`);
 
     console.log(`  ⏳ ${dbName} ...`);
     try {
