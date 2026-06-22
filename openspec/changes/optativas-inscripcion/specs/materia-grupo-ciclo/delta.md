@@ -70,10 +70,12 @@ An authorized user MUST be able to add a student to an optativa materia manually
 using the existing add endpoint (`POST /course-cycles/:ccId/materias/:materiaId/alumnos`).
 An authorized user MUST ALSO be able to remove a student from any materia — optativa
 or obligatoria — via a new delete endpoint
-(`DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:studentId`).
-A `RemoveStudentFromMateriaUseCase` SHALL back the delete endpoint. The add operation
-MUST be idempotent (adding an already-enrolled student MUST NOT produce a duplicate row
-or an error). Removing a student when no enrollment record exists MUST return HTTP 404.
+(`DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:id`, where `:id` is the
+`AlumnosXMateriaXCursoXCiclo` enrollment-record id, mirroring the grupo-removal URL).
+A `RemoveStudentFromMateriaUseCase` SHALL back the delete endpoint. Both operations
+MUST be idempotent: adding an already-enrolled student MUST NOT produce a duplicate row
+or an error, and removing an enrollment record that does not exist MUST be a no-op that
+succeeds (HTTP 204) WITHOUT modifying data — it MUST NOT return an error.
 
 #### MGC-S18 — Authorized user adds student to optativa materia manually
 
@@ -86,10 +88,10 @@ or an error). Removing a student when no enrollment record exists MUST return HT
 
 #### MGC-S19 — Authorized user removes student from optativa materia
 
-- GIVEN AlumnosXMateriaXCursoXCiclo record E exists for student S in optativa materia M
-- WHEN DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:studentId is called
+- GIVEN AlumnosXMateriaXCursoXCiclo record E (id = eId) exists for student S in optativa materia M
+- WHEN DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:id is called with id = eId
 - THEN record E is deleted
-- AND the response is HTTP 200 (or 204)
+- AND the response is HTTP 204
 
 #### MGC-S20 — Removing the last enrolled student is valid
 
@@ -106,12 +108,12 @@ or an error). Removing a student when no enrollment record exists MUST return HT
 - THEN no duplicate AlumnosXMateriaXCursoXCiclo row is created
 - AND the operation succeeds without error (HTTP 200 or 201)
 
-#### MGC-S22 — Removing a student not enrolled returns 404
+#### MGC-S22 — Removing a non-existent enrollment record is an idempotent no-op
 
-- GIVEN student S is NOT enrolled in materia M
-- WHEN DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:studentId is called
-- THEN the response is HTTP 404
-- AND no data is modified
+- GIVEN no AlumnosXMateriaXCursoXCiclo record exists for the given id in materia M
+- WHEN DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:id is called with that id
+- THEN no data is modified
+- AND the operation succeeds without error (HTTP 204)
 
 ---
 

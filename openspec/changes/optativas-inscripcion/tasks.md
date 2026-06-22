@@ -183,7 +183,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 
 #### Group A — `removeStudent` Prisma implementation
 
-**Task T2.1 [TEST]**
+**Task T2.1 [TEST]** [x]
 - **File (extend or new):** `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-alumnos-x-materia.repository.test.ts`
 - **Spec:** MGC-R9, MGC-S19, MGC-S20, MGC-S22 · **Design:** D4
 - Write failing tests:
@@ -191,7 +191,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - `removeStudent(id)` on non-existent id → no throw (idempotent via `deleteMany`)
 - Run `pnpm test` — must fail.
 
-**Task T2.2 [IMPL]**
+**Task T2.2 [IMPL]** [x]
 - **File:** `api/src/infrastructure/persistence/prisma/repositories/prisma-alumnos-x-materia.repository.ts`
 - **Spec:** MGC-R9 · **Design:** D4
 - Depends on: T2.1
@@ -208,7 +208,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 
 #### Group B — `RemoveStudentFromMateriaUseCase`
 
-**Task T2.3 [TEST]**
+**Task T2.3 [TEST]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/__tests__/remove-student-from-materia.use-case.test.ts`
 - **Spec:** MGC-R9, MGC-S19, MGC-S22 · **Design:** D4
 - Write failing tests:
@@ -217,7 +217,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - Does NOT call `alumnosRepo.removeStudent` when materia not found
 - Run `pnpm test` — must fail.
 
-**Task T2.4 [IMPL]**
+**Task T2.4 [IMPL]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/remove-student-from-materia.use-case.ts`
 - **Spec:** MGC-R9 · **Design:** D4
 - Depends on: T2.3
@@ -229,7 +229,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 
 #### Group C — `SetMateriaEsOptativaUseCase`
 
-**Task T2.5 [TEST]**
+**Task T2.5 [TEST]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/__tests__/set-materia-es-optativa.use-case.test.ts`
 - **Spec:** MGC-R10, MGC-R11, MGC-S23, MGC-S24, MGC-S25 · **Design:** D3, D6
 - Write failing tests:
@@ -239,7 +239,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - Does NOT interact with `AlumnosXMateriaRepository` — no cleanup (D6)
 - Run `pnpm test` — must fail.
 
-**Task T2.6 [IMPL]**
+**Task T2.6 [IMPL]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/set-materia-es-optativa.use-case.ts`
 - **Spec:** MGC-R10, MGC-R11 · **Design:** D3, D6
 - Depends on: T2.5
@@ -251,7 +251,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 
 #### Group D — `ListEnrollableStudentsForMateriaUseCase`
 
-**Task T2.7 [TEST]**
+**Task T2.7 [TEST]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/__tests__/list-enrollable-students-for-materia.use-case.test.ts`
 - **Spec:** (implicit in MGC-R9/MGC-S18, enables the add flow for empty optativas) · **Design:** D5
 - Write failing tests:
@@ -261,7 +261,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - Empty optativa (0 enrolled) → returns all CC students as candidates
 - Run `pnpm test` — must fail.
 
-**Task T2.8 [IMPL]**
+**Task T2.8 [IMPL]** [x]
 - **File (new):** `api/src/application/materia-grupo-ciclo/list-enrollable-students-for-materia.use-case.ts`
 - **Spec:** (D5) · **Design:** D5
 - Depends on: T2.7
@@ -274,13 +274,13 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 
 #### Group E — Presentation (sequential; requires A+B+C+D done)
 
-**Task T2.9 [TEST] — MateriaResponse + GET /materias esOptativa field (MGC-S27)**
+**Task T2.9 [TEST]** [x] **— MateriaResponse + GET /materias esOptativa field (MGC-S27)**
 - **File (new or extend):** `api/src/presentation/materia-grupo-ciclo/__tests__/list-materias.controller.spec.ts`
 - **Spec:** MGC-R12, MGC-S27 · **Design:** section 6.1
 - Write failing test: GET /course-cycles/:ccId/materias response includes `esOptativa` per entry; one entry `false`, one entry `true`.
 - Run `pnpm test` — must fail (DTO not yet updated).
 
-**Task T2.10 [IMPL] — MateriaResponse DTO + listMaterias mapping**
+**Task T2.10 [IMPL]** [x] **— MateriaResponse DTO + listMaterias mapping**
 - **File:** `api/src/presentation/materia-grupo-ciclo/dto/materia-grupo-ciclo.dto.ts`
 - **File:** `api/src/presentation/materia-grupo-ciclo/materia-grupo-ciclo.controller.ts` (listMaterias mapping only)
 - **Spec:** MGC-R12, MGC-S27 · **Design:** D1, section 6.1
@@ -289,7 +289,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
 - `listMaterias` handler: add `esOptativa: item.materia.esOptativa` to the mapped response.
 - Run `pnpm test` — T2.9 must pass.
 
-**Task T2.11 [TEST] — DELETE endpoint controller spec**
+**Task T2.11 [TEST]** [x] **— DELETE endpoint controller spec**
 - **File (new):** `api/src/presentation/materia-grupo-ciclo/__tests__/remove-student-from-materia.controller.spec.ts`
 - **Spec:** MGC-R9, MGC-S19, MGC-S20, MGC-S22 · **Design:** D4, D8, section 6.3
 - Depends on: T2.10 (DTO stable before adding new endpoints)
@@ -299,7 +299,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - Authz: `COURSE_CYCLES` × `DELETE` (3-door model, D8)
 - Run `pnpm test` — must fail.
 
-**Task T2.12 [TEST] — PATCH endpoint controller spec**
+**Task T2.12 [TEST]** [x] **— PATCH endpoint controller spec**
 - **File (new):** `api/src/presentation/materia-grupo-ciclo/__tests__/set-materia-es-optativa.controller.spec.ts`
 - **Spec:** MGC-R10, MGC-S23, MGC-S24 · **Design:** D3, D8, section 6.2
 - Write failing tests:
@@ -309,7 +309,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - Authz: `COURSE_CYCLES` × `UPDATE` (D8)
 - Run `pnpm test` — must fail.
 
-**Task T2.13 [TEST] — GET ?eligible=true controller spec**
+**Task T2.13 [TEST]** [x] **— GET ?eligible=true controller spec**
 - **File (new or extend):** `api/src/presentation/materia-grupo-ciclo/__tests__/list-enrollable-students.controller.spec.ts`
 - **Spec:** MGC-S18 (enables the add candidate list for empty optativas) · **Design:** D5, section 6.4
 - Write failing tests:
@@ -318,7 +318,7 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   - `?eligible=true` and `?unassigned=true` together → `eligible` wins (or validate one-of)
 - Run `pnpm test` — must fail.
 
-**Task T2.14 [IMPL] — Controller: DELETE + PATCH + eligible branch**
+**Task T2.14 [IMPL]** [x] **— Controller: DELETE + PATCH + eligible branch**
 - **File:** `api/src/presentation/materia-grupo-ciclo/materia-grupo-ciclo.controller.ts`
 - **Spec:** MGC-R9, MGC-R10, MGC-S19, MGC-S22, MGC-S23, MGC-S24; D5 eligible · **Design:** sections 6.2, 6.3, 6.4, D8
 - Depends on: T2.11, T2.12, T2.13 (all tests must fail first)
@@ -328,14 +328,14 @@ Groups A, B, C, D can run in parallel. Group E requires A+B+C+D to be done.
   3. `GET .../materias/:materiaId/alumnos`: add `eligible` branch — when `eligible === 'true'` delegate to `ListEnrollableStudentsForMateriaUseCase`; else keep existing behavior. Validate mutual exclusion with `unassigned`.
 - Run `pnpm test` — T2.11, T2.12, T2.13 must pass.
 
-**Task T2.15 [IMPL] — Module wiring**
+**Task T2.15 [IMPL]** [x] **— Module wiring**
 - **File:** `api/src/presentation/materia-grupo-ciclo/materia-grupo-ciclo.module.ts`
 - **Design:** section 6, module wiring
 - Depends on: T2.14
 - Register `RemoveStudentFromMateriaUseCase`, `SetMateriaEsOptativaUseCase`, `ListEnrollableStudentsForMateriaUseCase` as providers.
 - Ensure `AlumnosXCursoXCicloRepository` token is available in the module (needed by `ListEnrollableStudentsForMateriaUseCase`).
 
-**Task T2.16 [BUILD] — PR2 verification**
+**Task T2.16 [BUILD]** [x] **— PR2 verification**
 - Commands: `pnpm test` + `pnpm build`
 - All PR2 tests green. TypeScript clean. Coverage ≥ 80% for touched files.
 - Merge PR2 before starting PR3.

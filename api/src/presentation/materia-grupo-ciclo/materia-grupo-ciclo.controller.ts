@@ -27,8 +27,10 @@ import {
   AddStudentToGrupoDto,
   ListGruposGlobalQuerySchema,
   UpdateGrupoSchema,
+  SetMateriaEsOptativaSchema,
   type ListGruposGlobalQueryDto,
   type UpdateGrupoDto,
+  type SetMateriaEsOptativaDto,
   type MateriaResponse,
   type GrupoResponse,
   type GrupoGlobalResponse,
@@ -47,6 +49,9 @@ import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete
 import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
 import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
 import { ListAlumnosMateriaUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-materia.use-case';
+import { RemoveStudentFromMateriaUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-materia.use-case';
+import { SetMateriaEsOptativaUseCase } from '../../application/materia-grupo-ciclo/set-materia-es-optativa.use-case';
+import { ListEnrollableStudentsForMateriaUseCase } from '../../application/materia-grupo-ciclo/list-enrollable-students-for-materia.use-case';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -72,6 +77,9 @@ export class MateriasGruposController {
     private readonly removeStudentFromGrupoUC: RemoveStudentFromGrupoUseCase,
     private readonly listAlumnosGrupoUC: ListAlumnosGrupoUseCase,
     private readonly listAlumnosMateriaUC: ListAlumnosMateriaUseCase,
+    private readonly removeStudentFromMateriaUC: RemoveStudentFromMateriaUseCase,
+    private readonly setMateriaEsOptativaUC: SetMateriaEsOptativaUseCase,
+    private readonly listEnrollableStudentsForMateriaUC: ListEnrollableStudentsForMateriaUseCase,
   ) {}
 
   /**
@@ -103,6 +111,7 @@ export class MateriasGruposController {
         subjectName: subjectMap.get(item.materia.subjectId) ?? item.materia.subjectId,
         alumnosCount: item.alumnoCount,
         gruposCount: item.grupoCount,
+        esOptativa: item.materia.esOptativa,
       })),
     };
   }
@@ -237,23 +246,86 @@ export class MateriasGruposController {
   }
 
   /**
-   * GET /course-cycles/:ccId/materias/:materiaId/alumnos — F7
-   * Lists all students enrolled in a materia (universe), enriched with studentName.
-   * Supports ?unassigned=true to return only students not yet in any group of this materia.
-   * Resolution is delegated to ListAlumnosMateriaUseCase → PrismaAlumnosXMateriaRepository
-   * (Clean Arch: no raw Prisma in the controller).
+   * GET /course-cycles/:ccId/materias/:materiaId/alumnos — F7 + D5
+   * Lists students enrolled in a materia universe, enriched with studentName.
+   *
+   * Query modes (mutually exclusive; eligible wins if both are set):
+   *   ?eligible=true  → CC-enrolled students NOT yet in the materia universe
+   *                     (delegates to ListEnrollableStudentsForMateriaUseCase, D5)
+   *   ?unassigned=true → materia-universe students not yet in any grupo
+   *                     (existing behavior, delegates to ListAlumnosMateriaUseCase)
+   *   (none)          → full materia universe
    */
   @Get('course-cycles/:ccId/materias/:materiaId/alumnos')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listAlumnosMateria(
     @Param('materiaId') materiaId: string,
     @Query('unassigned') unassigned?: string,
+    @Query('eligible') eligible?: string,
   ): Promise<{ data: AlumnoMateriaItem[] }> {
+    if (eligible === 'true') {
+      const data = await this.listEnrollableStudentsForMateriaUC.execute({
+        materiaXCursoXCicloId: materiaId,
+      });
+      return { data };
+    }
     const data = await this.listAlumnosMateriaUC.execute({
       materiaXCursoXCicloId: materiaId,
       unassigned: unassigned === 'true',
     });
     return { data };
+  }
+
+  /**
+   * DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:id — MGC-R9, D4, D8
+   * Remove a student from the materia universe by bridge-row id.
+   * Idempotent: the underlying deleteMany handles missing rows as a no-op.
+   * Authz: COURSE_CYCLES × DELETE (mirrors DELETE /grupos/:grupoId/alumnos/:alumnoXGrupoId).
+   */
+  @Delete('course-cycles/:ccId/materias/:materiaId/alumnos/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
+  async removeStudentFromMateria(
+    @Param('ccId') _ccId: string,
+    @Param('materiaId') materiaId: string,
+    @Param('id') id: string,
+  ): Promise<void> {
+    await this.removeStudentFromMateriaUC.execute({
+      materiaXCursoXCicloId: materiaId,
+      alumnoXMateriaId: id,
+    });
+  }
+
+  /**
+   * PATCH /course-cycles/:ccId/materias/:materiaId — MGC-R10, D3, D8
+   * Toggle the esOptativa flag on a materia.
+   * Body: { esOptativa: boolean } (Zod-validated).
+   * Returns the updated MateriaResponse with all fields.
+   * Authz: COURSE_CYCLES × UPDATE (mirrors PATCH /grupos/:id).
+   */
+  @Patch('course-cycles/:ccId/materias/:materiaId')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async setMateriaEsOptativa(
+    @Param('ccId') _ccId: string,
+    @Param('materiaId') materiaId: string,
+    @Body(new ZodValidationPipe(SetMateriaEsOptativaSchema)) body: SetMateriaEsOptativaDto,
+  ): Promise<{ data: MateriaResponse }> {
+    const materia = await this.setMateriaEsOptativaUC.execute({
+      id: materiaId,
+      esOptativa: body.esOptativa,
+    });
+    return {
+      data: {
+        id: materia.id,
+        courseCycleId: materia.courseCycleId,
+        subjectId: materia.subjectId,
+        studyPlanSubjectId: materia.studyPlanSubjectId,
+        subjectName: materia.subjectId, // subjectName not resolved at toggle time (no subject lookup needed)
+        alumnosCount: 0,
+        gruposCount: 0,
+        esOptativa: materia.esOptativa,
+      },
+    };
   }
 
   /**

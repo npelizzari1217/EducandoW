@@ -32,12 +32,52 @@ function makeRow(overrides: Partial<MockRow> = {}): MockRow {
 function makeClient(
   rows: MockRow[],
   students: { id: string; firstName: string; lastName: string }[],
+  overrides: { deleteMany?: ReturnType<typeof vi.fn> } = {},
 ) {
   return {
-    materiasXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(rows) },
+    materiasXAlumnoXCursoXCiclo: {
+      findMany: vi.fn().mockResolvedValue(rows),
+      deleteMany: overrides.deleteMany ?? vi.fn().mockResolvedValue({ count: 1 }),
+    },
     student: { findMany: vi.fn().mockResolvedValue(students) },
   };
 }
+
+// ── T2.1: removeStudent tests ──────────────────────────────────────────────────
+
+describe('PrismaAlumnosXMateriaRepository.removeStudent', () => {
+  let repo: PrismaAlumnosXMateriaRepository;
+
+  beforeEach(() => {
+    repo = new PrismaAlumnosXMateriaRepository();
+  });
+
+  it('T2.1-A: removeStudent(id) calls deleteMany with { id } and returns void', async () => {
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const client = makeClient([], [], { deleteMany });
+    vi.mocked(TenantContext.getClient).mockReturnValue(
+      client as unknown as ReturnType<typeof TenantContext.getClient>,
+    );
+
+    await repo.removeStudent('axm-42');
+
+    expect(deleteMany).toHaveBeenCalledWith({ where: { id: 'axm-42' } });
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+  });
+
+  it('T2.1-B: removeStudent(id) on non-existent id is idempotent — no throw (deleteMany count=0)', async () => {
+    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    const client = makeClient([], [], { deleteMany });
+    vi.mocked(TenantContext.getClient).mockReturnValue(
+      client as unknown as ReturnType<typeof TenantContext.getClient>,
+    );
+
+    await expect(repo.removeStudent('non-existent')).resolves.toBeUndefined();
+    expect(deleteMany).toHaveBeenCalledWith({ where: { id: 'non-existent' } });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 describe('PrismaAlumnosXMateriaRepository.findByMateriaEnriched', () => {
   let repo: PrismaAlumnosXMateriaRepository;

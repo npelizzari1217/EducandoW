@@ -5,6 +5,7 @@ import { StudentModule } from '../student/student.module';
 import { MateriasGruposController } from './materia-grupo-ciclo.controller';
 import { PrismaMateriaXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-materia-x-curso-x-ciclo.repository';
 import { PrismaAlumnosXMateriaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-materia.repository';
+import { PrismaAlumnosXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-curso-x-ciclo.repository';
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
 import { PrismaAlumnosXGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-grupo.repository';
 import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
@@ -20,6 +21,9 @@ import { DeleteGrupoUseCase } from '../../application/materia-grupo-ciclo/delete
 import { RemoveStudentFromGrupoUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-grupo.use-case';
 import { ListAlumnosGrupoUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-grupo.use-case';
 import { ListAlumnosMateriaUseCase } from '../../application/materia-grupo-ciclo/list-alumnos-materia.use-case';
+import { RemoveStudentFromMateriaUseCase } from '../../application/materia-grupo-ciclo/remove-student-from-materia.use-case';
+import { SetMateriaEsOptativaUseCase } from '../../application/materia-grupo-ciclo/set-materia-es-optativa.use-case';
+import { ListEnrollableStudentsForMateriaUseCase } from '../../application/materia-grupo-ciclo/list-enrollable-students-for-materia.use-case';
 import { DocenteXCicloService } from '../../application/docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
@@ -39,6 +43,7 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
     // ── Repositories ──────────────────────────────────────────────────────────
     PrismaMateriaXCursoXCicloRepository,
     PrismaAlumnosXMateriaRepository,
+    PrismaAlumnosXCursoXCicloRepository,
     PrismaGrupoRepository,
     PrismaAlumnosXGrupoRepository,
     PrismaService,
@@ -147,6 +152,34 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
         alumnosGrupoRepo: PrismaAlumnosXGrupoRepository,
       ) => new ListAlumnosMateriaUseCase(alumnosMateriaRepo, alumnosGrupoRepo),
       inject: [PrismaAlumnosXMateriaRepository, PrismaAlumnosXGrupoRepository],
+    },
+
+    // ── PR2: removeStudent + toggle + eligible ────────────────────────────────
+
+    {
+      provide: RemoveStudentFromMateriaUseCase,
+      useFactory: (
+        materiaRepo: PrismaMateriaXCursoXCicloRepository,
+        alumnosRepo: PrismaAlumnosXMateriaRepository,
+      ) => new RemoveStudentFromMateriaUseCase(materiaRepo, alumnosRepo),
+      inject: [PrismaMateriaXCursoXCicloRepository, PrismaAlumnosXMateriaRepository],
+    },
+
+    {
+      provide: SetMateriaEsOptativaUseCase,
+      useFactory: (materiaRepo: PrismaMateriaXCursoXCicloRepository) =>
+        new SetMateriaEsOptativaUseCase(materiaRepo),
+      inject: [PrismaMateriaXCursoXCicloRepository],
+    },
+
+    {
+      provide: ListEnrollableStudentsForMateriaUseCase,
+      useFactory: (
+        materiaRepo: PrismaMateriaXCursoXCicloRepository,
+        alumnosXMateriaRepo: PrismaAlumnosXMateriaRepository,
+        alumnosCCRepo: PrismaAlumnosXCursoXCicloRepository,
+      ) => new ListEnrollableStudentsForMateriaUseCase(materiaRepo, alumnosXMateriaRepo, alumnosCCRepo),
+      inject: [PrismaMateriaXCursoXCicloRepository, PrismaAlumnosXMateriaRepository, PrismaAlumnosXCursoXCicloRepository],
     },
   ],
   exports: [MaterializeMateriasUseCase, PrismaMateriaXCursoXCicloRepository],
