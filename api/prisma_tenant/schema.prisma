@@ -175,6 +175,7 @@ model MateriaXCursoXCiclo {
   courseCycleId        String  @map("course_cycle_id")         // → CourseCycle.uuid
   subjectId            String  @map("subject_id")              // → Subject.id
   studyPlanSubjectId   String? @map("study_plan_subject_id")   // provenance (soft ref)
+  esOptativa           Boolean @default(false) @map("es_optativa") // MGC-R7: optativa flag
 
   courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
   subject     Subject     @relation(fields: [subjectId],     references: [id],   onDelete: Restrict)

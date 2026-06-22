@@ -22,6 +22,7 @@ function makeRepo(result: AlumnoMateriaEnriched[] = []): AlumnosXMateriaReposito
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),
     findByMateriaEnriched: vi.fn().mockResolvedValue(result),
+    removeStudent: vi.fn().mockResolvedValue(undefined),
   };
 }
 

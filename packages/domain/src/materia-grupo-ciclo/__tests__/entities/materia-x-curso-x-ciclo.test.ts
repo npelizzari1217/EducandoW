@@ -42,6 +42,7 @@ describe('MateriaXCursoXCiclo entity', () => {
       courseCycleId: 'cc-uuid-1',
       subjectId: 'subject-1',
       studyPlanSubjectId: 'sps-1',
+      esOptativa: false,
       createdAt: now,
       updatedAt: now,
     });
@@ -71,5 +72,35 @@ describe('MateriaXCursoXCiclo entity', () => {
 
   it('create throws if subjectId is empty', () => {
     expect(() => MateriaXCursoXCiclo.create({ courseCycleId: 'cc-1', subjectId: '' })).toThrow();
+  });
+
+  // ── MGC-R7 / MGC-S14 — esOptativa flag ──────────────────────────────────────
+
+  it('create() with no esOptativa defaults to false (MGC-S14)', () => {
+    const m = MateriaXCursoXCiclo.create(validInput);
+    expect(m.esOptativa).toBe(false);
+  });
+
+  it('create({ esOptativa: true }) sets the flag (MGC-S14)', () => {
+    const m = MateriaXCursoXCiclo.create({ ...validInput, esOptativa: true });
+    expect(m.esOptativa).toBe(true);
+  });
+
+  it('getter esOptativa returns the stored value', () => {
+    const m = MateriaXCursoXCiclo.create({ ...validInput, esOptativa: false });
+    expect(m.esOptativa).toBe(false);
+  });
+
+  it('reconstruct() round-trips esOptativa through props', () => {
+    const now = new Date('2026-01-01');
+    const m = MateriaXCursoXCiclo.reconstruct({
+      id: 'fixed-id',
+      courseCycleId: 'cc-uuid-1',
+      subjectId: 'subject-1',
+      esOptativa: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(m.esOptativa).toBe(true);
   });
 });

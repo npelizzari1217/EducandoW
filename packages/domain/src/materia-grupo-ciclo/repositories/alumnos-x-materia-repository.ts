@@ -34,4 +34,9 @@ export interface AlumnosXMateriaRepository {
    * Throws if no tenant client (surfaces the error instead of silently returning []).
    */
   findByMateriaEnriched(materiaXCursoXCicloId: string): Promise<AlumnoMateriaEnriched[]>;
+  /**
+   * Remove a student from the subject universe by bridge-row id. Idempotent (deleteMany).
+   * MGC-R9, D4.
+   */
+  removeStudent(id: string): Promise<void>;
 }

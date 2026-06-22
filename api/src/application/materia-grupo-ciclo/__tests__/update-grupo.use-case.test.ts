@@ -45,6 +45,7 @@ function makeMateria(id = 'm-1'): MateriaXCursoXCiclo {
     id,
     courseCycleId: 'cc-uuid-1',
     subjectId: 'subj-1',
+    esOptativa: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -91,6 +92,7 @@ function makeMateriaRepo(materia: MateriaXCursoXCiclo | null): MateriaXCursoXCic
     findByCourseCycleId: vi.fn(),
     upsertMany: vi.fn(),
     updateDescription: vi.fn(),
+    setEsOptativa: vi.fn(),
   };
 }
 

@@ -14,6 +14,7 @@ function makeMateria(id = 'm-1'): MateriaXCursoXCiclo {
     id,
     courseCycleId: 'cc-1',
     subjectId: 'subj-1',
+    esOptativa: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -39,6 +40,7 @@ function makeMateriaRepo(materia: MateriaXCursoXCiclo | null): MateriaXCursoXCic
     findByCourseCycleId: vi.fn().mockResolvedValue(materia ? [materia] : []),
     upsertMany: vi.fn().mockResolvedValue(undefined),
     updateDescription: vi.fn().mockResolvedValue(materia ?? makeMateria()),
+    setEsOptativa: vi.fn(),
   };
 }
 
@@ -50,6 +52,7 @@ function makeAlumnosRepo(): AlumnosXMateriaRepository {
     isMember: vi.fn().mockResolvedValue(false),
     upsertMany: vi.fn().mockResolvedValue(undefined),
     findByMateriaEnriched: vi.fn().mockResolvedValue([]),
+    removeStudent: vi.fn().mockResolvedValue(undefined),
   };
 }
 

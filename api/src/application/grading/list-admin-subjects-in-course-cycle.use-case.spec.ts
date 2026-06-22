@@ -20,6 +20,7 @@ function makeMateria(id: string, subjectId: string, courseCycleId = 'cc-uuid-1')
     id,
     courseCycleId,
     subjectId,
+    esOptativa: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });

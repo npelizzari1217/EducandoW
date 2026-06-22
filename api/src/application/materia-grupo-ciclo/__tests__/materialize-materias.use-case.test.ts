@@ -15,6 +15,7 @@ function makeMateria(overrides: Partial<{ id: string; courseCycleId: string; sub
     courseCycleId: overrides.courseCycleId ?? 'cc-1',
     subjectId: overrides.subjectId ?? 'subj-1',
     studyPlanSubjectId: overrides.studyPlanSubjectId,
+    esOptativa: false,
     createdAt: new Date('2026-01-01'),
     updatedAt: new Date('2026-01-01'),
   });
@@ -30,6 +31,7 @@ function makeRepo(existing: MateriaXCursoXCiclo[] = []): MateriaXCursoXCicloRepo
     updateDescription: vi.fn().mockImplementation((id: string, data: { studyPlanSubjectId?: string }) =>
       Promise.resolve(makeMateria({ id, studyPlanSubjectId: data.studyPlanSubjectId }))
     ),
+    setEsOptativa: vi.fn(),
   };
 }
 
