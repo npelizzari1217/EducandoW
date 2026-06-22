@@ -117,7 +117,12 @@ Write-Host "  Master database ready." -ForegroundColor Green
 Write-Host "[8b/10] Migrating all tenant databases..." -ForegroundColor Yellow
 Set-Location $PROJECT_DIR\api
 pnpm migrate-tenants
+$tenantExit = $LASTEXITCODE
 Set-Location $PROJECT_DIR
+if ($tenantExit -ne 0) {
+    Write-Host "  ERROR: tenant migrations failed (exit $tenantExit). Aborting deploy before (re)starting the API to avoid serving un-migrated tenants." -ForegroundColor Red
+    exit 1
+}
 Write-Host "  Tenant migrations complete." -ForegroundColor Green
 
 # ── 9. (Re)start API as a Windows service via NSSM ────────────────────────
