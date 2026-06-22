@@ -347,12 +347,12 @@ export class RemoveCourseFromPlanUC { constructor(private r: StudyPlanRepository
 @Injectable()
 export class AddSubjectToPlanCourseUC {
   constructor(private planRepo: StudyPlanRepository, private subjectRepo: SubjectRepository) {}
-  async execute(planCourseId: string, subjectId: string, hoursPerWeek?: number) {
+  async execute(planCourseId: string, subjectId: string, hoursPerWeek?: number, esOptativa?: boolean) {
     const planCourse = await this.planRepo.findPlanCourseById(planCourseId);
     if (!planCourse) return err(new ValidationError(`Asociación plan-curso ${planCourseId} no encontrada`));
     const subject = await this.subjectRepo.findById(subjectId);
     if (!subject) return err(new ValidationError(`Materia ${subjectId} no encontrada`));
-    await this.planRepo.addSubject(planCourseId, subjectId, hoursPerWeek);
+    await this.planRepo.addSubject(planCourseId, subjectId, hoursPerWeek, esOptativa);
     return ok(null);
   }
 }

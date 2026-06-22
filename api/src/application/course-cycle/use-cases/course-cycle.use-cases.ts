@@ -404,6 +404,7 @@ export class GenerateCourseCyclesUseCase {
               planSubjects: pc.subjects!.map((s) => ({
                 subjectId: s.subjectId,
                 studyPlanSubjectId: s.id,
+                esOptativa: s.esOptativa,
               })),
             })
             .catch((e) => {

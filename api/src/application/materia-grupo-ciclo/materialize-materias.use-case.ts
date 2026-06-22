@@ -4,6 +4,7 @@ import type { MateriaXCursoXCicloRepository } from '@educandow/domain';
 export interface PlanSubjectInput {
   subjectId: string;
   studyPlanSubjectId?: string;
+  esOptativa?: boolean;
 }
 
 export interface MaterializeMateriasInput {
@@ -35,10 +36,15 @@ export class MaterializeMateriasUseCase {
         courseCycleId: input.courseCycleId,
         subjectId: s.subjectId,
         studyPlanSubjectId: s.studyPlanSubjectId,
+        esOptativa: s.esOptativa,
       })),
     );
 
     // Step 2: D1 re-sync — update studyPlanSubjectId on rows that already existed
+    // D2 LOCK: do NOT add esOptativa here.
+    // Step-2 only re-syncs studyPlanSubjectId. Adding esOptativa would overwrite
+    // per-CC PATCH overrides (MGC-R10) on re-generation. Additive semantics (MGC-R15)
+    // are enforced by upsertMany skipDuplicates in Step-1.
     // Fetch all rows (includes both newly created and already-existing ones)
     const existing = await this.materiaRepo.findByCourseCycleId(input.courseCycleId);
     if (existing.length === 0) return;

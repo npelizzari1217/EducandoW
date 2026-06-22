@@ -7,7 +7,7 @@ export interface StudyPlanCourseDto {
   courseSectionName?: string;
   courseGrade?: string | null;
   courseDivision?: string | null;
-  subjects?: { id: string; subjectId: string; subjectName?: string; hoursPerWeek?: number }[];
+  subjects?: { id: string; subjectId: string; subjectName?: string; hoursPerWeek?: number; esOptativa?: boolean }[];
 }
 
 export interface StudyPlanRepository {
@@ -17,7 +17,7 @@ export interface StudyPlanRepository {
   softDelete(id: string): Promise<void>;
   addCourse(planId: string, courseSectionId: string): Promise<void>;
   removeCourse(planId: string, courseSectionId: string): Promise<void>;
-  addSubject(planCourseId: string, subjectId: string, hoursPerWeek?: number): Promise<void>;
+  addSubject(planCourseId: string, subjectId: string, hoursPerWeek?: number, esOptativa?: boolean): Promise<void>;
   removeSubject(planCourseId: string, subjectId: string): Promise<void>;
   findPlanCourseById(id: string): Promise<StudyPlanCourseDto | null>;
   findPlanCoursesByPlan(planId: string): Promise<StudyPlanCourseDto[]>;

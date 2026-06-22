@@ -66,11 +66,12 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
   }
 
   // ── Subject management ──
-  async addSubject(planCourseId: string, subjectId: string, hoursPerWeek?: number): Promise<void> {
+  async addSubject(planCourseId: string, subjectId: string, hoursPerWeek?: number, esOptativa?: boolean): Promise<void> {
     await this.client.studyPlanSubject.upsert({
       where: { studyPlanCourseId_subjectId: { studyPlanCourseId: planCourseId, subjectId } },
-      create: { studyPlanCourseId: planCourseId, subjectId, hoursPerWeek },
-      update: { hoursPerWeek },
+      create: { studyPlanCourseId: planCourseId, subjectId, hoursPerWeek, esOptativa },
+      // esOptativa: undefined here is intentional — Prisma skips the field rather than setting false (D5: preserve per-CC PATCH overrides)
+      update: { hoursPerWeek, esOptativa },
     });
   }
 
@@ -100,6 +101,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
         subjectId: s.subjectId || s.subject?.id,
         subjectName: s.subject?.name ?? undefined,
         hoursPerWeek: s.hoursPerWeek ?? undefined,
+        esOptativa: s.esOptativa,
       })) ?? [],
     };
   }
@@ -123,6 +125,7 @@ export class PrismaStudyPlanRepository implements StudyPlanRepository {
           subjectId: s.subjectId || s.subject?.id,
           subjectName: s.subject?.name ?? undefined,
           hoursPerWeek: s.hoursPerWeek ?? undefined,
+          esOptativa: s.esOptativa,
         })) ?? [],
       };
     });

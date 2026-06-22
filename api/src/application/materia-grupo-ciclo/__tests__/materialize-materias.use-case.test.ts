@@ -128,6 +128,70 @@ describe('MaterializeMateriasUseCase', () => {
     });
   });
 
+  describe('esOptativa inheritance (T08 RED → T09 GREEN)', () => {
+    it('Test A (MGC-S30/R14): esOptativa:true in planSubjects → upsertMany called with esOptativa:true', async () => {
+      const repo = makeRepo([]);
+      const uc = new MaterializeMateriasUseCase(repo);
+
+      await uc.execute({
+        courseCycleId: 'cc-1',
+        planSubjects: [{ subjectId: 'subj-1', studyPlanSubjectId: 'sps-1', esOptativa: true }],
+      });
+
+      const call = (repo.upsertMany as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<{ esOptativa?: boolean }>;
+      expect(call[0].esOptativa).toBe(true);
+    });
+
+    it('Test B (MGC-S31): esOptativa:false in planSubjects → upsertMany called with esOptativa:false', async () => {
+      const repo = makeRepo([]);
+      const uc = new MaterializeMateriasUseCase(repo);
+
+      await uc.execute({
+        courseCycleId: 'cc-1',
+        planSubjects: [{ subjectId: 'subj-1', studyPlanSubjectId: 'sps-1', esOptativa: false }],
+      });
+
+      const call = (repo.upsertMany as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<{ esOptativa?: boolean }>;
+      expect(call[0].esOptativa).toBe(false);
+    });
+
+    it('Test C (MGC-S32): mixed plan → each subject gets its own esOptativa value', async () => {
+      const repo = makeRepo([]);
+      const uc = new MaterializeMateriasUseCase(repo);
+
+      await uc.execute({
+        courseCycleId: 'cc-1',
+        planSubjects: [
+          { subjectId: 'subj-1', studyPlanSubjectId: 'sps-1', esOptativa: false },
+          { subjectId: 'subj-2', studyPlanSubjectId: 'sps-2', esOptativa: true },
+          { subjectId: 'subj-3', studyPlanSubjectId: 'sps-3', esOptativa: false },
+        ],
+      });
+
+      const call = (repo.upsertMany as ReturnType<typeof vi.fn>).mock.calls[0][0] as Array<{ subjectId: string; esOptativa?: boolean }>;
+      expect(call.find(c => c.subjectId === 'subj-1')?.esOptativa).toBe(false);
+      expect(call.find(c => c.subjectId === 'subj-2')?.esOptativa).toBe(true);
+      expect(call.find(c => c.subjectId === 'subj-3')?.esOptativa).toBe(false);
+    });
+
+    it('Test D (D2 LOCK/MGC-R15): Step-2 updateDescription is NOT called with esOptativa', async () => {
+      const existing = [makeMateria({ subjectId: 'subj-1', studyPlanSubjectId: 'old-sps-1' })];
+      const repo = makeRepo(existing);
+      const uc = new MaterializeMateriasUseCase(repo);
+
+      await uc.execute({
+        courseCycleId: 'cc-1',
+        planSubjects: [{ subjectId: 'subj-1', studyPlanSubjectId: 'new-sps-1', esOptativa: true }],
+      });
+
+      // updateDescription should be called (re-sync studyPlanSubjectId), but without esOptativa
+      const updateCalls = (repo.updateDescription as ReturnType<typeof vi.fn>).mock.calls;
+      for (const [, data] of updateCalls) {
+        expect((data as Record<string, unknown>)).not.toHaveProperty('esOptativa');
+      }
+    });
+  });
+
   describe('F3-T2 — MGC-S3: two CCs from same plan produce independent rows', () => {
     it('two separate invocations with different courseCycleId produce independent calls', async () => {
       const repoA = makeRepo([]);
