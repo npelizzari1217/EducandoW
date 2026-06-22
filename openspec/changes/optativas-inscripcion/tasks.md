@@ -354,7 +354,7 @@ Steps are sequential within the same file. Badge and toggle are independent of e
 
 ---
 
-**Task T3.1 [TEST] — Web component test (optional but required for coverage gate)**
+**Task T3.1 [TEST] [x] — Web component test (optional but required for coverage gate)**
 - **File (new if web test convention exists):** `web/src/pages/dashboard/__tests__/gestion-grupos-optativa.test.tsx`
 - **Spec:** MGC-R7 (badge), MGC-R9 (modal add/remove), MGC-R10 (toggle) · **Design:** section 7
 - Write failing tests (follow existing grupo alumnosModal test patterns):
@@ -363,21 +363,21 @@ Steps are sequential within the same file. Badge and toggle are independent of e
   - Modal "eligible" list fetches `?eligible=true` endpoint
 - Run `pnpm test` — must fail.
 
-**Task T3.2 [IMPL] — `esOptativa` type update**
+**Task T3.2 [IMPL] [x] — `esOptativa` type update**
 - **File:** `web/src/pages/dashboard/gestion-grupos.tsx`
 - **Spec:** MGC-R7, MGC-R12 · **Design:** section 7, item 1
 - Depends on: T3.1
 - Add `esOptativa: boolean` to the local `Materia` interface. The `GET .../materias` response now includes it (PR2 T2.10).
 - No visual change. Run `pnpm build` — TypeScript must be clean.
 
-**Task T3.3 [IMPL] — Optativa badge**
+**Task T3.3 [IMPL] [x] — Optativa badge**
 - **File:** `web/src/pages/dashboard/gestion-grupos.tsx`
 - **Spec:** MGC-R7, MGC-R12 · **Design:** section 7, item 2
 - Depends on: T3.2
 - Render a small badge/label next to the materia name in the materia management view when `materia.esOptativa === true`. Follow the visual convention already used for other status indicators on the page.
 - Run `pnpm test` — T3.1 badge assertion must pass.
 
-**Task T3.4 [IMPL] — Materia-universe management modal**
+**Task T3.4 [IMPL] [x] — Materia-universe management modal**
 - **File:** `web/src/pages/dashboard/gestion-grupos.tsx` (and/or a new small subcomponent if the modal logic is large enough to split)
 - **Spec:** MGC-R9, MGC-S18, MGC-S19, MGC-S20, MGC-S21 · **Design:** section 7, item 3
 - Depends on: T3.2
@@ -390,7 +390,7 @@ Steps are sequential within the same file. Badge and toggle are independent of e
 - For obligatoria materias the eligible list will typically be empty (cascade already enrolled everyone) — this is correct behavior, not an error.
 - Run `pnpm test` — T3.1 modal assertions must pass.
 
-**Task T3.5 [IMPL] — Optativa toggle control**
+**Task T3.5 [IMPL] [x] — Optativa toggle control**
 - **File:** `web/src/pages/dashboard/gestion-grupos.tsx`
 - **Spec:** MGC-R10, MGC-R11, MGC-S23, MGC-S24, MGC-S25 · **Design:** section 7, item 4; D6
 - Depends on: T3.2
@@ -400,7 +400,7 @@ Steps are sequential within the same file. Badge and toggle are independent of e
   - Matches D6 (no retroactive cleanup — the note covers the UX expectation)
 - Run `pnpm test` — T3.1 toggle assertions must pass.
 
-**Task T3.6 [BUILD] — PR3 verification**
+**Task T3.6 [BUILD] [x] — PR3 verification**
 - Commands: `pnpm test` + `pnpm build`
 - All PR3 tests green. TypeScript clean. Coverage ≥ 80% for touched files.
 - Merge PR3. Feature complete.

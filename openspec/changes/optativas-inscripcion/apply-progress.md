@@ -1,6 +1,6 @@
-# Apply Progress: optativas-inscripcion — PR1 + PR2
+# Apply Progress: optativas-inscripcion — PR1 + PR2 + PR3 + authz-fix
 
-> Status: PR1 DONE · PR2 DONE
+> Status: PR1 DONE · PR2 DONE · PR3 DONE · authz-fix DONE
 > Date PR1: 2026-06-22
 > Date PR2: 2026-06-22
 > Test runner: pnpm test (turbo)
@@ -88,7 +88,40 @@ New test files added (7):
 Typecheck (tsc --noEmit): exit 0, 0 errors.
 Build: success.
 
+## PR3 Tasks
+
+- [x] T3.1 [TEST] — New test file `web/src/pages/dashboard/__tests__/gestion-grupos-optativa.test.tsx`. 7 failing tests written first (RED): badge renders, badge absent, toggle PATCH inverse, toggle refetch, modal fetches ?eligible=true, modal add POST, modal remove DELETE. All confirmed RED before implementation.
+- [x] T3.2 [IMPL] — Extended `Materia` interface in `web/src/pages/dashboard/gestion-grupos.tsx`: added `esOptativa?: boolean`. Optional (`?`) for backward compat (existing mocks/tests pass without the field; API always returns it at runtime).
+- [x] T3.3 [IMPL] — Added optativa badge. Renders `<span data-testid="badge-optativa-{materia.id}">Optativa</span>` next to materia name in the new "Materias del curso" management section when `materia.esOptativa === true`. Absent when false/undefined.
+- [x] T3.4 [IMPL] — Added materia-universe management modal (`materiaUniverseModal` state). Opens per-materia via "Inscriptos" button. Fetches current universe (`GET .../alumnos`) + eligible candidates (`GET .../alumnos?eligible=true`) in parallel. Add calls `POST .../alumnos { studentId }`. Remove calls `DELETE .../alumnos/:enrollmentId`. Both refresh the modal data after. Mirrors grupo alumnosModal shape.
+- [x] T3.5 [IMPL] — Added optativa toggle (checkbox) in materia management section, visible only when `isRoot`. Calls `PATCH /course-cycles/:ccId/materias/:materiaId { esOptativa: !current }`. After PATCH, REFETCHES `GET .../materias` (critical lesson #2 — PATCH response does not carry enriched data). Includes D6 note ("Marcar como optativa NO elimina inscriptos existentes...").
+- [x] T3.6 [BUILD] — `pnpm --filter web exec tsc --noEmit` → exit 0, 0 errors. `pnpm --filter web test` → 43 files / 433 tests, all GREEN (7 new GGO tests passing).
+
+## PR3 Typecheck fix
+
+- Card component does not accept `style` prop. Wrapped the materia management Card in a `<div style={{ marginBottom: '1rem' }}>` instead of passing `style` to Card directly. This resolved the TS2322 error.
+
+## PR3 Test results
+
+| Suite | Files | Tests |
+|-------|-------|-------|
+| web (after PR3) | 43 (+1 file, +7 tests) | 433 |
+
+New test files added (1):
+- `web/src/pages/dashboard/__tests__/gestion-grupos-optativa.test.tsx` (7 tests: GGO-T1 through GGO-T7)
+
+Typecheck (tsc --noEmit): exit 0, 0 errors.
+
+## Authz fix (post-verify WARNING)
+
+**What**: Toggle gate was `isRoot`-only; design intent is ROOT OR module-permitted admin with COURSE_CYCLES:UPDATE (matching the API guard on PATCH endpoint).
+**Pattern reused**: `useCan` hook (`web/src/hooks/use-can.ts`) — existing system, already used by `materia-grupos.tsx`, `grading-scales.tsx`, `attendance-types.tsx` etc. `can('COURSE_CYCLES', 'UPDATE')` returns true for ROOT (bypass) OR user with matching module+action.
+**Changes**:
+- `web/src/pages/dashboard/gestion-grupos.tsx`: imported `useCan`, added `canToggleOptativa = isRoot || can('COURSE_CYCLES', 'UPDATE')`, replaced `isRoot`-gated note paragraph + toggle label with `canToggleOptativa`.
+- `web/src/pages/dashboard/__tests__/gestion-grupos-optativa.test.tsx`: added GGO-T8 (non-ROOT + COURSE_CYCLES:UPDATE → sees toggle) and GGO-T9 (no UPDATE → does not see toggle). TDD RED then GREEN.
+**Results**: `pnpm --filter web exec tsc --noEmit` → exit 0. `pnpm --filter web test` → 43 files / 435 tests, all GREEN (+2 new tests).
+
 ## Next
 
-PR2 complete. All T2.1–T2.16 tasks done. Ready for sdd-verify (PR2) before PR3.
-next_recommended: sdd-verify (PR2 slice) OR sdd-apply (PR3 — web layer).
+authz fix complete. All tasks done across PR1 + PR2 + PR3 + authz fix.
+next_recommended: sdd-verify (full change) then sdd-archive.
