@@ -34,7 +34,16 @@ export interface MateriaResponse {
   subjectName: string;
   alumnosCount: number;
   gruposCount: number;
+  /** Whether this subject is optional for cascade enrollment. MGC-R12. */
+  esOptativa: boolean;
 }
+
+// ── PATCH /course-cycles/:ccId/materias/:materiaId body ───────────────────────
+
+export const SetMateriaEsOptativaSchema = z.object({
+  esOptativa: z.boolean(),
+});
+export type SetMateriaEsOptativaDto = z.infer<typeof SetMateriaEsOptativaSchema>;
 
 export interface GrupoResponse {
   id: string;
