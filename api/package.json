@@ -21,7 +21,7 @@
     "prisma:migrate:deploy:tenant": "prisma migrate deploy --schema=prisma_tenant/schema.prisma",
     "prisma:migrate": "pnpm prisma:migrate:master",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "bootstrap": "tsx scripts/bootstrap.ts",
+    "bootstrap": "ts-node scripts/bootstrap.ts",
     "migrate-tenants": "ts-node scripts/migrate-all-tenants.ts",
     "tenant:create": "ts-node scripts/create-tenant-db.ts",
     "diagnose:auth": "ts-node scripts/diagnose-auth.ts",
