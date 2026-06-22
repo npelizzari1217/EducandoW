@@ -11,6 +11,7 @@ function makeMateria(id: string, subjectId: string): MateriaXCursoXCiclo {
     id,
     courseCycleId: 'cc-1',
     subjectId,
+    esOptativa: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   });
@@ -45,6 +46,7 @@ describe('ListMateriasUseCase', () => {
       findByCourseCycleId: vi.fn().mockResolvedValue(materias),
       upsertMany: vi.fn(),
       updateDescription: vi.fn(),
+      setEsOptativa: vi.fn(),
     };
 
     const alumnosRepo: AlumnosXMateriaRepository = {
@@ -56,6 +58,7 @@ describe('ListMateriasUseCase', () => {
       isMember: vi.fn(),
       upsertMany: vi.fn(),
       findByMateriaEnriched: vi.fn().mockResolvedValue([]),
+      removeStudent: vi.fn(),
     };
 
     const grupoRepo: GrupoRepository = {
@@ -89,6 +92,7 @@ describe('ListMateriasUseCase', () => {
       findByCourseCycleId: vi.fn().mockResolvedValue([]),
       upsertMany: vi.fn(),
       updateDescription: vi.fn(),
+      setEsOptativa: vi.fn(),
     };
     const alumnosRepo: AlumnosXMateriaRepository = {
       findByMateria: vi.fn(),
@@ -97,6 +101,7 @@ describe('ListMateriasUseCase', () => {
       isMember: vi.fn(),
       upsertMany: vi.fn(),
       findByMateriaEnriched: vi.fn().mockResolvedValue([]),
+      removeStudent: vi.fn(),
     };
     const grupoRepo: GrupoRepository = {
       findById: vi.fn(),

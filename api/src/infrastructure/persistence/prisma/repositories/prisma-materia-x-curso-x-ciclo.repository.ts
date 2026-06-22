@@ -11,6 +11,7 @@ type MateriaXCursoXCicloRow = {
   courseCycleId: string;
   subjectId: string;
   studyPlanSubjectId: string | null;
+  esOptativa: boolean;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -43,18 +44,29 @@ export class PrismaMateriaXCursoXCicloRepository implements MateriaXCursoXCicloR
   /**
    * Upsert many — idempotent via @@unique([courseCycleId, subjectId]).
    * Used by GenerateCourseCyclesUseCase (F3-A1). skipDuplicates preserves existing rows.
+   * esOptativa is optional; callers that omit it get false (obligatoria). MGC-R7.
    */
   async upsertMany(
-    data: Array<{ courseCycleId: string; subjectId: string; studyPlanSubjectId?: string }>
+    data: Array<{ courseCycleId: string; subjectId: string; studyPlanSubjectId?: string; esOptativa?: boolean }>
   ): Promise<void> {
     await this.client.materiaXCursoXCiclo.createMany({
       data: data.map((d) => ({
         courseCycleId: d.courseCycleId,
         subjectId: d.subjectId,
         studyPlanSubjectId: d.studyPlanSubjectId ?? null,
+        esOptativa: d.esOptativa ?? false,
       })),
       skipDuplicates: true,
     });
+  }
+
+  /** Toggle the optativa flag for a materia. Returns the updated entity. MGC-R10, D3. */
+  async setEsOptativa(id: string, esOptativa: boolean): Promise<MateriaXCursoXCiclo> {
+    const row = await this.client.materiaXCursoXCiclo.update({
+      where: { id },
+      data: { esOptativa },
+    });
+    return this.toDomain(row);
   }
 
   async updateDescription(
@@ -74,6 +86,7 @@ export class PrismaMateriaXCursoXCicloRepository implements MateriaXCursoXCicloR
       courseCycleId: row.courseCycleId,
       subjectId: row.subjectId,
       studyPlanSubjectId: row.studyPlanSubjectId ?? undefined,
+      esOptativa: row.esOptativa,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

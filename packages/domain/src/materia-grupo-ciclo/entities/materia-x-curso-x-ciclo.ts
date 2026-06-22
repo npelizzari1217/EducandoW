@@ -19,6 +19,8 @@ export interface MateriaXCursoXCicloProps {
   subjectId: string;
   /** Soft provenance link to StudyPlanSubject (no FK — plan edits must not cascade). */
   studyPlanSubjectId?: string;
+  /** Whether this subject is optional (optativa) for auto-cascade enrollment. Defaults false. MGC-R7. */
+  esOptativa: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +29,8 @@ export interface CreateMateriaXCursoXCicloInput {
   courseCycleId: string;
   subjectId: string;
   studyPlanSubjectId?: string;
+  /** Optional; omitting defaults to false (obligatoria). MGC-R7. */
+  esOptativa?: boolean;
 }
 
 export class MateriaXCursoXCiclo {
@@ -45,6 +49,7 @@ export class MateriaXCursoXCiclo {
       courseCycleId: input.courseCycleId,
       subjectId: input.subjectId,
       studyPlanSubjectId: input.studyPlanSubjectId,
+      esOptativa: input.esOptativa ?? false,
       createdAt: now,
       updatedAt: now,
     });
@@ -58,6 +63,8 @@ export class MateriaXCursoXCiclo {
   get courseCycleId(): string { return this.props.courseCycleId; }
   get subjectId(): string { return this.props.subjectId; }
   get studyPlanSubjectId(): string | undefined { return this.props.studyPlanSubjectId; }
+  /** Whether this subject is optional for cascade enrollment. MGC-R7. */
+  get esOptativa(): boolean { return this.props.esOptativa; }
   get createdAt(): Date { return this.props.createdAt; }
   get updatedAt(): Date { return this.props.updatedAt; }
 }

@@ -124,6 +124,14 @@ export class PrismaAlumnosXMateriaRepository implements AlumnosXMateriaRepositor
     return { count: result.count };
   }
 
+  /**
+   * Remove a student from the subject universe by bridge-row id. Idempotent (deleteMany).
+   * MGC-R9, D4. Tests and full coverage are in PR2 (T2.1).
+   */
+  async removeStudent(id: string): Promise<void> {
+    await this.client.materiasXAlumnoXCursoXCiclo.deleteMany({ where: { id } });
+  }
+
   private toDomain(row: MateriasXAlumnoRow): MateriasXAlumnoXCursoXCiclo {
     return MateriasXAlumnoXCursoXCiclo.reconstruct({
       id: row.id,

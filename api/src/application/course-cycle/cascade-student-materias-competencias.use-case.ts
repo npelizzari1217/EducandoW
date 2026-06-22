@@ -50,8 +50,10 @@ export class CascadeStudentMateriasCompetenciasUseCase {
     const { studentId } = row;
     const { ccId } = input;
 
-    // 2. Resolve all materialized MateriaXCursoXCiclo rows for this CourseCycle
-    const materias = await this.materiaRepo.findByCourseCycleId(ccId);
+    // 2. Resolve all materialized MateriaXCursoXCiclo rows for this CourseCycle,
+    //    excluding optativas — non-enrolled students must not receive optativa
+    //    competency rows (MGC-R8, D2).
+    const materias = (await this.materiaRepo.findByCourseCycleId(ccId)).filter((m) => !m.esOptativa);
 
     // Edge case: no materias → all counts zero, no error (R-13)
     if (materias.length === 0) {

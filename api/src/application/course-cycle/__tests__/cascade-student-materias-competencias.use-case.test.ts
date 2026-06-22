@@ -37,8 +37,8 @@ const bridgeRow = {
 };
 
 // Materia objects with studyPlanSubjectId (plain domain shape)
-const materia1 = { id: 'mxcc-1', courseCycleId: 'cc-1', subjectId: 'sub-1', studyPlanSubjectId: 'sps-1' };
-const materia2 = { id: 'mxcc-2', courseCycleId: 'cc-1', subjectId: 'sub-2', studyPlanSubjectId: 'sps-2' };
+const materia1 = { id: 'mxcc-1', courseCycleId: 'cc-1', subjectId: 'sub-1', studyPlanSubjectId: 'sps-1', esOptativa: false };
+const materia2 = { id: 'mxcc-2', courseCycleId: 'cc-1', subjectId: 'sub-2', studyPlanSubjectId: 'sps-2', esOptativa: false };
 
 // Proper SubjectCompetency domain objects (required because cascade calls c.id.get())
 function makeCompetency(id: string, spsId: string, name: string): SubjectCompetency {
@@ -232,6 +232,111 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-05: idempotent re-run
       competenciasCreated: 2,
       competenciasSkipped: 1,
     });
+  });
+});
+
+// ── MGC-S15: cascade skips optativa materias (alumnos + competencies) ────────
+
+describe('CascadeStudentMateriasCompetenciasUseCase — MGC-S15: optativa filter', () => {
+  const materiaObligatoria1 = { id: 'mxcc-obl-1', courseCycleId: 'cc-1', subjectId: 'sub-obl-1', studyPlanSubjectId: 'sps-obl-1', esOptativa: false };
+  const materiaObligatoria2 = { id: 'mxcc-obl-2', courseCycleId: 'cc-1', subjectId: 'sub-obl-2', studyPlanSubjectId: 'sps-obl-2', esOptativa: false };
+  const materiaOptativa1    = { id: 'mxcc-opt-1', courseCycleId: 'cc-1', subjectId: 'sub-opt-1', studyPlanSubjectId: 'sps-opt-1', esOptativa: true };
+  const materiaOptativa2    = { id: 'mxcc-opt-2', courseCycleId: 'cc-1', subjectId: 'sub-opt-2', studyPlanSubjectId: 'sps-opt-2', esOptativa: true };
+
+  it('upsertMany receives only the 2 obligatoria ids — optativas excluded', async () => {
+    const { uc, alumnosXMateriaRepo } = makeUC({
+      materiaRepo: {
+        findByCourseCycleId: vi.fn().mockResolvedValue([
+          materiaObligatoria1,
+          materiaObligatoria2,
+          materiaOptativa1,
+          materiaOptativa2,
+        ]),
+      },
+      alumnosXMateriaRepo: { upsertMany: vi.fn().mockResolvedValue({ count: 2 }) },
+    });
+
+    await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((alumnosXMateriaRepo as any).upsertMany).toHaveBeenCalledWith([
+      { materiaXCursoXCicloId: 'mxcc-obl-1', studentId: 'stu-1' },
+      { materiaXCursoXCicloId: 'mxcc-obl-2', studentId: 'stu-1' },
+    ]);
+  });
+
+  it('findActiveByStudyPlanSubject is NOT called for optativa studyPlanSubjectIds', async () => {
+    const { uc, competencyRepo } = makeUC({
+      materiaRepo: {
+        findByCourseCycleId: vi.fn().mockResolvedValue([
+          materiaObligatoria1,
+          materiaOptativa1,
+          materiaOptativa2,
+        ]),
+      },
+      alumnosXMateriaRepo: { upsertMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      competencyRepo: {
+        findActiveByStudyPlanSubject: vi.fn().mockResolvedValue([]),
+      },
+    });
+
+    await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const calls = (competencyRepo as any).findActiveByStudyPlanSubject.mock.calls.map((c: [string]) => c[0]);
+    expect(calls).toContain('sps-obl-1');
+    expect(calls).not.toContain('sps-opt-1');
+    expect(calls).not.toContain('sps-opt-2');
+  });
+});
+
+// ── MGC-S16: all-obligatoria regression guard ──────────────────────────────────
+
+describe('CascadeStudentMateriasCompetenciasUseCase — MGC-S16: all-obligatoria unchanged', () => {
+  it('upsertMany receives all materias when none are optativa', async () => {
+    const obl1 = { id: 'mxcc-1', courseCycleId: 'cc-1', subjectId: 'sub-1', studyPlanSubjectId: 'sps-1', esOptativa: false };
+    const obl2 = { id: 'mxcc-2', courseCycleId: 'cc-1', subjectId: 'sub-2', studyPlanSubjectId: 'sps-2', esOptativa: false };
+
+    const { uc, alumnosXMateriaRepo } = makeUC({
+      materiaRepo: { findByCourseCycleId: vi.fn().mockResolvedValue([obl1, obl2]) },
+      alumnosXMateriaRepo: { upsertMany: vi.fn().mockResolvedValue({ count: 2 }) },
+    });
+
+    await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((alumnosXMateriaRepo as any).upsertMany).toHaveBeenCalledWith([
+      { materiaXCursoXCicloId: 'mxcc-1', studentId: 'stu-1' },
+      { materiaXCursoXCicloId: 'mxcc-2', studentId: 'stu-1' },
+    ]);
+  });
+});
+
+// ── MGC-S17: all-optativa CC → cascade completes with zeros ─────────────────
+
+describe('CascadeStudentMateriasCompetenciasUseCase — MGC-S17: all-optativa CC', () => {
+  it('returns zero counts and does not throw when all materias are optativa', async () => {
+    const opt1 = { id: 'mxcc-opt-1', courseCycleId: 'cc-1', subjectId: 'sub-opt-1', studyPlanSubjectId: 'sps-opt-1', esOptativa: true };
+    const opt2 = { id: 'mxcc-opt-2', courseCycleId: 'cc-1', subjectId: 'sub-opt-2', studyPlanSubjectId: 'sps-opt-2', esOptativa: true };
+    const upsertManySpy = vi.fn().mockResolvedValue({ count: 0 });
+
+    const { uc, alumnosXMateriaRepo, competenciaRepo } = makeUC({
+      materiaRepo: { findByCourseCycleId: vi.fn().mockResolvedValue([opt1, opt2]) },
+      alumnosXMateriaRepo: { upsertMany: upsertManySpy },
+    });
+
+    const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
+
+    expect(result).toEqual({
+      materiasCreated: 0,
+      materiasSkipped: 0,
+      competenciasCreated: 0,
+      competenciasSkipped: 0,
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((alumnosXMateriaRepo as any).upsertMany).not.toHaveBeenCalled();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((competenciaRepo as any).bulkCreate).not.toHaveBeenCalled();
   });
 });
 
