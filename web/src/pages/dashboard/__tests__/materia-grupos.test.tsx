@@ -424,6 +424,73 @@ describe('MateriasGruposPage — alumnos per grupo', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
+// SC-07 — Rol select renders all 6 RolCurso options with Spanish labels
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('AsignacionCursoPanelInline — rol select options (SPEC-7/SC-07)', () => {
+  beforeEach(() => {
+    mockUser = adminUser;
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/materias') {
+        return Promise.resolve({ data: { data: mockMaterias } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-1/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria1 } });
+      }
+      if (url === '/course-cycles/cc-1/materias/m-2/grupos') {
+        return Promise.resolve({ data: { data: mockGruposMateria2 } });
+      }
+      if (url === '/course-cycles/cc-1/asignaciones') {
+        return Promise.resolve({ data: { data: [] } });
+      }
+      if (url === '/course-cycles/cc-1') {
+        return Promise.resolve({ data: { data: { level: 30 } } });
+      }
+      if (url.startsWith('/users')) {
+        return Promise.resolve({ data: { data: [] } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  it('SC-07: rol select renders all 6 RolCurso options with Spanish labels', async () => {
+    const { userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+
+    renderMateriasPage();
+
+    await waitFor(() => expect(screen.getByText('Matemática')).toBeInTheDocument());
+
+    // Open asignaciones panel (management only)
+    await user.click(screen.getByTestId('btn-asignacion-curso'));
+
+    // Wait for "+ Asignar Docente" button to appear
+    await waitFor(() => {
+      expect(screen.getByText('+ Asignar Docente')).toBeInTheDocument();
+    });
+
+    // Open the assignment form
+    await user.click(screen.getByText('+ Asignar Docente'));
+
+    // Wait for rol select to appear
+    await waitFor(() => {
+      expect(screen.getByTestId('rol-select')).toBeInTheDocument();
+    });
+
+    // Verify exactly 6 options with correct Spanish labels
+    const rolSelect = screen.getByTestId('rol-select') as HTMLSelectElement;
+    const optionTexts = Array.from(rolSelect.options).map((o) => o.text);
+    expect(optionTexts).toHaveLength(6);
+    expect(optionTexts).toContain('Preceptor');
+    expect(optionTexts).toContain('Titular');
+    expect(optionTexts).toContain('Secretario');
+    expect(optionTexts).toContain('Director');
+    expect(optionTexts).toContain('EOE');
+    expect(optionTexts).toContain('Docente Auxiliar');
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
 // F7-T10 — Navigation buttons
 // ═════════════════════════════════════════════════════════════════════════════
 

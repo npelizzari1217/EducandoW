@@ -160,6 +160,27 @@ describe('AssignDocenteToCursoUseCase', () => {
     expect(result.rol).toBe(RolCurso.PRECEPTOR);
   });
 
+  // SPEC-4 / SC-03: new roles do NOT trigger singleton removal
+  it('assigning a new role (SECRETARIO) does NOT remove titulares (SPEC-4/SC-03)', async () => {
+    const d1 = makeDocente('dxc-1', 'cycle-1');
+    const asgRepo = makeAsignacionRepo();
+    const docenteRepo = makeDocenteRepo(d1);
+    const service = new DocenteXCicloService(docenteRepo);
+    const uc = new AssignDocenteToCursoUseCase(asgRepo, service);
+
+    const result = await uc.execute({
+      courseCycleId: 'cc-1',
+      courseCycleUuid: 'cc-1',
+      cycleId: 'cycle-1',
+      userId: 'user-dxc-1',
+      rol: RolCurso.SECRETARIO,
+    });
+
+    expect(asgRepo.removeTitularesForCourse).not.toHaveBeenCalled();
+    expect(asgRepo.assign).toHaveBeenCalledOnce();
+    expect(result.rol).toBe(RolCurso.SECRETARIO);
+  });
+
   // F4-T4 / ACC-S4: assign TITULAR
   it('assigns titular and removes any previous titular (ACC-S4/S5)', async () => {
     const d1 = makeDocente('dxc-1', 'cycle-1');

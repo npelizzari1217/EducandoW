@@ -2,12 +2,20 @@ import { Id } from '../../shared/value-objects/id';
 
 /**
  * RolCurso — functional role of a DocenteXCiclo within a CursoXCiclo.
- * PRECEPTOR: daily attendance (presente diario).
- * TITULAR: homeroom teacher — replaces the dropped CourseCycle FK column (S3b-0).
+ * PRECEPTOR:        daily attendance (presente diario). Multiple per CC allowed (D2).
+ * TITULAR:          homeroom teacher — singleton per CC, replaces dropped FK (S3b-0).
+ * SECRETARIO:       administrative role within the course-cycle.
+ * DIRECTOR:         directorial role (separate bounded context from UserRole.DIRECTOR).
+ * EOE:              Equipo de Orientación Escolar — guidance team member.
+ * DOCENTE_AUXILIAR: auxiliary teacher. No singleton constraint.
  */
 export enum RolCurso {
   PRECEPTOR = 'PRECEPTOR',
   TITULAR = 'TITULAR',
+  SECRETARIO = 'SECRETARIO',
+  DIRECTOR = 'DIRECTOR',
+  EOE = 'EOE',
+  DOCENTE_AUXILIAR = 'DOCENTE_AUXILIAR',
 }
 
 /**

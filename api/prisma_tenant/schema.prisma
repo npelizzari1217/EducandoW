@@ -92,11 +92,20 @@ model StudentGuardian {
 // ── Asignacion Curso x Ciclo (Fase 4) ─────────────────────
 
 // RolCurso — functional role within a CursoXCiclo.
-// PRECEPTOR: daily attendance (presente diario). Multiple per CC allowed (D2).
-// TITULAR: homeroom teacher link (migrated from CourseCycle.homeroomTeacherId in Fase 4 backfill).
+// PRECEPTOR:        daily attendance (presente diario). Multiple per CC allowed (D2).
+// TITULAR:          homeroom teacher link — singleton per CC (ACC-S5).
+// SECRETARIO:       administrative role within the course-cycle.
+// DIRECTOR:         directorial role (separate bounded context from UserRole.DIRECTOR).
+// EOE:              Equipo de Orientación Escolar — guidance team member.
+// DOCENTE_AUXILIAR: auxiliary teacher. No singleton constraint.
+// Note: mirrors domain enum RolCurso exactly (SSOT = domain package, ADR-1).
 enum RolCurso {
   PRECEPTOR
   TITULAR
+  SECRETARIO
+  DIRECTOR
+  EOE
+  DOCENTE_AUXILIAR
 }
 
 // TurnoCurso — shift for a course-cycle assignment.

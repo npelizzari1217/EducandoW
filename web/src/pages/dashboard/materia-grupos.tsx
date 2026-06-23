@@ -23,7 +23,7 @@ import { Modal } from '../../components/ui/modal';
 import PremiumHeader from '../../components/ui/premium-header';
 import { GrupoSelector } from './components/GrupoSelector';
 import type { MateriaXCursoXCiclo, GrupoXCursoXMateriaXCiclo } from '../../types/materia-grupo';
-import { isManagementUser } from '../../types/materia-grupo';
+import { isManagementUser, RolCurso, ROL_CURSO_LABELS } from '../../types/materia-grupo';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -203,11 +203,11 @@ export default function MateriasGruposPage() {
         </Link>
       </div>
 
-      {/* Panel de asignaciones de preceptor/titular — management only */}
+      {/* Panel de asignaciones de docentes — management only */}
       {isManagement && (
         <Card className="p-4 mb-md">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontWeight: 500 }}>Asignaciones del Curso (Preceptor / Titular)</span>
+            <span style={{ fontWeight: 500 }}>Asignaciones del Curso</span>
             <Button
               variant="action"
               size="sm"
@@ -483,7 +483,7 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [formUserId, setFormUserId] = useState('');
-  const [formRol, setFormRol] = useState<'PRECEPTOR' | 'TITULAR'>('PRECEPTOR');
+  const [formRol, setFormRol] = useState<RolCurso>(RolCurso.PRECEPTOR);
   const [formTurno, setFormTurno] = useState('');
   const [saving, setSaving] = useState(false);
   const [docentes, setDocentes] = useState<DocenteOption[]>([]);
@@ -702,11 +702,13 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
               </label>
               <select
                 value={formRol}
-                onChange={(e) => setFormRol(e.target.value as 'PRECEPTOR' | 'TITULAR')}
+                onChange={(e) => setFormRol(e.target.value as RolCurso)}
                 style={inputStyle}
+                data-testid="rol-select"
               >
-                <option value="PRECEPTOR">Preceptor</option>
-                <option value="TITULAR">Titular</option>
+                {(Object.entries(ROL_CURSO_LABELS) as [RolCurso, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
               </select>
             </div>
             <div>

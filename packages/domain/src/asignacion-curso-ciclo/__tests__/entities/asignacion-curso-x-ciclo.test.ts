@@ -72,4 +72,28 @@ describe('AsignacionCursoXCiclo entity', () => {
       expect(a.turno).toBe(turno);
     });
   });
+
+  // SPEC-1 / SC-01 — RED step: fails until enum has 6 values
+  it('RolCurso contains exactly 6 values (SPEC-1/SC-01)', () => {
+    expect(Object.values(RolCurso)).toHaveLength(6);
+    expect(Object.values(RolCurso)).toEqual(
+      expect.arrayContaining([
+        'PRECEPTOR', 'TITULAR',
+        'SECRETARIO', 'DIRECTOR', 'EOE', 'DOCENTE_AUXILIAR',
+      ]),
+    );
+  });
+
+  // SPEC-1 — RED step: fails until enum values exist (TypeScript would also reject)
+  it('creates assignments with each new RolCurso value (SPEC-1)', () => {
+    const newRoles = [RolCurso.SECRETARIO, RolCurso.DIRECTOR, RolCurso.EOE, RolCurso.DOCENTE_AUXILIAR];
+    newRoles.forEach((rol) => {
+      const a = AsignacionCursoXCiclo.create({
+        courseCycleId: 'cc-1',
+        docenteXCicloId: 'dxc-1',
+        rol,
+      });
+      expect(a.rol).toBe(rol);
+    });
+  });
 });
