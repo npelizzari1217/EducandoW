@@ -382,7 +382,8 @@ export default function CourseCyclesPage() {
                     variant="action"
                     size="sm"
                     data-testid={`btn-bulk-cascade-${cc.uuid}`}
-                    disabled={cascadingBulkCcId === cc.uuid}
+                    disabled={cascadingBulkCcId === cc.uuid || (cc.studentCount ?? 0) === 0}
+                    title={(cc.studentCount ?? 0) === 0 ? 'El curso no tiene alumnos inscriptos' : undefined}
                     onClick={() => setConfirmCascadeCcId(cc.uuid)}
                   >
                     Asignar materias y competencias

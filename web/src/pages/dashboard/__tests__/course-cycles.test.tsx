@@ -310,6 +310,7 @@ describe('CourseCyclesPage', () => {
       studyPlanId: 'plan-1',
       active: true,
       passingGrade: 7,
+      studentCount: 5,
     };
 
     const bulkResult = {
@@ -342,13 +343,40 @@ describe('CourseCyclesPage', () => {
       mockPost.mockResolvedValue({ data: { data: bulkResult } } as any);
     });
 
-    // W-24: button always-enabled (never gated by student count)
-    it('W-24: "Asignar materias y competencias" button renders and is not disabled by default', async () => {
+    // W-24: button enabled when the course has enrolled students (studentCount > 0)
+    it('W-24: "Asignar materias y competencias" button is enabled when the course has students', async () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
       });
       expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).not.toBeDisabled();
+    });
+
+    // W-25: button disabled when the course has 0 enrolled students (cascade would be a no-op)
+    it('W-25: button is disabled when the course has 0 students', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockGet.mockImplementation((url: string): any => {
+        if (url === '/academic-cycles') {
+          return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }] } });
+        }
+        if (url === '/study-plans') {
+          return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan Primario 2026' }] } });
+        }
+        if (url === '/institutions') {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url === '/course-cycles') {
+          return Promise.resolve({
+            data: { data: [{ ...ccRow, studentCount: 0 }], page: 1, pageSize: 20, total: 1 },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeDisabled();
     });
 
     // W-19: clicking the button opens a confirmation dialog
