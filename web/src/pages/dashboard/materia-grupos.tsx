@@ -651,7 +651,7 @@ function AsignacionCursoPanelInline({ ccId }: AsignacionCursoPanelProps) {
 
       {!showForm && (
         <Button variant="action" size="sm" onClick={() => setShowForm(true)} style={{ marginTop: 'var(--space-sm)' }}>
-          + Asignar preceptor / titular
+          + Asignar Docente
         </Button>
       )}
 
