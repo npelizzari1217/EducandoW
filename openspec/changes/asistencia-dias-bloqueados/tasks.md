@@ -122,48 +122,48 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
 
 ### T4.1 [TEST] Unit tests for `mergeLocked` pure helper
 
-- [ ] Create `api/src/infrastructure/repositories/__tests__/merge-locked.spec.ts` (or include in T4.2 file)
-- [ ] `mergeLocked({}, lockedMap)` → returns only locked entries (first-gen)
-- [ ] `mergeLocked({"1":"P"}, {"4":"SAB","5":"DOM"})` → `{"1":"P","4":"SAB","5":"DOM"}` — hábil key `"1"` preserved (REGEN-1)
-- [ ] `mergeLocked({"4":"SAB","1":"P"}, {"4":"SAB",...})` → `"4":"SAB"` unchanged, `"1":"P"` preserved (REGEN-2)
-- [ ] `mergeLocked({"6":"P"}, {"6":"SAB",...})` NOTE: this case means the lockedMap has key `6` as `SAB` (if it's a Saturday); `"6":"P"` is overwritten by `"6":"SAB"` (REQ-REGEN-2 says hábil days must not be overwritten, but `lockedMap` never contains hábil keys — so this test verifies that a legacy incorrect hábil entry IS corrected when the calendar says it's blocked)
-- [ ] `mergeLocked({"1":"P"}, undefined)` → `{"1":"P"}` — no lockedMap → no-op (REGEN-3 guard)
+- [x] Create `api/src/infrastructure/repositories/__tests__/merge-locked.spec.ts` (or include in T4.2 file)
+- [x] `mergeLocked({}, lockedMap)` → returns only locked entries (first-gen)
+- [x] `mergeLocked({"1":"P"}, {"4":"SAB","5":"DOM"})` → `{"1":"P","4":"SAB","5":"DOM"}` — hábil key `"1"` preserved (REGEN-1)
+- [x] `mergeLocked({"4":"SAB","1":"P"}, {"4":"SAB",...})` → `"4":"SAB"` unchanged, `"1":"P"` preserved (REGEN-2)
+- [x] `mergeLocked({"6":"P"}, {"6":"SAB",...})` NOTE: this case means the lockedMap has key `6` as `SAB` (if it's a Saturday); `"6":"P"` is overwritten by `"6":"SAB"` (REQ-REGEN-2 says hábil days must not be overwritten, but `lockedMap` never contains hábil keys — so this test verifies that a legacy incorrect hábil entry IS corrected when the calendar says it's blocked)
+- [x] `mergeLocked({"1":"P"}, undefined)` → `{"1":"P"}` — no lockedMap → no-op (REGEN-3 guard)
 
 ### T4.2 [TEST] Unit tests for `generateMany` — General repo (mock Prisma client)
 
-- [ ] Create `api/src/infrastructure/repositories/__tests__/prisma-asistencia-general.repository.spec.ts`
-- [ ] GEN-1 (Jan 2025, 2 students, no existing rows): `findMany` returns `[]`; `createMany` called with both rows having `days` including SAB/DOM keys for Jan 2025; no `"X"` keys
-- [ ] GEN-2 (Feb 2025, 1 student, no existing rows): `createMany` called with `days` containing `"29":"X","30":"X","31":"X"`; key `"28"` absent
-- [ ] GEN-3 (Feb 2024, 1 student): `days` has `"30":"X","31":"X"`; key `"29"` absent
-- [ ] REGEN-1 (Jan 2025, existing row `{"1":"P"}`): `findMany` returns that row; `update` called with merged `days` = `{"1":"P","4":"SAB","5":"DOM",...}`; `"1":"P"` preserved
-- [ ] REGEN-2 (already has `{"4":"SAB","1":"P"}`): `update` called; `"4":"SAB"` unchanged; `"1":"P"` unchanged; remaining SABs/DOMs added
-- [ ] REGEN-3 (existing `{"6":"P"}` for Jan 2025, where day 6 is Monday — hábil): lockedMap has no key `"6"`; `update` called; `"6":"P"` preserved, not overwritten
-- [ ] REGEN-4 (mixed: student-A has existing row, student-B does not): `createMany` for student-B with full lockedMap; `update` for student-A with merged days
-- [ ] Idempotent: when merged result equals existing `days`, `update` is NOT called (change guard)
-- [ ] Empty rows input: returns immediately without DB calls
+- [x] Create `api/src/infrastructure/repositories/__tests__/prisma-asistencia-general.repository.spec.ts`
+- [x] GEN-1 (Jan 2025, 2 students, no existing rows): `findMany` returns `[]`; `createMany` called with both rows having `days` including SAB/DOM keys for Jan 2025; no `"X"` keys
+- [x] GEN-2 (Feb 2025, 1 student, no existing rows): `createMany` called with `days` containing `"29":"X","30":"X","31":"X"`; key `"28"` absent
+- [x] GEN-3 (Feb 2024, 1 student): `days` has `"30":"X","31":"X"`; key `"29"` absent
+- [x] REGEN-1 (Jan 2025, existing row `{"1":"P"}`): `findMany` returns that row; `update` called with merged `days` = `{"1":"P","4":"SAB","5":"DOM",...}`; `"1":"P"` preserved
+- [x] REGEN-2 (already has `{"4":"SAB","1":"P"}`): `update` called; `"4":"SAB"` unchanged; `"1":"P"` unchanged; remaining SABs/DOMs added
+- [x] REGEN-3 (existing `{"6":"P"}` for Jan 2025, where day 6 is Monday — hábil): lockedMap has no key `"6"`; `update` called; `"6":"P"` preserved, not overwritten
+- [x] REGEN-4 (mixed: student-A has existing row, student-B does not): `createMany` for student-B with full lockedMap; `update` for student-A with merged days
+- [x] Idempotent: when merged result equals existing `days`, `update` is NOT called (change guard)
+- [x] Empty rows input: returns immediately without DB calls
 
 ### T4.3 [TEST] Unit tests for `generateMany` — Materia repo (mock Prisma client)
 
-- [ ] Create `api/src/infrastructure/repositories/__tests__/prisma-asistencia-materia.repository.spec.ts`
-- [ ] GEN-4 (Apr 2025, 1 student, subject S, no existing rows): `createMany` with `days` = `{"31":"X","5":"SAB","6":"DOM",...}`; key `"30"` absent
-- [ ] REGEN-4 (materia variant): new student in materia scope gets full lockedMap on re-gen
+- [x] Create `api/src/infrastructure/repositories/__tests__/prisma-asistencia-materia.repository.spec.ts`
+- [x] GEN-4 (Apr 2025, 1 student, subject S, no existing rows): `createMany` with `days` = `{"31":"X","5":"SAB","6":"DOM",...}`; key `"30"` absent
+- [x] REGEN-4 (materia variant): new student in materia scope gets full lockedMap on re-gen
 
 ### T4.4 [IMPL] Refactor `generateMany` in general repo — run until T4.1 + T4.2 pass
 
-- [ ] Edit `api/src/infrastructure/repositories/prisma-asistencia-general.repository.ts`
-- [ ] Extract `function mergeLocked(existing: Record<string,string>, locked?: Record<string,string>): Record<string,string>` as module-local pure function: `return { ...existing, ...(locked ?? {}) }`
-- [ ] Extract `function daysChanged(a: Record<string,string>, b: Record<string,string>): boolean` — deep-equality check to skip no-op updates
-- [ ] Replace current `createMany + skipDuplicates` with read-merge-write:
+- [x] Edit `api/src/infrastructure/repositories/prisma-asistencia-general.repository.ts`
+- [x] Extract `function mergeLocked(existing: Record<string,string>, locked?: Record<string,string>): Record<string,string>` as module-local pure function: `return { ...existing, ...(locked ?? {}) }`
+- [x] Extract `function daysChanged(a: Record<string,string>, b: Record<string,string>): boolean` — deep-equality check to skip no-op updates
+- [x] Replace current `createMany + skipDuplicates` with read-merge-write:
   1. `findMany` existing rows by `(courseCycleId, year, month, studentId IN [...])`
   2. Partition: `toCreate` (no existing row) / `toUpdate` (existing row)
   3. `$transaction`: `createMany(toCreate, skipDuplicates: true)` + for each `toUpdate`: merge + conditional `update`
-- [ ] Return `{ created: toCreate.length, skipped: toUpdate.length }`
+- [x] Return `{ created: toCreate.length, skipped: toUpdate.length }`
 
 ### T4.5 [IMPL] Refactor `generateMany` in materia repo — run until T4.3 passes
 
-- [ ] Edit `api/src/infrastructure/repositories/prisma-asistencia-materia.repository.ts`
-- [ ] Same `mergeLocked` and `daysChanged` helpers + same read-merge-write algorithm
-- [ ] Natural key uses `materiaXCursoXCicloId` (not `courseCycleId`)
+- [x] Edit `api/src/infrastructure/repositories/prisma-asistencia-materia.repository.ts`
+- [x] Same `mergeLocked` and `daysChanged` helpers + same read-merge-write algorithm
+- [x] Natural key uses `materiaXCursoXCicloId` (not `courseCycleId`)
 
 ---
 
