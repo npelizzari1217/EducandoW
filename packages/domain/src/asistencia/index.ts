@@ -2,6 +2,13 @@
 
 export { DayMap } from './value-objects/day-map';
 
+// ── asistencia-dias-bloqueados — Phase 1: Calendar utils ─────────────────────
+export { daysInMonth, dayOfWeek, buildLockedDayMap } from './utils/calendar-utils';
+
+// ── asistencia-dias-bloqueados — Phase 2: Domain errors ──────────────────────
+export { DayNotAssignableError } from './errors/day-not-assignable-error';
+export { StatusNotAssignableError } from './errors/status-not-assignable-error';
+
 export { AsistenciaXAlumnoXCursoXCiclo } from './entities/asistencia-x-alumno-x-curso-x-ciclo';
 export type {
   AsistenciaXAlumnoXCursoXCicloProps,
