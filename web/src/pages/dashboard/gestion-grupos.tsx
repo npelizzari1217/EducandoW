@@ -9,7 +9,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/auth-context';
-import { useCan } from '../../hooks/use-can';
 import { useInstitution } from '../../context/institution-context';
 import apiClient from '../../api/client';
 import { extractErrorMessage } from '../../hooks/use-api';
@@ -91,13 +90,9 @@ const selectStyle: React.CSSProperties = {
 export default function GestionGruposPage() {
   const { user } = useAuth();
   const { config } = useInstitution();
-  const { can } = useCan();
 
   const roles: string[] = user?.roles ?? [];
   const isRoot = roles.includes('ROOT');
-  // ROOT or any admin with the COURSE_CYCLES UPDATE action can toggle esOptativa.
-  // This matches the API guard on PATCH /course-cycles/:ccId/materias/:materiaId.
-  const canToggleOptativa = isRoot || can('COURSE_CYCLES', 'UPDATE');
 
   // Institution
   const userInstitutionId = user?.institutionId ?? config.id ?? '';
@@ -158,20 +153,6 @@ export default function GestionGruposPage() {
   const [modalDisponibles, setModalDisponibles] = useState<AlumnoItem[]>([]);
   const [modalError, setModalError] = useState<string | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
-
-  // ── Materia-universe modal (PR3) ──────────────────────────────────────────
-
-  const [materiaUniverseModal, setMateriaUniverseModal] = useState<{
-    open: boolean;
-    materiaId: string;
-    materiaName: string;
-    courseCycleId: string;
-  } | null>(null);
-  const [materiaModalInscriptos, setMateriaModalInscriptos] = useState<AlumnoItem[]>([]);
-  const [materiaModalEligibles, setMateriaModalEligibles] = useState<AlumnoItem[]>([]);
-  const [materiaModalError, setMateriaModalError] = useState<string | null>(null);
-  const [materiaModalLoading, setMateriaModalLoading] = useState(false);
-  const [togglingMateriaId, setTogglingMateriaId] = useState<string | null>(null);
 
   // ── Reload grupos ─────────────────────────────────────────────────────────
 
@@ -459,98 +440,6 @@ export default function GestionGruposPage() {
     }
   }
 
-  // ── Materia-universe handlers (PR3) ──────────────────────────────────────
-
-  async function refreshMateriaUniverseData(materiaId: string, ccId: string) {
-    setMateriaModalLoading(true);
-    setMateriaModalError(null);
-    try {
-      const [inscriptosR, eligiblesR] = await Promise.all([
-        apiClient.get(
-          `/course-cycles/${ccId}/materias/${materiaId}/alumnos`,
-          { params: tenantParams },
-        ),
-        apiClient.get(
-          `/course-cycles/${ccId}/materias/${materiaId}/alumnos`,
-          { params: { ...tenantParams, eligible: 'true' } },
-        ),
-      ]);
-      setMateriaModalInscriptos(inscriptosR.data?.data ?? inscriptosR.data ?? []);
-      setMateriaModalEligibles(eligiblesR.data?.data ?? eligiblesR.data ?? []);
-    } catch {
-      setMateriaModalError('Error al cargar los inscriptos');
-    } finally {
-      setMateriaModalLoading(false);
-    }
-  }
-
-  async function openMateriaUniverseModal(materia: Materia, ccId: string) {
-    setMateriaUniverseModal({
-      open: true,
-      materiaId: materia.id,
-      materiaName: materia.subjectName,
-      courseCycleId: ccId,
-    });
-    setMateriaModalInscriptos([]);
-    setMateriaModalEligibles([]);
-    await refreshMateriaUniverseData(materia.id, ccId);
-  }
-
-  async function handleMateriaModalAdd(studentId: string) {
-    if (!materiaUniverseModal) return;
-    setMateriaModalError(null);
-    try {
-      await apiClient.post(
-        `/course-cycles/${materiaUniverseModal.courseCycleId}/materias/${materiaUniverseModal.materiaId}/alumnos`,
-        { studentId },
-        { params: tenantParams },
-      );
-      await refreshMateriaUniverseData(
-        materiaUniverseModal.materiaId,
-        materiaUniverseModal.courseCycleId,
-      );
-    } catch (err: unknown) {
-      setMateriaModalError(extractErrorMessage(err) || 'Error al agregar el alumno');
-    }
-  }
-
-  async function handleMateriaModalRemove(enrollmentId: string) {
-    if (!materiaUniverseModal) return;
-    setMateriaModalError(null);
-    try {
-      await apiClient.delete(
-        `/course-cycles/${materiaUniverseModal.courseCycleId}/materias/${materiaUniverseModal.materiaId}/alumnos/${enrollmentId}`,
-        { params: tenantParams },
-      );
-      await refreshMateriaUniverseData(
-        materiaUniverseModal.materiaId,
-        materiaUniverseModal.courseCycleId,
-      );
-    } catch (err: unknown) {
-      setMateriaModalError(extractErrorMessage(err) || 'Error al quitar el alumno');
-    }
-  }
-
-  async function handleToggleOptativa(materia: Materia, ccId: string) {
-    setTogglingMateriaId(materia.id);
-    try {
-      await apiClient.patch(
-        `/course-cycles/${ccId}/materias/${materia.id}`,
-        { esOptativa: !materia.esOptativa },
-        { params: tenantParams },
-      );
-      // CRITICAL: PATCH response does NOT carry enriched counts/subjectName.
-      // Always refetch GET materias to get the full updated list.
-      const r = await apiClient.get(
-        `/course-cycles/${ccId}/materias`,
-        { params: tenantParams },
-      );
-      setFilterMaterias(r.data?.data ?? r.data ?? []);
-    } finally {
-      setTogglingMateriaId(null);
-    }
-  }
-
   // ── Helpers para abrir form ───────────────────────────────────────────────
 
   function openCreateForm() {
@@ -666,75 +555,6 @@ export default function GestionGruposPage() {
           ))}
         </select>
       </div>
-
-      {/* Gestión de materias (PR3): badge + toggle + inscriptos modal */}
-      {filterCourseCycleId && filterMaterias.length > 0 && (
-        <div style={{ marginBottom: '1rem' }}><Card>
-          <div style={{ padding: '1rem' }}>
-            <p style={{ fontWeight: 600, marginBottom: '0.75rem', fontSize: 'var(--text-base)' }}>
-              Materias del curso
-            </p>
-            {canToggleOptativa && (
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-                Marcar como optativa NO elimina inscriptos existentes. Para removerlos usá el botón de quitar.
-              </p>
-            )}
-            {filterMaterias.map(materia => (
-              <div
-                key={materia.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.75rem',
-                  marginBottom: '0.5rem', padding: '0.5rem',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                <span style={{ flex: 1, fontSize: 'var(--text-sm)' }}>
-                  {materia.subjectName}
-                  {materia.esOptativa && (
-                    <span
-                      data-testid={`badge-optativa-${materia.id}`}
-                      style={{
-                        marginLeft: '0.5rem',
-                        padding: '0.125rem 0.5rem',
-                        borderRadius: '9999px',
-                        background: '#fef3c7',
-                        color: '#92400e',
-                        fontSize: 'var(--text-xs)',
-                        fontWeight: 500,
-                      }}
-                    >
-                      Optativa
-                    </span>
-                  )}
-                </span>
-                {canToggleOptativa && (
-                  <label
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: 'var(--text-sm)', cursor: 'pointer' }}
-                  >
-                    <input
-                      type="checkbox"
-                      data-testid={`toggle-optativa-${materia.id}`}
-                      checked={!!materia.esOptativa}
-                      disabled={togglingMateriaId === materia.id}
-                      onChange={() => handleToggleOptativa(materia, filterCourseCycleId)}
-                    />
-                    Optativa
-                  </label>
-                )}
-                <Button
-                  size="sm"
-                  variant="action"
-                  data-testid={`btn-inscriptos-${materia.id}`}
-                  onClick={() => openMateriaUniverseModal(materia, filterCourseCycleId)}
-                >
-                  Inscriptos
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card></div>
-      )}
 
       {/* Tabla de grupos */}
       <Card>
@@ -1142,97 +962,6 @@ export default function GestionGruposPage() {
                 <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
                   Todos los alumnos de la materia ya están asignados a un grupo.
                 </p>
-              )}
-            </>
-          )}
-        </Modal>
-      )}
-
-      {/* Materia-universe modal (PR3) */}
-      {materiaUniverseModal && (
-        <Modal
-          open={materiaUniverseModal.open}
-          title={`Inscriptos — ${materiaUniverseModal.materiaName}`}
-          onClose={() => { setMateriaUniverseModal(null); setMateriaModalError(null); }}
-          size="lg"
-        >
-          {materiaModalError && (
-            <p style={{ color: '#dc2626', fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }}>
-              {materiaModalError}
-            </p>
-          )}
-          {materiaModalLoading && (
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-              Cargando...
-            </p>
-          )}
-          {!materiaModalLoading && (
-            <>
-              {/* Inscriptos actuales */}
-              <div style={{ marginBottom: '0.75rem' }}>
-                <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)', marginBottom: '0.5rem' }}>
-                  Inscriptos ({materiaModalInscriptos.length})
-                </p>
-                {materiaModalInscriptos.length === 0 && (
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
-                    Sin inscriptos en la materia.
-                  </p>
-                )}
-                {materiaModalInscriptos.map((a: AlumnoItem) => (
-                  <div
-                    key={a.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
-                      border: '1px solid var(--color-border)',
-                    }}
-                  >
-                    <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
-                      {a.studentName}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="action"
-                      data-testid={`btn-remove-materia-alumno-${a.id}`}
-                      onClick={() => handleMateriaModalRemove(a.id)}
-                    >
-                      −
-                    </Button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Candidatos eligibles para agregar */}
-              {materiaModalEligibles.length > 0 && (
-                <div>
-                  <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)', marginBottom: '0.25rem' }}>
-                    Agregar inscriptos:
-                  </p>
-                  {materiaModalEligibles.map((a: AlumnoItem) => (
-                    <div
-                      key={a.id}
-                      style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '0.25rem 0.5rem', borderRadius: 'var(--radius-sm)',
-                        background: 'var(--color-surface-secondary)', marginBottom: '0.25rem',
-                        border: '1px solid var(--color-border)',
-                      }}
-                    >
-                      <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text)' }}>
-                        {a.studentName}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="action"
-                        data-testid={`btn-add-materia-alumno-${a.id}`}
-                        onClick={() => handleMateriaModalAdd(a.studentId)}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  ))}
-                </div>
               )}
             </>
           )}
