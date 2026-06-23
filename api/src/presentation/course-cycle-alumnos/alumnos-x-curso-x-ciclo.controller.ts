@@ -29,6 +29,7 @@ import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-pr
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
 import { CascadeStudentMateriasCompetenciasUseCase, type CascadeResult } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
+import { CascadeAllStudentsMateriasCompetenciasUseCase, type BulkCascadeResult } from '../../application/course-cycle/cascade-all-students-materias-competencias.use-case';
 import type { StudentMembershipEnriched } from '@educandow/domain';
 
 /**
@@ -50,6 +51,7 @@ export class AlumnosXCursoXCicloController {
     private readonly togglePrintableUC: TogglePrintableUseCase,
     private readonly setCoursePrintableUC: SetCoursePrintableUseCase,
     private readonly listMembershipsUC: ListStudentMembershipsUseCase,
+    private readonly bulkCascadeUC: CascadeAllStudentsMateriasCompetenciasUseCase,
     private readonly cascadeUC: CascadeStudentMateriasCompetenciasUseCase,
   ) {}
 
@@ -139,6 +141,28 @@ export class AlumnosXCursoXCicloController {
     @Body(new ZodValidationPipe(SetPrintableSchema)) body: SetPrintableDto,
   ): Promise<void> {
     await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+  }
+
+  /**
+   * POST /course-cycles/:ccId/alumnos/cascade — Materialize all plan materias and
+   * their active competencies for EVERY enrolled student in the CourseCycle.
+   *
+   * Best-effort: individual student failures are counted and skipped; the batch
+   * never throws at the top level (ADR-B2).
+   *
+   * NOTE: MUST be declared BEFORE the per-student /:id/cascade — same route-order
+   * rule as /alumnos/printable before /alumnos/:id/printable (ADR-B5).
+   *
+   * SDD asignacion-cascade-masiva T-02, SC-06, SC-07, SC-08.
+   */
+  @Post('course-cycles/:ccId/alumnos/cascade')
+  @HttpCode(HttpStatus.OK)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async cascadeAll(
+    @Param('ccId') ccId: string,
+  ): Promise<{ data: BulkCascadeResult }> {
+    const data = await this.bulkCascadeUC.execute({ ccId });
+    return { data };
   }
 
   /**

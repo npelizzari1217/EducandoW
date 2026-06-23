@@ -15,6 +15,7 @@ import { TogglePrintableUseCase } from '../../application/course-cycle/toggle-pr
 import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-course-printable.use-case';
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
 import { CascadeStudentMateriasCompetenciasUseCase } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
+import { CascadeAllStudentsMateriasCompetenciasUseCase } from '../../application/course-cycle/cascade-all-students-materias-competencias.use-case';
 
 /**
  * AlumnosXCursoXCicloModule — SDD-1 PR-3 (T-18).
@@ -84,6 +85,31 @@ import { CascadeStudentMateriasCompetenciasUseCase } from '../../application/cou
       useFactory: (alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
         new ListStudentMembershipsUseCase(alumnosRepo),
       inject: [PrismaAlumnosXCursoXCicloRepository],
+    },
+
+    {
+      provide: CascadeAllStudentsMateriasCompetenciasUseCase,
+      useFactory: (
+        alumnosCCRepo: PrismaAlumnosXCursoXCicloRepository,
+        materiaRepo: PrismaMateriaXCursoXCicloRepository,
+        alumnosXMateriaRepo: PrismaAlumnosXMateriaRepository,
+        competencyRepo: PrismaSubjectCompetencyRepo,
+        competenciaRepo: PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
+      ) =>
+        new CascadeAllStudentsMateriasCompetenciasUseCase(
+          alumnosCCRepo,
+          materiaRepo,
+          alumnosXMateriaRepo,
+          competencyRepo,
+          competenciaRepo,
+        ),
+      inject: [
+        PrismaAlumnosXCursoXCicloRepository,
+        PrismaMateriaXCursoXCicloRepository,
+        PrismaAlumnosXMateriaRepository,
+        PrismaSubjectCompetencyRepo,
+        PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
+      ],
     },
 
     {

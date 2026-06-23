@@ -29,6 +29,11 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.addUC = overrides.addUC ?? { execute: vi.fn() };
   ctrl.listUC = overrides.listUC ?? { execute: vi.fn().mockResolvedValue([]) };
   ctrl.removeUC = overrides.removeUC ?? { execute: vi.fn().mockResolvedValue(undefined) };
+  ctrl.togglePrintableUC = overrides.togglePrintableUC ?? { execute: vi.fn() };
+  ctrl.setCoursePrintableUC = overrides.setCoursePrintableUC ?? { execute: vi.fn() };
+  ctrl.listMembershipsUC = overrides.listMembershipsUC ?? { execute: vi.fn().mockResolvedValue([]) };
+  ctrl.cascadeUC = overrides.cascadeUC ?? { execute: vi.fn() };
+  ctrl.bulkCascadeUC = overrides.bulkCascadeUC ?? { execute: vi.fn() };
   return ctrl;
 }
 
@@ -167,6 +172,38 @@ describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos/:i
     ctrl.cascadeUC = { execute: vi.fn().mockRejectedValue(error) };
 
     await expect(ctrl.cascade('cc-1', 'acc-999')).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+// ── POST /course-cycles/:ccId/alumnos/cascade (bulk) ─────────────────────────
+
+describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos/cascade (bulk)', () => {
+  it('C-12: 200 — bulkCascadeUC.execute called with { ccId }, returns { data: BulkCascadeResult }', async () => {
+    const bulkResult = {
+      studentsProcessed: 5,
+      studentsFailed: 0,
+      materiasCreated: 10,
+      materiasSkipped: 0,
+      competenciasCreated: 30,
+      competenciasSkipped: 0,
+    };
+    const bulkCascadeUC = { execute: vi.fn().mockResolvedValue(bulkResult) };
+    const ctrl = makeController({ bulkCascadeUC });
+
+    const result = await ctrl.cascadeAll('cc-1');
+
+    expect(bulkCascadeUC.execute).toHaveBeenCalledWith({ ccId: 'cc-1' });
+    expect(result).toEqual({ data: bulkResult });
+  });
+
+  it('C-13: cascadeAll is declared BEFORE cascade in controller prototype (route-order guard)', () => {
+    const methods = Object.getOwnPropertyNames(AlumnosXCursoXCicloController.prototype);
+    const cascadeAllIdx = methods.indexOf('cascadeAll');
+    const cascadeIdx = methods.indexOf('cascade');
+    expect(cascadeAllIdx).toBeGreaterThan(-1);
+    expect(cascadeIdx).toBeGreaterThan(-1);
+    // Bulk route must be registered first — NestJS matches literally, :id would shadow "cascade"
+    expect(cascadeAllIdx).toBeLessThan(cascadeIdx);
   });
 });
 
