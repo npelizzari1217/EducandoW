@@ -25,7 +25,8 @@
  *   GET  /materias-curso-ciclo/:id/asistencia-mensual?year=&month=[&grupoId=]
  *   PATCH /materias-curso-ciclo/:id/asistencia-mensual/dia           → updated row
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
 
@@ -61,6 +62,7 @@ interface AsistenciaGeneralRow {
   id: string;
   courseCycleId: string;
   studentId: string;
+  studentName: string;
   year: number;
   month: number;
   days: Record<string, string>;
@@ -70,6 +72,7 @@ interface AsistenciaMateriaRow {
   id: string;
   materiaXCursoXCicloId: string;
   studentId: string;
+  studentName: string;
   year: number;
   month: number;
   days: Record<string, string>;
@@ -136,6 +139,13 @@ export default function AsistenciaMensualPage() {
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth() + 1); // 1-based
 
+  // REQ-A3: read ccId from URL search params
+  const [searchParams] = useSearchParams();
+  const ccIdParam = searchParams.get('ccId');
+
+  // One-shot guard: apply ccIdParam pre-selection only once per mount
+  const ccParamApplied = useRef(false);
+
   // Selectors
   const [courseCycles, setCourseCycles] = useState<CourseCycle[]>([]);
   const [selectedCCId, setSelectedCCId] = useState<string>('');
@@ -164,7 +174,8 @@ export default function AsistenciaMensualPage() {
       .then(([ccRes, atRes]) => {
         const ccs = ccRes.data?.data ?? [];
         setCourseCycles(ccs);
-        if (ccs.length > 0 && !selectedCCId) {
+        // REQ-A4: only auto-select first CC when no ccIdParam is present (no regression)
+        if (ccs.length > 0 && !selectedCCId && !ccIdParam) {
           setSelectedCCId(ccs[0].uuid);
         }
         setAttendanceTypes(atRes.data?.data ?? []);
@@ -174,6 +185,20 @@ export default function AsistenciaMensualPage() {
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── REQ-A3: pre-select CC from URL param once the list resolves ───────────
+
+  useEffect(() => {
+    if (!ccIdParam || courseCycles.length === 0) return;
+    if (ccParamApplied.current) return;
+    ccParamApplied.current = true;
+    const match = courseCycles.find((cc) => cc.uuid === ccIdParam);
+    if (match) {
+      setSelectedCCId(ccIdParam);
+      setMode('general');
+    }
+    // A3-3: ccId not in list → silent fallback (no error, no selection)
+  }, [courseCycles, ccIdParam]);
 
   // ── Load general rows ─────────────────────────────────────────────────────
 
@@ -540,7 +565,7 @@ export default function AsistenciaMensualPage() {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {row.studentId}
+                      {row.studentName}
                     </td>
                     {dayColumns.map((d) => (
                       <td

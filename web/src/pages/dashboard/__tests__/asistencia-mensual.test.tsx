@@ -1,5 +1,5 @@
 /**
- * AsistenciaMensualPage — unit tests (TDD RED, T-34).
+ * AsistenciaMensualPage — unit tests (TDD RED, T-34 + T-FE-1 + T-FE-2).
  * Tests written BEFORE the component exists (strict TDD).
  *
  * WM-01: renders the planilla container
@@ -11,9 +11,14 @@
  * WM-07: materia mode — materia selector appears after tab switch
  * WM-08: materia mode — grupoId filter appears when materia has groups
  * WM-09: materia mode — GET subject rows passes grupoId when group is selected
+ * WM-10: T-FE-1 — grid renders studentName, not the UUID
+ * WM-11: T-FE-2 — pre-selects CC from ?ccId= search param (async list)
+ * WM-12: T-FE-2 — no pre-selection when ccId not in list (graceful fallback)
+ * WM-13: T-FE-2 — no regression: behavior unchanged when no ccId param
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 
@@ -78,8 +83,8 @@ const attendanceTypes = [
 ];
 
 const generalRows = [
-  { id: 'row-1', courseCycleId: 'cc-1', studentId: 'stu-1', year: 2026, month: 6, days: {} },
-  { id: 'row-2', courseCycleId: 'cc-1', studentId: 'stu-2', year: 2026, month: 6, days: { '1': 'P' } },
+  { id: 'row-1', courseCycleId: 'cc-1', studentId: 'stu-1', studentName: 'García, Juan', year: 2026, month: 6, days: {} },
+  { id: 'row-2', courseCycleId: 'cc-1', studentId: 'stu-2', studentName: 'López, María', year: 2026, month: 6, days: { '1': 'P' } },
 ];
 
 const materias = [
@@ -92,7 +97,7 @@ const grupos = [
 ];
 
 const subjectRows = [
-  { id: 'row-m1', materiaXCursoXCicloId: 'mx-1', studentId: 'stu-1', year: 2026, month: 6, days: {} },
+  { id: 'row-m1', materiaXCursoXCicloId: 'mx-1', studentId: 'stu-1', studentName: 'García, Juan', year: 2026, month: 6, days: {} },
 ];
 
 // ── Lazy import (mocks must be set up first) ──────────────────────────────────
@@ -138,8 +143,22 @@ beforeEach(async () => {
 
 afterEach(() => cleanup());
 
+/** Render the page inside a router with no URL params (regression-safe). */
 function renderPage() {
-  return render(<AsistenciaMensualPage />);
+  return render(
+    <MemoryRouter initialEntries={['/asistencia-mensual']}>
+      <AsistenciaMensualPage />
+    </MemoryRouter>,
+  );
+}
+
+/** Render the page with a ?ccId= param to test pre-selection (T-FE-2). */
+function renderPageWithCcId(ccId: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/asistencia-mensual?ccId=${ccId}`]}>
+      <AsistenciaMensualPage />
+    </MemoryRouter>,
+  );
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -301,6 +320,71 @@ describe('AsistenciaMensualPage', () => {
       // Should have called GET with grupoId query param
       const calls = mockGet.mock.calls.map((c) => c[0] as string);
       expect(calls.some((url) => url.includes('grupoId=grp-1'))).toBe(true);
+    });
+  });
+
+  // ── T-FE-1: studentName rendered instead of UUID ─────────────────────────
+
+  it('WM-10: grid renders studentName (not the UUID) in the row label', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grid-container')).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      // Names from fixture should appear as cell text
+      expect(screen.getByText('García, Juan')).toBeInTheDocument();
+      expect(screen.getByText('López, María')).toBeInTheDocument();
+      // UUID values must NOT appear as visible text in the grid
+      expect(screen.queryByText('stu-1')).not.toBeInTheDocument();
+      expect(screen.queryByText('stu-2')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── T-FE-2: pre-selection from ?ccId= ────────────────────────────────────
+
+  it('WM-11: pre-selects the CC matching ?ccId= param after list loads', async () => {
+    const twoCourseCycles = [
+      { uuid: 'cc-1', name: 'Primer Año A - 2026', level: 3 },
+      { uuid: 'cc-2', name: 'Segundo Año B - 2026', level: 3 },
+    ];
+
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles') return Promise.resolve({ data: { data: twoCourseCycles } });
+      if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+      if (url.includes('/asistencia-mensual') && !url.includes('materia')) {
+        return Promise.resolve({ data: { data: generalRows } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderPageWithCcId('cc-2');
+
+    await waitFor(() => {
+      const selector = screen.getByTestId('cc-selector') as HTMLSelectElement;
+      expect(selector.value).toBe('cc-2');
+    });
+  });
+
+  it('WM-12: silent fallback when ?ccId= not found in list — no error thrown', async () => {
+    // Unknown ccId → no pre-selection, no crash
+    renderPageWithCcId('cc-unknown');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('asistencia-mensual-page')).toBeInTheDocument();
+    });
+    // No toast-error should appear from this scenario
+    expect(screen.queryByTestId('asistencia-toast')).not.toBeInTheDocument();
+  });
+
+  it('WM-13: no regression — behavior unchanged when no ccId param', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      // First CC is auto-selected (original behavior)
+      const selector = screen.getByTestId('cc-selector') as HTMLSelectElement;
+      expect(selector.value).toBe('cc-1');
     });
   });
 });

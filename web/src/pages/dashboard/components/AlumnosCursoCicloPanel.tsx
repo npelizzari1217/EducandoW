@@ -15,9 +15,11 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
 import apiClient from '../../../api/client';
 import { downloadBoletinBatch } from '../../../hooks/useBoletin';
+import { useCan } from '../../../hooks/use-can';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -75,6 +77,9 @@ const rowStyle: React.CSSProperties = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCursoCicloPanelProps) {
+  const navigate = useNavigate();
+  const { can } = useCan();
+
   const [current, setCurrent] = useState<AlumnoCursoCicloItem[]>([]);
   const [allStudents, setAllStudents] = useState<StudentItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,19 +215,35 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
     >
       {/* Header — hidden when embedded in a Modal (Modal provides title + close) */}
       {!embedded && (
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-        <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
-          Alumnos del Ciclo
-        </span>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          data-testid="btn-cerrar"
-        >
-          Cerrar
-        </Button>
-      </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+          <span style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+            Alumnos del Ciclo
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            data-testid="btn-cerrar"
+          >
+            Cerrar
+          </Button>
+        </div>
+      )}
+
+      {/* REQ-A1 / REQ-A2: attendance shortcut — always rendered (embedded and non-embedded).
+          Gated by ATTENDANCE READ. Placed outside the header block so it is visible inside
+          the Modal that course-cycles.tsx opens (which always passes embedded=true). */}
+      {can('ATTENDANCE', 'READ') && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+          <Button
+            variant="action"
+            size="sm"
+            data-testid="btn-ver-asistencia"
+            onClick={() => navigate(`/asistencia-mensual?ccId=${ccId}`)}
+          >
+            Ver asistencia
+          </Button>
+        </div>
       )}
 
       {/* Loading */}

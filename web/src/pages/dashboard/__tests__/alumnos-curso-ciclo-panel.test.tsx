@@ -1,5 +1,5 @@
 /**
- * AlumnosCursoCicloPanel — T-20 (TDD RED)
+ * AlumnosCursoCicloPanel — T-20 (TDD RED) + T-FE-3
  * Tests written BEFORE the component exists.
  * Mirrors the AlumnosPanelInline pattern from materia-grupos.test.tsx.
  *
@@ -10,11 +10,23 @@
  * W-05: clicking remove calls DELETE with bridge-row id
  * W-06: empty state when no students assigned
  * W-07: close button calls onClose
+ * W-19: T-FE-3 — "Ver asistencia" button visible when user has ATTENDANCE READ
+ * W-20: T-FE-3 — "Ver asistencia" button absent when user lacks ATTENDANCE READ
+ * W-21: T-FE-3 — clicking "Ver asistencia" navigates to /asistencia-mensual?ccId=<ccId>
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
+
+// ── Hoist navigate mock so it is available inside vi.mock factory ─────────────
+
+const { mockNavigate } = vi.hoisted(() => ({ mockNavigate: vi.fn() }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 
@@ -34,6 +46,10 @@ vi.mock('../../../api/client', () => ({
 
 // ── Mock auth / institution ───────────────────────────────────────────────────
 
+// Mutable modules list — swap per-test to control useCan output.
+// Default: no modules (ATTENDANCE button hidden in existing tests).
+let mockModules: Array<{ moduleCode: string; actions: string[] }> = [];
+
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
     user: {
@@ -42,6 +58,7 @@ vi.mock('../../../context/auth-context', () => ({
       name: 'Admin',
       roles: ['ADMIN'],
       institutionId: 'inst-1',
+      modules: mockModules,
     },
     logout: vi.fn(),
     isLoading: false,
@@ -90,10 +107,13 @@ const allStudents = [
 
 // ── Lazy import after mocks ───────────────────────────────────────────────────
 
-let AlumnosCursoCicloPanel: React.ComponentType<{ ccId: string; onClose: () => void }>;
+let AlumnosCursoCicloPanel: React.ComponentType<{ ccId: string; onClose: () => void; embedded?: boolean }>;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockNavigate.mockReset();
+  // Default: user has NO modules → attendance button hidden (preserves existing tests)
+  mockModules = [];
   mockDownloadBoletinBatch.mockResolvedValue(undefined);
   mockPatch.mockResolvedValue({});
   mockGet.mockImplementation((url: string) => {
@@ -116,8 +136,8 @@ beforeEach(async () => {
 
 afterEach(() => cleanup());
 
-function renderPanel(ccId = 'cc-1', onClose = vi.fn()) {
-  return render(<AlumnosCursoCicloPanel ccId={ccId} onClose={onClose} />);
+function renderPanel(ccId = 'cc-1', onClose = vi.fn(), embedded = false) {
+  return render(<AlumnosCursoCicloPanel ccId={ccId} onClose={onClose} embedded={embedded} />);
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -441,5 +461,39 @@ describe('AlumnosCursoCicloPanel', () => {
     await waitFor(() => {
       expect(screen.getByTestId('cascade-toast')).toBeInTheDocument();
     });
+  });
+
+  // ── T-FE-3: Attendance navigation button ─────────────────────────────────
+
+  // embedded=true mirrors the ONLY production entry point (course-cycles.tsx always passes embedded)
+  it('W-19: "Ver asistencia" button visible when user has ATTENDANCE READ (embedded)', async () => {
+    mockModules = [{ moduleCode: 'ATTENDANCE', actions: ['READ'] }];
+    renderPanel('cc-1', vi.fn(), true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-ver-asistencia')).toBeInTheDocument();
+    });
+  });
+
+  it('W-20: "Ver asistencia" button absent when user lacks ATTENDANCE READ (embedded)', async () => {
+    // mockModules = [] (default — no ATTENDANCE)
+    renderPanel('cc-1', vi.fn(), true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('alumnos-curso-panel')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('btn-ver-asistencia')).not.toBeInTheDocument();
+  });
+
+  it('W-21: clicking "Ver asistencia" navigates to /asistencia-mensual?ccId=<ccId> (embedded)', async () => {
+    mockModules = [{ moduleCode: 'ATTENDANCE', actions: ['READ'] }];
+    const user = userEvent.setup();
+    renderPanel('cc-abc', vi.fn(), true);
+
+    await waitFor(() => expect(screen.getByTestId('btn-ver-asistencia')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-ver-asistencia'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/asistencia-mensual?ccId=cc-abc');
   });
 });
