@@ -16,6 +16,15 @@ import { AlumnosCursoCicloPanel } from './components/AlumnosCursoCicloPanel';
 
 interface Institution { id: string; name: string; }
 
+interface BulkCascadeResult {
+  studentsProcessed: number;
+  studentsFailed: number;
+  materiasCreated: number;
+  materiasSkipped: number;
+  competenciasCreated: number;
+  competenciasSkipped: number;
+}
+
 const LEVEL_LABELS: Record<number, string> = {
   10: 'Inicial', 11: 'Talleres Inicial', 12: 'Bilingüismo Inicial',
   20: 'Primario', 21: 'Talleres Primario', 22: 'Bilingüismo Primario',
@@ -48,6 +57,8 @@ export default function CourseCyclesPage() {
   const [generating, setGenerating] = useState(false);
   const [boletinBatchLoading, setBoletinBatchLoading] = useState(false);
   const [alumnosPanelCcId, setAlumnosPanelCcId] = useState<string | null>(null);
+  const [confirmCascadeCcId, setConfirmCascadeCcId] = useState<string | null>(null);
+  const [cascadingBulkCcId, setCascadingBulkCcId] = useState<string | null>(null);
 
   const handleBoletinBatch = async () => {
     if (!filters.cycleId) return;
@@ -136,6 +147,34 @@ export default function CourseCyclesPage() {
   const handleDelete = async (uuid: string) => {
     const ok = await del(uuid);
     if (ok) reload();
+  };
+
+  /**
+   * handleBulkCascade — POST /course-cycles/:ccId/alumnos/cascade
+   * Materializes all plan materias + active competencies for ALL enrolled students.
+   * Best-effort: backend accumulates partial failures; never throws at batch level.
+   * Always-enabled (ADR-B4): empty CC returns zeros — harmless no-op.
+   * SDD asignacion-cascade-masiva T-03, SC-11..15.
+   */
+  const handleBulkCascade = async (ccId: string) => {
+    setConfirmCascadeCcId(null);
+    setCascadingBulkCcId(ccId);
+    try {
+      const res = await apiClient.post<{ data: BulkCascadeResult }>(
+        `/course-cycles/${ccId}/alumnos/cascade`,
+      );
+      const counts = res.data?.data;
+      if (counts) {
+        setToast({
+          message: `${counts.materiasCreated} materias y ${counts.competenciasCreated} competencias asignadas a ${counts.studentsProcessed} alumnos`,
+          type: 'success',
+        });
+      }
+    } catch {
+      setToast({ message: 'Error al asignar materias y competencias', type: 'error' });
+    } finally {
+      setCascadingBulkCcId(null);
+    }
   };
 
   const handleGenerate = async () => {
@@ -337,6 +376,15 @@ export default function CourseCyclesPage() {
                   >
                     Alumnos
                   </Button>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid={`btn-bulk-cascade-${cc.uuid}`}
+                    disabled={cascadingBulkCcId === cc.uuid}
+                    onClick={() => setConfirmCascadeCcId(cc.uuid)}
+                  >
+                    Asignar materias y competencias
+                  </Button>
                   <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
                 </div>
@@ -361,6 +409,34 @@ export default function CourseCyclesPage() {
             embedded
           />
         )}
+      </Modal>
+
+      {/* Bulk cascade confirmation dialog */}
+      <Modal
+        open={!!confirmCascadeCcId}
+        title="Asignar materias y competencias"
+        size="md"
+        onClose={() => setConfirmCascadeCcId(null)}
+      >
+        <div style={{ padding: 'var(--space-md)' }}>
+          <p style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+            ¿Asignar materias y competencias a todos los alumnos del curso?
+            La operación es idempotente y no modifica notas existentes.
+          </p>
+          <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" size="sm" onClick={() => setConfirmCascadeCcId(null)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="action"
+              size="sm"
+              data-testid="btn-confirm-bulk-cascade"
+              onClick={() => confirmCascadeCcId && handleBulkCascade(confirmCascadeCcId)}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Toast */}

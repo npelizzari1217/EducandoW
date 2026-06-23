@@ -226,4 +226,137 @@ describe('CourseCyclesPage', () => {
     const instLabels = screen.getAllByText('Institución');
     expect(instLabels.length).toBeGreaterThan(0);
   });
+
+  // ── Bulk cascade button ──────────────────────────────────────────────────────
+
+  describe('Bulk cascade button', () => {
+    const ccRow = {
+      uuid: 'cc-bulk-1',
+      courseName: '1ro A',
+      level: 20,
+      cycleId: 'cycle-1',
+      studyPlanId: 'plan-1',
+      active: true,
+      passingGrade: 7,
+    };
+
+    const bulkResult = {
+      studentsProcessed: 5,
+      studentsFailed: 0,
+      materiasCreated: 10,
+      materiasSkipped: 0,
+      competenciasCreated: 30,
+      competenciasSkipped: 0,
+    };
+
+    beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockGet.mockImplementation((url: string): any => {
+        if (url === '/academic-cycles') {
+          return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }] } });
+        }
+        if (url === '/study-plans') {
+          return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan Primario 2026' }] } });
+        }
+        if (url === '/institutions') {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url === '/course-cycles') {
+          return Promise.resolve({ data: { data: [ccRow], page: 1, pageSize: 20, total: 1 } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockPost.mockResolvedValue({ data: { data: bulkResult } } as any);
+    });
+
+    // W-24: button always-enabled (never gated by student count)
+    it('W-24: "Asignar materias y competencias" button renders and is not disabled by default', async () => {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).not.toBeDisabled();
+    });
+
+    // W-19: clicking the button opens a confirmation dialog
+    it('W-19: clicking the button opens a confirmation dialog', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('btn-bulk-cascade-cc-bulk-1'));
+      expect(screen.getByTestId('btn-confirm-bulk-cascade')).toBeInTheDocument();
+    });
+
+    // W-20: POST fired only after confirming
+    it('W-20: confirming the dialog fires POST /course-cycles/:ccId/alumnos/cascade', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('btn-bulk-cascade-cc-bulk-1'));
+      await user.click(screen.getByTestId('btn-confirm-bulk-cascade'));
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith('/course-cycles/cc-bulk-1/alumnos/cascade');
+      });
+    });
+
+    // W-21: button disabled while request is in-flight
+    it('W-21: button is disabled while request is in-flight', async () => {
+      let resolve!: () => void;
+      const inflightPromise = new Promise<void>((res) => { resolve = res; });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockPost.mockImplementationOnce((): any =>
+        inflightPromise.then(() => ({ data: { data: bulkResult } })),
+      );
+
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('btn-bulk-cascade-cc-bulk-1'));
+      await user.click(screen.getByTestId('btn-confirm-bulk-cascade'));
+
+      // While in-flight the button must be disabled
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeDisabled();
+      });
+
+      resolve(); // unblock to avoid test leak
+    });
+
+    // W-22: success toast shows aggregated counts
+    it('W-22: success toast shows aggregated counts after successful cascade', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('btn-bulk-cascade-cc-bulk-1'));
+      await user.click(screen.getByTestId('btn-confirm-bulk-cascade'));
+      await waitFor(() => {
+        expect(screen.getByText(/10 materias y 30 competencias asignadas a 5 alumnos/i)).toBeInTheDocument();
+      });
+    });
+
+    // W-23: error toast when POST fails
+    it('W-23: error toast shown when the cascade POST fails', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (mockPost as any).mockRejectedValueOnce(new Error('Network error'));
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-bulk-cascade-cc-bulk-1')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('btn-bulk-cascade-cc-bulk-1'));
+      await user.click(screen.getByTestId('btn-confirm-bulk-cascade'));
+      await waitFor(() => {
+        expect(screen.getByText(/Error al asignar materias y competencias/i)).toBeInTheDocument();
+      });
+    });
+  });
 });
