@@ -31,6 +31,8 @@ export interface CourseCycle {
   ownBimonthDates: BimonthDateSet;
   effectiveBimonthDates: BimonthDateSet;
   lastModifiedAt: string;
+  /** Number of students enrolled in this CourseCycle. Optional for back-compat. */
+  studentCount?: number;
 }
 
 /** Uses domain's paginated result shape */

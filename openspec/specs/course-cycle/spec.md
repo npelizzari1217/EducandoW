@@ -283,7 +283,7 @@ The system MUST expose the following REST endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/course-cycles` | List with filters; paginated; ordered by `courseName ASC` |
+| GET | `/v1/course-cycles` | List with filters; paginated; ordered by `courseName ASC`; each item includes `studentCount: number` (count of enrolled `AlumnosXCursoXCiclo` rows, no `Student.active` filter — see Requirement: Enrolled Student Count below) |
 | GET | `/v1/course-cycles/:id` | Get by ID — returns effective bimester dates + `modality` (Fase 3b) |
 | POST | `/v1/course-cycles` | Create |
 | PATCH | `/v1/course-cycles/:id` | Update (blocked if `active=false`) |
@@ -433,7 +433,7 @@ CourseCycle not found → HTTP 404.
 ### Requirement: Frontend CRUD Page
 
 The system MUST provide a page at `/course-cycles` with:
-- A filterable table: columns `courseName`, `level`, `cycle name`, `active` (badge), `passingGrade`, action buttons (edit, toggle active)
+- A filterable table: columns `courseName`, `level`, `cycle name`, `active` (badge), `passingGrade`, **`Alumnos`** (enrolled student count via `studentCount`), action buttons (edit, toggle active)
 - Filter controls: combobox for `level` (composite LevelType 10–40), combobox for `cycleId`, combobox for `studyPlanId` (optional), toggle for `active/inactive`
 - A "Generar Cursos" button that is enabled only when both `level` and `cycleId` filters are selected; it MUST call `POST /v1/course-cycles/generate` directly using the current filter values — NO modal dialog
 - A create/edit form with all fields; bimester date fields are OPTIONAL
@@ -477,6 +477,82 @@ The system MUST provide a page at `/course-cycles` with:
 - GIVEN the user opens the edit form for a CourseCycle with no own bimester dates
 - THEN the bimester date fields show the AcademicCycle's dates as placeholder/inherited values
 - AND the user can override them by entering own values
+
+---
+
+### Requirement: Enrolled Student Count in CursosXCiclo List
+
+> Added by `columna-alumnos-activos`, 2026-06-23. Archive: `openspec/changes/archive/2026-06-23-columna-alumnos-activos/`.
+
+The `GET /v1/course-cycles` list endpoint SHALL include `studentCount: number` in every response
+item. The value is the count of `AlumnosXCursoXCiclo` bridge rows for that `courseCycleId`
+(all enrolled, no `Student.active` / `Student.deletedAt` filter). The frontend admin table SHALL
+render this as the **"Alumnos"** column.
+
+**Non-goals**: teacher list path (`listTeacherCCsUC`) is excluded; no DB migration required or
+permitted; pedagogical level is level-agnostic.
+
+**Deferred**: gating the "Asignar materias y competencias" bulk-cascade button on
+`studentCount > 0` is a known future decision point (see ADR-B4 in the bulk cascade section).
+When this feature ships the button SHALL be gated only when `studentCount > 0`.
+
+#### EAL-S1 — Repository port contract
+
+The `CourseCycleRepository` domain port SHALL declare:
+
+```typescript
+countEnrolledByCourseCycleIds(ids: string[]): Promise<Map<string, number>>
+```
+
+**EAL-S1-A**: Method present with exact signature.
+**EAL-S1-B**: `ids = []` → returns empty `Map` (no error, no DB call).
+**EAL-S1-C**: IDs with zero enrollments → returned entry is `0` OR absent (caller MUST default missing keys to `0` per EAL-S4-A).
+
+#### EAL-S2 — Infrastructure aggregation (no N+1)
+
+The Prisma implementation SHALL execute a SINGLE SQL aggregation using `alumnosXCursoXCiclo.groupBy({ by: ['courseCycleId'], where: { courseCycleId: { in: ids } }, _count: { studentId: true } })`. It SHALL NOT use `include: { _count }` on a per-row basis. It SHALL use only the tenant Prisma client (`TenantContext.getClient()`).
+
+**EAL-S2-A**: Exactly one SQL aggregation per request.
+**EAL-S2-B**: Correct count returned per `courseCycleId`.
+**EAL-S2-C**: Tenant isolation — master schema never queried.
+
+#### EAL-S3 — Use-case threading
+
+`ListCourseCyclesUseCase.execute()` SHALL call `countEnrolledByCourseCycleIds` with the IDs of the page (from `findAll()`), and SHALL return `{ ...result, studentCounts: Map<string, number> }` for the controller to consume.
+
+**EAL-S3-A**: `studentCounts` map threaded through to the controller.
+**EAL-S3-B**: Empty page → called with `[]`, empty map returned (no error).
+**EAL-S3-C**: Repository error propagates normally; no silent swallow.
+
+#### EAL-S4 — Response DTO (`studentCount` field)
+
+Every item in the `GET /v1/course-cycles` response SHALL include `studentCount: number`. It SHALL NOT be `null`, `undefined`, or missing.
+
+**EAL-S4-A**: Missing key in map → `studentCount = 0`.
+**EAL-S4-B**: Positive count → correct value.
+**EAL-S4-C**: Field always present as a JSON number in every list item.
+
+#### EAL-S5 — Frontend type
+
+The `CourseCycle` TypeScript interface (`web/src/types/course-cycle.ts`) SHALL declare `studentCount?: number` (optional for backwards-compatibility).
+
+**EAL-S5-A**: `cc.studentCount ?? 0` compiles without type error.
+**EAL-S5-B**: Optional field — stubs or older responses without it do not cause TS errors.
+
+#### EAL-S6 — Frontend table column
+
+The admin `CursosXCiclo` table (`web/src/pages/dashboard/course-cycles.tsx`) SHALL render an **"Alumnos"** column displaying the integer value of `studentCount` per row.
+
+**EAL-S6-A**: Column header `"Alumnos"` present (verified via `getByRole('columnheader', { name: 'Alumnos' })`).
+**EAL-S6-B**: Row with `studentCount = N` displays `"N"`.
+**EAL-S6-C**: `studentCount = 0` renders as `"0"` (not blank, not `"-"`).
+**EAL-S6-D**: `studentCount = undefined` renders as `"0"`.
+
+#### EAL-S7 — No DB migration
+
+This requirement SHALL NOT introduce any Prisma migration file or schema change. All data is read from the existing `AlumnosXCursoXCiclo` table and its existing `@@index([courseCycleId])`.
+
+**EAL-S7-A**: No `*.sql` or `migration.ts` file in this change.
 
 ---
 

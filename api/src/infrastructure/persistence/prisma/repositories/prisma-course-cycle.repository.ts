@@ -167,6 +167,23 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
   }
 
   /**
+   * Single groupBy aggregation — no N+1.
+   * Empty input returns an empty Map without hitting the DB.
+   * CCs with zero enrollments are absent from the Map; callers default to 0.
+   */
+  async countEnrolledByCourseCycleIds(ids: string[]): Promise<Map<string, number>> {
+    if (ids.length === 0) return new Map();
+
+    const rows = await this.client.alumnosXCursoXCiclo.groupBy({
+      by: ['courseCycleId'],
+      where: { courseCycleId: { in: ids } },
+      _count: { studentId: true },
+    });
+
+    return new Map(rows.map((row) => [row.courseCycleId, row._count.studentId]));
+  }
+
+  /**
    * Bulk variant of findGradingContextByUuid — one query for N course cycles.
    * Joins CourseCycle → StudyPlan in a single Prisma query (no N+1).
    * Returns a Map keyed by CourseCycle UUID; UUIDs not found are absent.

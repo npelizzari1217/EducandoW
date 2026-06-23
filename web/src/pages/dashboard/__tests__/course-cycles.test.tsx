@@ -227,6 +227,78 @@ describe('CourseCyclesPage', () => {
     expect(instLabels.length).toBeGreaterThan(0);
   });
 
+  // ── Alumnos column (S-6) ────────────────────────────────────────────────────
+
+  describe('Alumnos enrolled-count column', () => {
+    function makeGetWithCC(ccOverrides: Record<string, unknown> = {}) {
+      return (url: string) => {
+        if (url === '/academic-cycles') {
+          return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }] } });
+        }
+        if (url === '/study-plans') {
+          return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan Primario 2026' }] } });
+        }
+        if (url === '/institutions') {
+          return Promise.resolve({ data: { data: [] } });
+        }
+        if (url === '/course-cycles') {
+          return Promise.resolve({
+            data: {
+              data: [{
+                uuid: 'cc-alumnos-1',
+                courseName: 'Matemática',
+                level: 20,
+                cycleId: 'cycle-1',
+                studyPlanId: 'plan-1',
+                active: true,
+                passingGrade: 7,
+                ...ccOverrides,
+              }],
+              page: 1,
+              pageSize: 20,
+              total: 1,
+            },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      };
+    }
+
+    it('S-6-A: renders "Alumnos" column header in <th>', async () => {
+      mockGet.mockImplementation(makeGetWithCC({ studentCount: 3 }) as any);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole('columnheader', { name: 'Alumnos' })).toBeInTheDocument();
+      });
+    });
+
+    it('S-6-B: row shows the correct studentCount', async () => {
+      mockGet.mockImplementation(makeGetWithCC({ studentCount: 8 }) as any);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole('cell', { name: '8' })).toBeInTheDocument();
+      });
+    });
+
+    it('S-6-D: undefined studentCount renders as "0"', async () => {
+      mockGet.mockImplementation(makeGetWithCC({ studentCount: undefined }) as any);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole('columnheader', { name: 'Alumnos' })).toBeInTheDocument();
+        expect(screen.getByRole('cell', { name: '0' })).toBeInTheDocument();
+      });
+    });
+
+    it('S-6-C: zero studentCount renders as "0" not blank', async () => {
+      mockGet.mockImplementation(makeGetWithCC({ studentCount: 0 }) as any);
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByRole('columnheader', { name: 'Alumnos' })).toBeInTheDocument();
+        expect(screen.getByRole('cell', { name: '0' })).toBeInTheDocument();
+      });
+    });
+  });
+
   // ── Bulk cascade button ──────────────────────────────────────────────────────
 
   describe('Bulk cascade button', () => {

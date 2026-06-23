@@ -77,4 +77,13 @@ export interface CourseCycleRepository {
    * Empty input → empty array. Tenant scoping is via TenantContext.
    */
   findByUuids(uuids: string[]): Promise<CourseCycle[]>;
+
+  /**
+   * Returns a Map of CourseCycle UUID → enrolled student count.
+   * Uses a single groupBy aggregation over AlumnosXCursoXCiclo (no N+1).
+   * Empty input → empty Map (no DB query). CCs with zero enrollments are absent
+   * from the Map; callers MUST default missing keys to 0.
+   * Tenant scoping is via TenantContext.
+   */
+  countEnrolledByCourseCycleIds(ids: string[]): Promise<Map<string, number>>;
 }

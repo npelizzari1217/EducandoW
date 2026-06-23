@@ -60,6 +60,9 @@ function makeMockClient() {
     studyPlan: {
       findUnique: vi.fn(),
     },
+    alumnosXCursoXCiclo: {
+      groupBy: vi.fn(),
+    },
   };
 }
 
@@ -194,5 +197,67 @@ describe('PrismaCourseCycleRepository — findByCourseSectionIds', () => {
         }),
       }),
     );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// countEnrolledByCourseCycleIds
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('PrismaCourseCycleRepository — countEnrolledByCourseCycleIds', () => {
+  let repo: PrismaCourseCycleRepository;
+  let mockClient: ReturnType<typeof makeMockClient>;
+
+  beforeEach(() => {
+    mockClient = makeMockClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaCourseCycleRepository();
+  });
+
+  it('returns empty Map for empty ids input without calling groupBy', async () => {
+    const result = await repo.countEnrolledByCourseCycleIds([]);
+
+    expect(result.size).toBe(0);
+    expect(mockClient.alumnosXCursoXCiclo.groupBy).not.toHaveBeenCalled();
+  });
+
+  it('returns correct count map from groupBy results', async () => {
+    mockClient.alumnosXCursoXCiclo.groupBy.mockResolvedValue([
+      { courseCycleId: 'cc-uuid-1', _count: { studentId: 3 } },
+      { courseCycleId: 'cc-uuid-2', _count: { studentId: 7 } },
+    ]);
+
+    const result = await repo.countEnrolledByCourseCycleIds(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(result.size).toBe(2);
+    expect(result.get('cc-uuid-1')).toBe(3);
+    expect(result.get('cc-uuid-2')).toBe(7);
+  });
+
+  it('issues a single groupBy query with courseCycleId IN (...)', async () => {
+    mockClient.alumnosXCursoXCiclo.groupBy.mockResolvedValue([]);
+
+    await repo.countEnrolledByCourseCycleIds(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(mockClient.alumnosXCursoXCiclo.groupBy).toHaveBeenCalledTimes(1);
+    expect(mockClient.alumnosXCursoXCiclo.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        by: ['courseCycleId'],
+        where: expect.objectContaining({ courseCycleId: { in: ['cc-uuid-1', 'cc-uuid-2'] } }),
+        _count: expect.objectContaining({ studentId: true }),
+      }),
+    );
+  });
+
+  it('a CC with zero enrollments is absent from the Map (omit zeros)', async () => {
+    mockClient.alumnosXCursoXCiclo.groupBy.mockResolvedValue([
+      { courseCycleId: 'cc-uuid-1', _count: { studentId: 2 } },
+      // cc-uuid-2 has no rows → groupBy omits it → not in result
+    ]);
+
+    const result = await repo.countEnrolledByCourseCycleIds(['cc-uuid-1', 'cc-uuid-2']);
+
+    expect(result.has('cc-uuid-1')).toBe(true);
+    expect(result.has('cc-uuid-2')).toBe(false);
   });
 });

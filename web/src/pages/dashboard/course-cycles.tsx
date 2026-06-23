@@ -214,6 +214,7 @@ export default function CourseCyclesPage() {
     cycle: cycles.find((c) => c.uuid === cc.cycleId)?.name ?? cc.cycleId,
     active: cc.active,
     passingGrade: cc.passingGrade,
+    studentCount: cc.studentCount ?? 0,
     actions: cc,
   }));
 
@@ -358,6 +359,7 @@ export default function CourseCyclesPage() {
                 </span>
               )},
               { key: 'passingGrade', header: 'Nota Aprob.' },
+              { key: 'studentCount', header: 'Alumnos' },
               { key: 'actions', header: '', render: (item) => {
                 const cc = item.actions;
                 return (

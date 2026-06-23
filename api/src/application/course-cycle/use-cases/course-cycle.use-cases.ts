@@ -290,7 +290,11 @@ export class ListCourseCyclesUseCase {
   constructor(private readonly courseCycleRepo: CourseCycleRepository) {}
 
   async execute(filters: ListCourseCyclesInput) {
-    return this.courseCycleRepo.findAll(filters as CourseCycleFilters);
+    const result = await this.courseCycleRepo.findAll(filters as CourseCycleFilters);
+    const studentCounts = await this.courseCycleRepo.countEnrolledByCourseCycleIds(
+      result.data.map((cc) => cc.uuid),
+    );
+    return { ...result, studentCounts };
   }
 }
 

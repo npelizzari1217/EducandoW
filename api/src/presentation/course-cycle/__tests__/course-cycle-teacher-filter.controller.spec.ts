@@ -36,7 +36,7 @@ function makeCC(uuid: string) {
 }
 
 function makeListResult(items: ReturnType<typeof makeCC>[]) {
-  return { data: items, page: 1, pageSize: 10, total: items.length };
+  return { data: items, page: 1, pageSize: 10, total: items.length, studentCounts: new Map<string, number>() };
 }
 
 function makeTeacherCC(uuid: string, modality: number | null = 0) {

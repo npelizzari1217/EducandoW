@@ -103,6 +103,58 @@ describe('CourseCycleController — GET :uuid/students', () => {
   });
 });
 
+// ── GET / — studentCount in list response (S-4) ───────────────
+
+describe('CourseCycleController — GET / (studentCount in list response)', () => {
+  it('S-4-B: list response includes studentCount for a CC with enrollments', async () => {
+    const cc = makeCC();
+    const countsMap = new Map([[cc.uuid, 4]]);
+    const listUC = {
+      execute: vi.fn().mockResolvedValue({
+        data: [cc], page: 1, pageSize: 20, total: 1, studentCounts: countsMap,
+      }),
+    };
+    const ctrl = makeController({ listUC });
+    const user = { roles: ['ROOT'], userId: 'u1', userLevels: [] } as any;
+    const query = {} as any;
+
+    const response = await ctrl.list(user, query);
+
+    expect(response.data[0]).toHaveProperty('studentCount', 4);
+  });
+
+  it('S-4-A: studentCount defaults to 0 when CC is absent from the Map', async () => {
+    const cc = makeCC();
+    const countsMap = new Map<string, number>(); // empty map — cc absent
+    const listUC = {
+      execute: vi.fn().mockResolvedValue({
+        data: [cc], page: 1, pageSize: 20, total: 1, studentCounts: countsMap,
+      }),
+    };
+    const ctrl = makeController({ listUC });
+    const user = { roles: ['ROOT'], userId: 'u1', userLevels: [] } as any;
+    const query = {} as any;
+
+    const response = await ctrl.list(user, query);
+
+    expect(response.data[0]).toHaveProperty('studentCount', 0);
+  });
+
+  it('teacher path: toResponse called without studentCount → defaults to 0', async () => {
+    const cc = makeCC();
+    const listTeacherCCsUC = {
+      execute: vi.fn().mockResolvedValue([{ cycle: cc, modality: 1 }]),
+    };
+    const ctrl = makeController({ listTeacherCCsUC });
+    const user = { roles: ['TEACHER'], userId: 'u-teacher', userLevels: [{ level: 20 }] } as any;
+    const query = {} as any;
+
+    const response = await ctrl.list(user, query);
+
+    expect(response.data[0]).toHaveProperty('studentCount', 0);
+  });
+});
+
 // ── GenerateCourseCyclesSchema ─────────────────────────────────
 
 describe('GenerateCourseCyclesSchema', () => {

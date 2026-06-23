@@ -137,7 +137,7 @@ export class CourseCycleController {
       pageSize: query.pageSize,
     });
     return {
-      data: result.data.map((cc) => this.toResponse(cc)),
+      data: result.data.map((cc) => this.toResponse(cc, null, null, result.studentCounts.get(cc.uuid) ?? 0)),
       page: result.page,
       pageSize: result.pageSize,
       total: result.total,
@@ -302,6 +302,7 @@ export class CourseCycleController {
       fourthBimonth: { start: Date; end: Date } | null;
     } | null,
     modality?: number | null,
+    studentCount?: number,
   ) {
     // effectiveBimonthDates: use CourseCycle own dates first; fall back to AcademicCycle dates
     const eff1 = cc.firstBimonth ?? academicCycleDates?.firstBimonth ?? null;
@@ -342,6 +343,7 @@ export class CourseCycleController {
         fourthBimonthEnd: eff4?.end?.toISOString() ?? null,
       },
       lastModifiedAt: cc.lastModifiedAt.toISOString(),
+      studentCount: studentCount ?? 0,
     };
   }
 }

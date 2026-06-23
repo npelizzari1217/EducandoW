@@ -62,6 +62,7 @@ function makeMockRepo(overrides: Record<string, unknown> = {}) {
     findById: vi.fn().mockResolvedValue(null),
     findGradingContextByUuid: vi.fn().mockResolvedValue(null),
     findEnrolledStudents: vi.fn().mockResolvedValue([]),
+    countEnrolledByCourseCycleIds: vi.fn().mockResolvedValue(new Map()),
     ...overrides,
   } as unknown as CourseCycleRepository;
 }
@@ -413,6 +414,50 @@ describe('ListCourseCyclesUseCase', () => {
     const call = findAllMock.mock.calls[0][0];
     expect(call.levelIn).toBeUndefined();
     expect(call.level).toBe(20);
+  });
+
+  it('S-3-A: threads studentCounts Map alongside the paginated result', async () => {
+    const cc = makeCC();
+    const countsMap = new Map([[cc.uuid, 5]]);
+    const countFn = vi.fn().mockResolvedValue(countsMap);
+    const mockRepo = makeMockRepo({
+      findAll: vi.fn().mockResolvedValue({ data: [cc], page: 1, pageSize: 20, total: 1 }),
+      countEnrolledByCourseCycleIds: countFn,
+    });
+    const useCase = new ListCourseCyclesUseCase(mockRepo);
+
+    const result = await useCase.execute({ level: 20 });
+
+    expect(result.studentCounts).toBe(countsMap);
+    expect(result.studentCounts.get(cc.uuid)).toBe(5);
+  });
+
+  it('S-3-B: calls countEnrolledByCourseCycleIds with page uuids (not filter params)', async () => {
+    const cc1 = makeCC();
+    const cc2 = makeCC();
+    const countFn = vi.fn().mockResolvedValue(new Map());
+    const mockRepo = makeMockRepo({
+      findAll: vi.fn().mockResolvedValue({ data: [cc1, cc2], page: 1, pageSize: 20, total: 2 }),
+      countEnrolledByCourseCycleIds: countFn,
+    });
+    const useCase = new ListCourseCyclesUseCase(mockRepo);
+
+    await useCase.execute({ level: 20 });
+
+    expect(countFn).toHaveBeenCalledWith([cc1.uuid, cc2.uuid]);
+  });
+
+  it('S-3-B (empty page): calls countEnrolledByCourseCycleIds with [] when page is empty', async () => {
+    const countFn = vi.fn().mockResolvedValue(new Map());
+    const mockRepo = makeMockRepo({
+      findAll: vi.fn().mockResolvedValue({ data: [], page: 1, pageSize: 20, total: 0 }),
+      countEnrolledByCourseCycleIds: countFn,
+    });
+    const useCase = new ListCourseCyclesUseCase(mockRepo);
+
+    await useCase.execute({ level: 20 });
+
+    expect(countFn).toHaveBeenCalledWith([]);
   });
 });
 
