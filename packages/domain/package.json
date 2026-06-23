@@ -5,6 +5,16 @@
   "description": "Pure domain layer — zero external dependencies",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./asistencia/utils/calendar-utils": {
+      "types": "./dist/asistencia/utils/calendar-utils.d.ts",
+      "default": "./dist/asistencia/utils/calendar-utils.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",

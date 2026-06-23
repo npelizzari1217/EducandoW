@@ -265,23 +265,23 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
 
 ### T8.1 [TEST] Component tests for `asistencia-mensual.tsx`
 
-- [ ] Create `web/src/pages/dashboard/__tests__/asistencia-mensual.spec.tsx` (or locate existing test file)
-- [ ] GRID-1: render with any month (including Feb, Apr) → count header day columns = exactly 31
-- [ ] GRID-2 (Jan 2025, `days["4"]="SAB"`): column 4 renders read-only text "SAB"; no `<select>` in that cell; cell has `data-testid="cell-locked-{studentId}-4"`
-- [ ] GRID-3 (`days["5"]="DOM"`): column 5 locked, no `<select>`
-- [ ] GRID-4 (Feb 2025, `days["29"]="X"`, `days["30"]="X"`, `days["31"]="X"`): columns 29, 30, 31 each render as locked
-- [ ] GRID-5 (Jan 2025, column 6 — Monday, no code in `days["6"]`): `<select>` present; options include only codes with `assignable: true` (e.g., "P", "A"); "SAB", "DOM", "X" absent from options
-- [ ] GRID-6: combo populates from `attendanceTypes[].assignable` flag; test with custom types where a new code with `assignable: false` is also excluded automatically (no hardcoded list)
-- [ ] GRID-7: simulate click on locked cell → mock API function is NOT called; cell remains read-only
-- [ ] Locked cell style: assert visually distinct class or inline style attribute is applied (not the same as editable cell)
+- [x] Create `web/src/pages/dashboard/__tests__/asistencia-mensual.spec.tsx` (or locate existing test file)
+- [x] GRID-1: render with any month (including Feb, Apr) → count header day columns = exactly 31
+- [x] GRID-2 (Jan 2025, `days["4"]="SAB"`): column 4 renders read-only text "SAB"; no `<select>` in that cell; cell has `data-testid="cell-locked-{studentId}-4"`
+- [x] GRID-3 (`days["5"]="DOM"`): column 5 locked, no `<select>`
+- [x] GRID-4 (Feb 2025, `days["29"]="X"`, `days["30"]="X"`, `days["31"]="X"`): columns 29, 30, 31 each render as locked
+- [x] GRID-5 (Jan 2025, column 6 — Monday, no code in `days["6"]`): `<select>` present; options include only codes with `assignable: true` (e.g., "P", "A"); "SAB", "DOM", "X" absent from options
+- [x] GRID-6: combo populates from `attendanceTypes[].assignable` flag; test with custom types where a new code with `assignable: false` is also excluded automatically (no hardcoded list)
+- [x] GRID-7: simulate click on locked cell → mock API function is NOT called; cell remains read-only
+- [x] Locked cell style: assert visually distinct class or inline style attribute is applied (not the same as editable cell)
 
 ### T8.2 [IMPL] Edit `asistencia-mensual.tsx` — until T8.1 green
 
-- [ ] Add `assignable: boolean` to `AttendanceTypeItem` interface (field already returned by backend `toResponse()`)
-- [ ] Change day columns: `const dayColumns = Array.from({ length: 31 }, (_, i) => i + 1)` (was `length: numDays` or equivalent)
-- [ ] Add `import { daysInMonth } from '@educandow/domain'`; remove any local `daysInMonth` implementation (REQ-UTIL-4)
-- [ ] Compute `const numDays = daysInMonth(year, month)` for the legacy fallback only
-- [ ] Per cell derivation:  
+- [x] Add `assignable: boolean` to `AttendanceTypeItem` interface (field already returned by backend `toResponse()`)
+- [x] Change day columns: `const dayColumns = Array.from({ length: 31 }, (_, i) => i + 1)` (was `length: numDays` or equivalent)
+- [x] Add `import { daysInMonth } from '@educandow/domain'`; remove any local `daysInMonth` implementation (REQ-UTIL-4)
+- [x] Compute `const numDays = daysInMonth(year, month)` for the legacy fallback only
+- [x] Per cell derivation:  
   ```ts
   const code = row.days[String(d)];
   const at = code ? attendanceTypes.find((a) => a.code === code) : undefined;
@@ -289,10 +289,10 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
   const isNonExistent = d > numDays;
   const locked = isLockedByCode || isNonExistent;
   ```
-- [ ] Locked render: `<span data-testid="cell-locked-{studentId}-{d}" style={cellLockedStyle}>{code ?? '—'}</span>` — no `<select>`, no `onChange`, no API trigger
-- [ ] Define `cellLockedStyle` (same padding/border as editable cell; distinct background: muted/grey; `cursor: not-allowed`)
-- [ ] Combo filter: `attendanceTypes.filter((t) => t.active && t.assignable).map((t) => t.code)`
-- [ ] Do not touch `<table>` / `<thead>` structure
+- [x] Locked render: `<span data-testid="cell-locked-{studentId}-{d}" style={cellLockedStyle}>{code ?? '—'}</span>` — no `<select>`, no `onChange`, no API trigger
+- [x] Define `cellLockedStyle` (same padding/border as editable cell; distinct background: muted/grey; `cursor: not-allowed`)
+- [x] Combo filter: `attendanceTypes.filter((t) => t.active && t.assignable).map((t) => t.code)`
+- [x] Do not touch `<table>` / `<thead>` structure
 
 ---
 

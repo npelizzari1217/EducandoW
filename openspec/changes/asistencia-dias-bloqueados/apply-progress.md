@@ -213,4 +213,70 @@
 
 | PR | Fases | Descripción | Estado |
 |----|-------|-------------|--------|
-| PR4 | Ph8 | Frontend grid 31 cols + assignable + celda lock | pendiente |
+| PR4 | Ph8 | Frontend grid 31 cols + assignable + celda lock | COMPLETO |
+
+---
+
+# Slice PR4 — frontend (Ph8)
+
+**Slice:** PR4 — frontend grid (Ph8)
+**Date:** 2026-06-23
+**Mode:** Strict TDD (test-first, RED → GREEN)
+**Status:** COMPLETE
+
+---
+
+## Tasks completadas (PR4)
+
+### Phase 8 — Frontend `asistencia-mensual.tsx`
+
+- [x] T8.1 Tests escritos PRIMERO: 8 tests GRID-1..7 (GRID-2 split en 2: content + style) — añadidos a `asistencia-mensual.test.tsx` existente; fixture `attendanceTypes` actualizada con `assignable: true`; fixture `fullTypes` con SAB/DOM/X `assignable: false`; `lockedRow` con days `{4: SAB, 5: DOM, 29: X, 30: X, 31: X}`
+- [x] T8.2 Implementación: `asistencia-mensual.tsx` — `assignable: boolean` en `AttendanceTypeItem`; `import { daysInMonth }` de `@educandow/domain`; local `daysInMonth` eliminado; `dayColumns` = 31 fijo; `cellLockedStyle`; lógica locked por celda; combo filtrado por `t.active && t.assignable`; `<span data-testid="cell-locked-{studentId}-{d}">` para celdas bloqueadas
+
+---
+
+## Archivos creados (PR4)
+
+*(ninguno — se editaron existentes)*
+
+## Archivos editados (PR4)
+
+| Archivo | Cambio |
+|---------|--------|
+| `web/src/pages/dashboard/__tests__/asistencia-mensual.test.tsx` | +8 tests GRID-1..7; fixture `attendanceTypes` +`assignable: true` |
+| `web/src/pages/dashboard/asistencia-mensual.tsx` | `assignable` en interface; import domain; 31 cols fijas; `cellLockedStyle`; lógica locked; combo filtrado |
+| `web/vite.config.ts` | alias `@educandow/domain` → `calendar-utils.ts` src (fix Vite/Rollup CJS issue) |
+| `openspec/changes/asistencia-dias-bloqueados/tasks.md` | T8.1..T8.2 marcados `[x]` |
+
+---
+
+## Decisiones de implementación (PR4)
+
+- Test file existente `.test.tsx` reutilizado (no se creó `.spec.tsx` nuevo) — patrón del proyecto.
+- `attendanceTypes` fixture base actualizada con `assignable: true` (P, A) para que las pruebas existentes no rompan al filtrar `t.active && t.assignable`.
+- `vite.config.ts`: alias `@educandow/domain` apunta a `packages/domain/src/asistencia/utils/calendar-utils.ts` (TS source). Motivo: el dist del domain es CJS (`exports.daysInMonth = ...` con re-export chain); Rollup no puede detectar estáticamente el named export. El alias evita incluir code Node.js-specific del domain (ej. `crypto` en `encrypted-smtp-pass.ts`). `import type` existentes no son afectados (erased por tsc antes de llegar a Vite).
+- `vitest.config.ts` NO modifcado: sigue resolviendo `@educandow/domain` vía Node.js CJS (symlink pnpm → dist). Alias de `vite.config.ts` no aplica a vitest (usa su propio config).
+- `cellLockedStyle`: mismos padding/border que `cellSelectStyle`; background `--color-surface-secondary`; color muted; `cursor: not-allowed`; `userSelect: none`.
+- Fallback `isNonExistent = d > numDays` cubre filas legacy que no tienen "X" precargado para días inexistentes.
+
+---
+
+## Resultado de gates finales (PR4)
+
+| Gate | Resultado |
+|------|-----------|
+| `pnpm --filter web test` | 43 archivos, 461 tests (8 nuevos) — GREEN |
+| `pnpm build` | GREEN (3 workspaces) |
+
+---
+
+## Estado final del change
+
+**TODAS LAS FASES COMPLETADAS — PR1 + PR2 + PR3 + PR4 COMPLETOS**
+
+| PR | Fases | Estado |
+|----|-------|--------|
+| PR1 | Ph1 + Ph2 + Ph3 | COMPLETO |
+| PR2 | Ph4 | COMPLETO |
+| PR3 | Ph5 + Ph6 + Ph7 | COMPLETO |
+| PR4 | Ph8 | COMPLETO |

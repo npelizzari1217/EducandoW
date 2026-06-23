@@ -8,6 +8,13 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // El domain compila a CJS; rollup no reconoce sus named exports en build.
+      // Resolvemos el subpath de utils al SOURCE .ts (ESM, zero-deps, bundleable),
+      // evitando el barrel (ciclos) y el interop CJS. Aplica a build, dev y test.
+      '@educandow/domain/asistencia/utils/calendar-utils': path.resolve(
+        __dirname,
+        '../packages/domain/src/asistencia/utils/calendar-utils.ts',
+      ),
     },
   },
   server: {

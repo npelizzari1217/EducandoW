@@ -27,6 +27,10 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+// Subpath puntual (no el barrel): calendar-utils es TS puro zero-deps y bundleable.
+// El barrel de @educandow/domain no es bundleable por rollup (ciclos), y la convencion
+// del proyecto es no importar runtime values del barrel en el web (ver constants/levels.ts).
+import { daysInMonth } from '@educandow/domain/asistencia/utils/calendar-utils';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
 import { AlertModal } from '../../components/ui/alert-modal';
@@ -57,6 +61,7 @@ interface AttendanceTypeItem {
   code: string;
   name: string;
   active: boolean;
+  assignable: boolean;
 }
 
 interface AsistenciaGeneralRow {
@@ -92,10 +97,6 @@ type PlanillaMode = 'general' | 'materia';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -130,6 +131,20 @@ const cellSelectStyle: React.CSSProperties = {
   fontSize: 'var(--text-xs, 11px)',
   background: 'var(--color-surface, #fff)',
   cursor: 'pointer',
+};
+
+const cellLockedStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  border: '1px solid var(--color-border, #e2e8f0)',
+  borderRadius: 'var(--radius-sm, 4px)',
+  padding: '0.15rem 0.25rem',
+  fontSize: 'var(--text-xs, 11px)',
+  background: 'var(--color-surface-secondary, #f1f5f9)',
+  color: 'var(--color-text-muted, #6b7280)',
+  cursor: 'not-allowed',
+  textAlign: 'center' as const,
+  userSelect: 'none' as const,
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -374,8 +389,8 @@ export default function AsistenciaMensualPage() {
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const numDays = daysInMonth(year, month);
-  const dayColumns = Array.from({ length: numDays }, (_, i) => i + 1);
-  const codes = attendanceTypes.filter((t) => t.active).map((t) => t.code);
+  const dayColumns = Array.from({ length: 31 }, (_, i) => i + 1);
+  const codes = attendanceTypes.filter((t) => t.active && t.assignable).map((t) => t.code);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -576,37 +591,56 @@ export default function AsistenciaMensualPage() {
                     >
                       {row.studentName}
                     </td>
-                    {dayColumns.map((d) => (
-                      <td
-                        key={d}
-                        style={{
-                          padding: '0.1rem',
-                          borderBottom: '1px solid var(--color-border, #e2e8f0)',
-                          borderLeft: '1px solid var(--color-border, #e2e8f0)',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <select
-                          data-testid={`cell-${row.studentId}-${d}`}
-                          style={cellSelectStyle}
-                          value={row.days[String(d)] ?? ''}
-                          onChange={(e) => {
-                            const code = e.target.value;
-                            if (!code) return;
-                            if (mode === 'general') {
-                              void handleRecordGeneralDay(row.studentId, d, code);
-                            } else {
-                              void handleRecordSubjectDay(row.studentId, d, code);
-                            }
+                    {dayColumns.map((d) => {
+                      const code = row.days[String(d)];
+                      const at = code
+                        ? attendanceTypes.find((a) => a.code === code)
+                        : undefined;
+                      const isLockedByCode = at?.assignable === false;
+                      const isNonExistent = d > numDays;
+                      const locked = isLockedByCode || isNonExistent;
+
+                      return (
+                        <td
+                          key={d}
+                          style={{
+                            padding: '0.1rem',
+                            borderBottom: '1px solid var(--color-border, #e2e8f0)',
+                            borderLeft: '1px solid var(--color-border, #e2e8f0)',
+                            textAlign: 'center',
                           }}
                         >
-                          <option value="">—</option>
-                          {codes.map((code) => (
-                            <option key={code} value={code}>{code}</option>
-                          ))}
-                        </select>
-                      </td>
-                    ))}
+                          {locked ? (
+                            <span
+                              data-testid={`cell-locked-${row.studentId}-${d}`}
+                              style={cellLockedStyle}
+                            >
+                              {code ?? '—'}
+                            </span>
+                          ) : (
+                            <select
+                              data-testid={`cell-${row.studentId}-${d}`}
+                              style={cellSelectStyle}
+                              value={code ?? ''}
+                              onChange={(e) => {
+                                const selected = e.target.value;
+                                if (!selected) return;
+                                if (mode === 'general') {
+                                  void handleRecordGeneralDay(row.studentId, d, selected);
+                                } else {
+                                  void handleRecordSubjectDay(row.studentId, d, selected);
+                                }
+                              }}
+                            >
+                              <option value="">—</option>
+                              {codes.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>
