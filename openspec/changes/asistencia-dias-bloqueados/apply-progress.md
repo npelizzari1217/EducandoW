@@ -134,3 +134,83 @@
 | `pnpm --filter api test` | 165 archivos, 1601 tests — GREEN |
 | `pnpm build` | GREEN (3 workspaces) |
 | `pnpm --filter api typecheck` | 0 errores |
+
+---
+
+# Slice PR3 — backend app + presentation (Ph5 + Ph6 + Ph7)
+
+**Slice:** PR3 — app use cases + exception filter (Ph5 + Ph6 + Ph7)
+**Date:** 2026-06-23
+**Mode:** Strict TDD (test-first, RED → GREEN)
+**Status:** COMPLETE
+
+---
+
+## Tasks completadas (PR3)
+
+### Phase 5 — App `generate-monthly-attendance` + lockedMap
+
+- [x] T5.1 Tests escritos PRIMERO: GEN-1..5 + same-reference — 6 tests — `generate-monthly-attendance.use-case.test.ts`
+- [x] T5.2 Implementación: importar `buildLockedDayMap`, computar `lockedMap` una vez por ejecución, inyectar `days: lockedMap` en `generalRows` y `subjectRows`
+
+### Phase 6 — App guards en record-day use cases
+
+- [x] T6.1 Tests escritos PRIMERO: GUARD-1..9 + order-check — 13 tests — `record-general-attendance-day.use-case.test.ts` (también actualizado: `day=31` June → DayNotAssignableError, `assignable` en fixture)
+- [x] T6.2 Tests escritos PRIMERO: GUARD-10 + mirror SAB/happy path + order-check — 5 tests — `record-subject-attendance-day.use-case.test.ts`
+- [x] T6.3 Implementación: guards en `record-general-attendance-day.use-case.ts` — 6-step guard (eliminar `daysInMonth` local, step 2 `1..31`, step 3 `daysInMonth`, step 4 `dayOfWeek`, step 5 catálogo, step 6 assignable)
+- [x] T6.4 Implementación: guards en `record-subject-attendance-day.use-case.ts` — misma lógica
+
+### Phase 7 — Presentation exception filter
+
+- [x] T7.1 Tests escritos PRIMERO: FILTER-1..5 — 7 tests — `exception.filter.spec.ts` (archivo nuevo)
+- [x] T7.2 Implementación: `DOMAIN_STATUS` + `DAY_NOT_ASSIGNABLE: 422` + `STATUS_NOT_ASSIGNABLE: 400`; extrae `code = exception.code` en rama DomainError; envelope `{ error: { status, code, message } }` (aditivo)
+
+---
+
+## Archivos creados (PR3)
+
+| Archivo | Tipo |
+|---------|------|
+| `api/src/presentation/shared/filters/__tests__/exception.filter.spec.ts` | NUEVO |
+
+## Archivos editados (PR3)
+
+| Archivo | Cambio |
+|---------|--------|
+| `api/src/application/asistencia/generate-monthly-attendance.use-case.ts` | +`buildLockedDayMap`, `days: lockedMap` en generalRows y subjectRows |
+| `api/src/application/asistencia/__tests__/generate-monthly-attendance.use-case.test.ts` | +GEN-1..5 + same-reference tests |
+| `api/src/application/asistencia/record-general-attendance-day.use-case.ts` | guard 6-step, remove local daysInMonth, imports domain errors |
+| `api/src/application/asistencia/__tests__/record-general-attendance-day.use-case.test.ts` | +GUARD-1..9, +fullCatalog, update day=31 → DayNotAssignableError, +assignable in fixture |
+| `api/src/application/asistencia/record-subject-attendance-day.use-case.ts` | guard 6-step, remove local daysInMonth, imports domain errors |
+| `api/src/application/asistencia/__tests__/record-subject-attendance-day.use-case.test.ts` | +GUARD-10 + mirror, +fullCatalog, update day=31 → DayNotAssignableError |
+| `api/src/presentation/shared/filters/exception.filter.ts` | +DAY_NOT_ASSIGNABLE/STATUS_NOT_ASSIGNABLE, +code en envelope (aditivo) |
+| `openspec/changes/asistencia-dias-bloqueados/tasks.md` | T5.1..T7.2 marcados `[x]` |
+
+---
+
+## Decisiones de implementación (PR3)
+
+- `daysInMonth` local eliminado de ambos use cases → REQ-UTIL-4 completado; ahora solo el domain es la fuente.
+- Step 2 usa `day > 31` (rango sintáctico del grid): `day=0` o `day=99` → ValidationError; `day=31` en Jun → step 3 → DayNotAssignableError.
+- `types.some()` reemplazado por `types.find()` para poder acceder a `type.assignable` sin segundo lookup.
+- Exception filter: `code: undefined` para HttpException (serializado como ausente en JSON — no rompe consumers de `error.status`).
+- Tests de fixture: `validAttendanceTypes` actualizado con `assignable: true`; `fullCatalog` agrega SAB/DOM/X con `assignable: false` para tests GUARD-5/6/7.
+- `beforeEach` en exception.filter.spec.ts usa dynamic import para asegurar que el módulo importa fresh (el `@Catch()` decorator requiere reflect-metadata que está disponible en el entorno Vitest).
+
+---
+
+## Resultado de gates finales (PR3)
+
+| Gate | Resultado |
+|------|-----------|
+| `pnpm --filter api test` | 166 archivos, 1631 tests — GREEN |
+| `pnpm build` | GREEN (3 workspaces) |
+| `pnpm --filter api typecheck` | 0 errores |
+
+---
+
+## Qué queda
+
+| PR | Fases | Descripción | Estado |
+|----|-------|-------------|--------|
+| PR4 | Ph8 | Frontend grid 31 cols + assignable + celda lock | pendiente |

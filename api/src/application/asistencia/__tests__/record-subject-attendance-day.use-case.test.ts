@@ -14,7 +14,13 @@
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, NotFoundError, ValidationError } from '@educandow/domain';
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  DayNotAssignableError,
+  StatusNotAssignableError,
+} from '@educandow/domain';
 import { DayMap, AsistenciaXMateriaXAlumnoXCursoXCiclo, Id, AttendanceTypeCode } from '@educandow/domain';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -53,8 +59,16 @@ function makeRow(): AsistenciaXMateriaXAlumnoXCursoXCiclo {
 }
 
 const validAttendanceTypes = [
-  { id: 'at-1', code: AttendanceTypeCode.reconstruct('P'), active: true },
-  { id: 'at-2', code: AttendanceTypeCode.reconstruct('A'), active: true },
+  { id: 'at-1', code: AttendanceTypeCode.reconstruct('P'), active: true, assignable: true },
+  { id: 'at-2', code: AttendanceTypeCode.reconstruct('A'), active: true, assignable: true },
+];
+
+/** Full catalog with non-assignable system types — used for GUARD tests. */
+const fullCatalog = [
+  ...validAttendanceTypes,
+  { id: 'at-3', code: AttendanceTypeCode.reconstruct('SAB'), active: true, assignable: false },
+  { id: 'at-4', code: AttendanceTypeCode.reconstruct('DOM'), active: true, assignable: false },
+  { id: 'at-5', code: AttendanceTypeCode.reconstruct('X'), active: true, assignable: false },
 ];
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -151,12 +165,12 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
     });
   });
 
-  describe('RSA-T03: day out of range → ValidationError', () => {
-    it('throws ValidationError when day > 30 in June', async () => {
+  describe('RSA-T03: day out of range → DayNotAssignableError or ValidationError', () => {
+    it('throws DayNotAssignableError when day=31 in June (30 days)', async () => {
       const { uc } = makeUC();
       await expect(
         uc.execute({ ...baseInput, day: 31, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      ).rejects.toBeInstanceOf(DayNotAssignableError);
     });
 
     it('throws ValidationError when day = 0', async () => {
@@ -228,6 +242,56 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
       await expect(
         uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
       ).rejects.toBeInstanceOf(ForbiddenError);
+    });
+  });
+
+  // ── GUARD-10 + symmetry: calendar guards in subject use case (T6.2) ────────
+
+  describe('GUARD-10: Saturday (day=4, Jan 2025) via subject use case → DayNotAssignableError', () => {
+    it('throws DayNotAssignableError for Saturday January 4 2025 — identical to GUARD-1', async () => {
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['ADMIN'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+    });
+  });
+
+  describe('GUARD-10 mirror: non-assignable statusCode=SAB on hábil day via subject use case → StatusNotAssignableError', () => {
+    it('throws StatusNotAssignableError for SAB on Monday Jan 1 2025 — mirrors GUARD-5', async () => {
+      const { uc } = makeUC({ attendanceTypes: fullCatalog });
+      const err = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'SAB', userRoles: ['ADMIN'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(StatusNotAssignableError);
+      expect((err as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
+    });
+  });
+
+  describe('GUARD-10 mirror: happy path via subject use case → resolves', () => {
+    it('weekday + assignable code resolves successfully — mirrors GUARD-8', async () => {
+      const { uc, materiaAsistRepo } = makeUC({ attendanceTypes: fullCatalog });
+      await expect(
+        uc.execute({ ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['ADMIN'] }),
+      ).resolves.toBeDefined();
+      expect(materiaAsistRepo.setDay).toHaveBeenCalledWith('row-m-1', 1, 'P');
+    });
+  });
+
+  describe('GUARD: check ordering (subject use case)', () => {
+    it('day=0 → ValidationError (step 2 fires before calendar check)', async () => {
+      const { uc } = makeUC();
+      await expect(
+        uc.execute({ ...baseInput, day: 0, year: 2025, month: 1, userRoles: ['ADMIN'] }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('day=99 → ValidationError (step 2: 99 > 31)', async () => {
+      const { uc } = makeUC();
+      await expect(
+        uc.execute({ ...baseInput, day: 99, year: 2025, month: 1, userRoles: ['ADMIN'] }),
+      ).rejects.toBeInstanceOf(ValidationError);
     });
   });
 });

@@ -42,6 +42,9 @@ const DOMAIN_STATUS: Record<string, number> = {
   ASSIGNMENT_ALREADY_INACTIVE: 409,
   // Materia-grupo-ciclo — Fase 3 (exclusión estricta: un alumno = un grupo por materia)
   ALUMNO_ALREADY_IN_GRUPO: 409,
+  // Asistencia — días bloqueados (T7.2)
+  DAY_NOT_ASSIGNABLE: 422,
+  STATUS_NOT_ASSIGNABLE: 400,
 };
 
 @Catch()
@@ -55,6 +58,7 @@ export class AppExceptionFilter implements ExceptionFilter {
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
+    let code: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -74,6 +78,7 @@ export class AppExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof DomainError) {
       status = DOMAIN_STATUS[exception.code] ?? HttpStatus.BAD_REQUEST;
       message = exception.message;
+      code = exception.code;
     } else if (exception instanceof Error) {
       message = exception.message;
     }
@@ -90,6 +95,7 @@ export class AppExceptionFilter implements ExceptionFilter {
     response.status(status).json({
       error: {
         status,
+        code,
         message,
       },
     });

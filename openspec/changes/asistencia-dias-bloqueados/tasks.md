@@ -173,22 +173,22 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
 
 ### T5.1 [TEST] Unit tests for `generate-monthly-attendance` — lockedMap injection
 
-- [ ] Create or update `api/src/application/asistencia/__tests__/generate-monthly-attendance.use-case.spec.ts`
-- [ ] Mock `IAsistenciaGeneralRepository` and `IAsistenciaMateriaRepository` ports
-- [ ] GEN-1 (Jan 2025): verify `generateManymocked` receives rows with `days` = `buildLockedDayMap(2025, 1)` — assert keys `4:"SAB"`,`5:"DOM"` present; keys `1`,`2`,`3` absent; no `"X"` key
-- [ ] GEN-2 (Feb 2025, non-leap): rows have `days["29"]:"X"`, `days["30"]:"X"`, `days["31"]:"X"`; key `"28"` absent
-- [ ] GEN-3 (Feb 2024, leap): `days["30"]:"X"`, `days["31"]:"X"`; key `"29"` absent (`day 29 exists in 2024`)
-- [ ] GEN-4 (Apr 2025, materia): materia repo receives `days` with `"31":"X"`; key `"30"` absent
-- [ ] GEN-5 (Dec 2025): SAB/DOM entries present; no `"X"` key in `days`
-- [ ] Same lockedMap reference is used for all rows in a single invocation (one `buildLockedDayMap` call per execution)
+- [x] Create or update `api/src/application/asistencia/__tests__/generate-monthly-attendance.use-case.spec.ts`
+- [x] Mock `IAsistenciaGeneralRepository` and `IAsistenciaMateriaRepository` ports
+- [x] GEN-1 (Jan 2025): verify `generateManymocked` receives rows with `days` = `buildLockedDayMap(2025, 1)` — assert keys `4:"SAB"`,`5:"DOM"` present; keys `1`,`2`,`3` absent; no `"X"` key
+- [x] GEN-2 (Feb 2025, non-leap): rows have `days["29"]:"X"`, `days["30"]:"X"`, `days["31"]:"X"`; key `"28"` absent
+- [x] GEN-3 (Feb 2024, leap): `days["30"]:"X"`, `days["31"]:"X"`; key `"29"` absent (`day 29 exists in 2024`)
+- [x] GEN-4 (Apr 2025, materia): materia repo receives `days` with `"31":"X"`; key `"30"` absent
+- [x] GEN-5 (Dec 2025): SAB/DOM entries present; no `"X"` key in `days`
+- [x] Same lockedMap reference is used for all rows in a single invocation (one `buildLockedDayMap` call per execution)
 
 ### T5.2 [IMPL] Inject lockedMap in `generate-monthly-attendance.use-case.ts` — until T5.1 green
 
-- [ ] Add `import { buildLockedDayMap } from '@educandow/domain'`
-- [ ] Compute `const lockedMap = buildLockedDayMap(year, month)` once before mapping rows
-- [ ] Add `days: lockedMap` to each `GenerateGeneralInput` object in the `generalRows` array
-- [ ] Add `days: lockedMap` to each `GenerateMateriaInput` object in the `subjectRows` array
-- [ ] No change to use-case signature, authorization, or count/toast logic
+- [x] Add `import { buildLockedDayMap } from '@educandow/domain'`
+- [x] Compute `const lockedMap = buildLockedDayMap(year, month)` once before mapping rows
+- [x] Add `days: lockedMap` to each `GenerateGeneralInput` object in the `generalRows` array
+- [x] Add `days: lockedMap` to each `GenerateMateriaInput` object in the `subjectRows` array
+- [x] No change to use-case signature, authorization, or count/toast logic
 
 ---
 
@@ -198,41 +198,41 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
 
 ### T6.1 [TEST] Unit tests for `record-general-attendance-day` guards
 
-- [ ] Create or update `api/src/application/asistencia/__tests__/record-general-attendance-day.use-case.spec.ts`
-- [ ] GUARD-1: `day=4, year=2025, month=1` (Saturday) → throws `DayNotAssignableError`, `.code === 'DAY_NOT_ASSIGNABLE'`
-- [ ] GUARD-2: `day=5, 2025, 1` (Sunday) → throws `DayNotAssignableError`
-- [ ] GUARD-3: `day=29, 2025, 2` (Feb 2025 has 28 days) → throws `DayNotAssignableError`
-- [ ] GUARD-4: `day=31, 2025, 4` (April has 30 days) → throws `DayNotAssignableError`
-- [ ] GUARD-5: `day=1, 2025, 1` (Monday hábil), `statusCode="SAB"` (assignable=false) → throws `StatusNotAssignableError`, `.code === 'STATUS_NOT_ASSIGNABLE'`
-- [ ] GUARD-6: same day, `statusCode="DOM"` → throws `StatusNotAssignableError`
-- [ ] GUARD-7: same day, `statusCode="X"` → throws `StatusNotAssignableError`
-- [ ] GUARD-8: `day=1, 2025, 1`, `statusCode="P"` (assignable=true) → resolves successfully (happy path, HTTP 200 at controller)
-- [ ] GUARD-9: student's `days` JSONB does NOT contain key `"4"` AND `day=4, 2025, 1` (Saturday) → still throws `DayNotAssignableError` (guard is calendar-derived, not JSONB-based)
-- [ ] Error order: `day=0` or `day=99` → `ValidationError` (step 2 fires before step 3); `day=29, Feb2025` → `DayNotAssignableError` not `ValidationError`
+- [x] Create or update `api/src/application/asistencia/__tests__/record-general-attendance-day.use-case.spec.ts`
+- [x] GUARD-1: `day=4, year=2025, month=1` (Saturday) → throws `DayNotAssignableError`, `.code === 'DAY_NOT_ASSIGNABLE'`
+- [x] GUARD-2: `day=5, 2025, 1` (Sunday) → throws `DayNotAssignableError`
+- [x] GUARD-3: `day=29, 2025, 2` (Feb 2025 has 28 days) → throws `DayNotAssignableError`
+- [x] GUARD-4: `day=31, 2025, 4` (April has 30 days) → throws `DayNotAssignableError`
+- [x] GUARD-5: `day=1, 2025, 1` (Monday hábil), `statusCode="SAB"` (assignable=false) → throws `StatusNotAssignableError`, `.code === 'STATUS_NOT_ASSIGNABLE'`
+- [x] GUARD-6: same day, `statusCode="DOM"` → throws `StatusNotAssignableError`
+- [x] GUARD-7: same day, `statusCode="X"` → throws `StatusNotAssignableError`
+- [x] GUARD-8: `day=1, 2025, 1`, `statusCode="P"` (assignable=true) → resolves successfully (happy path, HTTP 200 at controller)
+- [x] GUARD-9: student's `days` JSONB does NOT contain key `"4"` AND `day=4, 2025, 1` (Saturday) → still throws `DayNotAssignableError` (guard is calendar-derived, not JSONB-based)
+- [x] Error order: `day=0` or `day=99` → `ValidationError` (step 2 fires before step 3); `day=29, Feb2025` → `DayNotAssignableError` not `ValidationError`
 
 ### T6.2 [TEST] Unit tests for `record-subject-attendance-day` guards (symmetry)
 
-- [ ] Create or update `api/src/application/asistencia/__tests__/record-subject-attendance-day.use-case.spec.ts`
-- [ ] GUARD-10: `day=4, 2025, 1` (Saturday) via subject use case → throws `DayNotAssignableError` (identical to GUARD-1)
-- [ ] `statusCode="SAB"` on hábil day via subject use case → throws `StatusNotAssignableError` (mirror GUARD-5)
-- [ ] Happy path via subject use case → resolves successfully (mirror GUARD-8)
+- [x] Create or update `api/src/application/asistencia/__tests__/record-subject-attendance-day.use-case.spec.ts`
+- [x] GUARD-10: `day=4, 2025, 1` (Saturday) via subject use case → throws `DayNotAssignableError` (identical to GUARD-1)
+- [x] `statusCode="SAB"` on hábil day via subject use case → throws `StatusNotAssignableError` (mirror GUARD-5)
+- [x] Happy path via subject use case → resolves successfully (mirror GUARD-8)
 
 ### T6.3 [IMPL] Implement guards in `record-general-attendance-day.use-case.ts` — until T6.1 green
 
-- [ ] Add imports: `daysInMonth, dayOfWeek, DayNotAssignableError, StatusNotAssignableError` from `@educandow/domain`
-- [ ] **Remove** any local `daysInMonth` inline computation in this file (REQ-UTIL-4)
-- [ ] Step 2 (exists already or add): `if (!Number.isInteger(day) || day < 1 || day > 31)` → `throw new ValidationError('day must be an integer between 1 and 31')`
-- [ ] Step 3 (NEW): `const maxDay = daysInMonth(year, month); if (day > maxDay)` → `throw new DayNotAssignableError(`day ${day} does not exist in ${month}/${year}`)`
-- [ ] Step 4 (NEW): `const dow = dayOfWeek(year, month, day); if (dow === 0 || dow === 6)` → `throw new DayNotAssignableError(`day ${day} is a ${dow === 6 ? 'Saturday' : 'Sunday'}`)`
-- [ ] Step 5 (exists): unknown statusCode → `ValidationError` (unchanged)
-- [ ] Step 6 (NEW): `if (!type.assignable)` → `throw new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`)`
-- [ ] Preserve existing step 1 (row not found → `NotFoundError`) unchanged
+- [x] Add imports: `daysInMonth, dayOfWeek, DayNotAssignableError, StatusNotAssignableError` from `@educandow/domain`
+- [x] **Remove** any local `daysInMonth` inline computation in this file (REQ-UTIL-4)
+- [x] Step 2 (exists already or add): `if (!Number.isInteger(day) || day < 1 || day > 31)` → `throw new ValidationError('day must be an integer between 1 and 31')`
+- [x] Step 3 (NEW): `const maxDay = daysInMonth(year, month); if (day > maxDay)` → `throw new DayNotAssignableError(`day ${day} does not exist in ${month}/${year}`)`
+- [x] Step 4 (NEW): `const dow = dayOfWeek(year, month, day); if (dow === 0 || dow === 6)` → `throw new DayNotAssignableError(`day ${day} is a ${dow === 6 ? 'Saturday' : 'Sunday'}`)`
+- [x] Step 5 (exists): unknown statusCode → `ValidationError` (unchanged)
+- [x] Step 6 (NEW): `if (!type.assignable)` → `throw new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`)`
+- [x] Preserve existing step 1 (row not found → `NotFoundError`) unchanged
 
 ### T6.4 [IMPL] Implement guards in `record-subject-attendance-day.use-case.ts` — until T6.2 green
 
-- [ ] Same 6-step guard sequence as T6.3
-- [ ] Same imports from `@educandow/domain`
-- [ ] **Remove** any local `daysInMonth` in this file (REQ-UTIL-4)
+- [x] Same 6-step guard sequence as T6.3
+- [x] Same imports from `@educandow/domain`
+- [x] **Remove** any local `daysInMonth` in this file (REQ-UTIL-4)
 
 ---
 
@@ -242,20 +242,20 @@ Ph8 (frontend) ─── requires Ph1 only; independent of Ph4–Ph7
 
 ### T7.1 [TEST] Unit tests for `AppExceptionFilter`
 
-- [ ] Create or update `api/src/presentation/shared/filters/__tests__/exception.filter.spec.ts`
-- [ ] `DayNotAssignableError` → HTTP status 422, response body `{ error: { status: 422, code: "DAY_NOT_ASSIGNABLE", message: "..." } }`
-- [ ] `StatusNotAssignableError` → HTTP status 400, response body `{ error: { status: 400, code: "STATUS_NOT_ASSIGNABLE", message: "..." } }`
-- [ ] Existing domain error (e.g., one already in `DOMAIN_STATUS`) → its code appears in `error.code`
-- [ ] Non-domain `HttpException` → `error.code` is absent or `undefined` (no regression)
-- [ ] `error.status` field is still present for all domain errors (additive change, not rename)
+- [x] Create or update `api/src/presentation/shared/filters/__tests__/exception.filter.spec.ts`
+- [x] `DayNotAssignableError` → HTTP status 422, response body `{ error: { status: 422, code: "DAY_NOT_ASSIGNABLE", message: "..." } }`
+- [x] `StatusNotAssignableError` → HTTP status 400, response body `{ error: { status: 400, code: "STATUS_NOT_ASSIGNABLE", message: "..." } }`
+- [x] Existing domain error (e.g., one already in `DOMAIN_STATUS`) → its code appears in `error.code`
+- [x] Non-domain `HttpException` → `error.code` is absent or `undefined` (no regression)
+- [x] `error.status` field is still present for all domain errors (additive change, not rename)
 
 ### T7.2 [IMPL] Edit `exception.filter.ts` — until T7.1 green
 
-- [ ] Add to `DOMAIN_STATUS` constant: `DAY_NOT_ASSIGNABLE: 422` and `STATUS_NOT_ASSIGNABLE: 400`
-- [ ] In the `DomainError` catch branch: extract `exception.code` into a local `code` variable
-- [ ] Change the `response.json(...)` call to emit `{ error: { status, code, message } }` (additive: `code` added, `status` kept)
-- [ ] For non-domain paths, `code` remains `undefined` (not emitted or serialized as `null`)
-- [ ] `pnpm --filter api test` green
+- [x] Add to `DOMAIN_STATUS` constant: `DAY_NOT_ASSIGNABLE: 422` and `STATUS_NOT_ASSIGNABLE: 400`
+- [x] In the `DomainError` catch branch: extract `exception.code` into a local `code` variable
+- [x] Change the `response.json(...)` call to emit `{ error: { status, code, message } }` (additive: `code` added, `status` kept)
+- [x] For non-domain paths, `code` remains `undefined` (not emitted or serialized as `null`)
+- [x] `pnpm --filter api test` green
 
 ---
 

@@ -22,6 +22,10 @@ import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
+  daysInMonth,
+  dayOfWeek,
+  DayNotAssignableError,
+  StatusNotAssignableError,
 } from '@educandow/domain';
 import type {
   AsistenciaGeneralRepository,
@@ -41,11 +45,6 @@ export interface RecordGeneralAttendanceDayInput {
   statusCode: string;
   userId: string;
   userRoles: string[];
-}
-
-/** Returns the number of days in the given calendar month (year, month 1-12). */
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
 }
 
 @Injectable()
@@ -72,21 +71,39 @@ export class RecordGeneralAttendanceDayUseCase {
       throw new NotFoundError('AsistenciaXAlumnoXCursoXCiclo', `${courseCycleId}/${studentId}/${year}/${month}`);
     }
 
-    // Validate day range (R-20)
+    // Step 2: syntactic range check — grid only shows 1..31 (400 ValidationError)
+    if (!Number.isInteger(day) || day < 1 || day > 31) {
+      throw new ValidationError(`day must be an integer between 1 and 31`);
+    }
+
+    // Step 3: calendar authority — non-existent day (422 DAY_NOT_ASSIGNABLE)
     const maxDay = daysInMonth(year, month);
-    if (!Number.isInteger(day) || day < 1 || day > maxDay) {
-      throw new ValidationError(
-        `day "${day}" is out of range — month ${month}/${year} has ${maxDay} days (1..${maxDay})`,
+    if (day > maxDay) {
+      throw new DayNotAssignableError(
+        `day ${day} does not exist in ${month}/${year} (month has ${maxDay} days)`,
       );
     }
 
-    // Validate statusCode against AttendanceType catalog (R-18)
+    // Step 4: calendar authority — weekend (422 DAY_NOT_ASSIGNABLE)
+    const dow = dayOfWeek(year, month, day);
+    if (dow === 0 || dow === 6) {
+      throw new DayNotAssignableError(
+        `day ${day} (${month}/${year}) is a ${dow === 6 ? 'Saturday' : 'Sunday'} and cannot be recorded`,
+      );
+    }
+
+    // Step 5: validate statusCode against AttendanceType catalog (400 ValidationError)
     const types = await this.attendanceTypeRepo.list();
-    const isValidCode = types.some((t) => t.code.get() === statusCode);
-    if (!isValidCode) {
+    const type = types.find((t) => t.code.get() === statusCode);
+    if (!type) {
       throw new ValidationError(
         `statusCode "${statusCode}" is not a valid AttendanceType code`,
       );
+    }
+
+    // Step 6: assignable guard — non-assignable code (400 STATUS_NOT_ASSIGNABLE)
+    if (!type.assignable) {
+      throw new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`);
     }
 
     // Merge-update the day in the row's JSON day-map (ADR-1)

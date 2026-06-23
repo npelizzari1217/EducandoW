@@ -13,7 +13,13 @@
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, NotFoundError, ValidationError } from '@educandow/domain';
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+  DayNotAssignableError,
+  StatusNotAssignableError,
+} from '@educandow/domain';
 import { DayMap, AsistenciaXAlumnoXCursoXCiclo, Id, AttendanceTypeCode } from '@educandow/domain';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -50,8 +56,16 @@ function makeRow(): AsistenciaXAlumnoXCursoXCiclo {
 }
 
 const validAttendanceTypes = [
-  { id: 'at-1', code: AttendanceTypeCode.reconstruct('P'), level: 1, active: true },
-  { id: 'at-2', code: AttendanceTypeCode.reconstruct('A'), level: 1, active: true },
+  { id: 'at-1', code: AttendanceTypeCode.reconstruct('P'), level: 1, active: true, assignable: true },
+  { id: 'at-2', code: AttendanceTypeCode.reconstruct('A'), level: 1, active: true, assignable: true },
+];
+
+/** Full catalog with non-assignable system types — used for GUARD-5/6/7 tests. */
+const fullCatalog = [
+  ...validAttendanceTypes,
+  { id: 'at-3', code: AttendanceTypeCode.reconstruct('SAB'), level: 1, active: true, assignable: false },
+  { id: 'at-4', code: AttendanceTypeCode.reconstruct('DOM'), level: 1, active: true, assignable: false },
+  { id: 'at-5', code: AttendanceTypeCode.reconstruct('X'), level: 1, active: true, assignable: false },
 ];
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -148,12 +162,12 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
     });
   });
 
-  describe('RGA-T03/T04: day out of range → ValidationError', () => {
-    it('throws ValidationError when day > daysInMonth (June has 30 days)', async () => {
+  describe('RGA-T03/T04: day out of range → ValidationError or DayNotAssignableError', () => {
+    it('throws DayNotAssignableError when day > daysInMonth (June has 30 days, day=31)', async () => {
       const { uc } = makeUC();
       await expect(
         uc.execute({ ...baseInput, day: 31, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      ).rejects.toBeInstanceOf(DayNotAssignableError);
     });
 
     it('throws ValidationError when day = 0', async () => {
@@ -223,6 +237,126 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
         uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
       ).resolves.toBeDefined();
       expect(generalRepo.setDay).toHaveBeenCalledOnce();
+    });
+  });
+
+  // ── GUARD-1..9: calendar-based guards (T6.1) ──────────────────────────────
+
+  describe('GUARD-1: Saturday (day=4, Jan 2025) → DayNotAssignableError (422)', () => {
+    it('throws DayNotAssignableError for Saturday January 4 2025', async () => {
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+    });
+  });
+
+  describe('GUARD-2: Sunday (day=5, Jan 2025) → DayNotAssignableError (422)', () => {
+    it('throws DayNotAssignableError for Sunday January 5 2025', async () => {
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 5, year: 2025, month: 1, userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+    });
+  });
+
+  describe('GUARD-3: Non-existent day (day=29, Feb 2025, 28 days) → DayNotAssignableError (422)', () => {
+    it('throws DayNotAssignableError when day exceeds month length', async () => {
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 29, year: 2025, month: 2, userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+    });
+  });
+
+  describe('GUARD-4: Non-existent day (day=31, Apr 2025, 30 days) → DayNotAssignableError (422)', () => {
+    it('throws DayNotAssignableError for day 31 in April 2025', async () => {
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 31, year: 2025, month: 4, userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+    });
+  });
+
+  describe('GUARD-5: Non-assignable statusCode=SAB on hábil day → StatusNotAssignableError (400)', () => {
+    it('throws StatusNotAssignableError for SAB on Monday Jan 1 2025', async () => {
+      const { uc } = makeUC({ attendanceTypes: fullCatalog });
+      const err = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'SAB', userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(StatusNotAssignableError);
+      expect((err as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
+    });
+  });
+
+  describe('GUARD-6: Non-assignable statusCode=DOM on hábil day → StatusNotAssignableError (400)', () => {
+    it('throws StatusNotAssignableError for DOM on a hábil day', async () => {
+      const { uc } = makeUC({ attendanceTypes: fullCatalog });
+      const err = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'DOM', userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(StatusNotAssignableError);
+    });
+  });
+
+  describe('GUARD-7: Non-assignable statusCode=X on hábil day → StatusNotAssignableError (400)', () => {
+    it('throws StatusNotAssignableError for X on a hábil day', async () => {
+      const { uc } = makeUC({ attendanceTypes: fullCatalog });
+      const err = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'X', userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(StatusNotAssignableError);
+    });
+  });
+
+  describe('GUARD-8: Happy path — weekday + assignable code → resolves (HTTP 200)', () => {
+    it('Monday Jan 1 2025 with statusCode=P (assignable=true) resolves successfully', async () => {
+      const { uc, generalRepo } = makeUC({ attendanceTypes: fullCatalog });
+      await expect(
+        uc.execute({ ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['SECRETARIO'] }),
+      ).resolves.toBeDefined();
+      expect(generalRepo.setDay).toHaveBeenCalledWith('row-1', 1, 'P');
+    });
+  });
+
+  describe('GUARD-9: Guard uses calendar (not JSONB days) — Saturday still blocked even with empty days JSONB', () => {
+    it('day=4 Jan 2025 (Saturday) is blocked regardless of empty days JSONB in row', async () => {
+      // makeRow() returns row with DayMap.empty() — no key "4" in days
+      const { uc } = makeUC();
+      const err = await uc.execute({
+        ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['SECRETARIO'],
+      }).catch((e: unknown) => e);
+      // Guard is calendar-derived, NOT JSONB-based
+      expect(err).toBeInstanceOf(DayNotAssignableError);
+    });
+  });
+
+  describe('GUARD: check ordering (day=0 or day=99 → ValidationError before DayNotAssignableError)', () => {
+    it('day=0 → ValidationError (step 2 fires before calendar check)', async () => {
+      const { uc } = makeUC();
+      await expect(
+        uc.execute({ ...baseInput, day: 0, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('day=99 → ValidationError (step 2: 99 > 31)', async () => {
+      const { uc } = makeUC();
+      await expect(
+        uc.execute({ ...baseInput, day: 99, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it('day=29, Feb 2025 → DayNotAssignableError (step 3: 29 ≤ 31 passes step 2, fails step 3)', async () => {
+      const { uc } = makeUC();
+      await expect(
+        uc.execute({ ...baseInput, day: 29, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
+      ).rejects.toBeInstanceOf(DayNotAssignableError);
     });
   });
 });
