@@ -19,7 +19,7 @@ import type {
   AsistenciaGeneralRepository,
   DocenteXCicloRepository,
   AsignacionCursoXCicloRepository,
-  AsistenciaXAlumnoXCursoXCiclo,
+  EnrichedGeneralAttendance,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -39,7 +39,7 @@ export class ListGeneralAttendanceUseCase {
     private readonly asignacionRepo: AsignacionCursoXCicloRepository,
   ) {}
 
-  async execute(input: ListGeneralAttendanceInput): Promise<AsistenciaXAlumnoXCursoXCiclo[]> {
+  async execute(input: ListGeneralAttendanceInput): Promise<EnrichedGeneralAttendance[]> {
     const { courseCycleId, year, month, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
@@ -47,7 +47,7 @@ export class ListGeneralAttendanceUseCase {
       await this.checkDoor2(courseCycleId, userId);
     }
 
-    return this.generalRepo.findByScopeAndMonth(courseCycleId, year, month, undefined);
+    return this.generalRepo.findByScopeAndMonthEnriched(courseCycleId, year, month, undefined);
   }
 
   private async checkDoor2(courseCycleId: string, userId: string): Promise<void> {

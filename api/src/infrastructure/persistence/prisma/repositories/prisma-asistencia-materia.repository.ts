@@ -10,7 +10,11 @@
  * ADR-3: generateMany uses createMany + skipDuplicates (additive, never overwrites).
  */
 import { Injectable } from '@nestjs/common';
-import type { AsistenciaMateriaRepository, GenerateMateriaInput } from '@educandow/domain';
+import type {
+  AsistenciaMateriaRepository,
+  GenerateMateriaInput,
+  EnrichedMateriaAttendance,
+} from '@educandow/domain';
 import { AsistenciaXMateriaXAlumnoXCursoXCiclo, DayMap, Id } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -24,6 +28,10 @@ type AsistenciaMateriaRow = {
   days: unknown;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type AsistenciaMateriaRowWithStudent = AsistenciaMateriaRow & {
+  student: { firstName: string; lastName: string };
 };
 
 @Injectable()
@@ -77,6 +85,33 @@ export class PrismaAsistenciaMateriaRepository implements AsistenciaMateriaRepos
       orderBy: { studentId: 'asc' },
     });
     return rows.map((r) => this.toDomain(r));
+  }
+
+  /**
+   * Return enriched subject attendance rows (with student name) for a MateriaXCursoXCiclo + month.
+   * Single Prisma query with student include — no N+1 (REQ-B3).
+   * DB-side orderBy: lastName asc, firstName asc (REQ-B4).
+   */
+  async findByScopeAndMonthEnriched(
+    materiaXCursoXCicloId: string,
+    year: number,
+    month: number,
+    studentIds?: string[],
+  ): Promise<EnrichedMateriaAttendance[]> {
+    const rows = await this.client.asistenciaXMateriaXAlumnoXCursoXCiclo.findMany({
+      where: {
+        materiaXCursoXCicloId,
+        year,
+        month,
+        ...(studentIds ? { studentId: { in: studentIds } } : {}),
+      },
+      include: { student: { select: { firstName: true, lastName: true } } },
+      orderBy: [{ student: { lastName: 'asc' } }, { student: { firstName: 'asc' } }],
+    });
+    return (rows as unknown as AsistenciaMateriaRowWithStudent[]).map((r) => ({
+      attendance: this.toDomain(r),
+      studentName: `${r.student.lastName}, ${r.student.firstName}`,
+    }));
   }
 
   /** Find a single row by natural key; returns null if not generated yet (ADR-4). */

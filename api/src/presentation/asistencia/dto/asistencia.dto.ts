@@ -77,6 +77,11 @@ export interface AsistenciaGeneralResponse {
   id: string;
   courseCycleId: string;
   studentId: string;
+  /**
+   * Resolved student name in "Apellido, Nombre" format (REQ-B1).
+   * Empty string ('') on the PATCH /dia record path (ADR-5 — no name resolution needed there).
+   */
+  studentName: string;
   year: number;
   month: number;
   days: Record<string, string>;
@@ -86,6 +91,11 @@ export interface AsistenciaMateriaResponse {
   id: string;
   materiaXCursoXCicloId: string;
   studentId: string;
+  /**
+   * Resolved student name in "Apellido, Nombre" format (REQ-B2).
+   * Empty string ('') on the PATCH /dia record path (ADR-5 — no name resolution needed there).
+   */
+  studentName: string;
   year: number;
   month: number;
   days: Record<string, string>;

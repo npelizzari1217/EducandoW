@@ -120,7 +120,7 @@ export class AsistenciaController {
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: rows.map((r) => this.toGeneralResponse(r)) };
+      return { data: rows.map((e) => this.toGeneralResponse(e.attendance, e.studentName)) };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -152,7 +152,7 @@ export class AsistenciaController {
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: this.toGeneralResponse(row) };
+      return { data: this.toGeneralResponse(row, '') };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -183,7 +183,7 @@ export class AsistenciaController {
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: rows.map((r) => this.toMateriaResponse(r)) };
+      return { data: rows.map((e) => this.toMateriaResponse(e.attendance, e.studentName)) };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -215,7 +215,7 @@ export class AsistenciaController {
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: this.toMateriaResponse(row) };
+      return { data: this.toMateriaResponse(row, '') };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);
@@ -226,22 +226,34 @@ export class AsistenciaController {
 
   // ── Response mappers ───────────────────────────────────────────────────────
 
-  private toGeneralResponse(row: AsistenciaXAlumnoXCursoXCiclo): AsistenciaGeneralResponse {
+  /**
+   * Map a general attendance entity + resolved name to the response DTO.
+   * List path: pass e.studentName ("Apellido, Nombre").
+   * PATCH /dia path: pass '' (ADR-5 — frontend only reads updated.days on that path).
+   */
+  private toGeneralResponse(row: AsistenciaXAlumnoXCursoXCiclo, studentName: string): AsistenciaGeneralResponse {
     return {
       id: row.id.get(),
       courseCycleId: row.courseCycleId,
       studentId: row.studentId,
+      studentName,
       year: row.year,
       month: row.month,
       days: row.days.toJSON(),
     };
   }
 
-  private toMateriaResponse(row: AsistenciaXMateriaXAlumnoXCursoXCiclo): AsistenciaMateriaResponse {
+  /**
+   * Map a subject attendance entity + resolved name to the response DTO.
+   * List path: pass e.studentName ("Apellido, Nombre").
+   * PATCH /dia path: pass '' (ADR-5).
+   */
+  private toMateriaResponse(row: AsistenciaXMateriaXAlumnoXCursoXCiclo, studentName: string): AsistenciaMateriaResponse {
     return {
       id: row.id.get(),
       materiaXCursoXCicloId: row.materiaXCursoXCicloId,
       studentId: row.studentId,
+      studentName,
       year: row.year,
       month: row.month,
       days: row.days.toJSON(),

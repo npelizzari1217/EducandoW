@@ -131,3 +131,138 @@ assignment to record attendance.
 - WHEN U records attendance (daily or subject-level) for any course-cycle or group
   within their institution and level scope
 - THEN the operation succeeds — administrative scope bypasses Door 2 (assignment gate)
+
+---
+
+### ATR-R4 — Navigation shortcut from AlumnosCursoCicloPanel (asistencia-desde-alumnos-curso, 2026-06-23)
+
+`AlumnosCursoCicloPanel` (file: `web/src/pages/dashboard/components/AlumnosCursoCicloPanel.tsx`)
+SHALL render a button that navigates to `/asistencia-mensual?ccId=<ccId>`, where `<ccId>` is the
+`courseCycleId` prop. The button SHALL be gated by `ATTENDANCE READ` via `useCan`. When the
+permission is absent the button MUST NOT appear in the DOM (hidden, not disabled). The button
+MUST be rendered OUTSIDE any `!embedded` guard — the panel is always rendered with `embedded={true}`
+from `course-cycles.tsx` and the button must be visible in that production context.
+
+The page `asistencia-mensual.tsx` SHALL: (1) read `ccId` via `useSearchParams` on mount;
+(2) pre-select the matching course-cycle; (3) default the mode to GENERAL; (4) defer pre-selection
+until the list resolves if loading asynchronously (effect dependency on list + param, useRef one-shot
+guard prevents re-applying after user manually changes the selector). Without a `ccId` param the
+page SHALL behave identically to its pre-change behavior (no regression, no forced selection).
+
+No new route is created; `/asistencia-mensual` is reused with a query parameter. No new permission,
+role, or guard is introduced.
+
+#### ATR-S12 — Authorized user sees navigation button in embedded panel
+
+- GIVEN user holds ATTENDANCE READ
+- AND `AlumnosCursoCicloPanel` is rendered with `embedded={true}` for `ccId="cc-abc"`
+- WHEN the panel mounts
+- THEN the attendance navigation button SHALL be visible in the DOM
+- AND its click handler navigates to `"/asistencia-mensual?ccId=cc-abc"`
+
+#### ATR-S13 — Unauthorized user — button absent from DOM
+
+- GIVEN user does NOT hold ATTENDANCE READ
+- WHEN `AlumnosCursoCicloPanel` renders
+- THEN no attendance navigation button SHALL appear in the DOM
+
+#### ATR-S14 — Pre-selection — list already loaded
+
+- GIVEN the course-cycle list is already loaded and contains an entry with `id="cc-xyz"`
+- AND the user navigates to `"/asistencia-mensual?ccId=cc-xyz"`
+- WHEN the page mounts
+- THEN the selector shows `"cc-xyz"` as the selected value AND mode is GENERAL
+
+#### ATR-S15 — Pre-selection — async list load
+
+- GIVEN the user navigates to `"/asistencia-mensual?ccId=cc-xyz"`
+- AND the course-cycle list is initially loading (empty)
+- WHEN the list resolves with an entry whose `id="cc-xyz"`
+- THEN the selector pre-selects `"cc-xyz"` AND the mode remains GENERAL
+
+#### ATR-S16 — ccId not in list — graceful no-op
+
+- GIVEN `ccId="cc-unknown"` is in the URL
+- AND the resolved list contains no entry with that id
+- THEN no course-cycle is pre-selected AND no error is thrown
+
+#### ATR-S17 — No ccId param — no regression
+
+- GIVEN `/asistencia-mensual` is loaded with no query params
+- THEN behavior is identical to the pre-change baseline: no pre-selection, mode defaults to its prior initial value
+
+---
+
+### ATR-R5 — Student name enrichment in attendance responses (asistencia-desde-alumnos-curso, 2026-06-23)
+
+Both `AsistenciaGeneralResponse` and `AsistenciaMateriaResponse` SHALL include a field
+`studentName: string` formatted `"${lastName}, ${firstName}"` (Argentine administrative standard:
+lastName-first, matching `Student.fullName`).
+
+Both `prisma-asistencia-general.repository.ts` and `prisma-asistencia-materia.repository.ts` SHALL
+use a **single** Prisma query with `include: { student: { select: { firstName: true, lastName: true } } }`.
+No secondary query or batch loader is permitted. Results SHALL be ordered by
+`[{ student: { lastName: 'asc' } }, { student: { firstName: 'asc' } }]`; the prior
+`orderBy: { studentId: 'asc' }` is removed.
+
+Port contracts: `findByScopeAndMonthEnriched` is added as a sibling to the existing
+`findByScopeAndMonth` on both `AsistenciaGeneralRepository` and `AsistenciaMateriaRepository`.
+The original `findByScopeAndMonth` MUST NOT be mutated (still used by integration tests and
+the generate flow). Wrapper types `EnrichedGeneralAttendance` and `EnrichedMateriaAttendance`
+(composition at the repo boundary) carry the entity + studentName; the domain entity
+`AsistenciaXAlumnoXCursoXCiclo` MUST NOT acquire `studentName` or any student-derived field.
+
+Both grids (GENERAL mode and POR-MATERIA mode) SHALL render `row.studentName`; the raw UUID
+(`row.studentId`) MUST NOT be displayed. No new Prisma migration is required (student relation
+already present in the `asistenciaXAlumnoXCursoXCiclo` model).
+
+**ADR-5 (recorded tradeoff):** PATCH `/dia` record paths pass `studentName: ''` to the shared
+mapper. The record path carries no student join and the frontend optimistic merge never reads the
+name field. This avoids scope creep into record use cases and is intentional.
+
+**Naming note (NOT a defect):** The pre-existing `findByCourseCycleEnriched` helper (unrelated query)
+returns names in `"firstName lastName"` order. ATR-R5 intentionally uses `"Apellido, Nombre"` per
+`Student.fullName` and Argentine convention. These are different queries, different screens, and
+different display contexts. Reviewers MUST NOT treat this divergence as a defect.
+
+#### ATR-S18 — studentName present in general response
+
+- GIVEN a general attendance query for `courseCycleId="cc-abc"`
+- WHEN the API responds with `AsistenciaGeneralResponse[]`
+- THEN each item has a `"studentName"` field formatted `"Apellido, Nombre"`
+
+#### ATR-S19 — studentName present in subject response
+
+- GIVEN a subject attendance query for a courseCycleId + materiaId pair
+- WHEN the API responds with `AsistenciaMateriaResponse[]`
+- THEN each item has a `"studentName"` field formatted `"Apellido, Nombre"`
+
+#### ATR-S20 — Alphabetical ordering by lastName then firstName
+
+- GIVEN students with names: `"Zelaya, Ana"`, `"García, Luis"`, `"García, Ana"`
+- WHEN the attendance endpoint returns results
+- THEN the order SHALL be: `"García, Ana"` → `"García, Luis"` → `"Zelaya, Ana"`
+
+#### ATR-S21 — Grid GENERAL mode renders name, not UUID
+
+- GIVEN mode is GENERAL AND a row has `studentName="Pérez, Juan"` AND `studentId="uuid-xxxx"`
+- WHEN the grid renders
+- THEN the student cell displays `"Pérez, Juan"` AND `"uuid-xxxx"` is NOT visible in that cell
+
+#### ATR-S22 — Grid POR-MATERIA mode renders name, not UUID
+
+- GIVEN mode is POR-MATERIA AND a row has `studentName="Pérez, Juan"` AND `studentId="uuid-xxxx"`
+- WHEN the grid renders
+- THEN the student cell displays `"Pérez, Juan"` AND `"uuid-xxxx"` is NOT visible in that cell
+
+#### ATR-S23 — No migration required
+
+- WHEN the change is applied
+- THEN no new file exists in `api/prisma_tenant/migrations/`
+- AND the existing student relation on `asistenciaXAlumnoXCursoXCiclo` satisfies the include query
+
+#### ATR-S24 — Domain entity unchanged
+
+- WHEN the change is applied
+- THEN the class `AsistenciaXAlumnoXCursoXCiclo` in `packages/domain` has no `studentName` property
+  and no student-name-derived field

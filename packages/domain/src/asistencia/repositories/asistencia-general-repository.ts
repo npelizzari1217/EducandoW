@@ -12,6 +12,17 @@ export interface GenerateGeneralInput {
   month: number;
 }
 
+/**
+ * Enriched wrapper for a general attendance row that includes the resolved student name.
+ * The domain entity (attendance) stays ID-only — studentName is a boundary projection.
+ * Spec: REQ-B3, REQ-B6.
+ */
+export interface EnrichedGeneralAttendance {
+  attendance: AsistenciaXAlumnoXCursoXCiclo;
+  /** "Apellido, Nombre" format per Argentine administrative convention. */
+  studentName: string;
+}
+
 export interface AsistenciaGeneralRepository {
   /**
    * Bulk-insert monthly register rows.
@@ -30,6 +41,19 @@ export interface AsistenciaGeneralRepository {
     month: number,
     studentIds?: string[],
   ): Promise<AsistenciaXAlumnoXCursoXCiclo[]>;
+
+  /**
+   * Return enriched general attendance rows (with student name) for a CourseCycle + month.
+   * Uses a single Prisma query with student include — no N+1 (REQ-B3).
+   * Results ordered by lastName asc, firstName asc (REQ-B4).
+   * Do NOT use findByScopeAndMonth when the list view needs student names.
+   */
+  findByScopeAndMonthEnriched(
+    courseCycleId: string,
+    year: number,
+    month: number,
+    studentIds?: string[],
+  ): Promise<EnrichedGeneralAttendance[]>;
 
   /** Find a single monthly register row; returns null if not yet generated (ADR-4). */
   findOne(

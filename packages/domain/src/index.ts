@@ -260,8 +260,8 @@ export type {
   AsistenciaXMateriaXAlumnoXCursoXCicloProps,
   CreateAsistenciaXMateriaXAlumnoXCursoXCicloInput,
 } from './asistencia';
-export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './asistencia';
-export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './asistencia';
+export type { AsistenciaGeneralRepository, GenerateGeneralInput, EnrichedGeneralAttendance } from './asistencia';
+export type { AsistenciaMateriaRepository, GenerateMateriaInput, EnrichedMateriaAttendance } from './asistencia';
 
 // PlanificacionCurso (Fase 7)
 export { PlanificacionCurso } from './planificacion-curso';

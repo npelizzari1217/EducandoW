@@ -1,24 +1,30 @@
 /**
- * AsistenciaController — unit tests (TDD RED, T-26).
+ * AsistenciaController — unit tests (TDD RED → GREEN, T-26 + T-BE-4).
  *
- * Tests written BEFORE the controller exists (strict TDD).
- * Mirror grading-periods.controller.test.ts pattern: Object.create + prototype injection.
+ * Updated for enriched list use-cases (EnrichedGeneralAttendance / EnrichedMateriaAttendance).
  *
  * Covers:
- *   CTR-T01: POST /course-cycles/:ccId/asistencia-mensual/generate — happy path returns counts
+ *   CTR-T01: POST generate — returns counts
  *   CTR-T02: POST generate — ForbiddenError → ForbiddenException
- *   CTR-T03: GET /course-cycles/:ccId/asistencia-mensual — returns mapped rows
+ *   CTR-T03: GET listGeneral — returns mapped rows with studentName "Apellido, Nombre"
  *   CTR-T04: GET listGeneral — ForbiddenError → ForbiddenException
- *   CTR-T05: PATCH /course-cycles/:ccId/asistencia-mensual/dia — returns mapped row
+ *   CTR-T05: PATCH recordGeneralDay — studentName === '' (ADR-5)
  *   CTR-T06: PATCH recordGeneralDay — ForbiddenError → ForbiddenException
- *   CTR-T07: GET /materias-curso-ciclo/:materiaId/asistencia-mensual — returns mapped rows
+ *   CTR-T07: GET listSubject — returns mapped rows with studentName "Apellido, Nombre"
  *   CTR-T08: GET listSubject — passes grupoId through
- *   CTR-T09: PATCH /materias-curso-ciclo/:materiaId/asistencia-mensual/dia — returns mapped row
+ *   CTR-T09: PATCH recordSubjectDay — studentName === '' (ADR-5)
  *   CTR-T10: non-ForbiddenError propagates as-is
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
-import { ForbiddenError, AsistenciaXAlumnoXCursoXCiclo, AsistenciaXMateriaXAlumnoXCursoXCiclo, DayMap, Id } from '@educandow/domain';
+import {
+  ForbiddenError,
+  AsistenciaXAlumnoXCursoXCiclo,
+  AsistenciaXMateriaXAlumnoXCursoXCiclo,
+  DayMap,
+  Id,
+} from '@educandow/domain';
+import type { EnrichedGeneralAttendance, EnrichedMateriaAttendance } from '@educandow/domain';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let AsistenciaController: any;
@@ -58,6 +64,16 @@ function makeMateriaRow(id = 'row-m1'): AsistenciaXMateriaXAlumnoXCursoXCiclo {
   });
 }
 
+/** Enriched wrapper for listGeneral mock (returns { attendance, studentName }). */
+function makeEnrichedGeneral(id = 'row-1', studentName = 'Pérez, Juan'): EnrichedGeneralAttendance {
+  return { attendance: makeGeneralRow(id), studentName };
+}
+
+/** Enriched wrapper for listSubject mock (returns { attendance, studentName }). */
+function makeEnrichedMateria(id = 'row-m1', studentName = 'García, Ana'): EnrichedMateriaAttendance {
+  return { attendance: makeMateriaRow(id), studentName };
+}
+
 const generationCounts = { generalCreated: 3, generalSkipped: 1, materiaCreated: 6, materiaSkipped: 2 };
 
 // ── Factory ───────────────────────────────────────────────────────────────────
@@ -67,15 +83,19 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.generateMonthlyUC = overrides.generateMonthlyUC ?? {
     execute: vi.fn().mockResolvedValue(generationCounts),
   };
+  // listGeneralUC now returns EnrichedGeneralAttendance[]
   ctrl.listGeneralUC = overrides.listGeneralUC ?? {
-    execute: vi.fn().mockResolvedValue([makeGeneralRow()]),
+    execute: vi.fn().mockResolvedValue([makeEnrichedGeneral()]),
   };
+  // recordGeneralUC still returns a plain domain entity (no enrichment on PATCH)
   ctrl.recordGeneralUC = overrides.recordGeneralUC ?? {
     execute: vi.fn().mockResolvedValue(makeGeneralRow()),
   };
+  // listSubjectUC now returns EnrichedMateriaAttendance[]
   ctrl.listSubjectUC = overrides.listSubjectUC ?? {
-    execute: vi.fn().mockResolvedValue([makeMateriaRow()]),
+    execute: vi.fn().mockResolvedValue([makeEnrichedMateria()]),
   };
+  // recordSubjectUC still returns a plain domain entity
   ctrl.recordSubjectUC = overrides.recordSubjectUC ?? {
     execute: vi.fn().mockResolvedValue(makeMateriaRow()),
   };
@@ -120,7 +140,7 @@ describe('AsistenciaController — generateMonthly', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('AsistenciaController — listGeneral', () => {
-  it('CTR-T03: returns mapped general rows', async () => {
+  it('CTR-T03: returns mapped general rows with studentName in "Apellido, Nombre" format', async () => {
     const ctrl = makeController();
     const query = { year: 2026, month: 6 };
 
@@ -131,6 +151,7 @@ describe('AsistenciaController — listGeneral', () => {
       id: 'row-1',
       courseCycleId: 'cc-1',
       studentId: 'stu-1',
+      studentName: 'Pérez, Juan',
       year: 2026,
       month: 6,
       days: {},
@@ -154,7 +175,7 @@ describe('AsistenciaController — listGeneral', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('AsistenciaController — recordGeneralDay', () => {
-  it('CTR-T05: returns mapped updated row', async () => {
+  it("CTR-T05: returns mapped updated row with studentName === '' (ADR-5)", async () => {
     const ctrl = makeController();
     const body = { studentId: 'stu-1', year: 2026, month: 6, day: 5, statusCode: 'P' };
 
@@ -164,6 +185,7 @@ describe('AsistenciaController — recordGeneralDay', () => {
       id: 'row-1',
       courseCycleId: 'cc-1',
       studentId: 'stu-1',
+      studentName: '',
     });
     expect(ctrl.recordGeneralUC.execute).toHaveBeenCalledWith({
       courseCycleId: 'cc-1',
@@ -195,7 +217,7 @@ describe('AsistenciaController — recordGeneralDay', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('AsistenciaController — listSubject', () => {
-  it('CTR-T07: returns mapped subject rows', async () => {
+  it('CTR-T07: returns mapped subject rows with studentName in "Apellido, Nombre" format', async () => {
     const ctrl = makeController();
     const query = { year: 2026, month: 6 };
 
@@ -206,6 +228,7 @@ describe('AsistenciaController — listSubject', () => {
       id: 'row-m1',
       materiaXCursoXCicloId: 'mx-1',
       studentId: 'stu-1',
+      studentName: 'García, Ana',
       year: 2026,
       month: 6,
       days: {},
@@ -215,7 +238,7 @@ describe('AsistenciaController — listSubject', () => {
   it('CTR-T08: passes grupoId through to use-case', async () => {
     const ctrl = makeController({
       listSubjectUC: {
-        execute: vi.fn().mockResolvedValue([makeMateriaRow()]),
+        execute: vi.fn().mockResolvedValue([makeEnrichedMateria()]),
       },
     });
     const query = { year: 2026, month: 6, grupoId: 'grp-1' };
@@ -238,7 +261,7 @@ describe('AsistenciaController — listSubject', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 describe('AsistenciaController — recordSubjectDay', () => {
-  it('CTR-T09: returns mapped updated subject row', async () => {
+  it("CTR-T09: returns mapped updated subject row with studentName === '' (ADR-5)", async () => {
     const ctrl = makeController();
     const body = { studentId: 'stu-1', year: 2026, month: 6, day: 10, statusCode: 'A' };
 
@@ -248,6 +271,7 @@ describe('AsistenciaController — recordSubjectDay', () => {
       id: 'row-m1',
       materiaXCursoXCicloId: 'mx-1',
       studentId: 'stu-1',
+      studentName: '',
     });
     expect(ctrl.recordSubjectUC.execute).toHaveBeenCalledWith({
       materiaXCursoXCicloId: 'mx-1',

@@ -12,6 +12,17 @@ export interface GenerateMateriaInput {
   month: number;
 }
 
+/**
+ * Enriched wrapper for a subject attendance row that includes the resolved student name.
+ * The domain entity (attendance) stays ID-only — studentName is a boundary projection.
+ * Spec: REQ-B3, REQ-B6.
+ */
+export interface EnrichedMateriaAttendance {
+  attendance: AsistenciaXMateriaXAlumnoXCursoXCiclo;
+  /** "Apellido, Nombre" format per Argentine administrative convention. */
+  studentName: string;
+}
+
 export interface AsistenciaMateriaRepository {
   /**
    * Bulk-insert monthly subject register rows.
@@ -31,6 +42,19 @@ export interface AsistenciaMateriaRepository {
     month: number,
     studentIds?: string[],
   ): Promise<AsistenciaXMateriaXAlumnoXCursoXCiclo[]>;
+
+  /**
+   * Return enriched subject attendance rows (with student name) for a MateriaXCursoXCiclo + month.
+   * Uses a single Prisma query with student include — no N+1 (REQ-B3).
+   * Results ordered by lastName asc, firstName asc (REQ-B4).
+   * Do NOT use findByScopeAndMonth when the list view needs student names.
+   */
+  findByScopeAndMonthEnriched(
+    materiaXCursoXCicloId: string,
+    year: number,
+    month: number,
+    studentIds?: string[],
+  ): Promise<EnrichedMateriaAttendance[]>;
 
   /** Find a single monthly subject register row; returns null if not yet generated (ADR-4). */
   findOne(

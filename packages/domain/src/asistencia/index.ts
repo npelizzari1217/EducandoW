@@ -14,5 +14,5 @@ export type {
   CreateAsistenciaXMateriaXAlumnoXCursoXCicloInput,
 } from './entities/asistencia-x-materia-x-alumno-x-curso-x-ciclo';
 
-export type { AsistenciaGeneralRepository, GenerateGeneralInput } from './repositories/asistencia-general-repository';
-export type { AsistenciaMateriaRepository, GenerateMateriaInput } from './repositories/asistencia-materia-repository';
+export type { AsistenciaGeneralRepository, GenerateGeneralInput, EnrichedGeneralAttendance } from './repositories/asistencia-general-repository';
+export type { AsistenciaMateriaRepository, GenerateMateriaInput, EnrichedMateriaAttendance } from './repositories/asistencia-materia-repository';

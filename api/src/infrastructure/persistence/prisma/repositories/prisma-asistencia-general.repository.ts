@@ -9,7 +9,11 @@
  * ADR-3: generateMany uses createMany + skipDuplicates (additive, never overwrites).
  */
 import { Injectable } from '@nestjs/common';
-import type { AsistenciaGeneralRepository, GenerateGeneralInput } from '@educandow/domain';
+import type {
+  AsistenciaGeneralRepository,
+  GenerateGeneralInput,
+  EnrichedGeneralAttendance,
+} from '@educandow/domain';
 import { AsistenciaXAlumnoXCursoXCiclo, DayMap, Id } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -23,6 +27,10 @@ type AsistenciaGeneralRow = {
   days: unknown;
   createdAt: Date;
   updatedAt: Date;
+};
+
+type AsistenciaGeneralRowWithStudent = AsistenciaGeneralRow & {
+  student: { firstName: string; lastName: string };
 };
 
 @Injectable()
@@ -76,6 +84,33 @@ export class PrismaAsistenciaGeneralRepository implements AsistenciaGeneralRepos
       orderBy: { studentId: 'asc' },
     });
     return rows.map((r) => this.toDomain(r));
+  }
+
+  /**
+   * Return enriched general attendance rows (with student name) for a CourseCycle + month.
+   * Single Prisma query with student include — no N+1 (REQ-B3).
+   * DB-side orderBy: lastName asc, firstName asc (REQ-B4).
+   */
+  async findByScopeAndMonthEnriched(
+    courseCycleId: string,
+    year: number,
+    month: number,
+    studentIds?: string[],
+  ): Promise<EnrichedGeneralAttendance[]> {
+    const rows = await this.client.asistenciaXAlumnoXCursoXCiclo.findMany({
+      where: {
+        courseCycleId,
+        year,
+        month,
+        ...(studentIds ? { studentId: { in: studentIds } } : {}),
+      },
+      include: { student: { select: { firstName: true, lastName: true } } },
+      orderBy: [{ student: { lastName: 'asc' } }, { student: { firstName: 'asc' } }],
+    });
+    return (rows as unknown as AsistenciaGeneralRowWithStudent[]).map((r) => ({
+      attendance: this.toDomain(r),
+      studentName: `${r.student.lastName}, ${r.student.firstName}`,
+    }));
   }
 
   /** Find a single row by natural key; returns null if not generated yet (ADR-4). */
