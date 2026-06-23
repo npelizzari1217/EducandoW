@@ -267,7 +267,7 @@ describe('AsistenciaMensualPage', () => {
     mockGet.mockImplementation((url: string) => {
       if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
       if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
-      if (url.includes('/materias-curso-ciclo') && !url.includes('/asistencia-mensual')) {
+      if (url.endsWith('/materias')) {
         return Promise.resolve({ data: { data: materias } });
       }
       if (url.includes('/grupos')) return Promise.resolve({ data: { data: grupos } });
@@ -297,7 +297,7 @@ describe('AsistenciaMensualPage', () => {
     mockGet.mockImplementation((url: string) => {
       if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
       if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
-      if (url.includes('/materias-curso-ciclo') && !url.includes('/asistencia-mensual')) {
+      if (url.endsWith('/materias')) {
         return Promise.resolve({ data: { data: materias } });
       }
       if (url.includes('/grupos')) return Promise.resolve({ data: { data: grupos } });
@@ -385,6 +385,48 @@ describe('AsistenciaMensualPage', () => {
       // First CC is auto-selected (original behavior)
       const selector = screen.getByTestId('cc-selector') as HTMLSelectElement;
       expect(selector.value).toBe('cc-1');
+    });
+  });
+
+  // ── 403 on materia list → "sin curso asignado" popup ─────────────────────
+
+  it('WM-14: shows "sin curso asignado" popup when materias GET returns 403', async () => {
+    const user = userEvent.setup();
+
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+      if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+      if (url.endsWith('/materias')) return Promise.reject({ response: { status: 403 } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+    await user.click(screen.getByTestId('tab-materia'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('alert-modal-overlay')).toBeInTheDocument();
+    });
+  });
+
+  it('WM-15: shows "sin curso asignado" popup when materias list is empty (200)', async () => {
+    const user = userEvent.setup();
+
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+      if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+      if (url.endsWith('/materias')) return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+    await user.click(screen.getByTestId('tab-materia'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('alert-modal-overlay')).toBeInTheDocument();
     });
   });
 });

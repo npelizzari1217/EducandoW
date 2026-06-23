@@ -20,7 +20,7 @@
  *   POST /course-cycles/:ccId/asistencia-mensual/generate            → { generalCreated, ... }
  *   GET  /course-cycles/:ccId/asistencia-mensual?year=&month=        → general rows
  *   PATCH /course-cycles/:ccId/asistencia-mensual/dia                → updated row
- *   GET  /materias-curso-ciclo?courseCycleId=:ccId                   → materia list
+ *   GET  /course-cycles/:ccId/materias                               → materia list
  *   GET  /grupos?materiaId=:materiaId                                 → grupos for materia
  *   GET  /materias-curso-ciclo/:id/asistencia-mensual?year=&month=[&grupoId=]
  *   PATCH /materias-curso-ciclo/:id/asistencia-mensual/dia           → updated row
@@ -29,6 +29,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
+import { AlertModal } from '../../components/ui/alert-modal';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -162,6 +163,7 @@ export default function AsistenciaMensualPage() {
   const [loading, setLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [noCourseModal, setNoCourseModal] = useState(false);
 
   // ── Initial data ─────────────────────────────────────────────────────────
 
@@ -227,7 +229,7 @@ export default function AsistenciaMensualPage() {
 
   useEffect(() => {
     if (mode !== 'materia' || !selectedCCId) return;
-    apiClient.get<{ data: MateriaItem[] }>(`/materias-curso-ciclo?courseCycleId=${selectedCCId}`)
+    apiClient.get<{ data: MateriaItem[] }>(`/course-cycles/${selectedCCId}/materias`)
       .then((res) => {
         const ms = res.data?.data ?? [];
         setMaterias(ms);
@@ -235,12 +237,19 @@ export default function AsistenciaMensualPage() {
           setSelectedMateriaId(ms[0].id);
         } else {
           setSelectedMateriaId('');
+          // 200 con lista vacía → tampoco tiene materias/curso para mostrar
+          setNoCourseModal(true);
         }
         setSelectedGrupoId('');
         setGrupos([]);
       })
-      .catch(() => {
+      .catch((err) => {
         setMaterias([]);
+        setSelectedMateriaId('');
+        // 403 → el usuario no tiene un curso asignado para ver sus materias
+        if (err?.response?.status === 403) {
+          setNoCourseModal(true);
+        }
       });
   }, [mode, selectedCCId]);
 
@@ -625,6 +634,14 @@ export default function AsistenciaMensualPage() {
           {toast.message}
         </div>
       )}
+
+      {/* Popup: usuario sin curso asignado (403 al listar materias) */}
+      <AlertModal
+        open={noCourseModal}
+        title="Sin curso asignado"
+        message="No tenés asignado ningún curso, por lo que no podés ver las materias. Contactá al administrador de tu institución."
+        onClose={() => setNoCourseModal(false)}
+      />
     </div>
   );
 }
