@@ -15,7 +15,7 @@
  * W-21: T-FE-3 — clicking "Ver asistencia" navigates to /asistencia-mensual?ccId=<ccId>
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 
@@ -95,8 +95,8 @@ vi.mock('../../../hooks/useBoletin', () => ({
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const currentAlumnos = [
-  { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: true },
-  { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López', printable: false },
+  { id: 'row-1', studentId: 'stu-1', studentName: 'Ana García', printable: true, fechaDePase: null },
+  { id: 'row-2', studentId: 'stu-2', studentName: 'Carlos López', printable: false, fechaDePase: null },
 ];
 
 const allStudents = [
@@ -495,5 +495,233 @@ describe('AlumnosCursoCicloPanel', () => {
     await user.click(screen.getByTestId('btn-ver-asistencia'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/asistencia-mensual?ccId=cc-abc');
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PR4 — Pase de alumno (tasks 4.1–4.8)
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('PR4 — Pase de alumno', () => {
+  // ── Fixtures ────────────────────────────────────────────────────────────────
+
+  const alumnoConPase = {
+    id: 'row-pase-1',
+    studentId: 'stu-pase-1',
+    studentName: 'Luisa Fernández',
+    printable: true,
+    fechaDePase: '2024-06-15',
+  };
+
+  const alumnoSinPase = {
+    id: 'row-1',
+    studentId: 'stu-1',
+    studentName: 'Ana García',
+    printable: true,
+    fechaDePase: null,
+  };
+
+  function setupWithPase(ccId = 'cc-1') {
+    mockGet.mockImplementation((url: string) => {
+      if (url === `/course-cycles/${ccId}/alumnos`) {
+        return Promise.resolve({ data: { data: [alumnoConPase, alumnoSinPase] } });
+      }
+      if (url === '/students') return Promise.resolve({ data: { data: allStudents } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  }
+
+  // ── Style: line-through ──────────────────────────────────────────────────────
+
+  it('W-22: studentName has line-through style when alumno has fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      const nameEl = screen.getByTestId('alumno-nombre-row-pase-1');
+      expect(nameEl).toHaveStyle({ textDecoration: 'line-through' });
+    });
+  });
+
+  it('W-23: studentName has no line-through when alumno has no fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      const nameEl = screen.getByTestId('alumno-nombre-row-1');
+      expect(nameEl).not.toHaveStyle({ textDecoration: 'line-through' });
+    });
+  });
+
+  // ── Column headers ───────────────────────────────────────────────────────────
+
+  it('W-24: column headers "Pase" and "Fecha de pase" are present when students are assigned', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('col-header-pase')).toBeInTheDocument();
+      expect(screen.getByTestId('col-header-fecha-pase')).toBeInTheDocument();
+    });
+  });
+
+  // ── Data cells ───────────────────────────────────────────────────────────────
+
+  it('W-25: pase cell shows "Sí" for alumno with fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('pase-indicator-row-pase-1')).toHaveTextContent('Sí');
+    });
+  });
+
+  it('W-26: pase cell does not show "Sí" for alumno without fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('pase-indicator-row-1')).not.toHaveTextContent('Sí');
+    });
+  });
+
+  it('W-27: fecha-pase cell shows es-AR formatted date for alumno with fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    // Compute expected value the same way the component does — handles TZ consistently.
+    const expectedDate = new Date('2024-06-15').toLocaleDateString('es-AR');
+    await waitFor(() => {
+      expect(screen.getByTestId('fecha-pase-row-pase-1')).toHaveTextContent(expectedDate);
+    });
+  });
+
+  it('W-28: fecha-pase cell shows "—" for alumno without fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('fecha-pase-row-1')).toHaveTextContent('—');
+    });
+  });
+
+  // ── Quitar button disabled ───────────────────────────────────────────────────
+
+  it('W-29: "Quitar" button is disabled when alumno has fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      const btn = screen.getByTestId('btn-remove-alumno-row-pase-1') as HTMLButtonElement;
+      expect(btn).toBeDisabled();
+    });
+  });
+
+  it('W-30: "Quitar" button is enabled when alumno has no fechaDePase', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      const btn = screen.getByTestId('btn-remove-alumno-row-1') as HTMLButtonElement;
+      expect(btn).not.toBeDisabled();
+    });
+  });
+
+  // ── Pase / Revertir pase buttons ─────────────────────────────────────────────
+
+  it('W-31: "Pase" button visible for alumno without fechaDePase; no "Revertir pase"', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-pase-row-1')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-revertir-pase-row-1')).not.toBeInTheDocument();
+    });
+  });
+
+  it('W-32: "Revertir pase" button visible for alumno with fechaDePase; no "Pase"', async () => {
+    setupWithPase();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-revertir-pase-row-pase-1')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-pase-row-pase-1')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── Modal de fecha ───────────────────────────────────────────────────────────
+
+  it('W-33: clicking "Pase" button opens modal with date input', async () => {
+    setupWithPase();
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-pase-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-pase-row-1'));
+    await waitFor(() => {
+      expect(screen.getByTestId('modal-pase')).toBeInTheDocument();
+      expect(screen.getByTestId('input-fecha-pase')).toBeInTheDocument();
+    });
+  });
+
+  it('W-34: confirming pase with date calls PATCH with fechaDePase and closes modal', async () => {
+    setupWithPase();
+    mockPatch.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-pase-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-pase-row-1'));
+    await waitFor(() => expect(screen.getByTestId('modal-pase')).toBeInTheDocument());
+
+    // fireEvent.change is more reliable for type=date inputs in JSDOM
+    fireEvent.change(screen.getByTestId('input-fecha-pase'), { target: { value: '2024-06-20' } });
+
+    await user.click(screen.getByTestId('btn-confirmar-pase'));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/course-cycles/cc-1/alumnos/row-1/pase',
+        { fechaDePase: '2024-06-20' },
+      );
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-pase')).not.toBeInTheDocument();
+    });
+  });
+
+  it('W-35: cancelling the pase modal does not call PATCH', async () => {
+    setupWithPase();
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-pase-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-pase-row-1'));
+    await waitFor(() => expect(screen.getByTestId('modal-pase')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-cancelar-pase'));
+
+    expect(mockPatch).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-pase')).not.toBeInTheDocument();
+    });
+  });
+
+  it('W-36: confirm button is disabled when no date is entered; no PATCH called', async () => {
+    setupWithPase();
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-pase-row-1')).toBeInTheDocument());
+    await user.click(screen.getByTestId('btn-pase-row-1'));
+    await waitFor(() => expect(screen.getByTestId('modal-pase')).toBeInTheDocument());
+
+    const confirmBtn = screen.getByTestId('btn-confirmar-pase') as HTMLButtonElement;
+    expect(confirmBtn).toBeDisabled();
+    expect(screen.getByTestId('modal-pase')).toBeInTheDocument();
+    expect(mockPatch).not.toHaveBeenCalled();
+  });
+
+  it('W-37: clicking "Revertir pase" calls PATCH with {fechaDePase: null}', async () => {
+    setupWithPase();
+    mockPatch.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() =>
+      expect(screen.getByTestId('btn-revertir-pase-row-pase-1')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByTestId('btn-revertir-pase-row-pase-1'));
+
+    await waitFor(() => {
+      expect(mockPatch).toHaveBeenCalledWith(
+        '/course-cycles/cc-1/alumnos/row-pase-1/pase',
+        { fechaDePase: null },
+      );
+    });
   });
 });
