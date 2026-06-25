@@ -61,9 +61,10 @@ import { CascadeAllStudentsMateriasCompetenciasUseCase } from '../../application
 
     {
       provide: RemoveStudentFromCourseCycleUseCase,
-      useFactory: (ccRepo: PrismaCourseCycleRepository, alumnosRepo: PrismaAlumnosXCursoXCicloRepository) =>
-        new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo),
-      inject: [PrismaCourseCycleRepository, PrismaAlumnosXCursoXCicloRepository],
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      useFactory: (ccRepo: PrismaCourseCycleRepository, alumnosRepo: PrismaAlumnosXCursoXCicloRepository, studentRepo: any) =>
+        new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo),
+      inject: [PrismaCourseCycleRepository, PrismaAlumnosXCursoXCicloRepository, 'StudentRepository'],
     },
 
     {
