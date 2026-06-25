@@ -17,8 +17,10 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import {
   AddStudentToCourseCycleSchema,
   SetPrintableSchema,
+  RegistrarPaseSchema,
   type AddStudentToCourseCycleDto,
   type SetPrintableDto,
+  type RegistrarPaseDto,
   type AlumnoXCursoCicloResponse,
   type AlumnoCursoCicloItem,
 } from './dto/alumnos-x-curso-x-ciclo.dto';
@@ -30,6 +32,7 @@ import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-co
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
 import { CascadeStudentMateriasCompetenciasUseCase, type CascadeResult } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
 import { CascadeAllStudentsMateriasCompetenciasUseCase, type BulkCascadeResult } from '../../application/course-cycle/cascade-all-students-materias-competencias.use-case';
+import { RegistrarPaseUseCase } from '../../application/course-cycle/registrar-pase.use-case';
 import type { StudentMembershipEnriched } from '@educandow/domain';
 
 /**
@@ -53,6 +56,7 @@ export class AlumnosXCursoXCicloController {
     private readonly listMembershipsUC: ListStudentMembershipsUseCase,
     private readonly bulkCascadeUC: CascadeAllStudentsMateriasCompetenciasUseCase,
     private readonly cascadeUC: CascadeStudentMateriasCompetenciasUseCase,
+    private readonly registrarPaseUC: RegistrarPaseUseCase,
   ) {}
 
   /**
@@ -141,6 +145,25 @@ export class AlumnosXCursoXCicloController {
     @Body(new ZodValidationPipe(SetPrintableSchema)) body: SetPrintableDto,
   ): Promise<void> {
     await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+  }
+
+  /**
+   * PATCH /course-cycles/:ccId/alumnos/:id/pase — Register or revert a pase de egreso.
+   * Body: { fechaDePase: "YYYY-MM-DD" } to register, { fechaDePase: null } to revert.
+   * Returns 204 No Content on success. pase-alumno-egreso PR3.
+   */
+  @Patch('course-cycles/:ccId/alumnos/:id/pase')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })
+  async registrarPase(
+    @Param('ccId') ccId: string,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(RegistrarPaseSchema)) body: RegistrarPaseDto,
+  ): Promise<void> {
+    const fechaDePase = body.fechaDePase
+      ? new Date(`${body.fechaDePase}T00:00:00.000Z`)
+      : null;
+    await this.registrarPaseUC.execute({ courseCycleId: ccId, id, fechaDePase });
   }
 
   /**
