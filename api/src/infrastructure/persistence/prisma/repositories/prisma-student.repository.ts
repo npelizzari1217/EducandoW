@@ -109,6 +109,10 @@ export class PrismaStudentRepository implements StudentRepository {
     });
   }
 
+  async setFechaDePase(studentId: string, fechaDePase: Date | null): Promise<void> {
+    await this.client.student.update({ where: { id: studentId }, data: { fechaDePase } });
+  }
+
   private toDomain(record: Record<string, unknown>): Student {
     return Student.reconstruct({
       id: Id.reconstruct(record.id as string),
@@ -129,6 +133,7 @@ export class PrismaStudentRepository implements StudentRepository {
       institutionId: Id.create(TenantContext.getInstitutionId() || undefined),
       active: (record.active as boolean) ?? true,
       deletedAt: record.deletedAt ? new Date(record.deletedAt as string) : undefined,
+      fechaDePase: record.fechaDePase ? new Date(record.fechaDePase as string) : undefined,
     });
   }
 }
