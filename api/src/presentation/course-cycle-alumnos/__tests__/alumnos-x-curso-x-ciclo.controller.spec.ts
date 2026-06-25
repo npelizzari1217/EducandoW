@@ -12,8 +12,8 @@
  * Pattern: Object.create(prototype) + property injection, no NestJS bootstrap.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NotFoundError } from '@educandow/domain';
-import { AddStudentToCourseCycleSchema } from '../dto/alumnos-x-curso-x-ciclo.dto';
+import { NotFoundError, PaseFechaInvalidaError, StudentHasPaseError } from '@educandow/domain';
+import { AddStudentToCourseCycleSchema, RegistrarPaseSchema } from '../dto/alumnos-x-curso-x-ciclo.dto';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let AlumnosXCursoXCicloController: any;
@@ -34,6 +34,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.listMembershipsUC = overrides.listMembershipsUC ?? { execute: vi.fn().mockResolvedValue([]) };
   ctrl.cascadeUC = overrides.cascadeUC ?? { execute: vi.fn() };
   ctrl.bulkCascadeUC = overrides.bulkCascadeUC ?? { execute: vi.fn() };
+  ctrl.registrarPaseUC = overrides.registrarPaseUC ?? { execute: vi.fn().mockResolvedValue(undefined) };
   return ctrl;
 }
 
@@ -229,6 +230,92 @@ describe('AddStudentToCourseCycleSchema — Zod validation (400 scenarios)', () 
 
   it('D-04: rejects numeric studentId (wrong type)', () => {
     const result = AddStudentToCourseCycleSchema.safeParse({ studentId: 12345 });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ── PATCH /course-cycles/:ccId/alumnos/:id/pase ───────────────────────────────
+
+describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:id/pase', () => {
+  it('C-14: 204 — registrarPaseUC.execute called with Date when fechaDePase is a valid string', async () => {
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const ctrl = makeController({ registrarPaseUC });
+
+    const result = await ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: '2026-06-25' });
+
+    expect(registrarPaseUC.execute).toHaveBeenCalledWith({
+      courseCycleId: 'cc-1',
+      id: 'axcc-1',
+      fechaDePase: new Date('2026-06-25T00:00:00.000Z'),
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it('C-15: 204 revert — registrarPaseUC.execute called with null when fechaDePase is null', async () => {
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const ctrl = makeController({ registrarPaseUC });
+
+    const result = await ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: null });
+
+    expect(registrarPaseUC.execute).toHaveBeenCalledWith({
+      courseCycleId: 'cc-1',
+      id: 'axcc-1',
+      fechaDePase: null,
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it('C-16: 400 — PaseFechaInvalidaError propagates when UC throws (future date)', async () => {
+    const error = new PaseFechaInvalidaError();
+    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const ctrl = makeController({ registrarPaseUC });
+
+    await expect(
+      ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: '2099-12-31' }),
+    ).rejects.toBeInstanceOf(PaseFechaInvalidaError);
+  });
+
+  it('C-17: 404 — NotFoundError propagates when CC or enrollment not found', async () => {
+    const error = new NotFoundError('CourseCycle', 'cc-999');
+    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const ctrl = makeController({ registrarPaseUC });
+
+    await expect(
+      ctrl.registrarPase('cc-999', 'axcc-1', { fechaDePase: '2026-06-25' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('C-18: 409 — StudentHasPaseError propagates (exception filter maps to 409)', async () => {
+    const error = new StudentHasPaseError();
+    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const ctrl = makeController({ registrarPaseUC });
+
+    await expect(
+      ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: '2026-06-25' }),
+    ).rejects.toBeInstanceOf(StudentHasPaseError);
+  });
+});
+
+// ── DTO schema — RegistrarPaseSchema (422 scenarios) ─────────────────────────
+
+describe('RegistrarPaseSchema — Zod validation (422 scenarios)', () => {
+  it('D-05: accepts valid YYYY-MM-DD date string', () => {
+    const result = RegistrarPaseSchema.safeParse({ fechaDePase: '2026-06-25' });
+    expect(result.success).toBe(true);
+  });
+
+  it('D-06: accepts null (revert pase)', () => {
+    const result = RegistrarPaseSchema.safeParse({ fechaDePase: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('D-07: rejects missing fechaDePase field', () => {
+    const result = RegistrarPaseSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it('D-08: rejects invalid date format "no-es-fecha"', () => {
+    const result = RegistrarPaseSchema.safeParse({ fechaDePase: 'no-es-fecha' });
     expect(result.success).toBe(false);
   });
 });
