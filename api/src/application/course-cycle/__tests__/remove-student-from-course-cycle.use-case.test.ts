@@ -1,6 +1,7 @@
 /**
  * RemoveStudentFromCourseCycleUseCase — unit tests (TDD, T-11, SDD-1)
- * Covers: S-05 (happy path), S-08 (not found → NotFoundError)
+ * Covers: S-05 (happy path), S-08 (not found → NotFoundError),
+ *         S-5-A (tienePase → StudentHasPaseError), S-5-B (sin pase → remove normal)
  *
  * Input is the bridge-row ID (ADR #1243 — overrides spec R-7 which said studentId).
  * No real DB — repos are mocked via vi.fn().
@@ -10,8 +11,16 @@ import { RemoveStudentFromCourseCycleUseCase } from '../remove-student-from-cour
 import type {
   CourseCycleRepository,
   AlumnosXCursoXCicloRepository,
+  StudentRepository,
 } from '@educandow/domain';
-import { AlumnosXCursoXCiclo, NotFoundError } from '@educandow/domain';
+import {
+  AlumnosXCursoXCiclo,
+  NotFoundError,
+  StudentHasPaseError,
+  Student,
+  Dni,
+  Id,
+} from '@educandow/domain';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +33,27 @@ function makeEnrollment(id = 'axcc-1', courseCycleId = 'cc-1'): AlumnosXCursoXCi
     createdAt: new Date(),
     updatedAt: new Date(),
   });
+}
+
+function makeStudentRepo(tienePase: boolean): StudentRepository {
+  const student = Student.reconstruct({
+    id: Id.reconstruct('s-1'),
+    firstName: 'Ana',
+    lastName: 'García',
+    dni: Dni.reconstruct('12345678'),
+    fechaDePase: tienePase ? new Date('2026-06-01T00:00:00.000Z') : undefined,
+  });
+  return {
+    findById: vi.fn().mockResolvedValue(student),
+    findByInstitution: vi.fn(),
+    findByDni: vi.fn(),
+    search: vi.fn(),
+    save: vi.fn(),
+    delete: vi.fn(),
+    findByUserId: vi.fn(),
+    findByGuardianUserId: vi.fn(),
+    setFechaDePase: vi.fn().mockResolvedValue(undefined),
+  } as unknown as StudentRepository;
 }
 
 function makeCCRepo(found: boolean): CourseCycleRepository {
@@ -64,7 +94,8 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
     const enrollment = makeEnrollment('axcc-1', 'cc-1');
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(enrollment);
-    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo);
+    const studentRepo = makeStudentRepo(false);
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
     await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
 
@@ -75,7 +106,8 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
   it('throws NotFoundError when course-cycle does not exist', async () => {
     const ccRepo = makeCCRepo(false);
     const alumnosRepo = makeAlumnosRepo(null);
-    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo);
+    const studentRepo = makeStudentRepo(false);
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
     await expect(
       uc.execute({ courseCycleId: 'cc-999', id: 'axcc-1' })
@@ -88,7 +120,8 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
   it('S-08: throws NotFoundError when enrollment row does not exist', async () => {
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(null); // findById returns null
-    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo);
+    const studentRepo = makeStudentRepo(false);
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
     await expect(
       uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent' })
@@ -102,12 +135,41 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
     const enrollment = makeEnrollment('axcc-1', 'cc-2');
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(enrollment);
-    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo);
+    const studentRepo = makeStudentRepo(false);
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
     await expect(
       uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' })
     ).rejects.toBeInstanceOf(NotFoundError);
 
     expect(alumnosRepo.remove).not.toHaveBeenCalled();
+  });
+
+  it('S-5-A: lanza StudentHasPaseError cuando el alumno tiene pase registrado', async () => {
+    const enrollment = makeEnrollment('axcc-1', 'cc-1');
+    const ccRepo = makeCCRepo(true);
+    const alumnosRepo = makeAlumnosRepo(enrollment);
+    const studentRepo = makeStudentRepo(true); // tienePase = true
+
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
+
+    await expect(
+      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' }),
+    ).rejects.toBeInstanceOf(StudentHasPaseError);
+
+    expect(alumnosRepo.remove).not.toHaveBeenCalled();
+  });
+
+  it('S-5-B: alumno sin pase — remove se llama normalmente', async () => {
+    const enrollment = makeEnrollment('axcc-1', 'cc-1');
+    const ccRepo = makeCCRepo(true);
+    const alumnosRepo = makeAlumnosRepo(enrollment);
+    const studentRepo = makeStudentRepo(false); // tienePase = false
+
+    const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
+    await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
+
+    expect(alumnosRepo.remove).toHaveBeenCalledWith('cc-1', 'axcc-1');
+    expect(alumnosRepo.remove).toHaveBeenCalledTimes(1);
   });
 });
