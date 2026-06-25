@@ -42,6 +42,9 @@ const DOMAIN_STATUS: Record<string, number> = {
   ASSIGNMENT_ALREADY_INACTIVE: 409,
   // Materia-grupo-ciclo — Fase 3 (exclusión estricta: un alumno = un grupo por materia)
   ALUMNO_ALREADY_IN_GRUPO: 409,
+  // pase-alumno-egreso
+  PASE_FECHA_INVALIDA: 400,
+  STUDENT_HAS_PASE: 409,
 };
 
 @Catch()

@@ -16,6 +16,7 @@ import { SetCoursePrintableUseCase } from '../../application/course-cycle/set-co
 import { ListStudentMembershipsUseCase } from '../../application/course-cycle/list-student-memberships.use-case';
 import { CascadeStudentMateriasCompetenciasUseCase } from '../../application/course-cycle/cascade-student-materias-competencias.use-case';
 import { CascadeAllStudentsMateriasCompetenciasUseCase } from '../../application/course-cycle/cascade-all-students-materias-competencias.use-case';
+import { RegistrarPaseUseCase } from '../../application/course-cycle/registrar-pase.use-case';
 
 /**
  * AlumnosXCursoXCicloModule — SDD-1 PR-3 (T-18).
@@ -111,6 +112,14 @@ import { CascadeAllStudentsMateriasCompetenciasUseCase } from '../../application
         PrismaSubjectCompetencyRepo,
         PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo,
       ],
+    },
+
+    {
+      provide: RegistrarPaseUseCase,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      useFactory: (ccRepo: PrismaCourseCycleRepository, alumnosRepo: PrismaAlumnosXCursoXCicloRepository, studentRepo: any) =>
+        new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo),
+      inject: [PrismaCourseCycleRepository, PrismaAlumnosXCursoXCicloRepository, 'StudentRepository'],
     },
 
     {
