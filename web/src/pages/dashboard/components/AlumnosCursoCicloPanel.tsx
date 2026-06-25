@@ -1,22 +1,24 @@
 /**
- * AlumnosCursoCicloPanel — SDD-1 T-21 + SDD-2 T40
+ * AlumnosCursoCicloPanel — SDD-1 T-21 + SDD-2 T40 + SDD-5 T-4x (pase alumno)
  *
  * Inline panel that lists students assigned to a CourseCycle, lets the user
- * add students one-by-one, remove them, toggle their printable flag, and
- * trigger boletín batch download.
+ * add students one-by-one, remove them, toggle their printable flag, trigger
+ * boletín batch download, and register / revert a student's pase (egreso).
  *
- * API contract (PR-1 + PR-5):
- *   GET    /course-cycles/:ccId/alumnos              → enriched list { id, studentId, studentName, printable }
- *   POST   /course-cycles/:ccId/alumnos              body { studentId } → 201
- *   DELETE /course-cycles/:ccId/alumnos/:id          (bridge-row id)   → 204
- *   PATCH  /course-cycles/:ccId/alumnos/:id/printable body { value }   → 204
- *   PATCH  /course-cycles/:ccId/alumnos/printable    body { value }    → 204 (bulk)
- *   GET    /students                                  → universe of students
+ * API contract (PR-1 + PR-5 + PR4-pase):
+ *   GET    /course-cycles/:ccId/alumnos                       → enriched list
+ *   POST   /course-cycles/:ccId/alumnos                       body { studentId } → 201
+ *   DELETE /course-cycles/:ccId/alumnos/:id                   (bridge-row id)   → 204
+ *   PATCH  /course-cycles/:ccId/alumnos/:id/printable         body { value }    → 204
+ *   PATCH  /course-cycles/:ccId/alumnos/printable             body { value }    → 204 (bulk)
+ *   PATCH  /course-cycles/:ccId/alumnos/:id/pase              body { fechaDePase: string | null } → 204
+ *   GET    /students                                           → universe of students
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../../components/ui/button';
+import { Modal } from '../../../components/ui/modal';
 import apiClient from '../../../api/client';
 import { downloadBoletinBatch } from '../../../hooks/useBoletin';
 import { useCan } from '../../../hooks/use-can';
@@ -24,10 +26,12 @@ import { useCan } from '../../../hooks/use-can';
 // ── Local types ───────────────────────────────────────────────────────────────
 
 interface AlumnoCursoCicloItem {
-  id: string;        // bridge-row id — used for DELETE and PATCH printable
+  id: string;        // bridge-row id — used for DELETE and PATCH printable / pase
   studentId: string;
   studentName: string;
   printable: boolean;
+  /** ISO date string (YYYY-MM-DD) when the student has been given a pase; null otherwise. */
+  fechaDePase: string | null;
 }
 
 interface StudentItem {
@@ -86,6 +90,10 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [cascadingIds, setCascadingIds] = useState<Set<string>>(new Set());
   const [cascadeToast, setCascadeToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // ── Pase modal state ──────────────────────────────────────────────────────
+  const [paseTarget, setPaseTarget] = useState<AlumnoCursoCicloItem | null>(null);
+  const [paseFecha, setPaseFecha] = useState('');
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -193,12 +201,51 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
     }
   };
 
+  // ── Pase handlers ─────────────────────────────────────────────────────────
+
+  const handleCancelarPase = () => {
+    setPaseTarget(null);
+    setPaseFecha('');
+  };
+
+  const handleConfirmarPase = async () => {
+    if (!paseTarget || !paseFecha) return;
+    try {
+      await apiClient.patch(
+        `/course-cycles/${ccId}/alumnos/${paseTarget.id}/pase`,
+        { fechaDePase: paseFecha },
+      );
+      setToast({ message: 'Pase registrado correctamente', type: 'success' });
+      setPaseTarget(null);
+      setPaseFecha('');
+      await load();
+    } catch {
+      setToast({ message: 'Error al registrar el pase', type: 'error' });
+    }
+  };
+
+  const handleRevertirPase = async (rowId: string) => {
+    try {
+      await apiClient.patch(
+        `/course-cycles/${ccId}/alumnos/${rowId}/pase`,
+        { fechaDePase: null },
+      );
+      setToast({ message: 'Pase revertido correctamente', type: 'success' });
+      await load();
+    } catch {
+      setToast({ message: 'Error al revertir el pase', type: 'error' });
+    }
+  };
+
   // ── Derived data ──────────────────────────────────────────────────────────
 
   const assignedStudentIds = new Set(current.map((c) => c.studentId));
   const unassigned = allStudents.filter((s) => !assignedStudentIds.has(s.id));
   const printableState = derivePrintableState(current);
   const printableCount = current.filter((r) => r.printable).length;
+
+  // max date for the pase picker — enforces the backend's "no future date" rule at UI level
+  const todayIso = new Date().toISOString().split('T')[0];
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -284,9 +331,30 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
               </p>
             )}
 
+            {/* Column headers — only when there are assigned students */}
+            {current.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', marginBottom: '0.125rem', gap: '0.5rem' }}>
+                <span style={{ flex: 1 }} />
+                <span
+                  data-testid="col-header-pase"
+                  style={{ width: '2.5rem', ...labelStyle }}
+                >
+                  Pase
+                </span>
+                <span
+                  data-testid="col-header-fecha-pase"
+                  style={{ width: '6.5rem', ...labelStyle }}
+                >
+                  Fecha de pase
+                </span>
+                <span style={{ width: '1rem' }} />
+              </div>
+            )}
+
             {current.map((alumno) => (
               <div key={alumno.id} style={rowStyle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {/* Left: checkbox + name + pase data cells */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                   {/* Per-row printable toggle */}
                   <input
                     type="checkbox"
@@ -296,9 +364,69 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
                     title={alumno.printable ? 'Quitar del boletín' : 'Incluir en boletín'}
                     style={{ cursor: 'pointer' }}
                   />
-                  <span style={{ fontSize: 'var(--text-sm)' }}>{alumno.studentName}</span>
+                  {/*
+                   * Name — line-through + reduced opacity when the student has a pase.
+                   * Style is applied ONLY to this span, not to the action buttons.
+                   */}
+                  <span
+                    data-testid={`alumno-nombre-${alumno.id}`}
+                    style={{
+                      fontSize: 'var(--text-sm)',
+                      flex: 1,
+                      ...(alumno.fechaDePase
+                        ? { textDecoration: 'line-through', opacity: 0.6 }
+                        : {}),
+                    }}
+                  >
+                    {alumno.studentName}
+                  </span>
+                  {/* Pase indicator — "Sí" when has pase, empty otherwise */}
+                  <span
+                    data-testid={`pase-indicator-${alumno.id}`}
+                    style={{ width: '2.5rem', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}
+                  >
+                    {alumno.fechaDePase ? 'Sí' : ''}
+                  </span>
+                  {/*
+                   * Fecha de pase — formatted as es-AR locale date or '—'.
+                   * Note: toLocaleDateString('es-AR') from an ISO UTC string can shift one
+                   * day in negative-offset timezones (display-only, not persisted — acceptable).
+                   */}
+                  <span
+                    data-testid={`fecha-pase-${alumno.id}`}
+                    style={{ width: '6.5rem', fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}
+                  >
+                    {alumno.fechaDePase
+                      ? new Date(alumno.fechaDePase).toLocaleDateString('es-AR')
+                      : '—'}
+                  </span>
                 </div>
+
+                {/* Right: action buttons */}
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
+                  {/* Pase / Revertir pase */}
+                  {alumno.fechaDePase ? (
+                    <Button
+                      variant="action"
+                      size="sm"
+                      data-testid={`btn-revertir-pase-${alumno.id}`}
+                      onClick={() => handleRevertirPase(alumno.id)}
+                      title="Revertir pase"
+                    >
+                      Revertir pase
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="action"
+                      size="sm"
+                      data-testid={`btn-pase-${alumno.id}`}
+                      onClick={() => setPaseTarget(alumno)}
+                      title="Registrar pase"
+                    >
+                      Pase
+                    </Button>
+                  )}
+
                   {/* Cascade: assign materias + competencias for this student */}
                   <Button
                     variant="action"
@@ -310,11 +438,15 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
                   >
                     Asignar materias y competencias
                   </Button>
+
+                  {/* Quitar — disabled when the student has a pase (business rule) */}
                   <Button
                     variant="danger-soft"
                     size="sm"
                     data-testid={`btn-remove-alumno-${alumno.id}`}
                     onClick={() => handleRemove(alumno.id)}
+                    disabled={!!alumno.fechaDePase}
+                    title={alumno.fechaDePase ? 'No se puede quitar un alumno con pase registrado' : undefined}
                   >
                     Quitar
                   </Button>
@@ -415,6 +547,63 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
           {cascadeToast.message}
         </div>
       )}
+
+      {/* Modal de fecha de pase — reuses the shared Modal component */}
+      <Modal
+        open={paseTarget !== null}
+        title="Registrar pase"
+        onClose={handleCancelarPase}
+        size="md"
+      >
+        <div data-testid="modal-pase">
+          <p style={{ marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
+            Alumno: <strong>{paseTarget?.studentName}</strong>
+          </p>
+          <div style={{ marginBottom: '1rem' }}>
+            <label
+              htmlFor="input-pase-fecha"
+              style={{ ...labelStyle, display: 'block', marginBottom: '0.25rem' }}
+            >
+              Fecha de pase
+            </label>
+            <input
+              id="input-pase-fecha"
+              type="date"
+              data-testid="input-fecha-pase"
+              max={todayIso}
+              value={paseFecha}
+              onChange={(e) => setPaseFecha(e.target.value)}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '0.375rem',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-sm)',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="btn-cancelar-pase"
+              onClick={handleCancelarPase}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              data-testid="btn-confirmar-pase"
+              disabled={!paseFecha}
+              onClick={handleConfirmarPase}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
