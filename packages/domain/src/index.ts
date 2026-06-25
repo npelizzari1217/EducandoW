@@ -146,6 +146,10 @@ export type { DocenteXMateriaCarreraRepository } from './nivel-terciario';
 export { DocenteAlreadyAssignedError } from './shared/errors/docente-already-assigned-error';
 export { AssignmentAlreadyInactiveError } from './shared/errors/assignment-already-inactive-error';
 
+// Shared errors — pase-alumno-egreso
+export { PaseFechaInvalidaError } from './shared/errors/pase-fecha-invalida-error';
+export { StudentHasPaseError } from './shared/errors/student-has-pase-error';
+
 // Grading
 export { GradeInternalStatus, GradeValueCode } from './grading';
 export type { GradeInternalStatusValue } from './grading';

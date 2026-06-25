@@ -1,6 +1,7 @@
 import { Id } from '../../shared/value-objects/id';
 import { Email } from '../../shared/value-objects/email';
 import { Dni } from '../value-objects/dni';
+import { PaseFechaInvalidaError } from '../../shared/errors/pase-fecha-invalida-error';
 
 export interface StudentProps {
   id: Id;
@@ -21,6 +22,7 @@ export interface StudentProps {
   institutionId?: Id;
   active?: boolean;
   deletedAt?: Date;
+  fechaDePase?: Date;
 }
 
 export class Student {
@@ -110,8 +112,25 @@ export class Student {
     return `${this.props.lastName}, ${this.props.firstName}`;
   }
 
+  get fechaDePase(): Date | undefined {
+    return this.props.fechaDePase;
+  }
+
+  get tienePase(): boolean {
+    return this.props.fechaDePase != null;
+  }
+
   softDelete(): void {
     this.props.active = false;
     this.props.deletedAt = new Date();
+  }
+
+  registrarPase(fecha: Date): void {
+    if (fecha > new Date()) throw new PaseFechaInvalidaError();
+    this.props.fechaDePase = fecha;
+  }
+
+  revertirPase(): void {
+    this.props.fechaDePase = undefined;
   }
 }
