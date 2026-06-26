@@ -690,3 +690,54 @@ describe('useGradingGrid - ROOT institutionId threading', () => {
     });
   });
 });
+
+// ── Error handling (blindaje del allSettled) ─────────────────────────────────────
+
+describe('useGradingGrid - error handling', () => {
+  beforeEach(() => {
+    setupMocks();
+  });
+
+  it('GG-ERR-1: setea error (no queda mudo) si falla un fetch requerido', async () => {
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/students') return Promise.reject(new Error('boom'));
+      if (url === '/subject-competencies') return Promise.resolve({ data: { data: mockCompetencies } });
+      if (url === '/grading/period-templates') return Promise.resolve({ data: { data: mockTemplates } });
+      if (url === '/grading/scales') return Promise.resolve({ data: { data: mockScales } });
+      if (url === '/competency-valuations') return Promise.resolve({ data: { data: mockValuations } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    const { result } = renderHook(() => useGradingGrid(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).not.toBe('');
+  });
+
+  it('GG-ERR-2: el canal opcional subject-grades que falla NO dispara error (degradación elegante)', async () => {
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/course-cycles/cc-1/students') return Promise.resolve({ data: { data: mockStudents } });
+      if (url === '/subject-competencies') return Promise.resolve({ data: { data: mockCompetencies } });
+      if (url === '/grading/period-templates') return Promise.resolve({ data: { data: mockTemplates } });
+      if (url === '/grading/scales') return Promise.resolve({ data: { data: mockScales } });
+      if (url === '/competency-valuations') return Promise.resolve({ data: { data: mockValuations } });
+      if (url === '/grading/subject-grades') return Promise.reject(new Error('boom')); // canal opcional
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    const { result } = renderHook(() =>
+      useGradingGrid({ ...defaultOptions, subjectId: 'sub-1' }),
+    );
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('');
+    expect(result.current.students).toHaveLength(2);
+  });
+
+  it('GG-ERR-3: sin fallas, error queda vacío', async () => {
+    const { result } = renderHook(() => useGradingGrid(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('');
+  });
+});

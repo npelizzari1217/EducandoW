@@ -168,6 +168,15 @@ export function useStudentGrades({
       }),
       apiClient.get('/grading/scales', { params: { ...scaleParams, ...tenantParams } }),
     ]).then(([byStudentRes, scalesRes]) => {
+      // Blindaje: allSettled nunca rechaza, así que un fetch caído no llega al .catch.
+      // Ambos son requeridos (notas + escala de notas); si alguno falla, avisamos en vez
+      // de renderizar una vista vacía y muda.
+      if (byStudentRes.status === 'rejected' || scalesRes.status === 'rejected') {
+        setError('Error al cargar los datos del alumno');
+        setLoading(false);
+        return;
+      }
+
       // ── Subject grades + competency valuations ────────────────────────────
       const byStudentData: RawByStudentResponse | null =
         byStudentRes.status === 'fulfilled'
