@@ -438,4 +438,116 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       logoUrl: true,
     });
   });
+
+  // ── Branch completers ─────────────────────────────────────────────────────
+  // Cover optional-chaining / nullish-coalescing paths that remain uncovered
+  // in the datos assembly section.
+
+  // institutionId = null → institution is never fetched (ternary false branch)
+  // → all institution?.xxx paths hit the null side of ?. and ?? .
+  it('[branch] handles institutionId = null — institution is skipped entirely', async () => {
+    vi.mocked(TenantContext.getInstitutionId).mockReturnValue(null);
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const pdfGenerator = makePdfGenerator();
+    const uc = new GenerateConstanciaRegularUseCase(
+      pdfGenerator as never,
+      makePrisma() as never,
+    );
+
+    // Should succeed (institution = null is allowed when institutionId is null)
+    const result = await uc.execute('axcc-1', defaultInput);
+    expect(result).toBeInstanceOf(Buffer);
+    // institution fields should fall back to defaults
+    const [htmlArg] = pdfGenerator.generatePdf.mock.calls[0] as [string];
+    // no institution name → rendered as empty string by HBS fallback
+    expect(htmlArg).toBeDefined();
+  });
+
+  // cc.course = null → (cc as any).course?.grade ?? null takes the null branch
+  // cc.cycle = null → (cc as any).cycle?.name ?? '' takes the empty-string branch
+  // cc.level = undefined → (cc as any).level ?? 0 takes the 0 branch
+  it('[branch] handles null course, null cycle, and undefined level in courseCycle', async () => {
+    const tenantClient = makeTenantClient({
+      courseCycle: {
+        uuid: 'cc-uuid-1',
+        level: undefined,   // triggers ?? 0
+        course: null,       // triggers course?.grade → null
+        cycle: null,        // triggers cycle?.name → ''
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const pdfGenerator = makePdfGenerator();
+    const uc = new GenerateConstanciaRegularUseCase(
+      pdfGenerator as never,
+      makePrisma() as never,
+    );
+
+    const result = await uc.execute('axcc-1', defaultInput);
+    expect(result).toBeInstanceOf(Buffer);
+  });
+
+  // resolveLevelName: level not in {1,2,3,4} → names[decade] ?? `Nivel ${level}`
+  // Also covers the `level < 10` branch in the ternary (level is used as-is as decade).
+  it('[branch] resolveLevelName falls back to "Nivel N" for unknown level codes', async () => {
+    const tenantClient = makeTenantClient({
+      courseCycle: {
+        uuid: 'cc-uuid-1',
+        level: 5,           // < 10 → decade = 5 (not in names) → "Nivel 5"
+        course: { grade: '1°', division: 'A' },
+        cycle: { name: 'Ciclo 2026' },
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const pdfGenerator = makePdfGenerator();
+    const uc = new GenerateConstanciaRegularUseCase(
+      pdfGenerator as never,
+      makePrisma() as never,
+    );
+
+    await uc.execute('axcc-1', defaultInput);
+    const [htmlArg] = pdfGenerator.generatePdf.mock.calls[0] as [string];
+    expect(htmlArg).toContain('Nivel 5');
+  });
+
+  // ── Guard: no tenant context → INTERNAL_ERROR 500 ─────────────────────────
+  // Covers the if (!tenantClient) branch at the top of execute().
+
+  it('[guard] throws INTERNAL_ERROR (500) when TenantContext.getClient() returns null', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
+
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      makePrisma() as never,
+    );
+
+    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+      expect.objectContaining({ code: 'INTERNAL_ERROR', httpStatus: 500 }),
+    );
+  });
+
+  // ── Guard: template absent → TEMPLATE_NOT_FOUND 500 ──────────────────────
+  // Covers the if (!this.template) branch in execute() (step 8).
+  // We nullify the private field directly — avoids fs mocking and is
+  // semantically equivalent to the constructor not finding the .hbs file.
+
+  it('[guard] throws TEMPLATE_NOT_FOUND (500) when template is null (file not found scenario)', async () => {
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      makePrisma() as never,
+    );
+
+    // Simulate the constructor not finding constancia-regular.hbs
+    (uc as any).template = null;
+
+    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+      expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND', httpStatus: 500 }),
+    );
+  });
 });

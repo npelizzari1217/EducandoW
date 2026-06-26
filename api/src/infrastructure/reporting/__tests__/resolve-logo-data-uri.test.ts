@@ -12,6 +12,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -181,5 +182,46 @@ describe('resolveLogoDataUri', () => {
 
     const result = await resolveLogoDataUri('https://example.com/logo.png');
     expect(result).toBeNull();
+  });
+
+  // ── Timeout: the setTimeout callback fires and aborts the fetch ────────────
+  // Covers the `() => controller.abort()` branch that was never triggered in
+  // previous tests (which threw AbortError directly instead of via the timer).
+
+  it('[timeout] calls controller.abort() and returns null when fetch hangs for more than 5 s', async () => {
+    vi.useFakeTimers();
+
+    // Mock fetch to return a promise that hangs until the AbortSignal fires,
+    // then rejects with AbortError — matching real fetch behaviour on abort.
+    mockFetch.mockImplementation((_url: string, opts: RequestInit) => {
+      const signal = opts?.signal as AbortSignal;
+      return new Promise<never>((_resolve, reject) => {
+        const doAbort = () => {
+          const err = Object.assign(new Error('The operation was aborted'), {
+            name: 'AbortError',
+          });
+          reject(err);
+        };
+        if (signal?.aborted) {
+          doAbort();
+        } else {
+          signal?.addEventListener('abort', doAbort);
+        }
+      });
+    });
+
+    const resultPromise = resolveLogoDataUri('https://example.com/slow-logo.png');
+
+    // Advance fake clock past the 5-second timeout; advanceTimersByTimeAsync
+    // flushes both timers and the microtask/promise queue between ticks.
+    await vi.advanceTimersByTimeAsync(5_001);
+
+    const result = await resultPromise;
+    expect(result).toBeNull();
+    // fetch was called once (with a signal)
+    expect(mockFetch).toHaveBeenCalledOnce();
+    const [, fetchOpts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(fetchOpts?.signal).toBeInstanceOf(AbortSignal);
+    expect((fetchOpts.signal as AbortSignal).aborted).toBe(true);
   });
 });
