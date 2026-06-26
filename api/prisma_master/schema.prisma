@@ -23,6 +23,7 @@ model Institution {
   ministryReg       String?
   address           String?
   city              String?
+  province          String?  @map("province")
   postalCode        String?  @map("postal_code")
   country           String?  @default("AR")
   phone             String?

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Constancia de Alumno Regular</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; padding: 48px 56px; color: #1a1a1a; }
+
+    /* ── Header / Institución ─── */
+    .header { display: flex; align-items: center; gap: 24px; margin-bottom: 32px;
+              border-bottom: 2px solid #1a1a1a; padding-bottom: 18px; }
+    .header-logo { flex: 0 0 auto; }
+    .header-logo img { max-height: 72px; max-width: 120px; object-fit: contain; }
+    .header-text { flex: 1; }
+    .header-text h1 { font-size: 18px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .header-text .inst-meta { font-size: 11px; color: #555; margin-top: 4px; }
+
+    /* ── Title block ─── */
+    .cert-title { text-align: center; margin: 32px 0 28px; }
+    .cert-title h2 { font-size: 20px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold; }
+
+    /* ── Body / Alumno / Académico ─── */
+    .cert-body { font-size: 13px; line-height: 1.8; margin-bottom: 36px; }
+    .cert-body .label { font-weight: bold; }
+
+    /* ── Info table ─── */
+    .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    .info-table td { padding: 6px 10px; border-bottom: 1px solid #e0e0e0; }
+    .info-table td:first-child { font-weight: bold; width: 200px; color: #333; }
+
+    /* ── Validation / Footer ─── */
+    .cert-validation { margin-top: 28px; padding-top: 16px; border-top: 1px solid #ccc;
+                       font-size: 12px; color: #444; }
+    .cert-destinatario { font-style: italic; margin-bottom: 8px; }
+
+    /* ── Firma y Sello ─── */
+    .signature-area { margin-top: 64px; display: flex; justify-content: flex-end; }
+    .signature-box { text-align: center; width: 240px; }
+    .signature-line { border-top: 1px solid #1a1a1a; padding-top: 6px; font-size: 12px; }
+
+    /* ── Print ─── */
+    @media print {
+      body { padding: 0; }
+      @page { size: A4 portrait; margin: 15mm 12mm; }
+    }
+  </style>
+</head>
+<body>
+
+  {{!-- Group A: Institución --}}
+  <div class="header">
+    {{#if logoDataUri}}
+    <div class="header-logo">
+      <img src="{{logoDataUri}}" alt="Logo institucional">
+    </div>
+    {{/if}}
+    <div class="header-text">
+      <h1>{{institucionNombre}}</h1>
+      <div class="inst-meta">
+        {{#if cue}}<span>CUE: {{cue}}</span>{{/if}}
+        {{#if localidad}}<span> · {{localidad}}</span>{{/if}}
+        {{#if provincia}}<span>, {{provincia}}</span>{{/if}}
+      </div>
+    </div>
+  </div>
+
+  {{!-- Title --}}
+  <div class="cert-title">
+    <h2>Constancia de Alumno Regular</h2>
+  </div>
+
+  {{!-- Group B + C: Alumno + Académico --}}
+  <div class="cert-body">
+    <p>
+      La institución certifica que
+      <span class="label">{{alumnoApellido}}, {{alumnoNombre}}</span>
+      con DNI <span class="label">{{alumnoDni}}</span>
+      cursa como <strong>alumno/a regular</strong>
+      en el ciclo lectivo <span class="label">{{cicloLectivo}}</span>.
+    </p>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td>Nivel educativo:</td>
+      <td>{{nivel}}</td>
+    </tr>
+    {{#if grado}}
+    <tr>
+      <td>Año / Grado:</td>
+      <td>{{grado}}{{#if division}} — División {{division}}{{/if}}</td>
+    </tr>
+    {{/if}}
+    <tr>
+      <td>Ciclo lectivo:</td>
+      <td>{{cicloLectivo}}</td>
+    </tr>
+    <tr>
+      <td>Apellido y nombre:</td>
+      <td>{{alumnoApellido}}, {{alumnoNombre}}</td>
+    </tr>
+    <tr>
+      <td>DNI:</td>
+      <td>{{alumnoDni}}</td>
+    </tr>
+  </table>
+
+  {{!-- Group D: Validación --}}
+  <div class="cert-validation">
+    <p class="cert-destinatario">{{destinatario}}</p>
+    <p>Fecha de emisión: <strong>{{fechaEmisionLarga}}</strong></p>
+  </div>
+
+  <div class="signature-area">
+    <div class="signature-box">
+      <div class="signature-line">Firma y Sello</div>
+    </div>
+  </div>
+
+</body>
+</html>
