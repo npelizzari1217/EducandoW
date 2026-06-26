@@ -43,6 +43,7 @@ describe('PatchStudentUseCase', () => {
       findByDni: vi.fn(),
       search: vi.fn(),
       delete: vi.fn(),
+      setFechaDePase: vi.fn().mockResolvedValue(undefined),
     };
     guardianRepo = {
       findById: vi.fn(),

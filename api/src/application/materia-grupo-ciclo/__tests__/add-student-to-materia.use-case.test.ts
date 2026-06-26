@@ -66,6 +66,7 @@ function makeStudentRepo(student: ReturnType<typeof makeStudent> | null): Studen
     delete: vi.fn(),
     findByUserId: vi.fn(),
     findByGuardianUserId: vi.fn(),
+    setFechaDePase: vi.fn().mockResolvedValue(undefined),
   } as unknown as StudentRepository;
 }
 

@@ -181,3 +181,63 @@ When `institutionId` is provided, it MUST be stored as an `Id` VO on the entity.
 - GIVEN a persisted record with a known institutionId
 - WHEN `Student.reconstruct(props)` or `Teacher.reconstruct(props)` is called without `institutionId`
 - THEN TypeScript compilation MUST fail (type-level enforcement, not runtime)
+
+---
+
+### Requirement: Student.fechaDePase — Marca de Pase por Egreso
+
+> Added: pase-alumno-egreso (2026-06-26). Archive: `openspec/changes/archive/2026-06-26-pase-alumno-egreso/`.
+
+`StudentProps` MUST include `fechaDePase?: Date` (optional field — `undefined` means no active pase). The pase mark is GLOBAL to the alumno (field lives on `Student`, not on `AlumnosXCursoXCiclo`), so it propagates to every course-cycle panel the student appears in.
+
+**TypeScript contract clarification (W-3 from verify)**: at the domain layer the field uses optional/undefined semantics (`Date | undefined`). External contracts (port `setFechaDePase`, DTO `AlumnoCursoCicloItem`, Prisma) use `Date | null` / `string | null`. All callers checking for an active pase MUST use `!= null` (loose equality covers both `null` and `undefined`).
+
+The domain `Student` entity MUST provide:
+
+| Member | Signature | Semantics |
+|--------|-----------|-----------|
+| Getter | `fechaDePase: Date \| undefined` | Raw optional domain value |
+| Getter | `tienePase: boolean` | `this.props.fechaDePase != null` |
+| Method | `registrarPase(fecha: Date): void` | Throws `PaseFechaInvalidaError` if `fecha > now`; otherwise sets `fechaDePase` |
+| Method | `revertirPase(): void` | Sets `fechaDePase = undefined`; idempotent (no error when already unset) |
+
+`StudentRepository` port MUST declare:
+
+```ts
+setFechaDePase(studentId: string, fechaDePase: Date | null): Promise<void>;
+```
+
+Mutación puntual — mirrors `setPrintable`. Does NOT `save()` the full aggregate. The invariant still lives in the domain because the use case loads `Student`, calls `registrarPase/revertirPase`, then persists the resulting value via this method.
+
+Domain errors introduced:
+- `PaseFechaInvalidaError` — code `PASE_FECHA_INVALIDA`, HTTP 400. Message: "La fecha de pase no puede ser futura".
+- `StudentHasPaseError` — code `STUDENT_HAS_PASE`, HTTP 409. Message: "No se puede quitar un alumno con pase registrado; revertí el pase primero".
+
+#### Scenario PAE-D1: registrarPase — fecha pasada o igual a hoy aceptada
+
+- GIVEN a student entity (with or without active pase)
+- AND `fecha` is not after the current date/time
+- WHEN `student.registrarPase(fecha)` is called
+- THEN `student.fechaDePase` equals `fecha`
+- AND `student.tienePase` returns `true`
+
+#### Scenario PAE-D2: registrarPase — fecha futura rechazada
+
+- GIVEN `fecha` strictly after `new Date()` at call time
+- WHEN `student.registrarPase(fecha)` is called
+- THEN `PaseFechaInvalidaError` (code `PASE_FECHA_INVALIDA`) MUST be thrown
+- AND `student.fechaDePase` remains unchanged
+
+#### Scenario PAE-D3: revertirPase — idempotente
+
+- GIVEN any student (with or without active pase)
+- WHEN `student.revertirPase()` is called
+- THEN the call completes without error
+- AND `student.fechaDePase` is `undefined` after the call
+
+#### Scenario PAE-D4: tienePase — única fuente de verdad para pase activo
+
+- GIVEN a student reconstructed from DB with `fechaDePase` set to a non-null value
+- WHEN `student.tienePase` is evaluated
+- THEN it returns `true`
+- AND checking `student.fechaDePase != null` yields the same result (loose equality)

@@ -820,3 +820,131 @@ When the POST request is in-flight
 Then the "Asignar materias y competencias" button for course C is in loading/disabled state
   And no other course-row action is affected by this state
 ```
+
+---
+
+### Requirement: Pase por Egreso — AlumnosCursoCicloPanel (pase-alumno-egreso, 2026-06-26)
+
+> Added: pase-alumno-egreso (2026-06-26). Archive: `openspec/changes/archive/2026-06-26-pase-alumno-egreso/`.
+> Domain entity spec (Student.fechaDePase, registrarPase, revertirPase, domain errors): `openspec/specs/student-profile/spec.md` — Requirement: Student.fechaDePase.
+
+**What**: Administrative mark that an alumno has left the institution by "pase" (transfer). The field `fecha_de_pase TIMESTAMPTZ NULL` lives on `Student` (global — NOT on `AlumnosXCursoXCiclo`). The alumno stays in the listado (visible, tachado) and appears tachado in ALL course-cycle panels where enrolled.
+
+**Endpoint**:
+```
+PATCH /course-cycles/:ccId/alumnos/:id/pase
+```
+`:id` is the `AlumnosXCursoXCiclo` row ID (`rowId`, NOT `studentId`). Auth: `@Roles('ROOT', { module: 'COURSE_CYCLES', action: 'UPDATE' })`.
+
+**HTTP response: 204 No Content** (no body). Design decision ADR-3 — mirrors the printable endpoint pattern. The spec originally specified 200 with body; the implementation chose 204 (verified in verify-report W-1). This master spec reflects the implementation decision.
+
+**Request body (Zod)**:
+```json
+{ "fechaDePase": "YYYY-MM-DD" }
+{ "fechaDePase": null }
+```
+Schema: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado YYYY-MM-DD').nullable()`. Uses `YYYY-MM-DD` regex — NOT `z.string().datetime()` — because the native `<input type="date">` emits `YYYY-MM-DD`, not a full ISO datetime. Zod validates format and presence only. **Future-date rejection is a domain invariant** (`Student.registrarPase` throws `PaseFechaInvalidaError` → HTTP 400 via exception filter). Zod does NOT validate the future-date constraint.
+
+**Use-case IDOR guard**: `RegistrarPaseUseCase` validates that the `AlumnosXCursoXCiclo` row exists AND belongs to `ccId` before resolving `studentId`. A row belonging to a different course-cycle returns 404 (not 403), consistent with IDOR defense.
+
+**Guard on "Quitar"**: `RemoveStudentFromCourseCycleUseCase` MUST throw `StudentHasPaseError` (HTTP 409) when the student has `tienePase = true`. Defense-in-depth: the UI also disables the "Quitar" button.
+
+**`findByCourseCycleEnriched` extension**: Each `AlumnoCursoCicloEnriched` item MUST include `fechaDePase: string | null` (ISO 8601 string, or `null`). The `AlumnoCursoCicloItem` DTO type MUST include `fechaDePase: string | null`. Sort order remains unchanged (alphabetical by apellido+nombre).
+
+**Prisma migration**: `ALTER TABLE "students" ADD COLUMN "fecha_de_pase" TIMESTAMPTZ(6);` — aditiva, nullable, solo schema tenant. Master schema MUST NOT be modified.
+
+#### Scenario PAE-E1: PATCH exitoso — 204 No Content
+
+- GIVEN a valid `ccId`, a `rowId` belonging to that ccId, valid auth, and `fechaDePase: "2026-06-01"`
+- WHEN `PATCH /course-cycles/:ccId/alumnos/:id/pase` is called
+- THEN HTTP **204 No Content** is returned with no response body
+- AND `Student.fecha_de_pase` is set to that date in the tenant DB
+
+#### Scenario PAE-E2: Revertir pase — 204 No Content
+
+- GIVEN a student with active pase
+- WHEN the endpoint is called with `{ "fechaDePase": null }`
+- THEN HTTP 204 is returned
+- AND `Student.fecha_de_pase` is `NULL` in the DB
+- AND the student is no longer considered to have an active pase
+
+#### Scenario PAE-E3: Formato de fecha inválido — 422
+
+- GIVEN body with `fechaDePase: "no-es-fecha"` or a body missing the field entirely
+- WHEN the endpoint is called
+- THEN HTTP 422 Unprocessable Entity is returned with Zod validation error details
+
+#### Scenario PAE-E4: Fecha futura — 400 (invariante de dominio, no Zod)
+
+- GIVEN body with `fechaDePase: "2027-12-31"` (strictly after today)
+- WHEN the endpoint is called
+- THEN HTTP 400 Bad Request with domain error code `PASE_FECHA_INVALIDA`
+- AND no change is persisted (rejection is by `Student.registrarPase()`, mapped via exception filter)
+
+#### Scenario PAE-E5: rowId no encontrado o IDOR — 404
+
+- GIVEN `rowId` that does not exist, OR an `AlumnosXCursoXCiclo` row that belongs to a different `ccId`
+- WHEN the endpoint is called
+- THEN HTTP 404 Not Found is returned
+
+#### Scenario PAE-E6: Visibilidad global — pase visible en todos los cursos
+
+- GIVEN alumno X inscripto en cursoXcicloA and cursoXcicloB
+- WHEN pase is registered from the panel of cursoXcicloB
+- THEN `findByCourseCycleEnriched(ccA)` returns `fechaDePase != null` for alumno X
+- AND alumno X appears tachado in cursoXcicloA's panel (confirmed by repo test, commit eaac470)
+
+#### Scenario PAE-E7: Quitar rechazado con pase activo — 409
+
+- GIVEN a student with `tienePase = true`
+- WHEN the remove-enrollment endpoint is called for that student
+- THEN HTTP 409 with domain error code `STUDENT_HAS_PASE`
+- AND the `AlumnosXCursoXCiclo` row remains intact
+
+#### Scenario PAE-U1: UI — fila tachada para alumno con pase
+
+- GIVEN `AlumnosCursoCicloPanel` renders a row for a student with `fechaDePase != null`
+- WHEN the row is inspected
+- THEN the student name/data element has CSS `text-decoration: line-through; opacity: 0.7`
+- AND the action buttons MUST NOT have line-through applied
+
+#### Scenario PAE-U2: UI — columnas "Pase" y "Fecha de pase"
+
+- GIVEN `AlumnosCursoCicloPanel` renders
+- THEN column headers "Pase" and "Fecha de pase" MUST be present
+- AND for an alumno with pase: "Pase" shows "Sí", "Fecha de pase" shows `dd/mm/aaaa` (formatted via `toLocaleDateString('es-AR')`)
+- AND for an alumno without pase: "Pase" shows empty, "Fecha de pase" shows "—"
+
+#### Scenario PAE-U3: UI — botón "Pase" / "Revertir pase" por fila
+
+- GIVEN a row for a student without pase
+- THEN a button "Pase" MUST be present (variant action, enabled, `data-testid="btn-pase-{id}"`)
+- GIVEN a row for a student with pase
+- THEN a button "Revertir pase" MUST be present (variant danger-soft, enabled, `data-testid="btn-revertir-pase-{id}"`)
+- AND both variants MUST NOT coexist for the same row
+
+#### Scenario PAE-U4: UI — modal de fecha
+
+- GIVEN the user clicks "Pase" for a student
+- THEN a modal with `<input type="date" data-testid="input-fecha-pase">` MUST appear
+- AND the Confirmar button MUST be disabled when the input is empty (PAE-U4-A)
+- WHEN the user enters a valid date and clicks Confirmar
+- THEN `PATCH /course-cycles/:ccId/alumnos/:rowId/pase` is called with `{ fechaDePase: "YYYY-MM-DD" }`
+- AND the modal closes and the panel reloads (PAE-U4-B)
+- WHEN the user cancels the modal
+- THEN no request is issued and the panel remains unchanged (PAE-U4-C)
+
+#### Scenario PAE-U5: UI — "Quitar" deshabilitado con pase activo
+
+- GIVEN a student row with `fechaDePase != null`
+- THEN the "Quitar" button MUST have `disabled` attribute and `title="Revertí el pase antes de quitar"`
+- GIVEN a student row with `fechaDePase == null`
+- THEN the "Quitar" button MUST be enabled and operational
+
+#### Scenario PAE-M1: Migración Prisma aditiva — solo tenant
+
+- GIVEN an existing tenant DB without the column
+- WHEN the migration `add_fecha_de_pase_to_student` is applied
+- THEN `fecha_de_pase TIMESTAMPTZ(6)` column is added to `students` table with `DEFAULT NULL`
+- AND all pre-existing rows have `fecha_de_pase = NULL` (no data loss)
+- AND the master schema is NOT modified by this change

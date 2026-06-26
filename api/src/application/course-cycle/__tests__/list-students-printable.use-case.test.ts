@@ -31,8 +31,8 @@ function makeRepo(result: AlumnoCursoCicloEnriched[] = []): AlumnosXCursoXCicloR
 describe('ListStudentsByCourseCycleUseCase — printable field (SDD-2)', () => {
   it('Scenario I: result includes printable=true for student A', async () => {
     const enriched: AlumnoCursoCicloEnriched[] = [
-      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García', printable: true },
-      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López', printable: false },
+      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García', printable: true, fechaDePase: null },
+      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López', printable: false, fechaDePase: null },
     ];
     const repo = makeRepo(enriched);
     const uc = new ListStudentsByCourseCycleUseCase(repo);
@@ -51,7 +51,7 @@ describe('ListStudentsByCourseCycleUseCase — printable field (SDD-2)', () => {
 
   it('Scenario I: each entry carries the printable boolean field', async () => {
     const enriched: AlumnoCursoCicloEnriched[] = [
-      { id: 'axcc-3', studentId: 's-3', studentName: 'Lucía Martínez', printable: false },
+      { id: 'axcc-3', studentId: 's-3', studentName: 'Lucía Martínez', printable: false, fechaDePase: null },
     ];
     const repo = makeRepo(enriched);
     const uc = new ListStudentsByCourseCycleUseCase(repo);

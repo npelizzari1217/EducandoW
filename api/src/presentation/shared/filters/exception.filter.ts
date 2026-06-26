@@ -45,6 +45,9 @@ const DOMAIN_STATUS: Record<string, number> = {
   // Asistencia — días bloqueados (T7.2)
   DAY_NOT_ASSIGNABLE: 422,
   STATUS_NOT_ASSIGNABLE: 400,
+  // pase-alumno-egreso
+  PASE_FECHA_INVALIDA: 400,
+  STUDENT_HAS_PASE: 409,
 };
 
 @Catch()

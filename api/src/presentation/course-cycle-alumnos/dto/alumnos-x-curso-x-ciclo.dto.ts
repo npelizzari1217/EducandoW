@@ -18,6 +18,20 @@ export const SetPrintableSchema = z.object({
 });
 export type SetPrintableDto = z.infer<typeof SetPrintableSchema>;
 
+// ── RegistrarPase (pase-alumno-egreso) ───────────────────────────────────────
+
+/**
+ * Body for PATCH /course-cycles/:ccId/alumnos/:id/pase.
+ * fechaDePase: ISO date string YYYY-MM-DD (register) or null (revert).
+ */
+export const RegistrarPaseSchema = z.object({
+  fechaDePase: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado YYYY-MM-DD')
+    .nullable(),
+});
+export type RegistrarPaseDto = z.infer<typeof RegistrarPaseSchema>;
+
 // ── Response types ────────────────────────────────────────────────────────────
 
 /**
@@ -41,4 +55,6 @@ export interface AlumnoCursoCicloItem {
   studentName: string;
   /** Whether this student is included in the next print batch. SDD-2. */
   printable: boolean;
+  /** ISO 8601 date string or null when no pase has been registered. pase-alumno-egreso. */
+  fechaDePase: string | null;
 }
