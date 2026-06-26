@@ -7,6 +7,8 @@ export interface AlumnoCursoCicloEnriched {
   studentName: string;
   /** Whether this student's boletín is included in the next print batch (SDD-2). */
   printable: boolean;
+  /** ISO 8601 string or null — pase de egreso global al alumno (pase-alumno-egreso). */
+  fechaDePase: string | null;
 }
 
 /**

@@ -9,4 +9,6 @@ export interface StudentRepository {
   delete(id: string): Promise<void>;
   findByUserId(userId: string): Promise<Student | null>;
   findByGuardianUserId(guardianUserId: string): Promise<Student[]>;
+  /** Mutación puntual: setea fecha_de_pase en el Student (pass null para revertir). */
+  setFechaDePase(studentId: string, fechaDePase: Date | null): Promise<void>;
 }

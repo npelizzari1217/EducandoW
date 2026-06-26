@@ -86,12 +86,12 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
     const studentIds = [...new Set(rows.map((r: { studentId: string }) => r.studentId))];
     const students = await this.client.student.findMany({
       where: { id: { in: studentIds } },
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, fechaDePase: true },
     });
-    const studentMap = new Map<string, { firstName: string; lastName: string }>(
-      students.map((s: { id: string; firstName: string; lastName: string }) => [
+    const studentMap = new Map<string, { firstName: string; lastName: string; fechaDePase: Date | null }>(
+      students.map((s: { id: string; firstName: string; lastName: string; fechaDePase: Date | null }) => [
         s.id,
-        { firstName: s.firstName, lastName: s.lastName },
+        { firstName: s.firstName, lastName: s.lastName, fechaDePase: s.fechaDePase },
       ]),
     );
     // Orden por Apellido + Nombre (es-AR, case/acento-insensible)
@@ -108,6 +108,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
           studentId: a.studentId,
           studentName: s ? `${s.firstName} ${s.lastName}`.trim() : a.studentId,
           printable: a.printable,
+          fechaDePase: s?.fechaDePase ? s.fechaDePase.toISOString() : null,
         };
       })
       .sort((x, y) => sortKey(x.studentId).localeCompare(sortKey(y.studentId), 'es'));

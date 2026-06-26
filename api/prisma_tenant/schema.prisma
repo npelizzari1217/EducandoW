@@ -35,8 +35,9 @@ model Student {
   photoUrl      String?
   userId        String?
 
-  active    Boolean   @default(true)
-  deletedAt DateTime?
+  active      Boolean   @default(true)
+  deletedAt   DateTime?
+  fechaDePase DateTime? @db.Timestamptz(6) @map("fecha_de_pase")
 
   guardians               StudentGuardian[]
   salaEnrollments         SalaEnrollment[]
