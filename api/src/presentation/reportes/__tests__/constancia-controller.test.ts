@@ -1,6 +1,5 @@
 /**
- * T-11 [RED] — ReportesController#getConstanciaRegular handler tests.
- * Written before the handler exists (TDD RED phase).
+ * T-11 [RED→GREEN] — ReportesController#createConstanciaRegular handler tests.
  * Satisfies: REQ-2, REQ-6 (Sc6.1)
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
@@ -36,13 +35,13 @@ const VALID_DTO = { destinatario: 'A pedido', fechaEmision: '2026-06-26' };
 
 // ── ConstanciaError 404 → status+json ────────────────────────────────────────
 
-describe('ReportesController#getConstanciaRegular — ConstanciaError 404', () => {
+describe('ReportesController#createConstanciaRegular — ConstanciaError 404', () => {
   it('returns status(404).json with statusCode/error/message (REQ-2)', async () => {
     const err404 = new ConstanciaError('AXCC no encontrado', 'AXCC_NOT_FOUND', 404);
     const ctrl = makeController(() => Promise.reject(err404));
     const res = makeRes();
 
-    await ctrl.getConstanciaRegular(AXCC_ID, VALID_DTO, res);
+    await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res._statusJson).toHaveBeenCalledWith(
@@ -58,13 +57,13 @@ describe('ReportesController#getConstanciaRegular — ConstanciaError 404', () =
 
 // ── ConstanciaError 422 → status+json ────────────────────────────────────────
 
-describe('ReportesController#getConstanciaRegular — ConstanciaError 422', () => {
+describe('ReportesController#createConstanciaRegular — ConstanciaError 422', () => {
   it('returns status(422).json with STUDENT_NOT_ELIGIBLE (REQ-2)', async () => {
     const err422 = new ConstanciaError('Alumno egresado', 'STUDENT_NOT_ELIGIBLE', 422);
     const ctrl = makeController(() => Promise.reject(err422));
     const res = makeRes();
 
-    await ctrl.getConstanciaRegular(AXCC_ID, VALID_DTO, res);
+    await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
 
     expect(res.status).toHaveBeenCalledWith(422);
     expect(res._statusJson).toHaveBeenCalledWith(
@@ -77,15 +76,37 @@ describe('ReportesController#getConstanciaRegular — ConstanciaError 422', () =
   });
 });
 
+// ── ConstanciaError 500 → status+json ────────────────────────────────────────
+
+describe('ReportesController#createConstanciaRegular — ConstanciaError 500', () => {
+  it('returns status(500).json with INSTITUTION_NOT_FOUND (REQ-2)', async () => {
+    const err500 = new ConstanciaError('Institución no encontrada', 'INSTITUTION_NOT_FOUND', 500);
+    const ctrl = makeController(() => Promise.reject(err500));
+    const res = makeRes();
+
+    await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res._statusJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        error: 'INSTITUTION_NOT_FOUND',
+        message: 'Institución no encontrada',
+      }),
+    );
+    expect(res.send).not.toHaveBeenCalled();
+  });
+});
+
 // ── Happy path → PDF response ─────────────────────────────────────────────────
 
-describe('ReportesController#getConstanciaRegular — happy path', () => {
+describe('ReportesController#createConstanciaRegular — happy path', () => {
   it('sets Content-Type application/pdf, Content-Disposition inline, and sends buffer (REQ-6 Sc6.1)', async () => {
     const pdfBuffer = Buffer.from('%PDF-mock');
     const ctrl = makeController(() => Promise.resolve(pdfBuffer));
     const res = makeRes();
 
-    await ctrl.getConstanciaRegular(AXCC_ID, VALID_DTO, res);
+    await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
 
     expect(res.status).not.toHaveBeenCalled();
     expect(res.set).toHaveBeenCalledWith(
@@ -102,7 +123,7 @@ describe('ReportesController#getConstanciaRegular — happy path', () => {
     const ctrl = makeController(() => Promise.resolve(pdfBuffer));
     const res = makeRes();
 
-    await ctrl.getConstanciaRegular(AXCC_ID, VALID_DTO, res);
+    await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
 
     const setCall = res.set.mock.calls[0][0] as Record<string, string>;
     expect(setCall['Content-Disposition']).toContain(AXCC_ID);
@@ -111,13 +132,13 @@ describe('ReportesController#getConstanciaRegular — happy path', () => {
 
 // ── Non-ConstanciaError is re-thrown ─────────────────────────────────────────
 
-describe('ReportesController#getConstanciaRegular — non-ConstanciaError re-thrown', () => {
+describe('ReportesController#createConstanciaRegular — non-ConstanciaError re-thrown', () => {
   it('re-throws unknown errors without swallowing (REQ-2)', async () => {
     const genericError = new Error('DB connection lost');
     const ctrl = makeController(() => Promise.reject(genericError));
     const res = makeRes();
 
-    await expect(ctrl.getConstanciaRegular(AXCC_ID, VALID_DTO, res)).rejects.toThrow(
+    await expect(ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res)).rejects.toThrow(
       'DB connection lost',
     );
     expect(res.status).not.toHaveBeenCalled();

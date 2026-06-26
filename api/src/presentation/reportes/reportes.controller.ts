@@ -92,7 +92,7 @@ export class ReportesController {
    */
   @Post('constancia-regular/:axccId')
   @Roles('ROOT', { module: 'REPORTS', action: 'READ' })
-  async getConstanciaRegular(
+  async createConstanciaRegular(
     @Param('axccId') axccId: string,
     @Body(new ZodValidationPipe(ConstanciaBodySchema)) dto: ConstanciaBodyDto,
     @Res() res: Response,

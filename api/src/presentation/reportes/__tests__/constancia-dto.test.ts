@@ -59,3 +59,42 @@ describe('ConstanciaBodySchema — ZodValidationPipe', () => {
     expect(() => pipe.transform({ destinatario: 'A pedido' })).toThrow(BadRequestException);
   });
 });
+
+describe('ConstanciaBodySchema — calendar date validation', () => {
+  // Fechas imposibles — pasan el regex pero no son fechas reales
+  it('rejects month 13 (2026-13-45) → 400', () => {
+    const pipe = new ZodValidationPipe(ConstanciaBodySchema);
+    expect(() =>
+      pipe.transform({ destinatario: 'A pedido', fechaEmision: '2026-13-45' }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects month 00 (2026-00-10) → 400', () => {
+    const pipe = new ZodValidationPipe(ConstanciaBodySchema);
+    expect(() =>
+      pipe.transform({ destinatario: 'A pedido', fechaEmision: '2026-00-10' }),
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects February 30 (2026-02-30) → 400', () => {
+    const pipe = new ZodValidationPipe(ConstanciaBodySchema);
+    expect(() =>
+      pipe.transform({ destinatario: 'A pedido', fechaEmision: '2026-02-30' }),
+    ).toThrow(BadRequestException);
+  });
+
+  // Fechas válidas que deben pasar
+  it('accepts a regular valid date (2026-06-26)', () => {
+    const pipe = new ZodValidationPipe(ConstanciaBodySchema);
+    expect(() =>
+      pipe.transform({ destinatario: 'A pedido', fechaEmision: '2026-06-26' }),
+    ).not.toThrow();
+  });
+
+  it('accepts leap year Feb 29 (2024-02-29)', () => {
+    const pipe = new ZodValidationPipe(ConstanciaBodySchema);
+    expect(() =>
+      pipe.transform({ destinatario: 'A pedido', fechaEmision: '2024-02-29' }),
+    ).not.toThrow();
+  });
+});
