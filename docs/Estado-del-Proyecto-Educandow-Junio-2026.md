@@ -398,11 +398,14 @@ PATCH /v1/students/:id/revertir-pase  (elimina la marca)
 
 | Variable | Descripción | Requerida |
 |----------|-------------|:---:|
-| `MASTER_DATABASE_URL` | Conexión a `educandow_master` | ✅ |
-| `ENCRYPTION_KEY` | 32 bytes exactos para AES-256 (smtp_pass) | ✅ |
-| `JWT_SECRET` | Clave para firmar tokens | ✅ |
-| `JWT_REFRESH_SECRET` | Clave para refresh tokens | ✅ |
+| `MASTER_DATABASE_URL` | Conexión a `educandow_master` (fallback a `DATABASE_URL`) | ✅ |
+| `ENCRYPTION_KEY` | 32 bytes exactos para AES-256 (smtp_pass) — **única que aborta el arranque si falta o no mide 32 bytes** | ✅ |
+| `JWT_SECRET` | Clave única para firmar access **y** refresh tokens (default inseguro `change-me-in-production`) | ✅ |
+| `JWT_EXPIRES_IN` | Vida del access token (default: `15m`) | ❌ |
+| `JWT_REFRESH_EXPIRES_IN` | Vida del refresh token (default: `7d`) | ❌ |
 | `PORT` | Puerto HTTP (default: 3000) | ❌ |
+
+> **Nota**: no existe `JWT_REFRESH_SECRET` — el refresh token se firma con el mismo `JWT_SECRET`. Solo cambia el tiempo de expiración. Fuente: `api/src/infrastructure/config/env.config.ts`.
 
 ---
 

@@ -34,14 +34,18 @@ interface StudentMembership {
   createdAt: string;
 }
 
-interface Nota {
+/**
+ * Reemplaza la interfaz legacy `Nota`. Espejo (parcial) de SubjectEntry del backend.
+ * Source: GET /grading/subject-grades/by-student → { subjects: SubjectEntry[] }.
+ * El modelo viejo (Nota/Evaluacion) fue retirado; las notas viven en
+ * SubjectPeriodGrade (por período) y SubjectFinalGrade (finales).
+ */
+interface SubjectGrade {
   [key: string]: unknown;
-  id: string;
-  evaluationId: string;
-  numericValue: number | null;
-  qualitativeValue: string | null;
-  gradeCode: string | null;
-  gradeLabel: string | null;
+  subjectId: string;
+  subjectName: string;
+  periodGrades: Array<{ periodOrdinal: number; gradeCode: string | null }>;
+  finalGrades: Array<{ type: string; gradeCode: string | null }>;
 }
 
 // ── Helpers ────────────────────────────────────────────────
@@ -93,7 +97,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
   const [selectedStudent, setSelectedStudent] = useState<StudentDetail | null>(null);
   // SDD-2 R17: memberships replace enrollments (AlumnosXCursoXCiclo enriched rows)
   const [memberships, setMemberships] = useState<StudentMembership[]>([]);
-  const [notas, setNotas] = useState<Nota[]>([]);
+  const [subjectGrades, setSubjectGrades] = useState<SubjectGrade[]>([]);
   const [loadingLegajo, setLoadingLegajo] = useState(false);
   const [error, setError] = useState('');
 
@@ -102,7 +106,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
 
     setSelectedStudent(null);
     setMemberships([]);
-    setNotas([]);
+    setSubjectGrades([]);
     setError('');
     setLoadingLegajo(true);
 
@@ -112,7 +116,6 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
       apiClient.get(`/students/${studentId}`, { params: tenantParams }),
       // SDD-2 R17: GET /students/:studentId/memberships replaces GET /enrollments
       apiClient.get(`/students/${studentId}/memberships`),
-      apiClient.get('/notas', { params: { studentId, ...tenantParams } }),
     ]).then((results) => {
       // Student detail (required)
       if (
@@ -136,18 +139,44 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         setMemberships([]);
       }
 
-      // Notas (optional)
-      if (results[2].status === 'fulfilled') {
-        setNotas(
-          (results[2] as { value?: { data?: { data?: Nota[] } } }).value?.data?.data ?? [],
-        );
-      } else {
-        setNotas([]);
-      }
-
       setLoadingLegajo(false);
     });
   }, [studentId, institutionId]);
+
+  // Calificaciones (modelo nuevo): por cada courseCycle del alumno se piden las notas
+  // a GET /grading/subject-grades/by-student. Reemplaza al endpoint legacy /notas.
+  // Va en un effect separado porque el courseCycleId que el endpoint exige sale de
+  // las memberships, que se cargan en el effect de arriba.
+  useEffect(() => {
+    if (!studentId || memberships.length === 0) {
+      setSubjectGrades([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    Promise.all(
+      memberships.map((m) =>
+        apiClient
+          .get('/grading/subject-grades/by-student', {
+            params: { courseCycleId: m.courseCycleId, studentId },
+          })
+          .then(
+            (res) =>
+              (res as { data?: { data?: { subjects?: SubjectGrade[] } } }).data?.data?.subjects ??
+              [],
+          )
+          .catch(() => [] as SubjectGrade[]),
+      ),
+    ).then((perCycle) => {
+      if (cancelled) return;
+      setSubjectGrades(perCycle.flat());
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [memberships, studentId]);
 
   if (loadingLegajo) {
     return (
@@ -231,10 +260,10 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
 
       {/* ── Calificaciones ── */}
       <Card
-        title={`Calificaciones (${notas.length} registros)${notas.length === 0 ? ' — sin datos disponibles' : ''}`}
+        title={`Calificaciones (${subjectGrades.length} materias)${subjectGrades.length === 0 ? ' — sin datos disponibles' : ''}`}
         className="mt-md"
       >
-        {notas.length === 0 ? (
+        {subjectGrades.length === 0 ? (
           <p
             style={{
               fontSize: 'var(--text-sm)',
@@ -247,21 +276,29 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         ) : (
           <Table
             columns={[
-              { key: 'evaluationId', header: 'Evaluación ID' },
+              { key: 'subjectName', header: 'Materia' },
               {
-                key: 'numericValue',
-                header: 'Nota num.',
-                render: (n: Nota) => n.numericValue ?? '-',
+                key: 'periodGrades',
+                header: 'Notas por período',
+                render: (s: SubjectGrade) => {
+                  const codes = s.periodGrades
+                    .filter((g) => g.gradeCode != null && g.gradeCode !== '')
+                    .map((g) => `${g.periodOrdinal}° ${g.gradeCode}`);
+                  return codes.length ? codes.join(' · ') : '-';
+                },
               },
               {
-                key: 'qualitativeValue',
-                header: 'Nota cual.',
-                render: (n: Nota) => n.qualitativeValue ?? '-',
+                key: 'finalGrades',
+                header: 'Nota final',
+                render: (s: SubjectGrade) => {
+                  const codes = s.finalGrades
+                    .filter((f) => f.gradeCode != null && f.gradeCode !== '')
+                    .map((f) => `${f.type}: ${f.gradeCode}`);
+                  return codes.length ? codes.join(' · ') : '-';
+                },
               },
-              { key: 'gradeCode', header: 'Código' },
-              { key: 'gradeLabel', header: 'Concepto', render: (n: Nota) => n.gradeLabel ?? '-' },
             ]}
-            data={notas}
+            data={subjectGrades}
             emptyMessage="Sin calificaciones registradas"
           />
         )}
