@@ -21,6 +21,7 @@ import { Button } from '../../../components/ui/button';
 import { Modal } from '../../../components/ui/modal';
 import apiClient from '../../../api/client';
 import { downloadBoletinBatch } from '../../../hooks/useBoletin';
+import { printConstancia, downloadConstancia } from '../../../hooks/useConstancia';
 import { useCan } from '../../../hooks/use-can';
 
 // ── Local types ───────────────────────────────────────────────────────────────
@@ -78,6 +79,20 @@ const rowStyle: React.CSSProperties = {
   marginBottom: '0.25rem',
 };
 
+// ── Constancia constants & helpers ────────────────────────────────────────────
+
+const DEFAULT_CONSTANCIA_DESTINATARIO =
+  'A pedido del interesado y para ser presentado ante quien corresponda';
+
+/** Returns today's date as YYYY-MM-DD using LOCAL components (avoids UTC TZ shift). */
+function todayLocalISO(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCursoCicloPanelProps) {
@@ -94,6 +109,11 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
   // ── Pase modal state ──────────────────────────────────────────────────────
   const [paseTarget, setPaseTarget] = useState<AlumnoCursoCicloItem | null>(null);
   const [paseFecha, setPaseFecha] = useState('');
+
+  // ── Constancia modal state ─────────────────────────────────────────────────
+  const [constanciaTarget, setConstanciaTarget] = useState<AlumnoCursoCicloItem | null>(null);
+  const [constanciaDestinatario, setConstanciaDestinatario] = useState(DEFAULT_CONSTANCIA_DESTINATARIO);
+  const [constanciaFecha, setConstanciaFecha] = useState(todayLocalISO);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -221,6 +241,44 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
       await load();
     } catch {
       setToast({ message: 'Error al registrar el pase', type: 'error' });
+    }
+  };
+
+  // ── Constancia handlers ───────────────────────────────────────────────────
+
+  const handleOpenConstancia = (alumno: AlumnoCursoCicloItem) => {
+    setConstanciaTarget(alumno);
+    setConstanciaDestinatario(DEFAULT_CONSTANCIA_DESTINATARIO);
+    setConstanciaFecha(todayLocalISO());
+  };
+
+  const handleCerrarConstancia = () => {
+    setConstanciaTarget(null);
+  };
+
+  const handleConstanciaImprimir = async () => {
+    if (!constanciaTarget) return;
+    try {
+      await printConstancia(constanciaTarget.id, {
+        destinatario: constanciaDestinatario,
+        fechaEmision: constanciaFecha,
+      });
+      setConstanciaTarget(null);
+    } catch {
+      setToast({ message: 'Error al generar la constancia', type: 'error' });
+    }
+  };
+
+  const handleConstanciaDescargar = async () => {
+    if (!constanciaTarget) return;
+    try {
+      await downloadConstancia(constanciaTarget.id, {
+        destinatario: constanciaDestinatario,
+        fechaEmision: constanciaFecha,
+      });
+      setConstanciaTarget(null);
+    } catch {
+      setToast({ message: 'Error al descargar la constancia', type: 'error' });
     }
   };
 
@@ -439,6 +497,22 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
                     Asignar materias y competencias
                   </Button>
 
+                  {/* Constancia — disabled when the student has a pase (not eligible, REQ-8) */}
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid={`btn-constancia-${alumno.id}`}
+                    onClick={() => handleOpenConstancia(alumno)}
+                    disabled={!!alumno.fechaDePase}
+                    title={
+                      alumno.fechaDePase
+                        ? 'El alumno tiene un pase registrado'
+                        : 'Generar constancia de alumno regular'
+                    }
+                  >
+                    Constancia
+                  </Button>
+
                   {/* Quitar — disabled when the student has a pase (business rule) */}
                   <Button
                     variant="danger-soft"
@@ -547,6 +621,93 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
           {cascadeToast.message}
         </div>
       )}
+
+      {/* Modal de constancia de alumno regular */}
+      <Modal
+        open={constanciaTarget !== null}
+        title="Constancia de Alumno Regular"
+        onClose={handleCerrarConstancia}
+        size="md"
+      >
+        <div data-testid="modal-constancia">
+          <p style={{ marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
+            Alumno: <strong>{constanciaTarget?.studentName}</strong>
+          </p>
+          <div style={{ marginBottom: '1rem' }}>
+            <label
+              htmlFor="input-constancia-destinatario"
+              style={{ ...labelStyle, display: 'block', marginBottom: '0.25rem' }}
+            >
+              Destinatario
+            </label>
+            <textarea
+              id="input-constancia-destinatario"
+              data-testid="input-constancia-destinatario"
+              value={constanciaDestinatario}
+              onChange={(e) => setConstanciaDestinatario(e.target.value)}
+              rows={3}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '0.375rem',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-sm)',
+                resize: 'vertical',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label
+              htmlFor="input-constancia-fecha"
+              style={{ ...labelStyle, display: 'block', marginBottom: '0.25rem' }}
+            >
+              Fecha de emisión
+            </label>
+            <input
+              id="input-constancia-fecha"
+              type="date"
+              data-testid="input-constancia-fecha"
+              value={constanciaFecha}
+              onChange={(e) => setConstanciaFecha(e.target.value)}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '0.375rem',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 'var(--text-sm)',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCerrarConstancia}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="action"
+              size="sm"
+              data-testid="btn-constancia-imprimir"
+              onClick={handleConstanciaImprimir}
+            >
+              Imprimir
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              data-testid="btn-constancia-descargar"
+              onClick={handleConstanciaDescargar}
+            >
+              Descargar
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Modal de fecha de pase — reuses the shared Modal component */}
       <Modal
