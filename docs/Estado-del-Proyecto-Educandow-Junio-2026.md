@@ -1,7 +1,7 @@
 # Estado del Proyecto EducandoW — Junio 2026
 
 > **Stack**: TypeScript 5.4 · NestJS v10 + SWC · React 19 + Vite 6 · Prisma v5 + PostgreSQL · pnpm + Turborepo v2  
-> **Arquitectura**: Clean Architecture + Database-per-Tenant + JWT · **Tests**: 785/785 ✅
+> **Arquitectura**: Clean Architecture + Database-per-Tenant + JWT · **Tests**: 3276/3276 ✅
 
 ---
 
@@ -12,7 +12,7 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 | Objetivo | Estado |
 |----------|:---:|
 | **SaaS multi-tenant** con database-per-tenant | ✅ |
-| **25 campos institucionales** completos (identidad + SMTP + branding + notificaciones) | ✅ |
+| **27 campos institucionales** completos (identidad + SMTP + branding + notificaciones + socket + sessionTimeout) | ✅ |
 | **Creación atómica de tenant** (master record → DB → migrations → admin) con rollback | ✅ |
 | **RBAC granular** con módulos × 5 acciones (READ, CREATE, UPDATE, DELETE, PRINT) | ✅ |
 | **Perfiles de permisos** como templates (Admin Completo, Docente Básico) | ✅ |
@@ -20,6 +20,16 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 | **Frontend multi-tenant** con CSS theme por institución y sidebar filtrada por niveles | ✅ |
 | **Autenticación JWT** con refresh tokens, login multi-institución | ✅ |
 | **Seed automático** de datos maestros (módulos, roles, perfiles) | ✅ |
+| **Ciclos lectivos y CursosXCiclo** CRUD + docentes por ciclo (DocenteXCiclo) + grupos por materia | ✅ |
+| **Períodos de evaluación** configurables por nivel (GradingPeriodTemplate + fechas por ciclo) | ✅ |
+| **Grading por nivel** (Primario y Secundario): notas por período + condición final + deuda académica (MateriaPrevia) | ✅ |
+| **Evaluación por competencias**: jerarquía en plan de estudio, instanciación, valuaciones por período | ✅ |
+| **Boletines PDF** generados con Puppeteer (Primario, Secundario, Terciario) | ✅ |
+| **Asistencia mensual** con tipos configurables (AttendanceType), grilla JSON day-map y días bloqueados | ✅ |
+| **Materias optativas** en plan de estudio (`esOptativa`) + inscripción selectiva | ✅ |
+| **Pase de alumno** a otra institución (marca reversible `fechaDePase` en Student) | ✅ |
+| **Observaciones pedagógicas** por alumno y ciclo | ✅ |
+| **Ingresantes** (lista de espera de aspirantes por ciclo y nivel) | ✅ |
 
 ---
 
@@ -34,16 +44,18 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 │                                                        │
 │  ┌──────────────┐       ┌─────────────────────────┐   │
 │  │ Institution  │──<    │ InstitutionLevel        │   │
-│  │ (25 campos)  │       │ level, modality, active │   │
+│  │ (27 campos)  │       │ level, modality, active │   │
 │  │ id, name,    │       └─────────────────────────┘   │
 │  │ cue UK,      │                                      │
 │  │ db_name UK,  │──< ┌──────────┐                     │
-│  │ SMTP config, │    │   User   │                     │
-│  │ branding,    │    │ email UK │──< RefreshToken     │
-│  │ active,      │    │ password │──< UserRole         │
-│  │ notif flags  │    │ profileId│──< UserModule       │
-│  └──────────────┘    └──────────┘                     │
-│                              │                         │
+│  │ SMTP config, │    │   User        │              │
+│  │ branding,    │    │ email UK      │──< RefreshToken│
+│  │ active,      │    │ firstName,    │──< UserRole    │
+│  │ notif flags  │    │ lastName, dni │──< UserModule  │
+│  │ session      │    │ title, phone  │──< UserLevel   │
+│  │ timeout      │    │ profileId     │  (level+modal) │
+│  └──────────────┘    └───────────────┘                │
+│                                  │                     │
 │  ┌──────────┐    ┌──────────┴──────┐                  │
 │  │  Module  │──< │   RoleModule    │                  │
 │  │ code UK  │    │   actions[]     │                  │
@@ -58,11 +70,12 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 ```
 
 **Reglas multi-tenant**:
-- R1: Master DB solo contiene `institutions`, `users`, `profiles`, `modules`, `roles`, `refresh_tokens`
+- R1: Master DB solo contiene `institutions`, `users`, `profiles`, `modules`, `roles`, `refresh_tokens`, `user_levels`
 - R2: Cada tenant tiene su propia DB `educandow_{id}` con todos los datos pedagógicos
 - R3: Las tablas tenant NO tienen `institutionId` — el aislamiento es por base de datos
 - R4: JWT transporta `dbName` para routing de conexión
 - R5: Un usuario pertenece a UNA institución
+- R6: `StudentGuardian.userId` referencia a `master.users.id` sin FK (patrón cross-DB AD-6); los datos de persona (nombre, teléfono) viven en el master User
 
 ### 2.2 Base Tenant — Datos pedagógicos por institución
 
@@ -70,50 +83,66 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 ┌──────────────────────────────────────────────────────────────┐
 │               TENANT DATABASE — educandow_{id}               │
 │                                                              │
-│  ┌──────────┐    ┌───────────────┐    ┌──────────────────┐  │
-│  │ Student  │──< │ Guardian      │    │ StudentGuardian  │  │
-│  │ 25 cam-  │    │ name, phone,  │    │ relationship     │  │
-│  │ pos DNI  │    │ email         │    └──────────────────┘  │
-│  └──────────┘    └───────────────┘                           │
-│       │                                                      │
-│       ├──< Enrollment (ciclo, curso, student)                │
-│       ├──< Nota (evaluación, valor, escala)                  │
-│       ├──< Attendance (fecha, presente, justificado)         │
-│       └──< NotaTrimestral (periodo, promedio)                │
+│  ┌──────────────┐     ┌─────────────────────────────────┐   │
+│  │   Student    │──<  │ StudentGuardian                 │   │
+│  │ firstName,   │     │ userId (→ master User, sin FK)  │   │
+│  │ lastName,    │     │ relationship (enum), finResp,   │   │
+│  │ dni UK,      │     │ isAuthorizedToPickUp            │   │
+│  │ fechaDePase? │     └─────────────────────────────────┘   │
+│  └──────────────┘                                           │
+│         │                                                   │
+│         ├──< AlumnosXCursoXCiclo (printable) ─► CourseCycle │
+│         ├──< asistenciaXAlumnoXCursoXCiclo (days JSON)      │
+│         ├──< SubjectPeriodGrade (pa, ppi, pp, internalSt.)  │
+│         ├──< SubjectFinalGrade (FINAL|DIC|MARZO|DEFINITIVA) │
+│         ├──< CompetenciaXMateriaXAlumnoXCursoXCiclo         │
+│         ├──< StudentObservation (tipo, contenido, ciclo)    │
+│         └──< SalaEnrollment ─► Sala                         │
 │                                                              │
-│  ┌──────────────┐    ┌───────────────────┐                  │
-│  │ AcademicCycle│    │   CourseSection   │                  │
-│  │ year, start  │    │   name, capacity  │                  │
-│  └──────────────┘    └───────────────────┘                  │
-│                              │                               │
-│  ┌──────────┐    ┌──────────┴──────┐    ┌──────────────┐   │
-│  │ Teacher  │──< │ SubjectAssig.   │──< │ Evaluacion   │   │
-│  │ name, DNI│    │ teacher,curso,  │    │ tipo, fecha  │   │
-│  └──────────┘    │ materia         │    └──────────────┘   │
-│                  └─────────────────┘                        │
+│  ┌───────────────┐    ┌─────────────────────────────────┐   │
+│  │ AcademicCycle │──< │ CourseCycle                     │   │
+│  │ code, year,   │    │ courseId, studyPlanId,          │   │
+│  │ start/end     │    │ passingGrade, level             │   │
+│  └───────────────┘    └─────────────────────────────────┘   │
+│         │                          │                        │
+│         └──< GradingPeriodDate     └──< DocenteXCiclo       │
+│                    │                    userId(→master)      │
+│         ┌──────────┘                    │                   │
+│  ┌──────┴───────────────┐    ┌──────────┴──────────────┐   │
+│  │ GradingPeriodTemplate│──< │ GradingPeriodTemplateItem│   │
+│  │ name, level, modality│    │ name, sortOrder          │   │
+│  └──────────────────────┘    └──────────────────────────┘   │
 │                                                              │
-│  ┌──────────────┐    ┌───────────────────┐                  │
-│  │ StudyPlan    │──< │ StudyPlanCourse   │──< Subject      │
-│  │ name, nivel  │    │ year, hours       │                  │
-│  └──────────────┘    └───────────────────┘                  │
+│  ┌────────────┐    ┌───────────────────────────────────┐    │
+│  │ GradeScale │──< │ GradeScaleValue                   │    │
+│  │ name, level│    │ code, label, sortOrder,           │    │
+│  └────────────┘    │ internalStatus (enum)             │    │
+│                    └───────────────────────────────────┘    │
 │                                                              │
-│  NIVELES PEDAGÓGICOS (bounded contexts independientes):     │
+│  ┌─────────────┐    ┌─────────────────┐                     │
+│  │  StudyPlan  │──< │ StudyPlanCourse │──< StudyPlanSubject │
+│  │ name, nivel │    │ courseSection   │    esOptativa (flag) │
+│  └─────────────┘    └─────────────────┘──< SubjectCompetency│
+│                                                              │
+│  ┌──────────────────────┐    ┌──────────────────────────┐   │
+│  │ MateriaXCursoXCiclo  │    │ AttendanceType           │   │
+│  │ subject, esOptativa  │    │ level, code (≤4c),       │   │
+│  └──────────────────────┘    │ absenceValue, isSystem   │   │
+│                              └──────────────────────────┘   │
+│                                                              │
+│  NIVELES PEDAGÓGICOS (bounded contexts independientes):      │
 │  ┌────────────┐ ┌──────────┐ ┌──────────┐ ┌────────────┐  │
 │  │ Inicial    │ │ Primario │ │ Secund.  │ │ Terciario  │  │
 │  │ Salas      │ │ Grados   │ │ Cursos   │ │ Carreras   │  │
-│  │ Inf.Evol.  │ │ Calif.   │ │ M.Examen │ │ Inscrip.   │  │
+│  │ Inf.Evol.  │ │ CalifPrim│ │ M.Examen │ │ LlamadosEx │  │
+│  │ InfAvance  │ │ (legacy) │ │ MateriaP │ │ Inscrip.   │  │
 │  │ Planific.  │ │          │ │ R.Acad.  │ │ Actas      │  │
 │  └────────────┘ └──────────┘ └──────────┘ │ Títulos    │  │
 │                                            └────────────┘  │
-│  ┌──────────────┐    ┌───────────────┐                     │
-│  │ GradeScale   │──< │ ScaleValue    │                     │
-│  │ name, tipo   │    │ value, label  │                     │
-│  └──────────────┘    └───────────────┘                     │
-│                                                              │
-│  ┌────────────────┐    ┌───────────────┐                   │
-│  │ PeriodoEvaluac │──< │ NotaTrimestral│                   │
-│  │ name, orden    │    └───────────────┘                   │
-│  └────────────────┘                                         │
+│  ┌────────────────────┐  ┌──────────────────────────────┐  │
+│  │     Ingresante     │  │       MateriaPrevia          │  │
+│  │ aspirantes × ciclo │  │ deuda académica (Secundario) │  │
+│  └────────────────────┘  └──────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,7 +153,7 @@ EducandoW es un **SaaS multi-tenant de gestión educativa** para instituciones a
 ### 3.1 Creación de Institución (4-step atómico)
 
 ```
-POST /v1/institutions  { name, cue, levels[], admin_email, ...25 campos }
+POST /v1/institutions  { name, cue, levels[], admin_email, ...27 campos }
         │
         ▼
   ┌──────────────────────────┐
@@ -178,7 +207,7 @@ POST /v1/auth/login  { email, password }
 ```
 ┌──────────┐   JWT    ┌──────────────┐   GET /v1/institutions/me   ┌──────────────┐
 │  LOGIN   │ ───────► │ AuthContext  │ ──────────────────────────► │ Institution  │
-│  page    │          │ user, token  │     (25 campos + branding)   │   Context    │
+│  page    │          │ user, token  │     (27 campos + branding)   │   Context    │
 └──────────┘          └──────────────┘                              └──────┬───────┘
                                                                           │
                                                     ┌─────────────────────┼─────────────────────┐
@@ -190,6 +219,30 @@ POST /v1/auth/login  { email, password }
                                              │ user.modules │    │ --body-bg    │    │ institution     │
                                              │ featureFlags │    │ --body-text  │    │                 │
                                              └──────────────┘    └──────────────┘    └──────────────────┘
+```
+
+### 3.4 Pase de alumno a otra institución
+
+```
+PATCH /v1/students/:id/pase       { fechaDePase: "2026-06-26" }
+PATCH /v1/students/:id/revertir-pase  (elimina la marca)
+        │
+        ▼
+  ┌─────────────────────────┐
+  │ RegistrarPaseUseCase /  │
+  │ RevertirPaseUseCase     │
+  └─────────────────────────┘
+        │
+        ├─[1] Verificar que Student existe y pertenece al tenant
+        ├─[2] (pase) Validar que fecha no sea futura
+        ├─[3] student.registrarPase(fecha) → Student.fechaDePase = fecha
+        │   ó student.revertirPase()       → Student.fechaDePase = null
+        └─[4] repo.save(student) ──────────────────────────► tenant DB
+
+  ⚠️ Invariantes de dominio:
+     - "Quitar" (hard delete) BLOQUEADO si Student.fechaDePase != null → 409
+     - El alumno permanece en el listado (tachado visualmente en frontend)
+     - La marca es reversible (permisos CC + guard IDOR)
 ```
 
 ---
@@ -208,6 +261,8 @@ POST /v1/auth/login  { email, password }
 | **Creación de tenant** | 4-step atómico inline en CreateInstitutionUseCase | Simple, compensación inmediata con try/catch, sin event-driven innecesario |
 | **Creación de DB** | Raw SQL via `pg` driver contra DB `postgres` | Prisma no puede conectarse a una DB que no existe |
 | **Migraciones tenant** | `prisma migrate deploy` via child_process | Idempotente, oficial, maneja locking |
+| **Asistencia mensual** | JSON day-map `{ "1":"P", "2":"A" }` en campo `days`, upsert por (CC, Student, año, mes) | Read-merge-write: el repo carga la fila existente y reemplaza solo el día tocado; nunca sobrescribe el objeto completo |
+| **Snapshot de períodos** | `SubjectGradingPeriod` es copia inmutable del template en el momento de la primera nota | Desacopla ediciones futuras del template de las notas históricas (AD-4) |
 
 ### 4.2 Dominio
 
@@ -218,6 +273,10 @@ POST /v1/auth/login  { email, password }
 | **Value Objects** | Inmutables, self-validating (Cue, HexColor, SmtpConfig, Level, etc.) | Validación en construcción, no en DTOs. Tipos fuertes que expresan reglas de negocio |
 | **Soft-delete** | Campo `active: boolean` + `deletedAt: DateTime?` | Sin pérdida de datos, bloqueo de sesiones activas, auditoría |
 | **CUÉ único** | Validación cross-tenant vía master DB (todas las instituciones comparten tabla) | CUÉ es único a nivel nacional — la master DB lo garantiza naturalmente |
+| **Guardian cross-DB** | `StudentGuardian.userId` referencia `master.users.id` sin FK declarada | Patrón AD-6: imposible FK cross-DB en Postgres; integridad garantizada a nivel aplicación |
+| **`fechaDePase` en Student** | Marca de egreso global en la entidad Student (no en la inscripción) | El pase es un evento del alumno, no de su inscripción a un curso; permite consulta sin join |
+| **Optativas materializadas** | `esOptativa` se copia de `StudyPlanSubject` → `MateriaXCursoXCiclo` al generar el ciclo | Permite modificar el plan sin afectar ciclos ya generados; la flag vive en la instancia |
+| **Legacy retirado** | Modelos `Attendance`, `Teacher`, `SubjectAssignment`, `CalificacionXXX` eliminados del schema | Reemplazados por asistencia mensual JSON, DocenteXCiclo y el stack SubjectPeriodGrade/SubjectFinalGrade |
 
 ### 4.3 Seguridad
 
@@ -247,6 +306,8 @@ POST /v1/auth/login  { email, password }
 | **Integration tests** | NestJS TestingModule + test DB | Endpoints completos con contexto real de BD, sin mocks de Prisma |
 | **Coverage threshold** | 80% | Configurado en `openspec/config.yaml` |
 
+> **Conteo actual (26/jun/2026, corrida sin caché)**: `domain` 1149 · `api` 1650 · `web` 477 → **3276 tests en 312 archivos, todos en verde**.
+
 ---
 
 ## 5. Módulos Implementados
@@ -256,7 +317,7 @@ POST /v1/auth/login  { email, password }
 | Módulo | Tablas | Endpoints | Estado |
 |--------|--------|-----------|:---:|
 | **Auth** | users, refresh_tokens | register, login, me, refresh, logout | ✅ |
-| **Instituciones** | institutions (25 campos), institution_levels | CRUD + /me + ?active + logo upload | ✅ |
+| **Instituciones** | institutions (27 campos), institution_levels | CRUD + /me + ?active + logo upload + institucion-activa-global | ✅ |
 | **Roles** | roles, role_modules, user_roles | gestión de roles con acciones por módulo | ✅ |
 | **Módulos** | modules, module_actions | 12 módulos del sistema con acciones | ✅ |
 | **Usuarios** | users, user_modules | CRUD + asignación de roles/módulos/niveles | ✅ |
@@ -267,22 +328,27 @@ POST /v1/auth/login  { email, password }
 
 | Nivel | Entidades | Funcionalidades | Estado |
 |-------|-----------|-----------------|:---:|
-| **Inicial** | Salas, Informes Evolutivos, Planificaciones | CRUD completo, reportes | ✅ |
-| **Primario** | Grados, Calificaciones | CRUD, escala de notas, adjetivación | ✅ |
-| **Secundario** | Cursos, Mesas de Examen, Régimen Académico | CRUD, inscripciones, actas | ✅ |
-| **Terciario** | Carreras, Inscripciones, Actas de Examen, Títulos | CRUD, estados, notas | ✅ |
+| **Inicial** | Salas, Informes Evolutivos, Informe de Avance, Planificaciones | CRUD completo, reportes | ✅ |
+| **Primario** | Grados, CalificacionPrimario (legacy) + SubjectPeriodGrade | CRUD, grading por períodos, boletín PDF | ✅ |
+| **Secundario** | Cursos, Mesas de Examen, Régimen Académico, MateriaPrevia (deuda académica) | CRUD, grading, condición final (REGULAR/PREVIA/LIBRE) | ✅ |
+| **Terciario** | Carreras, Inscripciones, Llamados a Examen, Vencimiento de Regularidad, Actas de Examen, Títulos | CRUD, estados, notas, boletín terciario | ✅ |
 
 ### 5.3 Transversales
 
 | Módulo | Funcionalidades | Estado |
 |--------|----------------|:---:|
-| **Alumnos** | CRUD 25 campos + tutores + búsqueda | ✅ |
-| **Docentes** | CRUD + asignación a materias/cursos | ✅ |
-| **Planes de Estudio** | CRUD + cursos + asignaturas | ✅ |
-| **Inscripciones** | Matrícula en ciclos lectivos y cursos | ✅ |
-| **Calificaciones** | Evaluaciones, notas, escalas, notas trimestrales | ✅ |
-| **Asistencia** | Registro diario, justificaciones | ✅ |
+| **Alumnos** | CRUD + tutores/guardians (cross-DB) + pase de institución (`fechaDePase`, reversible) + búsqueda | ✅ |
+| **Docentes** | DocenteXCiclo: asignación a ciclos, grupos por materia (GrupoXCursoXMateriaXCiclo), roles (PRECEPTOR, TITULAR, EOE…) | ✅ |
+| **Planes de Estudio** | CRUD + cursos + asignaturas + optativas (`esOptativa`) + borrado seguro + SubjectCompetency | ✅ |
+| **Inscripciones** | AlumnosXCursoXCiclo por CourseCycle; inscripción selectiva a optativas | ✅ |
+| **Calificaciones** | SubjectPeriodGrade por período + SubjectFinalGrade (4 tipos) + GradeScale/Value + flags pa/ppi/pp | ✅ |
+| **Competencias** | Jerarquía en plan (SubjectCompetency) → instanciación → valuaciones por período (CompetenciaXPeriodoX…) | ✅ |
+| **Períodos de evaluación** | GradingPeriodTemplate + items + GradingPeriodDate por ciclo; reemplaza bimestres hardcodeados | ✅ |
+| **Asistencia mensual** | Grilla JSON day-map, AttendanceType configurables por nivel, días bloqueados por calendario | ✅ |
+| **Boletines PDF** | Generación con Puppeteer: Primario, Secundario, Terciario | ✅ |
+| **Observaciones pedagógicas** | StudentObservation por alumno × ciclo, tipos configurables | ✅ |
 | **Legajos** | Vista e impresión de legajo del alumno | ✅ |
+| **Ingresantes** | Lista de espera de aspirantes por ciclo y nivel | ✅ |
 
 ---
 
@@ -312,16 +378,17 @@ POST /v1/auth/login  { email, password }
 
 | Capa | Tecnología | Versión |
 |------|-----------|---------|
-| API Framework | NestJS + SWC builder | v10 |
-| ORM | Prisma | v5 |
+| API Framework | NestJS + SWC builder | v10.4 |
+| ORM | Prisma | v5.20 |
 | Database | PostgreSQL (Docker) | latest |
 | Web Framework | React | v19 |
 | Bundler | Vite | v6 |
 | Router | React Router | v7 |
-| Mobile | Expo SDK | v52 |
-| Testing | Vitest | v1.6.1 |
-| Language | TypeScript (strict) | v5.4 |
-| Package Manager | pnpm | v9.0.0 |
+| PDF | Puppeteer | v25 |
+| Mobile | Expo SDK | v52 (phantom) |
+| Testing | Vitest | v4.1 |
+| Language | TypeScript (strict) | v5.9 |
+| Package Manager | pnpm | v9.15.9 |
 | Monorepo | Turborepo | v2 |
 | Node | — | ≥20.x |
 
@@ -336,6 +403,44 @@ POST /v1/auth/login  { email, password }
 | `JWT_SECRET` | Clave para firmar tokens | ✅ |
 | `JWT_REFRESH_SECRET` | Clave para refresh tokens | ✅ |
 | `PORT` | Puerto HTTP (default: 3000) | ❌ |
+
+---
+
+## 7-bis. Novedades desde el 1 de junio de 2026
+
+> El cuerpo de este documento (objetivos, DER, decisiones) data del **1/jun**. Entre el **2 y el 26 de junio** entró trabajo sustancial — decenas de SDD changes archivados en `openspec/changes/archive/`. Resumen por área:
+
+### Evaluación y Calificaciones (núcleo del período)
+- **Períodos de evaluación** configurables (`grading-periods`).
+- **Fundaciones de grading** + grading por nivel: **Primario** y **Secundario** (`grading-foundations`, `grading-primario`, `grading-secundario`).
+- **Competencias**: jerarquía, instanciación, valuaciones y UI (`competency-hierarchy`, `competency-instantiation`, `competency-valuations`, `competency-grading-ui`).
+- **Carga de notas por docente** (`docente-grade-entry`).
+- **Boletines PDF** + boletín de terciario (`report-cards-pdf`, `boletin-terciario`).
+- **Observaciones pedagógicas** por alumno (`pedagogical-observations`).
+- **Flags de promoción/impresión** (`promotion-printing-flags`).
+
+### Asistencia (reescritura completa)
+- Se **retiró el stack legacy** de Attendance; la **grilla mensual** es la única fuente de verdad (`feat: remove legacy Attendance stack`).
+- **Tipos de asistencia** (`attendance-types`), **boletín de asistencia mensual** (PR #50), acceso **desde el panel de alumnos del curso** (`asistencia-desde-alumnos-curso`) y **días bloqueados** por calendario (`asistencia-dias-bloqueados`, PR #68).
+
+### Ciclos académicos y cursos
+- **CRUD de ciclos lectivos** + refactor (`academic-cycle-crud`, `academic-cycle-refactor`).
+- **Curso por ciclo**, **grupos por docente** y columna de **cantidad de alumnos activos** (`curso-por-ciclo`, `docente-ciclo-grupos`, `columna-alumnos-activos`).
+
+### Planes de estudio y optativas
+- **Borrado seguro** de planes (`study-plan-safe-delete`).
+- **Materias optativas** a nivel de plan + inscripción (`optativa-plan-level`, `optativas-inscripcion`).
+
+### Terciario
+- **Evaluación, llamados a examen y vencimiento de regularidad** (`evaluacion-terciario`, `llamados-examen-terciario`, `vencimiento-regularidad-terciario`).
+
+### RBAC, multitenant e infraestructura
+- **DER fases 1 y 2**: RBAC por niveles, evaluación y **tutores/guardians** (`der-phase-1-rbac-niveles`, `der-phase-2-evaluacion-tutores`).
+- **Institución activa global** (`institucion-activa-global`), **script de bootstrap** + mejoras, y **baseline de drift** de migraciones de tenant (`tenant-migration-drift-baseline`).
+- Serie de **retiro de código legacy** (docente/grading/homeroom/evaluaciones — changes `retiro-*` S1/S2/S3).
+
+### Pase y egreso de alumnos
+- **`fechaDePase`** en la entidad Student con `registrarPase`/`revertirPase`, endpoint `PATCH`, guards (CC + IDOR) y columnas en web (`pase-alumno-egreso`, PR #69).
 
 ---
 
@@ -360,7 +465,7 @@ docs/
 ```bash
 pnpm install          # Instalar dependencias
 pnpm build            # Buildear todo (api + web + domain)
-pnpm test             # Correr todos los tests (785)
+pnpm test             # Correr todos los tests (3276)
 pnpm dev              # Levantar API + web en modo desarrollo
 
 # Deploy
@@ -371,5 +476,5 @@ tar -czf educandow-api-vps.tar.gz api/dist/ api/prisma/ api/package.json deploy/
 
 ---
 
-**Última actualización**: 1 de junio de 2026  
-**Tests**: 785/785 ✅ · **Build**: limpio ✅ · **SDD cycles activos**: 0 (todos archivados)
+**Última actualización**: 26 de junio de 2026  
+**Tests**: 3276/3276 ✅ (domain 1149 · api 1650 · web 477) · **Build**: limpio ✅ · **SDD cycles activos**: 0 (todos archivados)
