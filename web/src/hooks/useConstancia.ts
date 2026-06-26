@@ -45,5 +45,7 @@ export async function downloadConstancia(
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  // 0 ms: the anchor.click() captures the blob URL synchronously;
+  // revoke immediately instead of waiting 60 s like the print flow.
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
 }

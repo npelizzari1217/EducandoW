@@ -829,8 +829,8 @@ describe('Constancia per-row button', () => {
     });
   });
 
-  // W-C4: "Imprimir" calls printConstancia with row id and form values
-  it('W-C4: "Imprimir" calls printConstancia with rowId and current form values', async () => {
+  // W-C4: "Imprimir" calls printConstancia with row id and form values; modal closes on success
+  it('W-C4: "Imprimir" calls printConstancia and closes modal on success', async () => {
     const user = userEvent.setup();
     renderPanel();
     await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
@@ -846,10 +846,14 @@ describe('Constancia per-row button', () => {
         fechaEmision: FAKE_TODAY,
       });
     });
+    // Modal must close after successful print
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-constancia')).not.toBeInTheDocument();
+    });
   });
 
-  // W-C5: "Descargar" calls downloadConstancia with row id and form values
-  it('W-C5: "Descargar" calls downloadConstancia with rowId and current form values', async () => {
+  // W-C5: "Descargar" calls downloadConstancia with row id and form values; modal closes on success
+  it('W-C5: "Descargar" calls downloadConstancia and closes modal on success', async () => {
     const user = userEvent.setup();
     renderPanel();
     await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
@@ -864,6 +868,10 @@ describe('Constancia per-row button', () => {
         destinatario: DEFAULT_DESTINATARIO,
         fechaEmision: FAKE_TODAY,
       });
+    });
+    // Modal must close after successful download
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-constancia')).not.toBeInTheDocument();
     });
   });
 
@@ -881,6 +889,23 @@ describe('Constancia per-row button', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/error al generar la constancia/i)).toBeInTheDocument();
+    });
+  });
+
+  // W-C7: downloadConstancia error → toast shown (symmetric with W-C6)
+  it('W-C7: downloadConstancia error shows error toast in panel', async () => {
+    mockDownloadConstancia.mockRejectedValue(new Error('Network error'));
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+    await waitFor(() => expect(screen.getByTestId('modal-constancia')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-descargar'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/error al descargar la constancia/i)).toBeInTheDocument();
     });
   });
 });
