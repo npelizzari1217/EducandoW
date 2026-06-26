@@ -254,6 +254,13 @@ export type { AccessScope } from './auth/access-scope';
 
 // ── Asistencia Mensual (SDD-4) ───────────────────────────────────────────────
 export { DayMap } from './asistencia';
+
+// ── asistencia-dias-bloqueados — Phase 1: Calendar utils ─────────────────────
+export { daysInMonth, dayOfWeek, buildLockedDayMap } from './asistencia';
+
+// ── asistencia-dias-bloqueados — Phase 2: Domain errors ──────────────────────
+export { DayNotAssignableError } from './asistencia';
+export { StatusNotAssignableError } from './asistencia';
 export { AsistenciaXAlumnoXCursoXCiclo } from './asistencia';
 export type {
   AsistenciaXAlumnoXCursoXCicloProps,

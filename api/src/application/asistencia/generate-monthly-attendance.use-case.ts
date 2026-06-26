@@ -26,6 +26,7 @@ import {
   resolveAccessScope,
   ForbiddenError,
   NotFoundError,
+  buildLockedDayMap,
 } from '@educandow/domain';
 import type {
   AlumnosXCursoXCicloRepository,
@@ -94,6 +95,9 @@ export class GenerateMonthlyAttendanceUseCase {
       return { generalCreated: 0, generalSkipped: 0, materiaCreated: 0, materiaSkipped: 0 };
     }
 
+    // Build locked-day map once for this month (REQ-GEN-3 / T5.2)
+    const lockedMap = buildLockedDayMap(year, month);
+
     // 5. Generate general rows (one per student)
     let generalCreated = 0;
     let generalSkipped = 0;
@@ -104,6 +108,7 @@ export class GenerateMonthlyAttendanceUseCase {
         studentId: e.studentId,
         year,
         month,
+        days: lockedMap,
       }));
       const generalResult = await this.generalRepo.generateMany(generalRows);
       generalCreated = generalResult.created;
@@ -125,6 +130,7 @@ export class GenerateMonthlyAttendanceUseCase {
           studentId: axm.studentId,
           year,
           month,
+          days: lockedMap,
         }));
 
       if (subjectRows.length > 0) {

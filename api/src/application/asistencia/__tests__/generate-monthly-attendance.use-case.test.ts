@@ -12,7 +12,7 @@
  * Pattern: mocked repos + mocked TenantContext; no NestJS bootstrap, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, NotFoundError } from '@educandow/domain';
+import { ForbiddenError, NotFoundError, buildLockedDayMap } from '@educandow/domain';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: { getClient: vi.fn() },
@@ -245,6 +245,116 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const materiaCalled = Object.keys(materiaAsistRepo).filter((k) => (materiaAsistRepo as any)[k]?.mock?.calls?.length > 0);
       expect(materiaCalled).toEqual(['generateMany']);
+    });
+  });
+
+  // ── GEN-1..5: lockedMap injection (T5.1) ──────────────────────────────────
+
+  describe('GEN-1: Jan 2025 — general rows contain locked-day map (SAB/DOM, no X)', () => {
+    it('each row has days with SAB/DOM keys; no weekday keys; no X entries', async () => {
+      const { uc, generalRepo } = makeUC();
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 1, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      expect(rows).toHaveLength(2);
+
+      const expectedMap = buildLockedDayMap(2025, 1);
+      for (const row of rows) {
+        expect(row.days).toEqual(expectedMap);
+        // SAB/DOM entries present
+        expect(row.days['4']).toBe('SAB');
+        expect(row.days['5']).toBe('DOM');
+        // Weekday keys absent
+        expect(row.days['1']).toBeUndefined();
+        expect(row.days['2']).toBeUndefined();
+        expect(row.days['3']).toBeUndefined();
+        expect(row.days['6']).toBeUndefined();
+        // No X entries (January has 31 days)
+        for (let d = 1; d <= 31; d++) {
+          expect(row.days[String(d)]).not.toBe('X');
+        }
+      }
+    });
+  });
+
+  describe('GEN-2: Feb 2025 (non-leap, 28 days) — X entries for 29/30/31; key 28 absent', () => {
+    it('rows have X for days 29/30/31 and no entry for day 28', async () => {
+      const { uc, generalRepo } = makeUC({ alumnos: [enrolled[0]] });
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 2, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      const days = rows[0].days;
+
+      expect(days['29']).toBe('X');
+      expect(days['30']).toBe('X');
+      expect(days['31']).toBe('X');
+      expect(days['28']).toBeUndefined(); // Friday — hábil
+    });
+  });
+
+  describe('GEN-3: Feb 2024 (leap, 29 days) — X entries for 30/31; day 29 NOT X', () => {
+    it('rows have X for 30/31 but no X for 29 (day 29 exists in 2024)', async () => {
+      const { uc, generalRepo } = makeUC({ alumnos: [enrolled[0]] });
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2024, month: 2, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      const days = rows[0].days;
+
+      expect(days['30']).toBe('X');
+      expect(days['31']).toBe('X');
+      expect(days['29']).not.toBe('X'); // day 29 exists in 2024
+    });
+  });
+
+  describe('GEN-4: Apr 2025 (materia) — materia repo receives days with 31:X; 30 absent', () => {
+    it('materiaAsistRepo receives rows with days["31"]="X" and days["30"] absent', async () => {
+      const { uc, materiaAsistRepo } = makeUC();
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 4, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = materiaAsistRepo.generateMany.mock.calls[0][0];
+      expect(rows.length).toBeGreaterThan(0);
+
+      for (const row of rows) {
+        expect(row.days['31']).toBe('X');
+        expect(row.days['30']).toBeUndefined(); // day 30 exists in April
+      }
+    });
+  });
+
+  describe('GEN-5: Dec 2025 (31 days) — SAB/DOM present; no X entries', () => {
+    it('rows have SAB/DOM entries for December; no X keys present', async () => {
+      const { uc, generalRepo } = makeUC({ alumnos: [enrolled[0]] });
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 12, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      const days = rows[0].days;
+
+      // Some SAB entry (Dec 6 = SAB)
+      expect(days['6']).toBe('SAB');
+      // Some DOM entry (Dec 7 = DOM)
+      expect(days['7']).toBe('DOM');
+      // No X entries (December has 31 days)
+      for (let d = 1; d <= 31; d++) {
+        expect(days[String(d)]).not.toBe('X');
+      }
+    });
+  });
+
+  describe('GEN: same lockedMap reference used for all rows in one invocation', () => {
+    it('all rows in one execute share the same days object reference', async () => {
+      const { uc, generalRepo } = makeUC();
+
+      await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 1, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      expect(rows).toHaveLength(2);
+      // Same reference — one buildLockedDayMap call per execution
+      expect(rows[0].days).toBe(rows[1].days);
     });
   });
 });

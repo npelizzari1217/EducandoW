@@ -10,6 +10,10 @@ export interface GenerateGeneralInput {
   studentId: string;
   year: number;
   month: number;
+  /** Locked-day map built by the use case via buildLockedDayMap(year, month).
+   *  The infra layer merges this into the days JSONB using read-merge-write semantics:
+   *  existing hábil entries are preserved; SAB/DOM/X keys are added or corrected. */
+  days?: Record<string, string>;
 }
 
 /**
@@ -25,9 +29,20 @@ export interface EnrichedGeneralAttendance {
 
 export interface AsistenciaGeneralRepository {
   /**
-   * Bulk-insert monthly register rows.
-   * Uses createMany + skipDuplicates semantics — safe to call again if rows exist (ADR-3).
-   * Returns how many rows were created vs skipped.
+   * Bulk-upsert monthly register rows using read-merge-write semantics.
+   *
+   * For each row in `rows`:
+   *  - If no existing row is found (first generation): creates a new row with `days` pre-loaded
+   *    from `row.days` (the locked-day map for the month).
+   *  - If a row already exists (re-generation): merges `row.days` (SAB/DOM/X locked keys)
+   *    into the existing days JSONB. Existing hábil entries (e.g., "1":"P") are preserved;
+   *    locked keys are added or corrected. The update is skipped when the merged result
+   *    equals the existing days (idempotent).
+   *
+   * `row.days` is the locked-day map built by the use case via buildLockedDayMap(year, month).
+   * The infra layer MUST NOT re-derive this map — it receives it from the application layer.
+   *
+   * Returns how many rows were created vs skipped (existing, regardless of update).
    */
   generateMany(rows: GenerateGeneralInput[]): Promise<{ created: number; skipped: number }>;
 

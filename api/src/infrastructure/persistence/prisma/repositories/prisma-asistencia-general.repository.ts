@@ -6,7 +6,9 @@
  *
  * All operations use TenantContext.getClient() — never the master PrismaService.
  * ADR-1: days stored as Json (JSONB) day-map { "1":"P", "2":"A", ... }.
- * ADR-3: generateMany uses createMany + skipDuplicates (additive, never overwrites).
+ * ADR-3 (revised): generateMany uses read-merge-write transactional semantics.
+ *   One findMany read + $transaction with createMany (new rows) + conditional
+ *   updates (existing rows where merged days differ). Never overwrites hábil keys.
  */
 import { Injectable } from '@nestjs/common';
 import type {
@@ -17,6 +19,33 @@ import type {
 import { AsistenciaXAlumnoXCursoXCiclo, DayMap, Id } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
+
+// ── Module-local pure helpers (exported for testability, @internal) ───────────
+
+/**
+ * Merge existing days JSONB with a locked-day map.
+ * lockedMap contains ONLY weekend and non-existent day keys (SAB/DOM/X) — never hábil days.
+ * Result: all existing keys are preserved; locked keys are added or corrected.
+ * @internal exported for testability only
+ */
+export function mergeLocked(
+  existing: Record<string, string>,
+  locked?: Record<string, string>,
+): Record<string, string> {
+  return { ...existing, ...(locked ?? {}) };
+}
+
+/**
+ * Returns true when the two day-maps differ (key count or any value differs).
+ * Comparison is order-independent (sorts keys).
+ * @internal exported for testability only
+ */
+export function daysChanged(a: Record<string, string>, b: Record<string, string>): boolean {
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) return true;
+  return aKeys.some((k, i) => k !== bKeys[i] || a[k] !== b[k]);
+}
 
 type AsistenciaGeneralRow = {
   id: string;
@@ -42,26 +71,73 @@ export class PrismaAsistenciaGeneralRepository implements AsistenciaGeneralRepos
   }
 
   /**
-   * Bulk-insert general register rows.
-   * createMany + skipDuplicates → idempotent, preserves existing days (ADR-3).
-   * Returns { created, skipped } counts.
+   * Bulk-insert or merge-update general attendance rows for a CourseCycle + month.
+   *
+   * Read-merge-write transactional algorithm (ADR-3 revised):
+   *  1. findMany existing rows for (courseCycleId, year, month, studentId IN [...])
+   *  2. Partition: toCreate (no existing row) / toUpdate (existing row found)
+   *  3. $transaction:
+   *     - createMany(toCreate, skipDuplicates:true) — new students get full locked map
+   *     - for each toUpdate: mergeLocked(existing.days, r.days), then update only if changed
+   *
+   * `days` in each input row is the locked-day map built by the use case (buildLockedDayMap).
+   * mergeLocked preserves all hábil keys already in the row; only locked keys (SAB/DOM/X) are
+   * added or corrected. Never overwrites a hábil-day entry.
+   *
+   * Returns { created, skipped } where skipped = rows that already existed.
    */
   async generateMany(rows: GenerateGeneralInput[]): Promise<{ created: number; skipped: number }> {
     if (rows.length === 0) return { created: 0, skipped: 0 };
 
-    const result = await this.client.asistenciaXAlumnoXCursoXCiclo.createMany({
-      data: rows.map((r) => ({
-        courseCycleId: r.courseCycleId,
-        studentId: r.studentId,
-        year: r.year,
-        month: r.month,
-        days: {},
-        updatedAt: new Date(),
-      })),
-      skipDuplicates: true,
+    const { courseCycleId, year, month } = rows[0];
+
+    // 1. One read to fetch all existing rows in scope+month for the requested students
+    const existing = await this.client.asistenciaXAlumnoXCursoXCiclo.findMany({
+      where: {
+        courseCycleId,
+        year,
+        month,
+        studentId: { in: rows.map((r) => r.studentId) },
+      },
+      select: { id: true, studentId: true, days: true },
     });
 
-    return { created: result.count, skipped: rows.length - result.count };
+    const existingByStudent = new Map(
+      existing.map((r) => [r.studentId, { id: r.id, days: this.parseDays(r.days) }]),
+    );
+
+    // 2. Partition
+    const toCreate = rows.filter((r) => !existingByStudent.has(r.studentId));
+    const toUpdate = rows.filter((r) => existingByStudent.has(r.studentId));
+
+    // 3. Transactional write
+    await this.client.$transaction(async (tx) => {
+      if (toCreate.length > 0) {
+        await tx.asistenciaXAlumnoXCursoXCiclo.createMany({
+          data: toCreate.map((r) => ({
+            courseCycleId: r.courseCycleId,
+            studentId: r.studentId,
+            year: r.year,
+            month: r.month,
+            days: r.days ?? {},
+            updatedAt: new Date(),
+          })),
+          skipDuplicates: true,
+        });
+      }
+      for (const r of toUpdate) {
+        const cur = existingByStudent.get(r.studentId)!;
+        const merged = mergeLocked(cur.days, r.days);
+        if (daysChanged(cur.days, merged)) {
+          await tx.asistenciaXAlumnoXCursoXCiclo.update({
+            where: { id: cur.id },
+            data: { days: merged, updatedAt: new Date() },
+          });
+        }
+      }
+    });
+
+    return { created: toCreate.length, skipped: toUpdate.length };
   }
 
   /**
