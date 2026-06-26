@@ -92,6 +92,16 @@ vi.mock('../../../hooks/useBoletin', () => ({
   downloadBoletinBatch: (...args: unknown[]) => mockDownloadBoletinBatch(...args),
 }));
 
+// ── Mock useConstancia ────────────────────────────────────────────────────────
+
+const mockPrintConstancia = vi.fn();
+const mockDownloadConstancia = vi.fn();
+
+vi.mock('../../../hooks/useConstancia', () => ({
+  printConstancia: (...args: unknown[]) => mockPrintConstancia(...args),
+  downloadConstancia: (...args: unknown[]) => mockDownloadConstancia(...args),
+}));
+
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const currentAlumnos = [
@@ -115,6 +125,8 @@ beforeEach(async () => {
   // Default: user has NO modules → attendance button hidden (preserves existing tests)
   mockModules = [];
   mockDownloadBoletinBatch.mockResolvedValue(undefined);
+  mockPrintConstancia.mockResolvedValue(undefined);
+  mockDownloadConstancia.mockResolvedValue(undefined);
   mockPatch.mockResolvedValue({});
   mockGet.mockImplementation((url: string) => {
     if (url === '/course-cycles/cc-1/alumnos') {
@@ -722,6 +734,178 @@ describe('PR4 — Pase de alumno', () => {
         '/course-cycles/cc-1/alumnos/row-pase-1/pase',
         { fechaDePase: null },
       );
+    });
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// PR#3 — Constancia de Alumno Regular (T-16)
+// Cases: W-C1 to W-C6
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('Constancia per-row button', () => {
+  const FAKE_TODAY = '2026-06-26';
+  const DEFAULT_DESTINATARIO =
+    'A pedido del interesado y para ser presentado ante quien corresponda';
+
+  const alumnoConPaseC = {
+    id: 'row-cp1',
+    studentId: 'stu-cp1',
+    studentName: 'María Torres',
+    printable: true,
+    fechaDePase: '2026-03-15',
+  };
+  const alumnoSinPaseC = {
+    id: 'row-sp1',
+    studentId: 'stu-sp1',
+    studentName: 'José Pérez',
+    printable: true,
+    fechaDePase: null,
+  };
+
+  function setupConstanciaFixtures(ccId = 'cc-1') {
+    mockGet.mockImplementation((url: string) => {
+      if (url === `/course-cycles/${ccId}/alumnos`) {
+        return Promise.resolve({
+          data: { data: [alumnoConPaseC, alumnoSinPaseC] },
+        });
+      }
+      if (url === '/students') return Promise.resolve({ data: { data: allStudents } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  }
+
+  beforeEach(() => {
+    // Only fake Date — leave setTimeout/setInterval/MutationObserver real so
+    // waitFor's polling keeps working. vi.setSystemTime requires useFakeTimers first.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    // June 26, 2026 in LOCAL time — matches FAKE_TODAY when using local components
+    vi.setSystemTime(new Date(2026, 5, 26, 12, 0, 0));
+    setupConstanciaFixtures();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // W-C1: "Constancia" button visible per row
+  it('W-C1: "Constancia" button is visible in each row', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-constancia-row-cp1')).toBeInTheDocument();
+      expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument();
+    });
+    // Suppress unused warning
+    void user;
+  });
+
+  // W-C2: button disabled when fechaDePase is set
+  it('W-C2: "Constancia" button is disabled when row has fechaDePase', async () => {
+    renderPanel();
+    await waitFor(() => {
+      const disabledBtn = screen.getByTestId('btn-constancia-row-cp1') as HTMLButtonElement;
+      expect(disabledBtn).toBeDisabled();
+
+      const enabledBtn = screen.getByTestId('btn-constancia-row-sp1') as HTMLButtonElement;
+      expect(enabledBtn).not.toBeDisabled();
+    });
+  });
+
+  // W-C3: clicking opens modal with default destinatario and today as fechaEmision
+  it('W-C3: clicking opens modal with default destinatario text and today as fechaEmision', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('modal-constancia')).toBeInTheDocument();
+      const textarea = screen.getByTestId('input-constancia-destinatario') as HTMLTextAreaElement;
+      expect(textarea.value).toBe(DEFAULT_DESTINATARIO);
+      const dateInput = screen.getByTestId('input-constancia-fecha') as HTMLInputElement;
+      expect(dateInput.value).toBe(FAKE_TODAY);
+    });
+  });
+
+  // W-C4: "Imprimir" calls printConstancia with row id and form values; modal closes on success
+  it('W-C4: "Imprimir" calls printConstancia and closes modal on success', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+    await waitFor(() => expect(screen.getByTestId('modal-constancia')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-imprimir'));
+
+    await waitFor(() => {
+      expect(mockPrintConstancia).toHaveBeenCalledWith('row-sp1', {
+        destinatario: DEFAULT_DESTINATARIO,
+        fechaEmision: FAKE_TODAY,
+      });
+    });
+    // Modal must close after successful print
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-constancia')).not.toBeInTheDocument();
+    });
+  });
+
+  // W-C5: "Descargar" calls downloadConstancia with row id and form values; modal closes on success
+  it('W-C5: "Descargar" calls downloadConstancia and closes modal on success', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+    await waitFor(() => expect(screen.getByTestId('modal-constancia')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-descargar'));
+
+    await waitFor(() => {
+      expect(mockDownloadConstancia).toHaveBeenCalledWith('row-sp1', {
+        destinatario: DEFAULT_DESTINATARIO,
+        fechaEmision: FAKE_TODAY,
+      });
+    });
+    // Modal must close after successful download
+    await waitFor(() => {
+      expect(screen.queryByTestId('modal-constancia')).not.toBeInTheDocument();
+    });
+  });
+
+  // W-C6: printConstancia error → toast shown
+  it('W-C6: printConstancia error shows error toast in panel', async () => {
+    mockPrintConstancia.mockRejectedValue(new Error('Network error'));
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+    await waitFor(() => expect(screen.getByTestId('modal-constancia')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-imprimir'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/error al generar la constancia/i)).toBeInTheDocument();
+    });
+  });
+
+  // W-C7: downloadConstancia error → toast shown (symmetric with W-C6)
+  it('W-C7: downloadConstancia error shows error toast in panel', async () => {
+    mockDownloadConstancia.mockRejectedValue(new Error('Network error'));
+    const user = userEvent.setup();
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('btn-constancia-row-sp1')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-row-sp1'));
+    await waitFor(() => expect(screen.getByTestId('modal-constancia')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-constancia-descargar'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/error al descargar la constancia/i)).toBeInTheDocument();
     });
   });
 });
