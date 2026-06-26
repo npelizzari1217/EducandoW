@@ -4,6 +4,7 @@ import { ReportesController } from './reportes.controller';
 import { GenerateBoletinUseCase } from '../../application/reportes/generate-boletin.use-case';
 import { GenerateBoletinBatchUseCase } from '../../application/reportes/generate-boletin-batch.use-case';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
+import { GenerateConstanciaRegularUseCase } from '../../application/reportes/generate-constancia-regular.use-case';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
@@ -56,6 +57,14 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
     },
     GenerateBoletinBatchUseCase,
     BoletinInvalidationService,
+
+    // ── Constancia de alumno regular ──────────────────────────────────────────
+    {
+      provide: GenerateConstanciaRegularUseCase,
+      useFactory: (pdfGen: PdfGeneratorService, prisma: PrismaService) =>
+        new GenerateConstanciaRegularUseCase(pdfGen, prisma),
+      inject: [PdfGeneratorService, PrismaService],
+    },
   ],
   exports: [BoletinInvalidationService, PdfStorageService],
 })
