@@ -38,6 +38,7 @@ describe('GetMyChildrenUseCase', () => {
       search: vi.fn(),
       save: vi.fn(),
       delete: vi.fn(),
+      setFechaDePase: vi.fn().mockResolvedValue(undefined),
     };
     useCase = new GetMyChildrenUseCase(guardianRepo, studentRepo);
   });

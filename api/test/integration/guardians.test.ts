@@ -36,6 +36,7 @@ describe('Guardian Integration Tests', () => {
         search: vi.fn(),
         save: vi.fn(),
         delete: vi.fn(),
+        setFechaDePase: vi.fn().mockResolvedValue(undefined),
       };
       guardianRepo = {
         findByComposite: vi.fn(),
@@ -136,6 +137,7 @@ describe('Guardian Integration Tests', () => {
         search: vi.fn(),
         save: vi.fn(),
         delete: vi.fn(),
+        setFechaDePase: vi.fn().mockResolvedValue(undefined),
       };
       guardianRepo = {
         findByComposite: vi.fn(),

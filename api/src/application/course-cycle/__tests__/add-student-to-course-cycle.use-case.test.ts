@@ -68,6 +68,7 @@ function makeStudentRepo(found: boolean): StudentRepository {
     delete: vi.fn(),
     findByUserId: vi.fn(),
     findByGuardianUserId: vi.fn(),
+    setFechaDePase: vi.fn().mockResolvedValue(undefined),
   } as unknown as StudentRepository;
 }
 

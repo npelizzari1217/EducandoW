@@ -239,3 +239,65 @@ describe('PrismaAlumnosXCursoXCicloRepository.findByCourseCycleEnriched — prin
     expect(result.map((r) => r.studentName)).toEqual(['Ana Álvarez', 'Carlos Álvarez', 'Beto Zárate']);
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════════════
+// findByCourseCycleEnriched — S-7: pase global (fecha_de_pase vive en Student)
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('PrismaAlumnosXCursoXCicloRepository.findByCourseCycleEnriched — S-7 pase global', () => {
+  let repo: PrismaAlumnosXCursoXCicloRepository;
+
+  beforeEach(() => {
+    repo = new PrismaAlumnosXCursoXCicloRepository();
+  });
+
+  it('S-7: pase registrado desde CC-B es visible al listar CC-A (fechaDePase vive en Student, no en la inscripción)', async () => {
+    // fecha_de_pase vive en Student, no en AlumnosXCursoXCiclo.
+    // Registrar el pase desde cualquier CC actualiza Student.fecha_de_pase;
+    // findByCourseCycleEnriched de CUALQUIER CC hace JOIN con Student
+    // y expone ese valor — el pase es GLOBAL al alumno.
+    const fechaDePase = new Date('2026-06-01T00:00:00.000Z');
+    const studentWithPase = { id: 's-1', firstName: 'Juan', lastName: 'Pérez', fechaDePase };
+
+    function makePaseClient(ccId: string, rowId: string) {
+      return {
+        alumnosXCursoXCiclo: {
+          findMany: vi.fn().mockResolvedValue([
+            makeRow({ id: rowId, courseCycleId: ccId, studentId: 's-1' }),
+          ]),
+          findUnique: vi.fn(),
+          update: vi.fn(),
+          updateMany: vi.fn(),
+          upsert: vi.fn(),
+          count: vi.fn(),
+          delete: vi.fn(),
+        },
+        student: {
+          findMany: vi.fn().mockResolvedValue([studentWithPase]),
+        },
+      };
+    }
+
+    // CC-A: listado del curso donde NO se registró el pase
+    vi.mocked(TenantContext.getClient).mockReturnValue(
+      makePaseClient('cc-a', 'axcc-a') as unknown as ReturnType<typeof TenantContext.getClient>,
+    );
+    const resultA = await repo.findByCourseCycleEnriched('cc-a');
+
+    // CC-B: listado del curso desde el que SÍ se registró el pase
+    vi.mocked(TenantContext.getClient).mockReturnValue(
+      makePaseClient('cc-b', 'axcc-b') as unknown as ReturnType<typeof TenantContext.getClient>,
+    );
+    const resultB = await repo.findByCourseCycleEnriched('cc-b');
+
+    // Ambos listados exponen el mismo fechaDePase del alumno
+    expect(resultA).toHaveLength(1);
+    expect(resultB).toHaveLength(1);
+    expect(resultA[0].studentId).toBe('s-1');
+    expect(resultB[0].studentId).toBe('s-1');
+    expect(resultA[0].fechaDePase).toBe(fechaDePase.toISOString());
+    expect(resultB[0].fechaDePase).toBe(fechaDePase.toISOString());
+    expect(resultA[0].fechaDePase).not.toBeNull();
+    expect(resultB[0].fechaDePase).not.toBeNull();
+  });
+});

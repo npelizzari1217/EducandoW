@@ -49,8 +49,8 @@ describe('ListStudentsByCourseCycleUseCase', () => {
 
   it('S-03: returns enriched list of students with names', async () => {
     const enriched: AlumnoCursoCicloEnriched[] = [
-      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García', printable: false },
-      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López', printable: true },
+      { id: 'axcc-1', studentId: 's-1', studentName: 'Ana García', printable: false, fechaDePase: null },
+      { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López', printable: true, fechaDePase: null },
     ];
     const repo = makeRepo(enriched);
     const uc = new ListStudentsByCourseCycleUseCase(repo);

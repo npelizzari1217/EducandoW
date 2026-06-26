@@ -27,7 +27,7 @@ function makeMateria(id = 'mxcc-1', courseCycleId = 'cc-1'): MateriaXCursoXCiclo
 }
 
 function makeCCStudent(id: string, studentId: string, studentName: string): AlumnoCursoCicloEnriched {
-  return { id, studentId, studentName, printable: false };
+  return { id, studentId, studentName, printable: false, fechaDePase: null };
 }
 
 function makeEnrolledRow(id: string, materiaId: string, studentId: string): MateriasXAlumnoXCursoXCiclo {
