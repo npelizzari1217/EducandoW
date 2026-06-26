@@ -22,22 +22,26 @@ function makePdfGenerator() {
   return { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
 }
 
-function makePrisma(institutionOverride: object | null = null) {
+// When called with no argument → returns a non-null institution (happy-path default).
+// When called with null explicitly → findUnique returns null (fix-3: missing institution).
+// When called with an object → findUnique returns that object (custom institution data).
+function makePrisma(institutionOverride?: object | null) {
+  const findUniqueResult =
+    institutionOverride === undefined
+      ? {
+          id: 'inst-1',
+          name: 'Escuela Test',
+          cue: '123456',
+          city: 'Buenos Aires',
+          province: 'Buenos Aires',
+          logoUrl: null,
+        }
+      : institutionOverride; // null → findUnique returns null; object → custom data
+
   return {
     getMasterClient: vi.fn().mockReturnValue({
       institution: {
-        findUnique: vi.fn().mockResolvedValue(
-          institutionOverride !== null
-            ? institutionOverride
-            : {
-                id: 'inst-1',
-                name: 'Escuela Test',
-                cue: '123456',
-                city: 'Buenos Aires',
-                province: 'Buenos Aires',
-                logoUrl: null,
-              },
-        ),
+        findUnique: vi.fn().mockResolvedValue(findUniqueResult),
       },
     }),
   };
@@ -325,5 +329,113 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
 
     const [htmlArg] = pdfGenerator.generatePdf.mock.calls[0] as [string];
     expect(htmlArg).toContain(expected);
+  });
+
+  // ── Fix 1: Student null → 404 ──────────────────────────────────────────────
+  // Orphaned axcc (FK not enforced at app level) must throw, not produce empty PDF.
+
+  it('[fix-1] throws STUDENT_NOT_FOUND (404) when student row is null (orphaned axcc)', async () => {
+    const tenantClient = makeTenantClient({ student: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      makePrisma() as never,
+    );
+
+    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+      expect.objectContaining({ code: 'STUDENT_NOT_FOUND', httpStatus: 404 }),
+    );
+  });
+
+  // ── Fix 2: CourseCycle null → 404 ──────────────────────────────────────────
+
+  it('[fix-2] throws COURSE_CYCLE_NOT_FOUND (404) when courseCycle is null', async () => {
+    const tenantClient = makeTenantClient({ courseCycle: null });
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      makePrisma() as never,
+    );
+
+    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+      expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
+    );
+  });
+
+  // ── Fix 3: Institution null when institutionId is set → 500 ─────────────────
+  // institutionId present but no matching row = master DB inconsistency.
+
+  it('[fix-3] throws INSTITUTION_NOT_FOUND (500) when institutionId is set but institution is null', async () => {
+    vi.mocked(TenantContext.getInstitutionId).mockReturnValue('inst-999');
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      makePrisma(null) as never, // institution.findUnique returns null
+    );
+
+    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+      expect.objectContaining({ code: 'INSTITUTION_NOT_FOUND', httpStatus: 500 }),
+    );
+  });
+
+  // ── Fix 5: REQ-7 master/tenant isolation ──────────────────────────────────
+  // masterClient must NOT access tenant tables; tenantClient must NOT access master tables.
+
+  it('[fix-5] tenant queries go to tenantClient; institution query goes to masterClient', async () => {
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const prisma = makePrisma();
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      prisma as never,
+    );
+
+    await uc.execute('axcc-1', defaultInput);
+
+    // Tenant tables were accessed via tenantClient
+    expect(tenantClient.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
+    expect(tenantClient.student.findUnique).toHaveBeenCalled();
+    expect(tenantClient.courseCycle.findUnique).toHaveBeenCalled();
+
+    // Institution came from masterClient
+    const masterInstitutionFindUnique =
+      prisma.getMasterClient().institution.findUnique as ReturnType<typeof vi.fn>;
+    expect(masterInstitutionFindUnique).toHaveBeenCalled();
+
+    // tenantClient has no institution property (cross-client isolation)
+    expect((tenantClient as any).institution).toBeUndefined();
+
+    // masterClient has no alumnosXCursoXCiclo property
+    expect((prisma.getMasterClient() as any).alumnosXCursoXCiclo).toBeUndefined();
+  });
+
+  // ── Fix 7: institution.findUnique uses select (no sensitive fields) ──────────
+
+  it('[fix-7] institution.findUnique is called with select limiting fields to what the use case needs', async () => {
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const prisma = makePrisma();
+    const uc = new GenerateConstanciaRegularUseCase(
+      makePdfGenerator() as never,
+      prisma as never,
+    );
+
+    await uc.execute('axcc-1', defaultInput);
+
+    const findUniqueSpy = prisma.getMasterClient().institution.findUnique as ReturnType<typeof vi.fn>;
+    const [callArg] = findUniqueSpy.mock.calls[0] as [{ where: unknown; select?: unknown }];
+    expect(callArg.select).toEqual({
+      name: true,
+      cue: true,
+      city: true,
+      province: true,
+      logoUrl: true,
+    });
   });
 });

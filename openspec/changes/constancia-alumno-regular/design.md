@@ -10,7 +10,7 @@ Clona el patrón boletines (`generate-boletin.use-case.ts` + `PdfGeneratorServic
 |---|---|---|---|
 | **Logo en Puppeteer (GAP-4)** | Resolver `Institution.logoUrl` a **base64 data-URI** en el use case (helper infra), pasar `logoDataUri` al template; `<img>` condicional. Falla de carga → omitir logo, nunca bloquear. | `file://` (rutas relativas rotas: `setContent` no tiene base URL en headless); URL pública directa con `waitUntil:'load'` (cuelga/timeout si el host es externo o está offline) | Data-URI es self-contained, determinista y renderiza 100% en Chromium headless sin red ni permisos de FS. Único robusto para `setContent`. |
 | **Persistencia PDF** | Stateless, sin `PdfStorageService` | Cache por axccId (boletín) | Inputs variables (destinatario/fecha) ⇒ cache produciría documento incorrecto. Proposal lo declara stateless. |
-| **Formato fecha** | Body `fechaEmision` ISO `YYYY-MM-DD`; en PDF formateada **es-AR `dd/mm/yyyy`** parseando componentes (no `new Date(iso)`, evita corrimiento TZ). Default hoy en front. | DateTime ISO completo; formateo en front | Contrato simple, sin ambigüedad horaria; coincide con `formatFecha` existente. |
+| **Formato fecha** | Body `fechaEmision` ISO `YYYY-MM-DD`; en PDF formateada **es-AR en texto largo** (ej. «26 de junio de 2026») parseando componentes (no `new Date(iso)`, evita corrimiento TZ). Default hoy en front. | DateTime ISO completo; formateo en front | Contrato simple, sin ambigüedad horaria; formato legal de constancia. |
 | **Autorización** | Reusar `@UseGuards(AuthGuard, RolesGuard)` + `@Roles('ROOT', { module: 'REPORTS', action: 'READ' })` | Permiso/módulo nuevo | Misma capacidad de reportes que boletín; sin fricción de perfiles. |
 | **Error tipado** | `ConstanciaError(message, code, httpStatus)` (espejo de `BoletinError`); controller mapea por `instanceof` | Excepciones Nest directas | Mantiene el patrón Result/typed-error del codebase y el mapeo HTTP centralizado. |
 
@@ -21,7 +21,7 @@ Clona el patrón boletines (`generate-boletin.use-case.ts` + `PdfGeneratorServic
         ▼
     GenerateConstanciaRegularUseCase.execute(axccId, dto)
         │  axcc = tenant.alumnosXCursoXCiclo.findUnique(axccId)         → null ⇒ 404 AXCC_NOT_FOUND
-        │  student = tenant.student.findUnique(axcc.studentId)          → fechaDePase != null ⇒ 422 STUDENT_HAS_PASE
+        │  student = tenant.student.findUnique(axcc.studentId)          → fechaDePase != null ⇒ 422 STUDENT_NOT_ELIGIBLE
         │  cc = tenant.courseCycle.findUnique(axcc.courseCycleId, include:course)  → nivel/grado/division/ciclo
         │  institution = master.institution.findUnique(TenantContext.institutionId) → name/cue/city/province/logo
         │  logoDataUri = resolveLogoDataUri(institution.logoUrl)        (try/catch, opcional)
@@ -61,7 +61,7 @@ export interface DatosConstancia {
   institucionNombre: string; cue?: string | null;
   localidad?: string | null; provincia?: string | null; logoDataUri?: string | null;
   nivel: string; grado?: string | null; division?: string | null; cicloLectivo: string;
-  destinatario: string; fechaEmisionLarga: string; // es-AR dd/mm/yyyy
+  destinatario: string; fechaEmisionLarga: string; // es-AR texto largo, ej. "26 de junio de 2026"
 }
 ```
 

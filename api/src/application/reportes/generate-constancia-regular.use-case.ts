@@ -103,11 +103,18 @@ export class GenerateConstanciaRegularUseCase {
       );
     }
 
-    // ── Step 2: Fetch Student + eligibility check ────────────────────────────
+    // ── Step 2: Fetch Student + eligibility checks ───────────────────────────
     const student = await (tenantClient as any).student.findUnique({
       where: { id: axcc.studentId },
     });
-    if (student?.fechaDePase != null) {
+    if (!student) {
+      throw new ConstanciaError(
+        'Alumno no encontrado',
+        'STUDENT_NOT_FOUND',
+        404,
+      );
+    }
+    if (student.fechaDePase != null) {
       throw new ConstanciaError(
         'El alumno tiene fecha de pase asignada y no puede recibir constancia de alumno regular',
         'STUDENT_NOT_ELIGIBLE',
@@ -120,14 +127,29 @@ export class GenerateConstanciaRegularUseCase {
       where: { uuid: axcc.courseCycleId },
       include: { course: true, cycle: true },
     });
+    if (!cc) {
+      throw new ConstanciaError(
+        'CourseCycle no encontrado',
+        'COURSE_CYCLE_NOT_FOUND',
+        404,
+      );
+    }
 
     // ── Step 4: Fetch Institution from master ────────────────────────────────
     const institutionId = TenantContext.getInstitutionId();
     const institution = institutionId
       ? await this.prisma.getMasterClient().institution.findUnique({
           where: { id: institutionId },
+          select: { name: true, cue: true, city: true, province: true, logoUrl: true },
         })
       : null;
+    if (institutionId != null && institution == null) {
+      throw new ConstanciaError(
+        'Institución no encontrada',
+        'INSTITUTION_NOT_FOUND',
+        500,
+      );
+    }
 
     // ── Step 5: Resolve logo as base64 data-URI (optional, never blocks PDF) ─
     const logoDataUri = await resolveLogoDataUri(institution?.logoUrl ?? null);
@@ -136,23 +158,24 @@ export class GenerateConstanciaRegularUseCase {
     const fechaEmisionLarga = parseFechaEmision(input.fechaEmision);
 
     // ── Step 7: Assemble DatosConstancia (4 data groups) ────────────────────
-    const nivel = resolveLevelName(cc?.level ?? 0);
+    // Guards above ensure student, cc, and institution (when institutionId present) are non-null.
+    const nivel = resolveLevelName((cc as any).level ?? 0);
     const datos: DatosConstancia = {
       // Group B — Alumno
-      alumnoApellido: (student as any)?.lastName ?? '',
-      alumnoNombre: (student as any)?.firstName ?? '',
-      alumnoDni: (student as any)?.dni ?? '',
+      alumnoApellido: (student as any).lastName ?? '',
+      alumnoNombre: (student as any).firstName ?? '',
+      alumnoDni: (student as any).dni ?? '',
       // Group A — Institución
       institucionNombre: institution?.name ?? '',
       cue: institution?.cue ?? null,
       localidad: institution?.city ?? null,
-      provincia: (institution as any)?.province ?? null,
+      provincia: institution?.province ?? null,
       logoDataUri,
       // Group C — Académico
       nivel,
-      grado: (cc?.course as any)?.grade ?? null,
-      division: (cc?.course as any)?.division ?? null,
-      cicloLectivo: (cc?.cycle as any)?.name ?? '',
+      grado: (cc as any).course?.grade ?? null,
+      division: (cc as any).course?.division ?? null,
+      cicloLectivo: (cc as any).cycle?.name ?? '',
       // Group D — Validación
       destinatario: input.destinatario,
       fechaEmisionLarga,

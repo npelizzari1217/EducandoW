@@ -151,4 +151,35 @@ describe('resolveLogoDataUri', () => {
     const result = await resolveLogoDataUri('https://example.com/logo');
     expect(result).toMatch(/^data:image\/png;base64,/);
   });
+
+  // ── Fix 4: arrayBuffer() error → null (slow/aborted body) ──────────────────
+  // fetch() resolves (headers ok) but body download fails. clearTimeout must NOT
+  // be called before arrayBuffer() so the AbortController can still fire on timeout.
+
+  it('[fix-4] returns null when arrayBuffer() throws an AbortError (body abort)', async () => {
+    const abortError = new Error('The operation was aborted');
+    abortError.name = 'AbortError';
+
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'image/png' },
+      arrayBuffer: vi.fn().mockRejectedValue(abortError),
+    });
+
+    const result = await resolveLogoDataUri('https://example.com/logo.png');
+    expect(result).toBeNull();
+  });
+
+  it('[fix-4] returns null when arrayBuffer() throws a generic error (body truncated)', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => 'image/png' },
+      arrayBuffer: vi.fn().mockRejectedValue(new Error('connection reset by peer')),
+    });
+
+    const result = await resolveLogoDataUri('https://example.com/logo.png');
+    expect(result).toBeNull();
+  });
 });

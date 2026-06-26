@@ -23,11 +23,17 @@ export async function resolveLogoDataUri(
 
   try {
     const res = await fetch(url, { signal: controller.signal });
+
+    if (!res.ok) {
+      clearTimeout(timeoutId);
+      return null;
+    }
+
+    // clearTimeout MUST come after arrayBuffer() so the AbortController
+    // can still fire if the server sends headers but hangs on the body.
+    const arrayBuffer = await res.arrayBuffer();
     clearTimeout(timeoutId);
 
-    if (!res.ok) return null;
-
-    const arrayBuffer = await res.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString('base64');
     const mime = res.headers.get('content-type') || 'image/png';
 
