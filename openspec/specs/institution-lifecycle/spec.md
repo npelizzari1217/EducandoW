@@ -16,6 +16,7 @@ The `Institution` entity MUST support the following additional identity and addr
 | `phone` | `string?` | Max 30 chars |
 | `address` | `string?` | Max 255 chars |
 | `city` | `string?` | Max 100 chars |
+| `province` | `string?` | Max 100 chars; displayed on constancia-regular PDF when present |
 | `postal_code` | `string?` | Max 20 chars |
 | `country` | `string?` | Max 100 chars |
 | `ministry_reg` | `string?` | Max 100 chars |
