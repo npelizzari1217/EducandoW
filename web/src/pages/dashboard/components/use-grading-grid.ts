@@ -254,6 +254,17 @@ export function useGradingGrid({
     Promise.allSettled(baseFetches).then((results) => {
       const [studentsRes, compRes, periodsRes, scalesRes, valuationsRes, subjectGradesRes] = results;
 
+      // Blindaje: allSettled nunca rechaza, así que un fetch caído no llega al .catch.
+      // Los 5 fetches base son requeridos para armar la grilla; si alguno falla, avisamos
+      // en vez de renderizar una grilla vacía y muda. El canal subjectGradesRes es OPCIONAL
+      // (condicional a subjectId) y se sigue tratando con degradación elegante más abajo.
+      const requiredResults = [studentsRes, compRes, periodsRes, scalesRes, valuationsRes];
+      if (requiredResults.some((r) => r.status === 'rejected')) {
+        setError('Error al cargar los datos de la grilla');
+        setLoading(false);
+        return;
+      }
+
       const studentsData: EnrolledStudent[] =
         studentsRes.status === 'fulfilled' ? (studentsRes.value as { data: { data: EnrolledStudent[] } }).data?.data ?? [] : [];
 

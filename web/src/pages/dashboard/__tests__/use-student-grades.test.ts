@@ -309,3 +309,46 @@ describe('useStudentGrades - ROOT institutionId threading', () => {
     });
   });
 });
+
+// ── Error handling (blindaje del allSettled) ─────────────────────────────────────
+
+describe('useStudentGrades - error handling', () => {
+  beforeEach(() => {
+    setupMocks();
+  });
+
+  it('SGS-ERR-1: setea error (no queda mudo) si falla el fetch requerido de notas', async () => {
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/grading/subject-grades/by-student') return Promise.reject(new Error('boom'));
+      if (url === '/grading/scales') return Promise.resolve({ data: { data: mockScales } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    const { result } = renderHook(() => useStudentGrades(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).not.toBe('');
+    expect(result.current.subjects).toHaveLength(0);
+  });
+
+  it('SGS-ERR-2: setea error si falla el fetch requerido de escalas', async () => {
+    (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+      if (url === '/grading/scales') return Promise.reject(new Error('boom'));
+      if (url === '/grading/subject-grades/by-student')
+        return Promise.resolve({ data: { data: mockByStudentResponse } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    const { result } = renderHook(() => useStudentGrades(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).not.toBe('');
+  });
+
+  it('SGS-ERR-3: sin fallas, error queda vacío', async () => {
+    const { result } = renderHook(() => useStudentGrades(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.error).toBe('');
+  });
+});
