@@ -112,6 +112,8 @@ export interface PatchStudentInput {
   motherName?: string;
   fatherDni?: string;
   motherDni?: string;
+  fatherEmail?: string;
+  motherEmail?: string;
   address?: string;
   phone?: string;
   photoUrl?: string;
@@ -192,6 +194,31 @@ export class PatchStudentUseCase {
       ? Dni.reconstruct(body.dni as string)
       : student.dni;
 
+    // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS
+    let fatherEmailVo = student.fatherEmail;
+    if (body.fatherEmail !== undefined) {
+      const raw = body.fatherEmail as string;
+      if (raw) {
+        const result = Email.create(raw);
+        if (result.isErr()) throw result.unwrapErr();
+        fatherEmailVo = result.unwrap();
+      } else {
+        fatherEmailVo = undefined;
+      }
+    }
+
+    let motherEmailVo = student.motherEmail;
+    if (body.motherEmail !== undefined) {
+      const raw = body.motherEmail as string;
+      if (raw) {
+        const result = Email.create(raw);
+        if (result.isErr()) throw result.unwrapErr();
+        motherEmailVo = result.unwrap();
+      } else {
+        motherEmailVo = undefined;
+      }
+    }
+
     return Student.reconstruct({
       id: student.id,
       firstName: body.firstName !== undefined ? (body.firstName as string) : student.firstName,
@@ -204,6 +231,8 @@ export class PatchStudentUseCase {
       motherName: body.motherName !== undefined ? (body.motherName as string) : student.motherName,
       fatherDni: body.fatherDni !== undefined ? (body.fatherDni as string) : student.fatherDni,
       motherDni: body.motherDni !== undefined ? (body.motherDni as string) : student.motherDni,
+      fatherEmail: fatherEmailVo,
+      motherEmail: motherEmailVo,
       address: body.address !== undefined ? (body.address as string) : student.address,
       phone: body.phone !== undefined ? (body.phone as string) : student.phone,
       photoUrl: body.photoUrl !== undefined ? (body.photoUrl as string) : student.photoUrl,

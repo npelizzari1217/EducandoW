@@ -70,6 +70,8 @@ export const CreateStudentSchema = z.object({
   motherName: nameField.optional(),
   fatherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI del padre debe ser alfanumérico en mayúscula sin símbolos').transform(upper).optional(),
   motherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI de la madre debe ser alfanumérico en mayúscula sin símbolos').transform(upper).optional(),
+  fatherEmail: z.string().email().optional().or(z.literal('')),
+  motherEmail: z.string().email().optional().or(z.literal('')),
   institutionId: uuidField,
 });
 export type CreateStudentDTO = z.infer<typeof CreateStudentSchema>;

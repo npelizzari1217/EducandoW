@@ -112,7 +112,7 @@ export default function StudentsPage() {
   const { updating, updateError, update } = useApiUpdate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', fatherEmail: '', motherDni: '', motherEmail: '', institutionId: institutionId });
   const [formError, setFormError] = useState('');
   const [showPrint, setShowPrint] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
@@ -198,7 +198,7 @@ export default function StudentsPage() {
     if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
     if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
     if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
-    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, motherDni: form.motherDni || undefined, email: form.email || undefined, institutionId: institutionId };
+    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail || undefined, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail || undefined, email: form.email || undefined, institutionId: institutionId };
     if (editingId) {
       const ok = await update(editingId, body);
       if (ok) { resetForm(); adminReload(); }
@@ -208,20 +208,21 @@ export default function StudentsPage() {
     }
   };
 
-  const startEdit = (s: { id: string; firstName: string; lastName: string; dni: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string }) => {
+  const startEdit = (s: { id: string; firstName: string; lastName: string; dni: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; fatherEmail?: string | null; motherDni?: string; motherEmail?: string | null }) => {
     setEditingId(s.id);
     setForm({
       firstName: s.firstName, lastName: s.lastName, dni: s.dni,
       email: s.email ?? '', birthDate: s.birthDate ?? '',
       guardianName: s.guardianName ?? '', guardianPhone: s.guardianPhone ?? '',
-      motherName: s.motherName ?? '', fatherDni: s.fatherDni ?? '', motherDni: s.motherDni ?? '',
+      motherName: s.motherName ?? '', fatherDni: s.fatherDni ?? '', fatherEmail: s.fatherEmail ?? '',
+      motherDni: s.motherDni ?? '', motherEmail: s.motherEmail ?? '',
       institutionId: institutionId,
     });
     setShowForm(true);
   };
 
   const resetForm = () => {
-    setForm({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+    setForm({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', fatherEmail: '', motherDni: '', motherEmail: '', institutionId: institutionId });
     setEditingId(null);
     setShowForm(false);
     setFormError('');
@@ -410,8 +411,10 @@ export default function StudentsPage() {
             <Input label="Nombre completo del Padre" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
             <Input label="Teléfono del Padre" value={form.guardianPhone} onChange={e => setForm({...form, guardianPhone: e.target.value})} />
             <Input label="DNI del Padre" value={form.fatherDni} onChange={e => setForm({...form, fatherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
+            <Input label="Email del Padre" type="email" value={form.fatherEmail} onChange={e => setForm({...form, fatherEmail: e.target.value})} />
             <Input label="Nombre completo de la Madre" value={form.motherName} onChange={e => setForm({...form, motherName: e.target.value})} />
             <Input label="DNI de la Madre" value={form.motherDni} onChange={e => setForm({...form, motherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
+            <Input label="Email de la Madre" type="email" value={form.motherEmail} onChange={e => setForm({...form, motherEmail: e.target.value})} />
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <Button variant="success-soft" onClick={handleSave} loading={creating || updating}>{editingId ? 'Guardar cambios' : 'Crear estudiante'}</Button>
               <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>

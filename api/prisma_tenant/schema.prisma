@@ -30,6 +30,8 @@ model Student {
   motherName    String?
   fatherDni     String?
   motherDni     String?
+  fatherEmail   String?
+  motherEmail   String?
   address       String?
   phone         String?
   photoUrl      String?
