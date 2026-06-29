@@ -358,14 +358,14 @@
 **Estimated LOC**: ~220–290
 **Work-unit commit**: `feat(web): study-tutor panel — list, create, edit, email pre-fill`
 
-### T3.1 [GREEN] Web — guardian list section
+### T3.1 [x] Web — guardian list section
 - **File**: `web/src/pages/dashboard/students.tsx`
 - Map guardian list API response; show ALL tutors (portal-linked + study tutors)
 - Display columns: `fullName`, `mobile`, `email`, `relationship` (label map for legacy enum values `mother`→Madre, `father`→Padre, `legal_guardian`→Tutor legal, `other`→Otro; else render raw free-text string), `active`
 - Badge/icon per row: `userId` present → "Con cuenta de portal"; `userId` absent → "Sin cuenta"
 - **Satisfies**: REQ-RYT-12, REQ-RYT-13-A
 
-### T3.2 [GREEN] Web — create/edit study tutor form
+### T3.2 [x] Web — create/edit study tutor form
 - **File**: `web/src/pages/dashboard/students.tsx`
 - Guardian form changes:
   - `userId` field: now optional text input (leaving empty → study-tutor POST; filling → portal-link POST)
@@ -375,7 +375,7 @@
   - Add async loading state for the PATCH call (matching existing pattern for other async buttons)
 - **Satisfies**: REQ-RYT-13-B, REQ-RYT-13-C, REQ-RYT-13-D
 
-### T3.3 [GREEN] Web — email pre-fill logic
+### T3.3 [x] Web — email pre-fill logic
 - **File**: `web/src/pages/dashboard/students.tsx`
 - On `relationship` field change in the guardian form:
   - If new value is `'father'` or `'padre'` (case-insensitive) → pre-fill `email` with `student.fatherEmail` (if present; else leave empty)

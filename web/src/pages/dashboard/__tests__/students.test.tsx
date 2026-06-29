@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 // ── Mock institutions data ──
@@ -10,18 +11,29 @@ const mockInstitutions = [
 ];
 
 // ── Mock apiClient (vi.hoisted avoids hoisting issues with top-level imports) ──
-const { mockApiGet } = vi.hoisted(() => ({
+const { mockApiGet, mockApiPost, mockApiPatch, mockApiDelete } = vi.hoisted(() => ({
   mockApiGet: vi.fn(),
+  mockApiPost: vi.fn(),
+  mockApiPatch: vi.fn(),
+  mockApiDelete: vi.fn(),
 }));
 
 vi.mock('/home/usuario/proyectos/educandow/web/src/api/client', () => ({
-  default: { get: mockApiGet },
+  default: {
+    get: mockApiGet,
+    post: mockApiPost,
+    patch: mockApiPatch,
+    delete: mockApiDelete,
+  },
 }));
+
+// ── Configurable student list for tests ──
+let mockStudentList: unknown[] = [];
 
 // ── Mock useApiList / useApiDelete / useApiCreate ──
 vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', () => ({
   useApiList: () => ({
-    data: [],
+    data: mockStudentList,
     loading: false,
     error: '',
     reload: vi.fn(),
@@ -42,6 +54,7 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', () => ({
     update: vi.fn().mockResolvedValue(true),
     setUpdateError: vi.fn(),
   }),
+  extractErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'API error'),
 }));
 
 // ── Configurable auth mock (ROOT vs non-ROOT) ──
@@ -108,6 +121,7 @@ function renderStudents() {
 describe('StudentsPage — institución filter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockStudentList = []; // reset per test
     // Default: ROOT user, institutions API returns list
     setAuthMock(['ROOT'], 'inst-1');
     mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
@@ -215,5 +229,147 @@ describe('StudentsPage — institución filter', () => {
       const disabledInput = screen.getByDisplayValue('inst-xyz');
       expect(disabledInput).toBeDisabled();
     });
+  });
+});
+
+// ── Guardian panel tests (PR3) ────────────────────────────────────────────────
+describe('StudentsPage — guardian panel (PR3)', () => {
+  const mockStudent = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudent];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+
+    // Default mocks: institutions, student detail with emails, empty guardians list
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudent, fatherEmail: 'padre@example.com', motherEmail: 'madre@example.com' } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: { id: 'g-new', userId: null } } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+    mockApiDelete.mockResolvedValue({ status: 204, data: {} });
+  });
+
+  // ── T3.1-A: Guardian list shows account-less tutor with "Sin cuenta" badge and free-text relationship ──
+  it('renders an account-less tutor with free-text relationship and "Sin cuenta" badge', async () => {
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudent, fatherEmail: 'padre@example.com' } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: 'ana@example.com', relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ana García')).toBeInTheDocument();
+    });
+
+    // Free-text relationship rendered as-is
+    expect(screen.getByText('abuela')).toBeInTheDocument();
+
+    // "Sin cuenta" badge for null userId
+    expect(screen.getByText('Sin cuenta')).toBeInTheDocument();
+  });
+
+  // ── T3.2-A: Form requires relationship — error shown when empty ──
+  it('shows error and blocks submit when relationship field is empty', async () => {
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    // Fill fullName and mobile, leave relationship empty
+    const fullNameInput = screen.getByLabelText('Nombre completo');
+    await userEvent.type(fullNameInput, 'Pedro Rodríguez');
+
+    const mobileInput = screen.getByLabelText('Móvil');
+    await userEvent.type(mobileInput, '+5491187654321');
+
+    // Submit without relationship
+    const saveBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveBtn);
+
+    // Error about parentesco must appear; POST must not be called
+    await waitFor(() => {
+      expect(screen.getByText('El parentesco es requerido')).toBeInTheDocument();
+    });
+    expect(mockApiPost).not.toHaveBeenCalled();
+  });
+
+  // ── T3.2-B: Create calls POST without userId when userId is empty; treats 201 as success ──
+  it('calls POST without userId and treats HTTP 201 as success', async () => {
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    // Fill required fields — userId left empty (study tutor path)
+    await userEvent.type(screen.getByLabelText('Nombre completo'), 'Lucía García');
+    await userEvent.type(screen.getByLabelText('Móvil'), '+5491155554444');
+    await userEvent.type(screen.getByLabelText('Parentesco'), 'tutor');
+
+    const saveBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/students/s1/guardians',
+        expect.not.objectContaining({ userId: expect.anything() }),
+      );
+    });
+
+    // Form should close on success (button disappears)
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre completo')).not.toBeInTheDocument();
+    });
+  });
+
+  // ── T3.3: Email pre-fill from fatherEmail when relationship matches ──
+  it('pre-fills email from fatherEmail when relationship is "padre" and does not overwrite user input', async () => {
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    // Wait for student detail to load (async)
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/students/s1');
+    });
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    const relationshipInput = screen.getByLabelText('Parentesco');
+
+    // Type "padre" — should trigger pre-fill from fatherEmail
+    await userEvent.type(relationshipInput, 'padre');
+
+    await waitFor(() => {
+      const emailInput = screen.getByLabelText('Email del tutor') as HTMLInputElement;
+      expect(emailInput.value).toBe('padre@example.com');
+    });
+
+    // User can still override the pre-filled value
+    const emailInput = screen.getByLabelText('Email del tutor') as HTMLInputElement;
+    await userEvent.clear(emailInput);
+    await userEvent.type(emailInput, 'otro@example.com');
+    expect(emailInput.value).toBe('otro@example.com');
   });
 });
