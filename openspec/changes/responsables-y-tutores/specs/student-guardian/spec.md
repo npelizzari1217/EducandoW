@@ -99,14 +99,23 @@ The following behavior from `openspec/specs/student-guardian/spec.md` **changes*
 
 ## REQ-RYT-05 — CreateStudyTutorUseCase (sin userId)
 
-`CreateStudyTutorUseCase.execute()` MUST create a `StudentGuardian` without a `userId`. The application layer MUST enforce `fullName` and `mobile` as required inputs. `relationship` is optional (MAY be omitted). `isFinancialResponsible` and `isAuthorizedToPickUp` default to `false` and MUST NOT be forced by this use case. The use case MUST return `Result<StudentGuardian, DomainError>`.
+`CreateStudyTutorUseCase.execute()` MUST create a `StudentGuardian` without a `userId`. The application layer MUST enforce `fullName`, `mobile`, and `relationship` as required inputs. `relationship` MUST be provided and non-empty on creation — there is no default value. `isFinancialResponsible` and `isAuthorizedToPickUp` default to `false` and MUST NOT be forced by this use case. The use case MUST return `Result<StudentGuardian, DomainError>`.
+
+> **User decision (2026-06-29)**: `relationship` was previously optional with a default of `'tutor'`. That default has been removed. Callers MUST now explicitly provide a relationship value on creation. Omitting or providing a whitespace-only relationship MUST return `Result.err` with code `RELATIONSHIP_REQUIRED`.
 
 ### Scenario RYT-05-A: Creación exitosa de tutor de estudio
 
 - GIVEN an ADMIN user and student `s1` exists
-- WHEN `CreateStudyTutorUseCase.execute({ studentId: "s1", fullName: "Lucía Rodríguez", mobile: "+5492215559999" })`
+- WHEN `CreateStudyTutorUseCase.execute({ studentId: "s1", fullName: "Lucía Rodríguez", mobile: "+5492215559999", relationship: "tutor" })`
 - THEN a `StudentGuardian` is persisted with `userId = null`, `active = true`, `isFinancialResponsible = false`, `isAuthorizedToPickUp = false`
 - AND `Result.isOk()` is `true`
+
+### Scenario RYT-05-G: relationship ausente — rechazado
+
+- GIVEN an ADMIN user and student `s1` exists
+- WHEN `CreateStudyTutorUseCase.execute({ studentId: "s1", fullName: "Lucía Rodríguez", mobile: "+5492215559999" })` (no relationship)
+- THEN the use case MUST return `Result.err` with code `RELATIONSHIP_REQUIRED`
+- AND no record is persisted
 
 ### Scenario RYT-05-B: fullName ausente — rechazado
 

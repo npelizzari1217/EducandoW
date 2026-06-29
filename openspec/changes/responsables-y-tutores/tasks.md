@@ -218,7 +218,7 @@
 
 > **Note on AssignGuardianUseCase**: the entity `create()` → `Result` migration (PR2a T2a.5) breaks the existing `AssignGuardianUseCase` call site. T2b.5 MUST fix that call site. Because the entity change (PR2a) and the call-site fix (PR2b) land in consecutive commits of the same chain, the project stays green across the chain boundary. Never cherry-pick T2a.5 without T2b.5.
 
-### T2b.1 [RED] Unit tests — AssignGuardianUseCase (UPDATE)
+### T2b.1 [x] Unit tests — AssignGuardianUseCase (UPDATE)
 - **File**: `api/test/unit/assign-guardian.use-case.test.ts` (UPDATE)
 - Replace any `expect(...).not.toThrow()` pattern with `result.isOk()` unwrap assertion (entity now returns Result)
 - Remove `GuardianRelationship` enum cast references
@@ -227,7 +227,7 @@
 - Mocked `guardianRepo.findByComposite` returns existing → `Result.err(GUARDIAN_ALREADY_ASSIGNED)` (REQ-RYT-08-A)
 - **Satisfies**: REQ-RYT-07, REQ-RYT-08
 
-### T2b.2 [RED] Unit tests — CreateStudyTutorUseCase (NEW)
+### T2b.2 [x] Unit tests — CreateStudyTutorUseCase (NEW)
 - **File**: `api/test/unit/create-study-tutor.use-case.test.ts` (NEW)
 - Mock `studentRepo.findById`, `guardianRepo.findStudyTutor`, `guardianRepo.save`
 - Success: `{ studentId, fullName: 'Ana García', mobile: '+5492215551234' }` → `Result.isOk()`, `userId` is null/undefined, `active = true`, `isFinancialResponsible = false` (REQ-RYT-05-A)
@@ -241,7 +241,7 @@
 - Student not found → `Result.err(NotFoundError)` (REQ-RYT-05-A pre-condition)
 - **Satisfies**: REQ-RYT-05, REQ-RYT-08
 
-### T2b.3 [RED] Unit tests — UpdateStudyTutorUseCase (NEW)
+### T2b.3 [x] Unit tests — UpdateStudyTutorUseCase (NEW)
 - **File**: `api/test/unit/update-study-tutor.use-case.test.ts` (NEW)
 - Mock `guardianRepo.findById`, `guardianRepo.findStudyTutor`, `guardianRepo.save`
 - Success: update `fullName` and `mobile` → `Result.isOk()`, new values in returned guardian (REQ-RYT-06-A)
@@ -251,7 +251,7 @@
 - `fullName` changes → triggers `findStudyTutor` uniqueness re-check; duplicate without override → `TUTOR_DUPLICATE_NAME`
 - **Satisfies**: REQ-RYT-06
 
-### T2b.4 [RED] Integration tests — guardians endpoint (UPDATE)
+### T2b.4 [x] Integration tests — guardians endpoint (UPDATE)
 - **File**: `api/test/integration/guardians.test.ts` (UPDATE)
 - POST `/students/:id/guardians` without `userId` → HTTP 201, study tutor created with `userId = null` (RYT-05-A, RYT-13-B)
 - POST `/students/:id/guardians` with `userId` → HTTP 201, portal link still works (RYT-07-A)
@@ -268,7 +268,7 @@
 - `relationship` of 16 chars → HTTP 400 (RYT-04-B)
 - **Satisfies**: REQ-RYT-04 through REQ-RYT-10, REQ-RYT-12
 
-### T2b.5 [GREEN] AssignGuardianUseCase — Result migration + userId guard
+### T2b.5 [x] AssignGuardianUseCase — Result migration + userId guard
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - Change return type to `Promise<Result<StudentGuardian, DomainError>>`
 - Add guard: if `!input.userId` → `return err(new ValidationError('USER_ID_REQUIRED'))`
@@ -278,7 +278,7 @@
 - Remove `import type { GuardianRelationship }` from this file
 - **Satisfies**: REQ-RYT-07, REQ-RYT-08
 
-### T2b.6 [GREEN] CreateStudyTutorUseCase (NEW)
+### T2b.6 [x] CreateStudyTutorUseCase (NEW)
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts` (add new class)
 - Input interface: `{ studentId: string; fullName: string; mobile: string; relationship?: string; email?: string; isFinancialResponsible?: boolean; isAuthorizedToPickUp?: boolean; allowDuplicate?: boolean }`
 - Flow (all Result, no throws):
@@ -292,7 +292,7 @@
   8. `await guardianRepo.save(guardian)` → `return ok(guardian)`
 - **Satisfies**: REQ-RYT-05, REQ-RYT-08
 
-### T2b.7 [GREEN] UpdateStudyTutorUseCase (NEW)
+### T2b.7 [x] UpdateStudyTutorUseCase (NEW)
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts` (add new class)
 - Input interface: `{ guardianId: string; fullName?: string; mobile?: string; email?: string | null; relationship?: string; active?: boolean }`
 - Flow:
@@ -305,13 +305,13 @@
 - Does NOT allow changing `userId` or `studentId`
 - **Satisfies**: REQ-RYT-06
 
-### T2b.8 [GREEN] GuardianOutput — extend + ListGuardiansUseCase mapping
+### T2b.8 [x] GuardianOutput — extend + ListGuardiansUseCase mapping
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - `GuardianOutput` interface: `userId?: string`; add `fullName?: string`, `mobile?: string`, `email?: string`, `active: boolean`, `updatedAt: Date`
 - `ListGuardiansUseCase.execute()` mapper: `userId: g.userId ?? undefined`, `fullName: g.fullName`, `mobile: g.mobile?.get()`, `email: g.email?.get()`, `active: g.active`, `updatedAt: g.updatedAt`
 - **Satisfies**: REQ-RYT-12
 
-### T2b.9 [GREEN] Presentation DTOs — assign-guardian + new update-guardian
+### T2b.9 [x] Presentation DTOs — assign-guardian + new update-guardian
 - **File**: `api/src/presentation/student/dto/assign-guardian.dto.ts`
   - `userId: z.string().uuid().optional()`
   - `relationship: z.string().min(1).max(15)` (drop `z.enum([...])`)
@@ -322,7 +322,7 @@
   - `UpdateGuardianSchema`: `fullName?: z.string().min(1).optional()`, `mobile?: z.string().min(1).optional()`, `email?: z.string().email().optional().nullable()`, `relationship?: z.string().min(1).max(15).optional()`, `active?: z.boolean().optional()`
 - **Satisfies**: REQ-RYT-04, REQ-RYT-05, REQ-RYT-06
 
-### T2b.10 [GREEN] Controller — POST dispatch + PATCH endpoint
+### T2b.10 [x] Controller — POST dispatch + PATCH endpoint
 - **File**: `api/src/presentation/student/student.controller.ts`
 - POST `/students/:id/guardians` (existing handler): after DTO validation, dispatch:
   - `if (dto.userId)` → `assignGuardianUseCase.execute(...)` (portal path)
@@ -335,10 +335,19 @@
 - `mapGuardian()` response shape includes: `id`, `userId`, `fullName`, `mobile`, `email`, `relationship`, `isFinancialResponsible`, `isAuthorizedToPickUp`, `active`, `updatedAt`
 - **Satisfies**: REQ-RYT-05, REQ-RYT-06, REQ-RYT-07, REQ-RYT-12
 
-### T2b.11 [GREEN] Module — register new use cases
+### T2b.11 [x] Module — register new use cases
 - **File**: `api/src/presentation/student/student.module.ts`
 - Add `CreateStudyTutorUseCase` and `UpdateStudyTutorUseCase` to `providers` array with Symbol token injection (matching existing pattern for `AssignGuardianUseCase`, `RemoveGuardianUseCase`)
 - **Satisfies**: NestJS wiring / REQ-RYT-05, REQ-RYT-06
+
+### T2b.12 [x] User decision: relationship REQUIRED on create — remove 'tutor' default (2026-06-29)
+- **Decision**: `CreateStudyTutorUseCase` previously defaulted `relationship` to `'tutor'` when omitted. This default has been removed per explicit user decision.
+- **Use case** (`student.use-cases.ts`): Added guard after mobile validation — if `!input.relationship?.trim()` → `return err(new ValidationError('RELATIONSHIP_REQUIRED'))`. Removed `?? 'tutor'` from entity creation call.
+- **DTO** (`assign-guardian.dto.ts`): Changed `relationship` from `.optional()` to required `z.string().min(1).max(15)` for BOTH portal-link and study-tutor paths.
+- **Update DTO** (`update-guardian.dto.ts`): relationship remains `.optional()` (PATCH semantics unchanged).
+- **Tests updated**: Added 2 new RED tests (RELATIONSHIP_REQUIRED absent, whitespace-only). Fixed 4 unit tests + 3 integration tests that previously omitted relationship (now pass `relationship: 'tutor'` explicitly). Changed DTO test from "accepts missing relationship" → "rejects missing relationship".
+- **Spec**: REQ-RYT-05 updated to state relationship MUST be provided; new Scenario RYT-05-G added.
+- **Satisfies**: REQ-RYT-05 (updated)
 
 ---
 

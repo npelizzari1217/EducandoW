@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AssignGuardianUseCase } from '../../src/application/student/use-cases/student.use-cases';
-import { StudentRepository, StudentGuardianRepository, Student, NotFoundError, ValidationError } from '@educandow/domain';
+import { StudentRepository, StudentGuardianRepository, Student, NotFoundError } from '@educandow/domain';
 
 describe('AssignGuardianUseCase', () => {
   let useCase: AssignGuardianUseCase;
@@ -35,33 +35,39 @@ describe('AssignGuardianUseCase', () => {
     useCase = new AssignGuardianUseCase(studentRepo, guardianRepo);
   });
 
-  it('assigns guardian successfully', async () => {
+  // REQ-RYT-07-A: userId present → success Result
+  it('returns ok when guardian assigned successfully (REQ-RYT-07-A)', async () => {
     const s = mockStudent();
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
     vi.mocked(guardianRepo.findByComposite).mockResolvedValue(null);
     vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
 
-    await expect(
-      useCase.execute('s1', { userId: 'u-tutor', relationship: 'mother' }),
-    ).resolves.toBeUndefined();
-
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father' });
+    expect(result.isOk()).toBe(true);
     expect(guardianRepo.save).toHaveBeenCalled();
   });
 
-  it('throws 404 when student does not exist', async () => {
-    vi.mocked(studentRepo.findById).mockResolvedValue(null);
-
-    await expect(
-      useCase.execute('s-nonexistent', { userId: 'u-tutor', relationship: 'father' }),
-    ).rejects.toThrow(NotFoundError);
+  // REQ-RYT-07-B: userId absent → USER_ID_REQUIRED
+  it('returns err USER_ID_REQUIRED when userId is absent (REQ-RYT-07-B)', async () => {
+    const result = await useCase.execute('s1', { userId: undefined as unknown as string, relationship: 'mother' });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('USER_ID_REQUIRED');
   });
 
-  it('throws 409 when guardian already assigned (duplicate)', async () => {
+  // Student not found → err with NotFoundError
+  it('returns err NOT_FOUND when student does not exist', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(null);
+    const result = await useCase.execute('s-nonexistent', { userId: 'u-tutor', relationship: 'father' });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
+  });
+
+  // REQ-RYT-08-A: duplicate → GUARDIAN_ALREADY_ASSIGNED
+  it('returns err GUARDIAN_ALREADY_ASSIGNED on duplicate (REQ-RYT-08-A)', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
     vi.mocked(guardianRepo.findByComposite).mockResolvedValue({} as any);
-
-    await expect(
-      useCase.execute('s1', { userId: 'u-tutor', relationship: 'other' }),
-    ).rejects.toThrow(ValidationError);
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'other' });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
   });
 });

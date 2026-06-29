@@ -1,7 +1,9 @@
 import {
   Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject,
+  ConflictException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
+import { NotFoundError } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -10,10 +12,13 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateStudentSchema, CreateStudentDTO } from './dto/create-student.dto';
 import { UpdateStudentSchema, UpdateStudentDTO } from './dto/update-student.dto';
 import { AssignGuardianSchema, AssignGuardianDTO } from './dto/assign-guardian.dto';
+import { UpdateGuardianSchema, UpdateGuardianDTO } from './dto/update-guardian.dto';
 import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
   AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
+  CreateStudyTutorUseCase, UpdateStudyTutorUseCase,
+  GuardianOutput,
 } from '../../application/student/use-cases/student.use-cases';
 
 @Controller('students')
@@ -30,6 +35,8 @@ export class StudentController {
     private readonly assignGuardianUC: AssignGuardianUseCase,
     private readonly removeGuardianUC: RemoveGuardianUseCase,
     private readonly listGuardiansUC: ListGuardiansUseCase,
+    private readonly createStudyTutorUC: CreateStudyTutorUseCase,
+    private readonly updateStudyTutorUC: UpdateStudyTutorUseCase,
     @Inject('StudentRepository') private readonly studentRepo: StudentRepository,
   ) {}
 
@@ -110,17 +117,59 @@ export class StudentController {
   @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async listGuardians(@Param('id') id: string) {
     const guardians = await this.listGuardiansUC.execute(id);
-    return { data: guardians };
+    return { data: guardians.map((g) => this.mapGuardian(g)) };
   }
 
   @Post(':id/guardians')
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
-  async assignGuardian(
+  @HttpCode(HttpStatus.CREATED)
+  async assignOrCreateGuardian(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AssignGuardianSchema)) body: AssignGuardianDTO,
   ) {
-    await this.assignGuardianUC.execute(id, body);
-    return { data: { message: 'Guardian assigned' } };
+    if (body.userId) {
+      // Portal-link path: AssignGuardianUseCase (userId present)
+      const result = await this.assignGuardianUC.execute(id, {
+        userId: body.userId,
+        relationship: body.relationship ?? 'tutor',
+        isFinancialResponsible: body.isFinancialResponsible,
+        isAuthorizedToPickUp: body.isAuthorizedToPickUp,
+      });
+      if (result.isErr()) {
+        this.throwGuardianError(result.unwrapErr());
+      }
+      return { data: this.mapGuardianEntity(result.unwrap()) };
+    } else {
+      // Study-tutor path: CreateStudyTutorUseCase (no userId)
+      const result = await this.createStudyTutorUC.execute({
+        studentId: id,
+        fullName: body.fullName ?? '',
+        mobile: body.mobile ?? '',
+        relationship: body.relationship,
+        email: body.email,
+        isFinancialResponsible: body.isFinancialResponsible,
+        isAuthorizedToPickUp: body.isAuthorizedToPickUp,
+        allowDuplicate: body.allowDuplicate,
+      });
+      if (result.isErr()) {
+        this.throwGuardianError(result.unwrapErr());
+      }
+      return { data: this.mapGuardianEntity(result.unwrap()) };
+    }
+  }
+
+  @Patch(':id/guardians/:guardianId')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
+  async updateGuardian(
+    @Param('id') _studentId: string,
+    @Param('guardianId') guardianId: string,
+    @Body(new ZodValidationPipe(UpdateGuardianSchema)) body: UpdateGuardianDTO,
+  ) {
+    const result = await this.updateStudyTutorUC.execute({ guardianId, ...body });
+    if (result.isErr()) {
+      this.throwGuardianError(result.unwrapErr());
+    }
+    return { data: this.mapGuardianEntity(result.unwrap()) };
   }
 
   @Delete(':id/guardians/:guardianId')
@@ -133,7 +182,51 @@ export class StudentController {
     await this.removeGuardianUC.execute(guardianId);
   }
 
-  // ── Helper ─────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────
+
+  /** Map GuardianOutput (from ListGuardiansUseCase) to response shape */
+  private mapGuardian(g: GuardianOutput) {
+    return {
+      id: g.id,
+      userId: g.userId ?? null,
+      fullName: g.fullName ?? null,
+      mobile: g.mobile ?? null,
+      email: g.email ?? null,
+      relationship: g.relationship,
+      isFinancialResponsible: g.isFinancialResponsible,
+      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+      active: g.active,
+      updatedAt: g.updatedAt,
+    };
+  }
+
+  /** Map StudentGuardian entity directly to response shape */
+  private mapGuardianEntity(g: { id: { get(): string }; userId?: string; fullName?: string; mobile?: { get(): string }; email?: { get(): string }; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean; updatedAt: Date }) {
+    return {
+      id: g.id.get(),
+      userId: g.userId ?? null,
+      fullName: g.fullName ?? null,
+      mobile: g.mobile?.get() ?? null,
+      email: g.email?.get() ?? null,
+      relationship: g.relationship,
+      isFinancialResponsible: g.isFinancialResponsible,
+      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+      active: g.active,
+      updatedAt: g.updatedAt,
+    };
+  }
+
+  /** Map domain errors from guardian use cases to HTTP exceptions */
+  private throwGuardianError(error: Error): never {
+    const msg = error.message;
+    if (msg === 'GUARDIAN_ALREADY_ASSIGNED' || msg === 'TUTOR_DUPLICATE_NAME') {
+      throw new ConflictException(msg);
+    }
+    if (error instanceof NotFoundError || msg === 'GUARDIAN_NOT_FOUND') {
+      throw new NotFoundException(msg);
+    }
+    throw new BadRequestException(msg);
+  }
 
   private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; fatherEmail?: { get(): string } | undefined; motherEmail?: { get(): string } | undefined; address?: string; phone?: string; photoUrl?: string; institutionId?: { get(): string } | string }) {
     return {

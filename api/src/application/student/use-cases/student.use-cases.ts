@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, StudentRepository, Student, Id, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email } from '@educandow/domain';
+import { ok, err, Result, ValidationError, StudentRepository, Student, Id, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email, Mobile, DomainError } from '@educandow/domain';
 
 export interface CreateStudentInput {
   firstName: string;
@@ -294,18 +294,23 @@ export class AssignGuardianUseCase {
     private readonly guardianRepo: StudentGuardianRepository,
   ) {}
 
-  async execute(studentId: string, input: AssignGuardianInput): Promise<void> {
+  async execute(studentId: string, input: AssignGuardianInput): Promise<Result<StudentGuardian, DomainError>> {
+    // Guard: userId required for portal-link path (REQ-RYT-07-B)
+    if (!input.userId) {
+      return err(new ValidationError('USER_ID_REQUIRED'));
+    }
+
     // Validate student exists
     const student = await this.studentRepo.findById(studentId);
-    if (!student) throw new NotFoundError('Student', studentId);
+    if (!student) return err(new NotFoundError('Student', studentId));
 
     // Check for duplicate
     const existing = await this.guardianRepo.findByComposite(studentId, input.userId);
     if (existing) {
-      throw new ValidationError('This guardian is already assigned to this student');
+      return err(new ValidationError('GUARDIAN_ALREADY_ASSIGNED'));
     }
 
-    // Create and save — create() now returns Result; unwrap and propagate on error
+    // Create and save — propagate entity validation errors
     const createResult = StudentGuardian.create({
       studentId,
       userId: input.userId,
@@ -313,10 +318,147 @@ export class AssignGuardianUseCase {
       isFinancialResponsible: input.isFinancialResponsible ?? false,
       isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });
-    if (createResult.isErr()) throw createResult.unwrapErr();
+    if (createResult.isErr()) return err(createResult.unwrapErr());
     const guardian = createResult.unwrap();
 
     await this.guardianRepo.save(guardian);
+    return ok(guardian);
+  }
+}
+
+// ── CreateStudyTutorUseCase ─────────────────────────────────
+
+export interface CreateStudyTutorInput {
+  studentId: string;
+  fullName: string;
+  mobile: string;
+  relationship?: string;
+  email?: string;
+  isFinancialResponsible?: boolean;
+  isAuthorizedToPickUp?: boolean;
+  allowDuplicate?: boolean;
+}
+
+@Injectable()
+export class CreateStudyTutorUseCase {
+  constructor(
+    private readonly studentRepo: StudentRepository,
+    private readonly guardianRepo: StudentGuardianRepository,
+  ) {}
+
+  async execute(input: CreateStudyTutorInput): Promise<Result<StudentGuardian, DomainError>> {
+    // 1. Student must exist
+    const student = await this.studentRepo.findById(input.studentId);
+    if (!student) return err(new NotFoundError('Student', input.studentId));
+
+    // 2. fullName required at application layer (REQ-RYT-05-B)
+    if (!input.fullName?.trim()) {
+      return err(new ValidationError('FULL_NAME_REQUIRED'));
+    }
+
+    // 3. mobile required at application layer (REQ-RYT-05-C)
+    if (!input.mobile?.trim()) {
+      return err(new ValidationError('MOBILE_REQUIRED'));
+    }
+
+    // 3b. relationship required at application layer (user decision: no default)
+    if (!input.relationship?.trim()) {
+      return err(new ValidationError('RELATIONSHIP_REQUIRED'));
+    }
+
+    // 4. Validate mobile VO (REQ-RYT-05-D)
+    const mobileResult = Mobile.create(input.mobile);
+    if (mobileResult.isErr()) return err(mobileResult.unwrapErr());
+    const mobileVO = mobileResult.unwrap();
+
+    // 5. Validate email VO if provided (REQ-RYT-05-F)
+    let emailVO: Email | undefined;
+    if (input.email) {
+      const emailResult = Email.create(input.email);
+      if (emailResult.isErr()) return err(emailResult.unwrapErr());
+      emailVO = emailResult.unwrap();
+    }
+
+    // 6. Uniqueness check on (studentId, fullName) unless allowDuplicate (REQ-RYT-08-B/C)
+    if (!input.allowDuplicate) {
+      const dup = await this.guardianRepo.findStudyTutor(input.studentId, input.fullName);
+      if (dup) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
+    }
+
+    // 7. Create entity (no userId — study-tutor path)
+    // relationship is guaranteed non-empty by step 3b above
+    const createResult = StudentGuardian.create({
+      studentId: input.studentId,
+      relationship: input.relationship,
+      fullName: input.fullName,
+      mobile: mobileVO,
+      email: emailVO,
+      isFinancialResponsible: input.isFinancialResponsible ?? false,
+      isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
+    });
+    if (createResult.isErr()) return err(createResult.unwrapErr());
+    const guardian = createResult.unwrap();
+
+    await this.guardianRepo.save(guardian);
+    return ok(guardian);
+  }
+}
+
+// ── UpdateStudyTutorUseCase ─────────────────────────────────
+
+export interface UpdateStudyTutorInput {
+  guardianId: string;
+  fullName?: string;
+  mobile?: string;
+  email?: string | null;
+  relationship?: string;
+  active?: boolean;
+}
+
+@Injectable()
+export class UpdateStudyTutorUseCase {
+  constructor(private readonly guardianRepo: StudentGuardianRepository) {}
+
+  async execute(input: UpdateStudyTutorInput): Promise<Result<StudentGuardian, DomainError>> {
+    // 1. Load guardian (REQ-RYT-06-C)
+    const guardian = await this.guardianRepo.findById(input.guardianId);
+    if (!guardian) return err(new NotFoundError('GUARDIAN_NOT_FOUND', input.guardianId));
+
+    // 2. Validate mobile if provided
+    let mobileVO: Mobile | undefined;
+    if (input.mobile !== undefined) {
+      const mobileResult = Mobile.create(input.mobile);
+      if (mobileResult.isErr()) return err(mobileResult.unwrapErr());
+      mobileVO = mobileResult.unwrap();
+    }
+
+    // 3. Validate email if provided as non-null string (REQ-RYT-06-D)
+    let emailVO: Email | null | undefined;
+    if (input.email === null) {
+      emailVO = null; // explicit clear
+    } else if (input.email !== undefined) {
+      const emailResult = Email.create(input.email);
+      if (emailResult.isErr()) return err(emailResult.unwrapErr());
+      emailVO = emailResult.unwrap();
+    }
+
+    // 4. Re-check uniqueness if fullName changes
+    if (input.fullName !== undefined && input.fullName !== guardian.fullName) {
+      const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, input.fullName);
+      if (dup) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
+    }
+
+    // 5. Apply mutation via entity method (bumps updatedAt)
+    guardian.update({
+      fullName: input.fullName,
+      mobile: mobileVO,
+      email: emailVO,
+      relationship: input.relationship,
+      active: input.active,
+    });
+
+    await this.guardianRepo.save(guardian);
+    return ok(guardian);
   }
 }
 
@@ -339,9 +481,14 @@ export class RemoveGuardianUseCase {
 export interface GuardianOutput {
   id: string;
   userId?: string;
+  fullName?: string;
+  mobile?: string;
+  email?: string;
   relationship: string;
   isFinancialResponsible: boolean;
   isAuthorizedToPickUp: boolean;
+  active: boolean;
+  updatedAt: Date;
 }
 
 @Injectable()
@@ -359,9 +506,14 @@ export class ListGuardiansUseCase {
     return guardians.map((g) => ({
       id: g.id.get(),
       userId: g.userId,
+      fullName: g.fullName,
+      mobile: g.mobile?.get(),
+      email: g.email?.get(),
       relationship: g.relationship,
       isFinancialResponsible: g.isFinancialResponsible,
       isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+      active: g.active,
+      updatedAt: g.updatedAt,
     }));
   }
 }
