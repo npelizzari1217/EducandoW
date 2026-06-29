@@ -342,7 +342,7 @@ The student admin panel MUST expose a section to list, create, and edit study tu
 
 ## REQ-RYT-14 — Pre-carga de email desde legajo cuando parentesco es padre/madre
 
-When creating or editing a study tutor and the user selects a `relationship` that is `"father"` (padre) or `"mother"` (madre), the UI MUST pre-fill the `email` field from `Student.fatherEmail` or `Student.motherEmail` respectively. This pre-fill is an EDITABLE default — the user MAY override it before saving. The tutor's `email` and the student's `fatherEmail`/`motherEmail` MAY diverge after separate edits.
+When creating or editing a study tutor and the user selects a `relationship` that is `"father"` (padre) or `"mother"` (madre), the UI MUST pre-fill the `email` field from `Student.fatherEmail` or `Student.motherEmail` respectively **when the `email` field is currently empty**. The pre-fill MUST NOT overwrite a value the user has already typed into the `email` field. This pre-fill is an EDITABLE default — the user MAY override it before saving. The tutor's `email` and the student's `fatherEmail`/`motherEmail` MAY diverge after separate edits.
 
 ### Scenario RYT-14-A: Pre-carga email al seleccionar "padre"
 

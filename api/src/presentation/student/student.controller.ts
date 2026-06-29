@@ -131,7 +131,7 @@ export class StudentController {
       // Portal-link path: AssignGuardianUseCase (userId present)
       const result = await this.assignGuardianUC.execute(id, {
         userId: body.userId,
-        relationship: body.relationship ?? 'tutor',
+        relationship: body.relationship,
         isFinancialResponsible: body.isFinancialResponsible,
         isAuthorizedToPickUp: body.isAuthorizedToPickUp,
       });
