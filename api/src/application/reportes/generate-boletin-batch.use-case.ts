@@ -102,15 +102,17 @@ export class GenerateBoletinBatchUseCase {
       );
     }
 
-    await archive.finalize();
-
-    // Wait for the archive to finish writing
-    return new Promise<Buffer>((resolve, reject) => {
-      writable.on('finish', () => {
-        resolve(Buffer.concat(chunks));
-      });
+    // Enganchar los listeners ANTES de finalizar: archiver v7 resuelve finalize()
+    // DESPUÉS de que el stream emite 'finish'. Si enganchamos el listener tras el
+    // `await finalize()`, el evento ya pasó y la Promise nunca resuelve (request colgada).
+    const done = new Promise<Buffer>((resolve, reject) => {
+      writable.on('finish', () => resolve(Buffer.concat(chunks)));
       writable.on('error', reject);
+      archive.on('error', reject);
     });
+
+    await archive.finalize();
+    return done;
   }
 
   /**

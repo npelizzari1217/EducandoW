@@ -10,20 +10,26 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   },
 }));
 
-// Mock archiver: CJS default-export interop fails in Vitest ESM mode.
-// finalize() calls .end() on the piped Writable synchronously (before resolve), so that
-// the Writable schedules its 'finish' event for the next tick — AFTER execute() registers
-// the listener. This avoids the race condition where 'finish' fires before .on('finish',...).
+// Mock archiver: CJS default-export interop differs in Vitest vs SWC/Node.
+// FIEL a archiver v7: finalize() resuelve DESPUÉS de que el Writable piped emite 'finish'.
+// Esto reproduce el bug real: si execute() engancha su listener 'finish' recién tras
+// `await finalize()`, el evento ya pasó → la Promise nunca resuelve → cuelga.
 vi.mock('archiver', () => {
   function mockArchiverFactory() {
     let pipedTo: any = null;
     return {
+      on: vi.fn(),
       pipe(target: any) { pipedTo = target; },
       append: vi.fn(),
       finalize() {
-        // end() schedules 'finish' asynchronously; resolve() after so finalize awaits cleanly
-        if (pipedTo && typeof pipedTo.end === 'function') pipedTo.end();
-        return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          if (pipedTo && typeof pipedTo.end === 'function') {
+            pipedTo.once('finish', () => resolve());
+            pipedTo.end();
+          } else {
+            resolve();
+          }
+        });
       },
     };
   }
