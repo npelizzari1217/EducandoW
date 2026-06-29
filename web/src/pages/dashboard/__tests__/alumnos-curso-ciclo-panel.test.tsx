@@ -171,6 +171,15 @@ describe('AlumnosCursoCicloPanel', () => {
     });
   });
 
+  // W-02b: the printable checkbox column has a clarifying header
+  it('W-02b: muestra el titulo "Boletín" en la columna del checkbox imprimible', async () => {
+    renderPanel();
+    await waitFor(() => {
+      expect(screen.getByText('Ana García')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('col-header-printable')).toHaveTextContent(/Boletín/i);
+  });
+
   // W-03: unassigned students appear as available; assigned ones do NOT
   it('W-03: shows only unassigned students as available to add', async () => {
     renderPanel();

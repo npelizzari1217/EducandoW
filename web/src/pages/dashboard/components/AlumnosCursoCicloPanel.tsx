@@ -392,7 +392,13 @@ export function AlumnosCursoCicloPanel({ ccId, onClose, embedded }: AlumnosCurso
             {/* Column headers — only when there are assigned students */}
             {current.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem', marginBottom: '0.125rem', gap: '0.5rem' }}>
-                <span style={{ flex: 1 }} />
+                <span
+                  data-testid="col-header-printable"
+                  style={{ flex: 1, ...labelStyle }}
+                  title="Tildá para incluir al alumno en la impresión de boletines"
+                >
+                  Boletín
+                </span>
                 <span
                   data-testid="col-header-pase"
                   style={{ width: '2.5rem', ...labelStyle }}
