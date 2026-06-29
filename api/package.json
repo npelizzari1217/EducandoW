@@ -36,7 +36,7 @@
     "@nestjs/swagger": "^7.4.0",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^5.20.0",
-    "archiver": "^8.0.0",
+    "archiver": "^7.0.1",
     "bcrypt": "^5.1.1",
     "cookie-parser": "^1.4.6",
     "handlebars": "^4.7.9",
