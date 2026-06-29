@@ -4,8 +4,10 @@ import {
   StudentGuardian,
   Id,
   NotFoundError,
+  Mobile,
+  Email,
 } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient, GuardianRelationship as PrismaGuardianRelationship } from '@prisma/tenant-client';
+import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
 
 @Injectable()
@@ -22,16 +24,26 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
       create: {
         id: guardian.id.get(),
         studentId: guardian.studentId,
-        userId: guardian.userId,
-        relationship: guardian.relationship as PrismaGuardianRelationship,
+        userId: guardian.userId ?? null,
+        relationship: guardian.relationship,
+        fullName: guardian.fullName ?? null,
+        mobile: guardian.mobile?.get() ?? null,
+        email: guardian.email?.get() ?? null,
         isFinancialResponsible: guardian.isFinancialResponsible,
         isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
+        active: guardian.active,
         createdAt: guardian.createdAt,
+        updatedAt: guardian.updatedAt,
       },
       update: {
-        relationship: guardian.relationship as PrismaGuardianRelationship,
+        relationship: guardian.relationship,
+        fullName: guardian.fullName ?? null,
+        mobile: guardian.mobile?.get() ?? null,
+        email: guardian.email?.get() ?? null,
         isFinancialResponsible: guardian.isFinancialResponsible,
         isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
+        active: guardian.active,
+        updatedAt: guardian.updatedAt,
       },
     });
   }
@@ -64,6 +76,13 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
     return record ? this.toDomain(record) : null;
   }
 
+  async findStudyTutor(studentId: string, fullName: string): Promise<StudentGuardian | null> {
+    const record = await this.client.studentGuardian.findFirst({
+      where: { studentId, fullName },
+    });
+    return record ? this.toDomain(record) : null;
+  }
+
   async delete(id: string): Promise<void> {
     const existing = await this.client.studentGuardian.findUnique({ where: { id } });
     if (!existing) {
@@ -76,11 +95,16 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
     return StudentGuardian.reconstruct({
       id: Id.reconstruct(record.id as string),
       studentId: record.studentId as string,
-      userId: record.userId as string,
-      relationship: (record.relationship as string) as StudentGuardian['relationship'],
+      userId: (record.userId as string | null) ?? undefined,
+      relationship: record.relationship as string,
+      fullName: (record.fullName as string | null) ?? undefined,
+      mobile: record.mobile ? Mobile.reconstruct(record.mobile as string) : undefined,
+      email: record.email ? Email.reconstruct(record.email as string) : undefined,
       isFinancialResponsible: (record.isFinancialResponsible as boolean) ?? false,
       isAuthorizedToPickUp: (record.isAuthorizedToPickUp as boolean) ?? false,
+      active: (record.active as boolean) ?? true,
       createdAt: new Date(record.createdAt as string),
+      updatedAt: new Date(record.updatedAt as string),
     });
   }
 }

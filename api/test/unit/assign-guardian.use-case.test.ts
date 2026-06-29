@@ -25,6 +25,7 @@ describe('AssignGuardianUseCase', () => {
     };
     guardianRepo = {
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
       findById: vi.fn(),
       findByStudentId: vi.fn(),

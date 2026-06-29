@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { ok, err, Result, ValidationError, StudentRepository, Student, Id, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email } from '@educandow/domain';
-import type { GuardianRelationship } from '@educandow/domain';
 
 export interface CreateStudentInput {
   firstName: string;
@@ -306,14 +305,16 @@ export class AssignGuardianUseCase {
       throw new ValidationError('This guardian is already assigned to this student');
     }
 
-    // Create and save
-    const guardian = StudentGuardian.create({
+    // Create and save — create() now returns Result; unwrap and propagate on error
+    const createResult = StudentGuardian.create({
       studentId,
       userId: input.userId,
-      relationship: input.relationship as GuardianRelationship,
+      relationship: input.relationship,
       isFinancialResponsible: input.isFinancialResponsible ?? false,
       isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });
+    if (createResult.isErr()) throw createResult.unwrapErr();
+    const guardian = createResult.unwrap();
 
     await this.guardianRepo.save(guardian);
   }
@@ -337,7 +338,7 @@ export class RemoveGuardianUseCase {
 
 export interface GuardianOutput {
   id: string;
-  userId: string;
+  userId?: string;
   relationship: string;
   isFinancialResponsible: boolean;
   isAuthorizedToPickUp: boolean;

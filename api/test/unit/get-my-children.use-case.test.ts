@@ -26,6 +26,7 @@ describe('GetMyChildrenUseCase', () => {
       findById: vi.fn(),
       findByStudentId: vi.fn(),
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
       delete: vi.fn(),
     };

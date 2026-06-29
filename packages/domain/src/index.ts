@@ -28,7 +28,7 @@ export type { InstitutionRepository } from './institution/repositories/instituti
 
 // Personnel
 export { Student, StudentGuardian } from './personnel/entities';
-export type { StudentGuardianProps, GuardianRelationship } from './personnel/entities';
+export type { StudentGuardianProps } from './personnel/entities';
 export { Dni } from './personnel/value-objects';
 export type { StudentRepository } from './personnel/repositories/student-repository';
 export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';

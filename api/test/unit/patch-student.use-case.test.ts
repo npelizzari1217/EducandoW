@@ -50,6 +50,7 @@ describe('PatchStudentUseCase', () => {
       findByStudentId: vi.fn(),
       findByGuardianUserId: vi.fn(),
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
       delete: vi.fn(),
     };

@@ -13,6 +13,7 @@ describe('RemoveGuardianUseCase', () => {
       findByStudentId: vi.fn(),
       findByGuardianUserId: vi.fn(),
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
     };
     useCase = new RemoveGuardianUseCase(guardianRepo);

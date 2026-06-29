@@ -123,7 +123,7 @@
 **Estimated LOC**: ~210–260
 **Work-unit commit**: `feat(student-guardian): schema extension, entity to Result, repo port`
 
-### T2a.1 [RED] Unit tests — StudentGuardian entity (UPDATE existing file)
+### T2a.1 [x] Unit tests — StudentGuardian entity (UPDATE existing file)
 - **File**: `packages/domain/src/personnel/__tests__/student-guardian.test.ts` (UPDATE)
 - Remove all tests that import or reference `GuardianRelationship` enum
 - Add: `StudentGuardian.create({...})` returns `Result<StudentGuardian, ValidationError>` — NOT throws (REQ-RYT-03, entity ADR)
@@ -138,7 +138,7 @@
 - Add: `update({fullName: '...'})` mutation method updates the prop and bumps `updatedAt` (REQ-RYT-02, REQ-RYT-06)
 - **Satisfies**: REQ-RYT-02, REQ-RYT-03, REQ-RYT-04, REQ-RYT-11 (indirectly)
 
-### T2a.2 [GREEN] Schema — StudentGuardian extension + enum drop
+### T2a.2 [x] Schema — StudentGuardian extension + enum drop
 - **File**: `api/prisma_tenant/schema.prisma`
 - `userId String` → `userId String?` (nullable)
 - `relationship GuardianRelationship` → `relationship String @db.VarChar(15)`
@@ -154,12 +154,12 @@
 - `@@unique([studentId, userId])` — KEEP as-is (Postgres NULLs are distinct)
 - **Satisfies**: REQ-RYT-02, REQ-RYT-03, REQ-RYT-04, REQ-RYT-08
 
-### T2a.3 [GREEN] prisma:generate (after StudentGuardian schema edit)
+### T2a.3 [x] prisma:generate (after StudentGuardian schema edit)
 - **Command**: `pnpm --filter api prisma:generate`
 - Regenerates both clients; master client unaffected
 - **Satisfies**: schema → client sync
 
-### T2a.4 [GREEN] Tenant migration — StudentGuardian changes
+### T2a.4 [x] Tenant migration — StudentGuardian changes
 - **Command**: `pnpm --filter api prisma:migrate:tenant` (dev)
 - CRITICAL — verify generated SQL ordering before committing:
   - `ALTER COLUMN "relationship" TYPE varchar(15)` MUST appear BEFORE `DROP TYPE "GuardianRelationship"`
@@ -168,7 +168,7 @@
 - Tenant DBs are regenerated; no data-migration scripts for tenant
 - **Satisfies**: REQ-RYT-04, schema integrity caution from design §2
 
-### T2a.5 [GREEN] StudentGuardian entity — migrate to Result + new fields
+### T2a.5 [x] StudentGuardian entity — migrate to Result + new fields
 - **File**: `packages/domain/src/personnel/entities/student-guardian.ts`
 - `StudentGuardianProps`: `userId?: string`, `relationship: string`, add `fullName?: string`, `mobile?: Mobile`, `email?: Email`, `active: boolean`, `updatedAt: Date`
 - `static create(...)` → `Result<StudentGuardian, ValidationError>` (no throw): validate `relationship.trim()` length 1..15; default `active ?? true`, `isFinancialResponsible ?? false`, `isAuthorizedToPickUp ?? false`, `id = Id.create()`, `createdAt = updatedAt = new Date()`
@@ -181,13 +181,13 @@
 - Remove `GuardianRelationship` export from `packages/domain/src/index.ts`
 - **Satisfies**: REQ-RYT-02, REQ-RYT-03, REQ-RYT-04
 
-### T2a.6 [GREEN] Repo port — add findStudyTutor
+### T2a.6 [x] Repo port — add findStudyTutor
 - **File**: `packages/domain/src/personnel/repositories/student-guardian-repository.ts`
 - Add method signature: `findStudyTutor(studentId: string, fullName: string): Promise<StudentGuardian | null>`
 - Keep `findByComposite(studentId: string, userId: string)` unchanged (portal-only duplicate check; userId always non-null there)
 - **Satisfies**: REQ-RYT-08
 
-### T2a.7 [GREEN] Repo implementation — toDomain + save + findStudyTutor
+### T2a.7 [x] Repo implementation — toDomain + save + findStudyTutor
 - **File**: `api/src/infrastructure/persistence/prisma/repositories/prisma-student-guardian.repository.ts`
 - Remove `GuardianRelationship as PrismaGuardianRelationship` import (no longer exists in client)
 - `toDomain()`: map `userId: record.userId as string | undefined`, `fullName`, `mobile: record.mobile ? Mobile.reconstruct(record.mobile as string) : undefined`, `email: record.email ? Email.reconstruct(record.email as string) : undefined`, `active: (record.active as boolean) ?? true`, `updatedAt: new Date(record.updatedAt as string)`
@@ -195,6 +195,17 @@
 - `save()` `update` block: add same new fields
 - Implement `findStudyTutor(studentId, fullName)`: `this.client.studentGuardian.findFirst({ where: { studentId, fullName } })`
 - **Satisfies**: REQ-RYT-02, REQ-RYT-03, REQ-RYT-08
+
+### T2a.8 [x] AssignGuardianUseCase call-site fix — pulled from T2b.5 into PR2a
+> **Note**: This task was originally T2b.5. It was moved into PR2a to keep the slice GREEN.
+> The `create()` → `Result` change (T2a.5) broke `AssignGuardianUseCase`. Fixed by unwrapping
+> the Result and throwing on error, preserving the existing throw-based API.
+> Files changed: `student.use-cases.ts` (remove `GuardianRelationship` import, handle Result from create()),
+> `assign-guardian.use-case.test.ts` (add `findStudyTutor` to mock),
+> `get-my-children.use-case.test.ts`, `patch-student.use-case.test.ts`,
+> `remove-guardian.use-case.test.ts`, `guardians.test.ts` (add `findStudyTutor` to mocks,
+> fix `mockGuardian` to include new required props).
+> `GuardianOutput.userId` made optional (`string | undefined`) to match entity change.
 
 ---
 

@@ -68,21 +68,19 @@ model Student {
   @@map("students")
 }
 
-enum GuardianRelationship {
-  mother
-  father
-  legal_guardian
-  other
-}
-
 model StudentGuardian {
-  id                     String               @id @default(uuid())
+  id                     String   @id @default(uuid())
   studentId              String
-  userId                 String
-  relationship           GuardianRelationship
-  isFinancialResponsible Boolean              @default(false) @map("is_financial_responsible")
-  isAuthorizedToPickUp   Boolean              @default(false) @map("is_authorized_to_pick_up")
-  createdAt              DateTime             @default(now())
+  userId                 String?
+  relationship           String   @db.VarChar(15)
+  fullName               String?
+  mobile                 String?
+  email                  String?
+  isFinancialResponsible Boolean  @default(false) @map("is_financial_responsible")
+  isAuthorizedToPickUp   Boolean  @default(false) @map("is_authorized_to_pick_up")
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

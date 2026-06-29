@@ -40,6 +40,7 @@ describe('Guardian Integration Tests', () => {
       };
       guardianRepo = {
         findByComposite: vi.fn(),
+        findStudyTutor: vi.fn(),
         save: vi.fn(),
         findById: vi.fn(),
         findByStudentId: vi.fn(),
@@ -141,6 +142,7 @@ describe('Guardian Integration Tests', () => {
       };
       guardianRepo = {
         findByComposite: vi.fn(),
+        findStudyTutor: vi.fn(),
         save: vi.fn(),
         findById: vi.fn(),
         findByStudentId: vi.fn(),
@@ -158,14 +160,20 @@ describe('Guardian Integration Tests', () => {
       isFinancialResponsible = false,
       isAuthorizedToPickUp = false,
     ): StudentGuardian {
+      const now = new Date();
       return StudentGuardian.reconstruct({
         id: Id.reconstruct(id),
         studentId,
         userId,
-        relationship: relationship as StudentGuardian['relationship'],
+        relationship,
+        fullName: undefined,
+        mobile: undefined,
+        email: undefined,
         isFinancialResponsible,
         isAuthorizedToPickUp,
-        createdAt: new Date(),
+        active: true,
+        createdAt: now,
+        updatedAt: now,
       });
     }
 
@@ -220,6 +228,7 @@ describe('Guardian Integration Tests', () => {
     beforeEach(() => {
       guardianRepo = {
         findByComposite: vi.fn(),
+        findStudyTutor: vi.fn(),
         save: vi.fn(),
         findById: vi.fn(),
         findByStudentId: vi.fn(),

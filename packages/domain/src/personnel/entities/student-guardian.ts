@@ -1,48 +1,89 @@
 import { Id } from '../../shared/value-objects/id';
+import { Mobile } from '../../shared/value-objects/mobile';
+import { Email } from '../../shared/value-objects/email';
+import { Result, ok, err } from '../../shared/result';
 import { ValidationError } from '../../shared/errors/validation-error';
-
-export type GuardianRelationship = 'mother' | 'father' | 'legal_guardian' | 'other';
-
-const VALID_RELATIONSHIPS: GuardianRelationship[] = ['mother', 'father', 'legal_guardian', 'other'];
 
 export interface StudentGuardianProps {
   id: Id;
   studentId: string;
-  userId: string;
-  relationship: GuardianRelationship;
+  userId?: string;
+  relationship: string;
+  fullName?: string;
+  mobile?: Mobile;
+  email?: Email;
   isFinancialResponsible: boolean;
   isAuthorizedToPickUp: boolean;
+  active: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export class StudentGuardian {
   private constructor(private props: StudentGuardianProps) {}
 
-  static create(props: {
+  static create(input: {
     studentId: string;
-    userId: string;
-    relationship: GuardianRelationship;
+    userId?: string;
+    relationship: string;
+    fullName?: string;
+    mobile?: Mobile;
+    email?: Email;
     isFinancialResponsible?: boolean;
     isAuthorizedToPickUp?: boolean;
-  }): StudentGuardian {
-    if (!VALID_RELATIONSHIPS.includes(props.relationship)) {
-      throw new ValidationError(
-        `Invalid relationship: "${props.relationship}". Must be one of: ${VALID_RELATIONSHIPS.join(', ')}`,
-      );
+    active?: boolean;
+  }): Result<StudentGuardian, ValidationError> {
+    const trimmed = input.relationship?.trim() ?? '';
+    if (trimmed.length === 0) {
+      return err(new ValidationError('Relationship cannot be empty'));
+    }
+    if (trimmed.length > 15) {
+      return err(new ValidationError('Relationship must be 15 characters or fewer'));
     }
 
-    return new StudentGuardian({
-      ...props,
-      isFinancialResponsible: props.isFinancialResponsible ?? false,
-      isAuthorizedToPickUp: props.isAuthorizedToPickUp ?? false,
-      id: Id.create(),
-      createdAt: new Date(),
-    });
+    const now = new Date();
+    return ok(
+      new StudentGuardian({
+        id: Id.create(),
+        studentId: input.studentId,
+        userId: input.userId,
+        relationship: trimmed,
+        fullName: input.fullName,
+        mobile: input.mobile,
+        email: input.email,
+        isFinancialResponsible: input.isFinancialResponsible ?? false,
+        isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
+        active: input.active ?? true,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
   }
 
   static reconstruct(props: StudentGuardianProps): StudentGuardian {
     return new StudentGuardian(props);
   }
+
+  // ── Mutation ─────────────────────────────────────────────
+
+  update(patch: {
+    fullName?: string;
+    mobile?: Mobile;
+    email?: Email | null;
+    relationship?: string;
+    active?: boolean;
+  }): void {
+    if (patch.fullName !== undefined) this.props.fullName = patch.fullName;
+    if (patch.mobile !== undefined) this.props.mobile = patch.mobile;
+    if ('email' in patch) {
+      this.props.email = patch.email ?? undefined;
+    }
+    if (patch.relationship !== undefined) this.props.relationship = patch.relationship;
+    if (patch.active !== undefined) this.props.active = patch.active;
+    this.props.updatedAt = new Date();
+  }
+
+  // ── Getters ──────────────────────────────────────────────
 
   get id(): Id {
     return this.props.id;
@@ -52,12 +93,24 @@ export class StudentGuardian {
     return this.props.studentId;
   }
 
-  get userId(): string {
+  get userId(): string | undefined {
     return this.props.userId;
   }
 
-  get relationship(): GuardianRelationship {
+  get relationship(): string {
     return this.props.relationship;
+  }
+
+  get fullName(): string | undefined {
+    return this.props.fullName;
+  }
+
+  get mobile(): Mobile | undefined {
+    return this.props.mobile;
+  }
+
+  get email(): Email | undefined {
+    return this.props.email;
   }
 
   get isFinancialResponsible(): boolean {
@@ -68,7 +121,15 @@ export class StudentGuardian {
     return this.props.isAuthorizedToPickUp;
   }
 
+  get active(): boolean {
+    return this.props.active;
+  }
+
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+
+  get updatedAt(): Date {
+    return this.props.updatedAt;
   }
 }
