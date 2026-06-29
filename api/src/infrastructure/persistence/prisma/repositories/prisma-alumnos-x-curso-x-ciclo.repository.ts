@@ -163,6 +163,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
         courseCycle: {
           select: {
             uuid: true,
+            active: true,
             level: true,
             cycle: { select: { name: true } },
             course: { select: { grade: true, division: true, academicYear: true } },
@@ -179,6 +180,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       createdAt: Date;
       courseCycle: {
         uuid: string;
+        active: boolean;
         level: number;
         cycle: { name: string };
         course: { grade: string | null; division: string | null; academicYear: string };
@@ -187,6 +189,7 @@ export class PrismaAlumnosXCursoXCicloRepository implements AlumnosXCursoXCicloR
       id: r.id,
       courseCycleId: r.courseCycleId,
       printable: r.printable,
+      active: r.courseCycle.active,
       level: r.courseCycle.level,
       academicYear: r.courseCycle.course.academicYear,
       cycleName: r.courseCycle.cycle.name,

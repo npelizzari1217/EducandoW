@@ -21,6 +21,8 @@ export interface StudentMembershipEnriched {
   id: string;
   courseCycleId: string;
   printable: boolean;
+  /** CourseCycle.active — el ciclo vigente. */
+  active: boolean;
   /** CourseCycle.level as number. */
   level: number;
   /** CourseSection.academicYear string, e.g. "2026". */

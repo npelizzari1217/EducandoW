@@ -4,6 +4,7 @@ import { Table } from '../../../components/ui/table';
 import { Button } from '../../../components/ui/button';
 import apiClient from '../../../api/client';
 import { downloadBoletin } from '../../../hooks/useBoletin';
+import { levelLabel } from '../../../constants/levels';
 
 // ── Interfaces ─────────────────────────────────────────────
 
@@ -29,6 +30,8 @@ interface StudentMembership {
   id: string;
   courseCycleId: string;
   printable: boolean;
+  /** CourseCycle.active — el ciclo vigente. */
+  active: boolean;
   level: number;
   academicYear: string;
   /** AcademicCycle.name del ciclo lectivo, p.ej. "Secundario 2026". */
@@ -54,29 +57,6 @@ interface SubjectGrade {
 
 // ── Helpers ────────────────────────────────────────────────
 
-const LEVEL_LABELS: Record<string, string> = {
-  INICIAL: 'Inicial',
-  PRIMARIO: 'Primario',
-  SECUNDARIO: 'Secundario',
-  TERCIARIO: 'Terciario',
-  ADMINISTRACION: 'Administración',
-};
-
-function levelLabel(level: string): string {
-  const n = parseInt(level, 10);
-  if (!isNaN(n)) {
-    const map: Record<number, string> = {
-      1: 'Inicial',
-      2: 'Primario',
-      3: 'Secundario',
-      4: 'Terciario',
-      9: 'Administración',
-    };
-    return map[n] ?? level;
-  }
-  return LEVEL_LABELS[level] ?? level;
-}
-
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
   return new Date(iso).toLocaleDateString('es-AR');
@@ -98,6 +78,15 @@ function mostRecentMembership(list: StudentMembership[]): StudentMembership | nu
     if (byYear !== 0) return byYear;
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   })[0];
+}
+
+/**
+ * Selección por omisión: el CursoXCiclo activo/vigente (el más reciente si hay varios
+ * activos); si ninguno está activo, cae al más reciente del listado.
+ */
+function defaultMembership(list: StudentMembership[]): StudentMembership | null {
+  const actives = list.filter((m) => m.active);
+  return mostRecentMembership(actives.length ? actives : list);
 }
 
 // ── Component ──────────────────────────────────────────────
@@ -160,9 +149,9 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
     });
   }, [studentId, institutionId]);
 
-  // Al cargar las membresías, auto-seleccionar el ciclo lectivo más reciente.
+  // Al cargar las membresías, auto-seleccionar el ciclo activo/vigente (fallback: más reciente).
   useEffect(() => {
-    setSelectedMembershipId(mostRecentMembership(memberships)?.id ?? null);
+    setSelectedMembershipId(defaultMembership(memberships)?.id ?? null);
   }, [memberships]);
 
   // Calificaciones (modelo nuevo): se piden las notas del ciclo SELECCIONADO a
@@ -252,10 +241,18 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
 
       {/* ── Cursos Ciclo (SDD-2: reemplaza Matrículas) ── */}
       <Card title={`Cursos Ciclo (${memberships.length})`} className="mt-md">
+        {memberships.length > 0 && (
+          <p className="legajo-hint">Hacé clic en un ciclo para ver sus calificaciones.</p>
+        )}
         <Table
           columns={[
+            {
+              key: 'sel',
+              header: '',
+              render: (m: StudentMembership) => (m.id === selectedMembershipId ? '●' : '○'),
+            },
             { key: 'academicYear', header: 'Año lectivo' },
-            { key: 'level', header: 'Nivel', render: (m: StudentMembership) => levelLabel(String(m.level)) },
+            { key: 'level', header: 'Nivel', render: (m: StudentMembership) => levelLabel(m.level) },
             { key: 'grade', header: 'Grado/Año', render: (m: StudentMembership) => m.grade || '-' },
             {
               key: 'division',
@@ -265,7 +262,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
             {
               key: 'printable',
               header: 'Boletín',
-              render: (m: StudentMembership) => m.printable ? '✓ Sí' : '✗ No',
+              render: (m: StudentMembership) => (m.printable ? '✓ Sí' : '✗ No'),
             },
             {
               key: 'createdAt',
@@ -274,6 +271,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
             },
           ]}
           data={memberships}
+          onRowClick={(m: StudentMembership) => setSelectedMembershipId(m.id)}
           emptyMessage="Sin cursos asignados"
         />
       </Card>
@@ -283,36 +281,23 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
         title={`Calificaciones (${subjectGrades.length} materias)${subjectGrades.length === 0 ? ' — sin datos disponibles' : ''}`}
         className="mt-md"
       >
-        {memberships.length > 0 && (
+        {selectedMembership && (
           <div className="legajo-ciclo-bar">
-            {memberships.length > 1 && (
-              <label className="legajo-ciclo-field">
-                <span className="legajo-label">Ciclo lectivo</span>
-                <select
-                  aria-label="Ciclo lectivo"
-                  value={selectedMembershipId ?? ''}
-                  onChange={(e) => setSelectedMembershipId(e.target.value)}
-                  className="legajo-ciclo-select"
-                >
-                  {memberships.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.cycleName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
+            <div className="legajo-ciclo-field">
+              <span className="legajo-label">Ciclo seleccionado</span>
+              <p className="legajo-value">{selectedMembership.cycleName}</p>
+            </div>
             <Button
               variant="action"
               size="sm"
               className="legajo-boletin-btn"
-              disabled={!selectedMembership?.printable}
+              disabled={!selectedMembership.printable}
               title={
-                selectedMembership?.printable
+                selectedMembership.printable
                   ? 'Imprimir boletín de este ciclo'
                   : 'Este ciclo no tiene boletín imprimible'
               }
-              onClick={() => selectedMembership && downloadBoletin(selectedMembership.id)}
+              onClick={() => downloadBoletin(selectedMembership.id)}
             >
               📄 Boletín
             </Button>
@@ -362,9 +347,9 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
       <style>{`
         .legajo-label { font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 0.15rem; text-transform: uppercase; letter-spacing: 0.05em; }
         .legajo-value { font-size: var(--text-base); font-weight: 500; }
+        .legajo-hint { font-size: var(--text-sm); color: var(--color-text-muted); margin: 0 0 var(--space-sm); }
         .legajo-ciclo-bar { display: flex; align-items: flex-end; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
         .legajo-ciclo-field { display: flex; flex-direction: column; }
-        .legajo-ciclo-select { padding: 0.35rem 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-size: var(--text-sm); min-width: 16rem; }
         .legajo-boletin-btn { margin-left: auto; }
       `}</style>
     </div>

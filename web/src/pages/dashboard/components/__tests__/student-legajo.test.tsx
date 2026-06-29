@@ -1,17 +1,19 @@
 /**
- * Tests for StudentLegajo — calificaciones + selección de ciclo + boletín.
+ * Tests for StudentLegajo — calificaciones + selección de ciclo (sobre la lista) + boletín.
  *
  * Regression base: tras la migración del modelo de notas (Nota/Evaluacion → SubjectPeriodGrade
  * / SubjectFinalGrade), el legajo llamaba al endpoint eliminado `/notas` y la sección de
  * Calificaciones quedaba vacía. Los tests fijan que el legajo trae las notas desde
  * GET /grading/subject-grades/by-student y las muestra.
  *
- * Feature: las materias se muestran por ciclo lectivo seleccionado (no todas aplanadas).
- * Con un solo ciclo se muestra directo; con varios arranca en el más reciente y se puede
- * cambiar. Botón "Boletín" descarga el PDF del ciclo seleccionado.
+ * Feature: las materias se muestran por ciclo lectivo SELECCIONADO. La selección se hace
+ * clickeando una fila de "Cursos Ciclo" (sin combo). Por omisión queda seleccionado el
+ * CursoXCiclo activo/vigente (fallback: el más reciente). El nivel se muestra con su
+ * descripción (Inicial/Primario/Secundario/Terciario), no con el código numérico.
+ * Botón "Boletín" descarga el PDF del ciclo seleccionado.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 
 // ── Mock apiClient ──
@@ -52,38 +54,44 @@ const MEMBERSHIPS_SINGLE = [
     id: 'm-1',
     courseCycleId: 'cc-1',
     printable: true,
-    level: 2,
+    active: true,
+    level: 30, // Secundario
     academicYear: '2026',
-    cycleName: 'Primario 2026',
-    grade: '1',
+    cycleName: 'Secundario 2026',
+    grade: '4',
     division: 'A',
     createdAt: '2026-03-01T00:00:00.000Z',
   },
 ];
 
-// Dos ciclos: 2025 (cc-2) y 2026 (cc-1). El más reciente es 2026 → cc-1.
+// Dos ciclos donde el ACTIVO NO es el más reciente, para probar que el default
+// prioriza "activo/vigente" sobre "año más nuevo":
+//   - m-1: 2026 (más reciente), Terciario, active:false, printable:true  → cc-1 (Matemática)
+//   - m-2: 2025,                Secundario, active:true,  printable:false → cc-2 (Historia)
 const MEMBERSHIPS_MULTI = [
-  {
-    id: 'm-2',
-    courseCycleId: 'cc-2',
-    printable: false,
-    level: 2,
-    academicYear: '2025',
-    cycleName: 'Primario 2025',
-    grade: '1',
-    division: 'A',
-    createdAt: '2025-03-01T00:00:00.000Z',
-  },
   {
     id: 'm-1',
     courseCycleId: 'cc-1',
     printable: true,
-    level: 2,
+    active: false,
+    level: 40, // Terciario
     academicYear: '2026',
-    cycleName: 'Primario 2026',
-    grade: '2',
+    cycleName: 'Terciario 2026',
+    grade: '1',
     division: 'A',
     createdAt: '2026-03-01T00:00:00.000Z',
+  },
+  {
+    id: 'm-2',
+    courseCycleId: 'cc-2',
+    printable: false,
+    active: true,
+    level: 30, // Secundario
+    academicYear: '2025',
+    cycleName: 'Secundario 2025',
+    grade: '6',
+    division: 'B',
+    createdAt: '2025-03-01T00:00:00.000Z',
   },
 ];
 
@@ -123,7 +131,7 @@ function gradesFor(subjectName: string, courseCycleId: string) {
   };
 }
 
-// cc-1 (2026) → Matemática · cc-2 (2025) → Historia
+// cc-1 → Matemática · cc-2 → Historia
 const GRADES_BY_CC: Record<string, ReturnType<typeof gradesFor>> = {
   'cc-1': gradesFor('Matemática', 'cc-1'),
   'cc-2': gradesFor('Historia', 'cc-2'),
@@ -201,112 +209,132 @@ describe('StudentLegajo — calificaciones (un solo ciclo)', () => {
     expect(screen.getByText(/9/)).toBeInTheDocument();
   });
 
-  it('con un solo ciclo NO muestra el selector de ciclo', async () => {
+  it('NO renderiza un combo de ciclo (la selección es sobre la lista)', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
 
     await waitFor(() => {
       expect(screen.getByText('Matemática')).toBeInTheDocument();
     });
 
-    expect(screen.queryByLabelText(/ciclo lectivo/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 
   it('el botón Boletín descarga el boletín del ciclo (membership.id)', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
 
-    // Esperar a que la auto-selección del ciclo habilite el botón.
     const btn = await screen.findByRole('button', { name: /boletín/i });
     await waitFor(() => expect(btn).toBeEnabled());
     fireEvent.click(btn);
 
     expect(mockDownloadBoletin).toHaveBeenCalledWith('m-1');
   });
+
+  it('muestra el nivel con su descripción, no el código numérico', async () => {
+    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Matemática')).toBeInTheDocument();
+    });
+
+    // level 30 → "Secundario" (no "30")
+    expect(screen.getByText('Secundario')).toBeInTheDocument();
+    expect(screen.queryByText('30')).not.toBeInTheDocument();
+  });
 });
 
-describe('StudentLegajo — selección de ciclo (varios ciclos)', () => {
+describe('StudentLegajo — selección de ciclo sobre la lista (varios ciclos)', () => {
   beforeEach(async () => {
     setupApiMock(MEMBERSHIPS_MULTI);
     await loadComponent();
   });
 
-  it('arranca en el ciclo más reciente y muestra solo sus materias', async () => {
+  it('por omisión selecciona el ciclo ACTIVO (aunque no sea el más reciente)', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
 
-    // 2026 → cc-1 → Matemática visible; Historia (2025) NO
+    // Activo = m-2 (2025, cc-2) → Historia visible; Matemática (cc-1, 2026) NO.
     await waitFor(() => {
-      expect(screen.getByText('Matemática')).toBeInTheDocument();
+      expect(screen.getByText('Historia')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Historia')).not.toBeInTheDocument();
+    expect(screen.queryByText('Matemática')).not.toBeInTheDocument();
   });
 
-  it('NO aplana todos los ciclos: solo pide notas del ciclo seleccionado', async () => {
+  it('solo pide notas del ciclo seleccionado (no aplana todos)', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Matemática')).toBeInTheDocument();
+      expect(screen.getByText('Historia')).toBeInTheDocument();
     });
 
     const gradeCalls = mockApiGet.mock.calls.filter(
       (args: any[]) => args[0] === '/grading/subject-grades/by-student',
     );
-    // Solo el ciclo seleccionado (cc-1), nunca cc-2 mientras no se cambie.
-    expect(gradeCalls.every((c: any[]) => c[1]?.params?.courseCycleId === 'cc-1')).toBe(true);
+    expect(gradeCalls.every((c: any[]) => c[1]?.params?.courseCycleId === 'cc-2')).toBe(true);
   });
 
-  it('el combo muestra el nombre del ciclo lectivo (cycleName), no un texto compuesto', async () => {
-    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
-
-    await screen.findByLabelText(/ciclo lectivo/i);
-
-    // Las opciones deben rotularse con AcademicCycle.name.
-    expect(screen.getByRole('option', { name: 'Primario 2026' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Primario 2025' })).toBeInTheDocument();
-  });
-
-  it('al cambiar de ciclo pide las notas del nuevo courseCycleId', async () => {
+  it('al clickear una fila de Cursos Ciclo cambia el ciclo y pide sus notas', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Matemática')).toBeInTheDocument();
+      expect(screen.getByText('Historia')).toBeInTheDocument();
     });
 
-    const select = screen.getByLabelText(/ciclo lectivo/i) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'm-2' } });
+    // Fila de m-1: su celda "Año lectivo" es exactamente "2026".
+    const row2026 = screen.getByText('2026').closest('tr')!;
+    fireEvent.click(row2026);
 
     await waitFor(() => {
       expect(mockApiGet).toHaveBeenCalledWith(
         '/grading/subject-grades/by-student',
         expect.objectContaining({
-          params: expect.objectContaining({ courseCycleId: 'cc-2', studentId: 'stu-1' }),
+          params: expect.objectContaining({ courseCycleId: 'cc-1', studentId: 'stu-1' }),
         }),
       );
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Historia')).toBeInTheDocument();
+      expect(screen.getByText('Matemática')).toBeInTheDocument();
     });
   });
 
-  it('el botón Boletín usa el id de la membresía seleccionada', async () => {
+  it('marca visualmente la fila seleccionada (indicador ●)', async () => {
     render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
-
-    // Esperar a que el selector y la auto-selección (m-1, printable) estén listos.
-    await screen.findByLabelText(/ciclo lectivo/i);
-    const btn = screen.getByRole('button', { name: /boletín/i });
-    await waitFor(() => expect(btn).toBeEnabled());
-    fireEvent.click(btn);
-
-    expect(mockDownloadBoletin).toHaveBeenCalledWith('m-1');
-  });
-
-  it('deshabilita Boletín cuando el ciclo seleccionado no es imprimible', async () => {
-    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
-
-    const select = (await screen.findByLabelText(/ciclo lectivo/i)) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'm-2' } }); // 2025, printable: false
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /boletín/i })).toBeDisabled();
+      expect(screen.getByText('Historia')).toBeInTheDocument();
     });
+
+    // El activo por defecto es la fila 2025 (m-2) → debe tener el indicador ●.
+    const row2025 = screen.getByText('2025').closest('tr')!;
+    expect(within(row2025).getByText('●')).toBeInTheDocument();
+  });
+
+  it('Boletín: deshabilitado en el activo no imprimible, habilitado al elegir uno imprimible', async () => {
+    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
+
+    // Default m-2 (printable:false) → deshabilitado
+    const btn = await screen.findByRole('button', { name: /boletín/i });
+    await waitFor(() => expect(btn).toBeDisabled());
+
+    // Selecciono m-1 (2026, printable:true) → habilitado y descarga m-1
+    fireEvent.click(screen.getByText('2026').closest('tr')!);
+    await waitFor(() => expect(btn).toBeEnabled());
+    fireEvent.click(btn);
+    expect(mockDownloadBoletin).toHaveBeenCalledWith('m-1');
+  });
+});
+
+describe('StudentLegajo — default sin ciclo activo', () => {
+  it('cae al ciclo más reciente cuando ninguno está activo', async () => {
+    const noneActive = MEMBERSHIPS_MULTI.map((m) => ({ ...m, active: false }));
+    setupApiMock(noneActive);
+    await loadComponent();
+
+    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
+
+    // Ninguno activo → más reciente = m-1 (2026, cc-1) → Matemática
+    await waitFor(() => {
+      expect(screen.getByText('Matemática')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Historia')).not.toBeInTheDocument();
   });
 });
