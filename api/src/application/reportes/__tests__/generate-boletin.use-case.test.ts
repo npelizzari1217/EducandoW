@@ -1149,6 +1149,65 @@ describe('GenerateBoletinUseCase.buildMateriasSecundario — PR6-T2', () => {
     expect(result.materias[0].periodGrades[2].periodName).toBe('3° Trimestre');
   });
 
+  // Regresión: el boletín mostraba materias de OTROS cursos del mismo ciclo lectivo
+  // (mismas materias sin nota, "como de otro alumno"). La causa: la query de cursos
+  // se acotaba por cycleId (todo el ciclo lectivo) en vez del courseCycle del alumno.
+  it('solo incluye materias del CourseCycle del alumno (no de otros cursos del mismo ciclo)', async () => {
+    const CC_MINE = 'cc-mine';
+    const CC_OTHER = 'cc-other';
+    const allCCs = [
+      { uuid: CC_MINE, courseId: 'course-mine', level: 30, studyPlanId: 'sp-mine', cycleId: 'cyc-sec', active: true },
+      { uuid: CC_OTHER, courseId: 'course-other', level: 30, studyPlanId: 'sp-other', cycleId: 'cyc-sec', active: true },
+    ];
+    // Mock que SIMULA la DB: respeta el where (uuid o cycleId).
+    const findManyCC = vi.fn().mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        allCCs.filter((cc) => {
+          if (where?.uuid) return cc.uuid === where.uuid;
+          if (where?.cycleId) return cc.cycleId === where.cycleId;
+          return true;
+        }),
+      ),
+    );
+    const client = {
+      courseCycle: { findMany: findManyCC },
+      studyPlanCourse: {
+        findFirst: vi.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve({ id: where.studyPlanId === 'sp-mine' ? 'spc-mine' : 'spc-other' }),
+        ),
+      },
+      studyPlanSubject: {
+        findMany: vi.fn().mockImplementation(({ where }: any) =>
+          Promise.resolve(
+            where.studyPlanCourseId === 'spc-mine'
+              ? [{ id: 'sps-mine', subjectId: 'subj-lengua', subject: { id: 'subj-lengua', name: 'Lengua' } }]
+              : [{ id: 'sps-other', subjectId: 'subj-historia', subject: { id: 'subj-historia', name: 'Historia' } }],
+          ),
+        ),
+      },
+      gradingPeriodTemplateItem: { findMany: vi.fn().mockResolvedValue([]) },
+      subject: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+
+    const enrollment = {
+      studentId: STUDENT_ID,
+      courseCycleId: CC_MINE,
+      level: 30,
+      cycleId: 'cyc-sec',
+      academicYear: '2026',
+    };
+    const result = await (uc as any).buildMateriasSecundario(client, enrollment);
+
+    const nombres = result.materias.map((m: any) => m.nombre);
+    expect(nombres).toContain('Lengua');
+    expect(nombres).not.toContain('Historia');
+    expect(result.materias).toHaveLength(1);
+    // La query se acota por el uuid del curso del alumno, NO por el ciclo lectivo entero.
+    expect(findManyCC).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ uuid: CC_MINE }) }),
+    );
+  });
+
   it('reads SubjectPeriodGrade — absent period grade renders blank gradeCode', async () => {
     repos.sgpRepo.findByCourseCycleAndSubject.mockResolvedValue([
       { periodOrdinal: 1, periodName: '1° Trim', courseCycleId: CC_UUID, subjectId: SUBJECT_ID },

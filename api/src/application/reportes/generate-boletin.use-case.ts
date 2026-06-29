@@ -149,6 +149,7 @@ export class GenerateBoletinUseCase {
     const resolvedEnrollment = {
       id: axcc.id,
       studentId: axcc.studentId,
+      courseCycleId: cc.uuid as string,        // el CourseCycle del alumno (acota las materias)
       level: cc.level as number,
       cycleId: cc.cycleId as string,           // AcademicCycle uuid
       academicYear: (cc.course as any).academicYear as string,
@@ -242,6 +243,7 @@ export class GenerateBoletinUseCase {
     enrollment: {
       id: string;
       studentId: string;
+      courseCycleId: string;
       level: number;
       cycleId: string | null;
       academicYear: string;
@@ -519,13 +521,13 @@ export class GenerateBoletinUseCase {
    */
   async buildMateriasPrimario(
     client: TenantPrismaClient,
-    enrollment: { studentId: string; level: number; cycleId: string | null; academicYear: string },
+    enrollment: { studentId: string; courseCycleId: string; level: number; cycleId: string | null; academicYear: string },
   ): Promise<MateriaBoletin[]> {
     if (!enrollment.cycleId) return [];
 
-    // 1. Fetch all courseCycles for this academic cycle
+    // 1. Fetch the student's own CourseCycle (scoped por su courseCycleId, NO por todo el ciclo lectivo)
     const courseCycles = await client.courseCycle.findMany({
-      where: { cycleId: enrollment.cycleId, active: true },
+      where: { uuid: enrollment.courseCycleId, active: true },
       select: { uuid: true, level: true, courseId: true, studyPlanId: true },
     });
 
@@ -682,7 +684,7 @@ export class GenerateBoletinUseCase {
    */
   async buildMateriasSecundario(
     client: TenantPrismaClient,
-    enrollment: { studentId: string; level: number; cycleId: string | null; academicYear: string },
+    enrollment: { studentId: string; courseCycleId: string; level: number; cycleId: string | null; academicYear: string },
   ): Promise<{ materias: MateriaBoletin[]; previas: PreviaBoletin[] }> {
     if (!enrollment.cycleId) return { materias: [], previas: [] };
 
@@ -710,9 +712,9 @@ export class GenerateBoletinUseCase {
       status:             p.status.toString(),
     }));
 
-    // 2. Fetch all courseCycles for this academic cycle
+    // 2. Fetch the student's own CourseCycle (scoped por su courseCycleId, NO por todo el ciclo lectivo)
     const courseCycles = await client.courseCycle.findMany({
-      where: { cycleId: enrollment.cycleId, active: true },
+      where: { uuid: enrollment.courseCycleId, active: true },
       select: { uuid: true, level: true, courseId: true, studyPlanId: true },
     });
 
