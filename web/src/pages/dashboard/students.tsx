@@ -226,9 +226,12 @@ export default function StudentsPage() {
 
   const handleSaveGuardian = async () => {
     if (!detailStudentId) return;
-    // Client-side validation: fullName, mobile, relationship required
-    if (!guardianAssignForm.fullName.trim()) { setGuardianError('El nombre completo es requerido'); return; }
-    if (!guardianAssignForm.mobile.trim()) { setGuardianError('El móvil es requerido'); return; }
+    // Bug 7 fix: fullName/mobile required only for study-tutor path (no userId).
+    // Portal-link path (userId present) needs only userId + relationship.
+    if (!guardianAssignForm.userId.trim()) {
+      if (!guardianAssignForm.fullName.trim()) { setGuardianError('El nombre completo es requerido'); return; }
+      if (!guardianAssignForm.mobile.trim()) { setGuardianError('El móvil es requerido'); return; }
+    }
     if (!guardianAssignForm.relationship.trim()) { setGuardianError('El parentesco es requerido'); return; }
 
     if (editingGuardianId) {
@@ -254,8 +257,10 @@ export default function StudentsPage() {
       setAssigningGuardian(true); setGuardianError('');
       try {
         const body: Record<string, unknown> = {
-          fullName: guardianAssignForm.fullName,
-          mobile: guardianAssignForm.mobile,
+          // Bug 7 fix: omit fullName/mobile when empty so Zod's min(1) doesn't reject portal-link.
+          // Study-tutor path always has non-empty values (validated above); portal-link may skip them.
+          fullName: guardianAssignForm.fullName || undefined,
+          mobile: guardianAssignForm.mobile || undefined,
           email: guardianAssignForm.email || undefined,
           relationship: guardianAssignForm.relationship,
           isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
@@ -289,7 +294,9 @@ export default function StudentsPage() {
     if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
     if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
     if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
-    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail || undefined, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail || undefined, email: form.email || undefined, institutionId: institutionId };
+    // Bug 6 fix: send fatherEmail/motherEmail as raw strings ('' clears, undefined = absent).
+    // PatchStudentUseCase treats '' as clear and missing key as "leave unchanged".
+    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail, email: form.email || undefined, institutionId: institutionId };
     if (editingId) {
       const ok = await update(editingId, body);
       if (ok) { resetForm(); adminReload(); }

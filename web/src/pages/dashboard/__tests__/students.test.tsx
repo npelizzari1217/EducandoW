@@ -11,11 +11,13 @@ const mockInstitutions = [
 ];
 
 // ── Mock apiClient (vi.hoisted avoids hoisting issues with top-level imports) ──
-const { mockApiGet, mockApiPost, mockApiPatch, mockApiDelete } = vi.hoisted(() => ({
+const { mockApiGet, mockApiPost, mockApiPatch, mockApiDelete, mockStudentUpdate } = vi.hoisted(() => ({
   mockApiGet: vi.fn(),
   mockApiPost: vi.fn(),
   mockApiPatch: vi.fn(),
   mockApiDelete: vi.fn(),
+  // Persistent spy for the useApiUpdate.update function so Bug 6 test can inspect its arguments
+  mockStudentUpdate: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('/home/usuario/proyectos/educandow/web/src/api/client', () => ({
@@ -51,7 +53,7 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', () => ({
   useApiUpdate: () => ({
     updating: false,
     updateError: '',
-    update: vi.fn().mockResolvedValue(true),
+    update: mockStudentUpdate,
     setUpdateError: vi.fn(),
   }),
   extractErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'API error'),
@@ -229,6 +231,93 @@ describe('StudentsPage — institución filter', () => {
       const disabledInput = screen.getByDisplayValue('inst-xyz');
       expect(disabledInput).toBeDisabled();
     });
+  });
+});
+
+// ── Code-review bug fix tests ─────────────────────────────────────────────────
+describe('StudentsPage — code-review bug fixes', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiGet.mockResolvedValue({ data: { data: [] } });
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+  });
+
+  // Bug 6 RED: clearing fatherEmail in edit mode must send raw '' (not undefined)
+  it('(Bug6) clearing fatherEmail in edit mode calls update with fatherEmail as empty string', async () => {
+    const studentWithEmail = {
+      id: 's1',
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      dni: '12345678',
+      fullName: 'Pérez, Juan',
+      fatherEmail: 'padre@example.com',
+      motherEmail: null,
+    };
+    mockStudentList = [studentWithEmail];
+    mockStudentUpdate.mockResolvedValue(true);
+
+    renderStudents();
+
+    // Trigger edit for the student (opens the student form modal)
+    const editBtn = await screen.findByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtn);
+
+    // Find the fatherEmail input (labeled "Email del Padre") pre-filled with existing value
+    const fatherEmailInput = await screen.findByDisplayValue('padre@example.com') as HTMLInputElement;
+    await userEvent.clear(fatherEmailInput);
+    expect(fatherEmailInput.value).toBe('');
+
+    // Submit the form
+    const saveBtn = screen.getByRole('button', { name: /guardar cambios/i });
+    await userEvent.click(saveBtn);
+
+    // Bug 6: with the bug, `fatherEmail: '' || undefined` → key absent from body
+    // After fix, `fatherEmail: ''` is sent → update receives body with fatherEmail: ''
+    await waitFor(() => {
+      expect(mockStudentUpdate).toHaveBeenCalled();
+    });
+    const calledBody = mockStudentUpdate.mock.calls[0][1];
+    expect(calledBody).toHaveProperty('fatherEmail', '');
+  });
+
+  // Bug 7 RED: portal-link (userId set) must NOT require fullName/mobile
+  it('(Bug7) portal-link guardian save (userId provided) does not block on missing fullName/mobile', async () => {
+    const mockStudent7 = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+    mockStudentList = [mockStudent7];
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudent7, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    // Fill userId (labeled "ID de cuenta (opcional)") and relationship ONLY — no fullName, no mobile
+    const userIdInput = screen.getByLabelText('ID de cuenta (opcional)');
+    await userEvent.type(userIdInput, '11111111-1111-1111-1111-111111111111');
+    await userEvent.type(screen.getByLabelText('Parentesco'), 'padre');
+
+    const saveBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveBtn);
+
+    // Bug 7: with the bug, shows "El nombre completo es requerido" and blocks POST
+    // After fix, POST is called with userId+relationship
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalled();
+    });
+    // No "El nombre completo es requerido" error
+    expect(screen.queryByText('El nombre completo es requerido')).not.toBeInTheDocument();
   });
 });
 

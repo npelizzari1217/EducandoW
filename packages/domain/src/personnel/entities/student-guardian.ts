@@ -72,6 +72,8 @@ export class StudentGuardian {
     email?: Email | null;
     relationship?: string;
     active?: boolean;
+    isFinancialResponsible?: boolean;
+    isAuthorizedToPickUp?: boolean;
   }): void {
     if (patch.fullName !== undefined) this.props.fullName = patch.fullName;
     if (patch.mobile !== undefined) this.props.mobile = patch.mobile;
@@ -80,6 +82,8 @@ export class StudentGuardian {
     }
     if (patch.relationship !== undefined) this.props.relationship = patch.relationship;
     if (patch.active !== undefined) this.props.active = patch.active;
+    if (patch.isFinancialResponsible !== undefined) this.props.isFinancialResponsible = patch.isFinancialResponsible;
+    if (patch.isAuthorizedToPickUp !== undefined) this.props.isAuthorizedToPickUp = patch.isAuthorizedToPickUp;
     this.props.updatedAt = new Date();
   }
 

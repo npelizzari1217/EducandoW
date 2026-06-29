@@ -6,6 +6,8 @@ export const UpdateGuardianSchema = z.object({
   email: z.string().email().nullable().optional(),
   relationship: z.string().min(1).max(15, 'relationship must be at most 15 characters').optional(),
   active: z.boolean().optional(),
+  isFinancialResponsible: z.boolean().optional(),
+  isAuthorizedToPickUp: z.boolean().optional(),
 });
 
 export type UpdateGuardianDTO = z.infer<typeof UpdateGuardianSchema>;

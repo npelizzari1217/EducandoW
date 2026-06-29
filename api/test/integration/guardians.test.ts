@@ -193,7 +193,7 @@ describe('Guardian Integration Tests', () => {
     // RYT-08-B: uniqueness (studentId, fullName) → second create with same name → 409
     it('rejects duplicate name without allowDuplicate (RYT-08-B)', async () => {
       vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-      vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({} as StudentGuardian);
+      vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
 
       const result = await useCase.execute({
         studentId: 's1',
@@ -209,7 +209,7 @@ describe('Guardian Integration Tests', () => {
     // RYT-08-C: allowDuplicate: true → second create succeeds
     it('allows duplicate name with allowDuplicate=true (RYT-08-C)', async () => {
       vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-      vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({} as StudentGuardian);
+      vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
       vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
 
       const result = await useCase.execute({

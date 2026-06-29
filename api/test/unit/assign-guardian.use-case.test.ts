@@ -70,4 +70,23 @@ describe('AssignGuardianUseCase', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
   });
+
+  // Bug 4 RED: portal-link with fullName+mobile → fullName and mobile must be persisted
+  it('(Bug4) portal-link with fullName and mobile persists them on the guardian', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(null);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute('s1', {
+      userId: 'u-parent',
+      relationship: 'father',
+      fullName: 'Juan García',
+      mobile: '+5491112345678',
+    } as any);
+
+    expect(result.isOk()).toBe(true);
+    const saved = vi.mocked(guardianRepo.save).mock.calls[0][0];
+    expect(saved.fullName).toBe('Juan García');
+    expect(saved.mobile?.get()).toBe('+5491112345678');
+  });
 });

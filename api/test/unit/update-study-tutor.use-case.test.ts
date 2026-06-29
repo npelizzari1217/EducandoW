@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpdateStudyTutorUseCase } from '../../src/application/student/use-cases/student.use-cases';
-import { StudentGuardianRepository, StudentGuardian, NotFoundError, Id, Mobile } from '@educandow/domain';
+import { StudentGuardianRepository, StudentGuardian, NotFoundError, Id, Mobile, Email } from '@educandow/domain';
 
 describe('UpdateStudyTutorUseCase', () => {
   let useCase: UpdateStudyTutorUseCase;
@@ -12,6 +12,9 @@ describe('UpdateStudyTutorUseCase', () => {
     fullName: string;
     mobile: string;
     active: boolean;
+    email: string;
+    isFinancialResponsible: boolean;
+    isAuthorizedToPickUp: boolean;
   }> = {}): StudentGuardian {
     const now = new Date();
     return StudentGuardian.reconstruct({
@@ -21,9 +24,9 @@ describe('UpdateStudyTutorUseCase', () => {
       relationship: 'abuela',
       fullName: overrides.fullName ?? 'Ana García',
       mobile: Mobile.reconstruct(overrides.mobile ?? '+5492215551234'),
-      email: undefined,
-      isFinancialResponsible: false,
-      isAuthorizedToPickUp: false,
+      email: overrides.email ? Email.reconstruct(overrides.email) : undefined,
+      isFinancialResponsible: overrides.isFinancialResponsible ?? false,
+      isAuthorizedToPickUp: overrides.isAuthorizedToPickUp ?? false,
       active: overrides.active ?? true,
       createdAt: now,
       updatedAt: now,
@@ -99,11 +102,48 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(result.unwrap().email).toBeUndefined();
   });
 
+  // Bug 2 RED: PATCH with only active=false must NOT clear existing email
+  it('(Bug2) partial PATCH active=false preserves existing email', async () => {
+    const guardian = mockGuardian({ email: 'stored@example.com', active: true });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: false });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().active).toBe(false);
+    expect(result.unwrap().email?.get()).toBe('stored@example.com');
+  });
+
+  // Bug 5 RED: PATCH toggling isFinancialResponsible must persist the flag
+  it('(Bug5) PATCH toggling isFinancialResponsible=true persists the flag', async () => {
+    const guardian = mockGuardian({ isFinancialResponsible: false });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', isFinancialResponsible: true } as any);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().isFinancialResponsible).toBe(true);
+  });
+
+  // Bug 5 RED: PATCH toggling isAuthorizedToPickUp must persist the flag
+  it('(Bug5) PATCH toggling isAuthorizedToPickUp=true persists the flag', async () => {
+    const guardian = mockGuardian({ isAuthorizedToPickUp: false });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', isAuthorizedToPickUp: true } as any);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().isAuthorizedToPickUp).toBe(true);
+  });
+
   // fullName change triggers uniqueness re-check: duplicate without override → TUTOR_DUPLICATE_NAME
   it('returns err TUTOR_DUPLICATE_NAME when new fullName conflicts with existing tutor', async () => {
     const guardian = mockGuardian({ fullName: 'Ana García' });
     vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
-    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({} as StudentGuardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
 
     const result = await useCase.execute({ guardianId: 'g1', fullName: 'Otra Persona' });
 

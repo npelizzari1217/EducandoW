@@ -12,6 +12,8 @@ export interface CreateStudentInput {
   motherName?: string;
   fatherDni?: string;
   motherDni?: string;
+  fatherEmail?: string;
+  motherEmail?: string;
   institutionId: string;
 }
 
@@ -34,6 +36,21 @@ export class CreateStudentUseCase {
     const existing = await this.repo.findByDni(input.dni);
     if (existing) return err(new ValidationError('Ya existe un estudiante con ese DNI'));
 
+    // Validate and convert optional parent emails (Bug 3 fix)
+    let fatherEmailVO: Email | undefined;
+    if (input.fatherEmail) {
+      const r = Email.create(input.fatherEmail);
+      if (r.isErr()) return err(r.unwrapErr());
+      fatherEmailVO = r.unwrap();
+    }
+
+    let motherEmailVO: Email | undefined;
+    if (input.motherEmail) {
+      const r = Email.create(input.motherEmail);
+      if (r.isErr()) return err(r.unwrapErr());
+      motherEmailVO = r.unwrap();
+    }
+
     const student = Student.create({
       firstName: input.firstName,
       lastName: input.lastName,
@@ -44,6 +61,8 @@ export class CreateStudentUseCase {
       motherName: input.motherName,
       fatherDni: input.fatherDni,
       motherDni: input.motherDni,
+      fatherEmail: fatherEmailVO,
+      motherEmail: motherEmailVO,
       institutionId: Id.create(input.institutionId),
     });
 
@@ -184,6 +203,20 @@ export class PatchStudentUseCase {
     }
   }
 
+  /**
+   * Cleanup 10: single resolveEmail helper — eliminates duplicated fatherEmail/motherEmail blocks.
+   * Returns:
+   *   - undefined   → raw is empty/falsy → clear the field
+   *   - Email VO    → raw is a valid email string
+   * Throws the domain ValidationError if the email is non-empty but invalid.
+   */
+  private resolveEmail(raw: string, _current: Email | undefined): Email | undefined {
+    if (!raw) return undefined;
+    const result = Email.create(raw);
+    if (result.isErr()) throw result.unwrapErr();
+    return result.unwrap();
+  }
+
   private applyChanges(student: Student, body: Record<string, unknown>): Student {
     const emailVo = body.email !== undefined
       ? (body.email as string ? Email.reconstruct(body.email as string) : undefined)
@@ -193,30 +226,14 @@ export class PatchStudentUseCase {
       ? Dni.reconstruct(body.dni as string)
       : student.dni;
 
-    // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS
-    let fatherEmailVo = student.fatherEmail;
-    if (body.fatherEmail !== undefined) {
-      const raw = body.fatherEmail as string;
-      if (raw) {
-        const result = Email.create(raw);
-        if (result.isErr()) throw result.unwrapErr();
-        fatherEmailVo = result.unwrap();
-      } else {
-        fatherEmailVo = undefined;
-      }
-    }
+    // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS (Cleanup 10)
+    const fatherEmailVo = body.fatherEmail !== undefined
+      ? this.resolveEmail(body.fatherEmail as string, student.fatherEmail)
+      : student.fatherEmail;
 
-    let motherEmailVo = student.motherEmail;
-    if (body.motherEmail !== undefined) {
-      const raw = body.motherEmail as string;
-      if (raw) {
-        const result = Email.create(raw);
-        if (result.isErr()) throw result.unwrapErr();
-        motherEmailVo = result.unwrap();
-      } else {
-        motherEmailVo = undefined;
-      }
-    }
+    const motherEmailVo = body.motherEmail !== undefined
+      ? this.resolveEmail(body.motherEmail as string, student.motherEmail)
+      : student.motherEmail;
 
     return Student.reconstruct({
       id: student.id,
@@ -283,6 +300,9 @@ export class GetMyChildrenUseCase {
 export interface AssignGuardianInput {
   userId: string;
   relationship: string;
+  fullName?: string;
+  mobile?: string;
+  email?: string;
   isFinancialResponsible?: boolean;
   isAuthorizedToPickUp?: boolean;
 }
@@ -310,11 +330,29 @@ export class AssignGuardianUseCase {
       return err(new ValidationError('GUARDIAN_ALREADY_ASSIGNED'));
     }
 
+    // Validate optional mobile/email on portal-link path (Bug 4 fix)
+    let mobileVO: Mobile | undefined;
+    if (input.mobile) {
+      const mobileResult = Mobile.create(input.mobile);
+      if (mobileResult.isErr()) return err(mobileResult.unwrapErr());
+      mobileVO = mobileResult.unwrap();
+    }
+
+    let emailVO: Email | undefined;
+    if (input.email) {
+      const emailResult = Email.create(input.email);
+      if (emailResult.isErr()) return err(emailResult.unwrapErr());
+      emailVO = emailResult.unwrap();
+    }
+
     // Create and save — propagate entity validation errors
     const createResult = StudentGuardian.create({
       studentId,
       userId: input.userId,
       relationship: input.relationship,
+      fullName: input.fullName,
+      mobile: mobileVO,
+      email: emailVO,
       isFinancialResponsible: input.isFinancialResponsible ?? false,
       isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });
@@ -380,9 +418,11 @@ export class CreateStudyTutorUseCase {
     }
 
     // 6. Uniqueness check on (studentId, fullName) unless allowDuplicate (REQ-RYT-08-B/C)
+    // Bug 8 fix: only active tutors count as conflicts; deactivated tutors must not block re-registration.
+    // The repo query already filters active:true for performance; the use-case guard adds defensive correctness.
     if (!input.allowDuplicate) {
       const dup = await this.guardianRepo.findStudyTutor(input.studentId, input.fullName);
-      if (dup) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
+      if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
     }
 
     // 7. Create entity (no userId — study-tutor path)
@@ -413,6 +453,8 @@ export interface UpdateStudyTutorInput {
   email?: string | null;
   relationship?: string;
   active?: boolean;
+  isFinancialResponsible?: boolean;
+  isAuthorizedToPickUp?: boolean;
 }
 
 @Injectable()
@@ -442,20 +484,32 @@ export class UpdateStudyTutorUseCase {
       emailVO = emailResult.unwrap();
     }
 
-    // 4. Re-check uniqueness if fullName changes
+    // 4. Re-check uniqueness if fullName changes (Bug 8 fix: only active tutors block rename)
     if (input.fullName !== undefined && input.fullName !== guardian.fullName) {
       const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, input.fullName);
-      if (dup) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
+      if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
     }
 
     // 5. Apply mutation via entity method (bumps updatedAt)
-    guardian.update({
-      fullName: input.fullName,
-      mobile: mobileVO,
-      email: emailVO,
-      relationship: input.relationship,
-      active: input.active,
-    });
+    // Build patch with ONLY keys present in input — never spread undefined for optional fields,
+    // because the entity uses 'email' in patch to detect explicit null-clearing (Bug 2 fix).
+    const patch: {
+      fullName?: string;
+      mobile?: Mobile;
+      email?: Email | null;
+      relationship?: string;
+      active?: boolean;
+      isFinancialResponsible?: boolean;
+      isAuthorizedToPickUp?: boolean;
+    } = {};
+    if (input.fullName !== undefined) patch.fullName = input.fullName;
+    if (input.mobile !== undefined) patch.mobile = mobileVO;
+    if (input.email !== undefined) patch.email = emailVO as Email | null;
+    if (input.relationship !== undefined) patch.relationship = input.relationship;
+    if (input.active !== undefined) patch.active = input.active;
+    if (input.isFinancialResponsible !== undefined) patch.isFinancialResponsible = input.isFinancialResponsible;
+    if (input.isAuthorizedToPickUp !== undefined) patch.isAuthorizedToPickUp = input.isAuthorizedToPickUp;
+    guardian.update(patch);
 
     await this.guardianRepo.save(guardian);
     return ok(guardian);

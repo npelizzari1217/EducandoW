@@ -137,7 +137,7 @@ describe('CreateStudyTutorUseCase', () => {
   // REQ-RYT-08-B: duplicate fullName without allowDuplicate → TUTOR_DUPLICATE_NAME
   it('returns err TUTOR_DUPLICATE_NAME on name duplicate without override (REQ-RYT-08-B)', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({} as any);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as any);
 
     const result = await useCase.execute({
       studentId: 's1',
@@ -154,7 +154,7 @@ describe('CreateStudyTutorUseCase', () => {
   // REQ-RYT-08-C: duplicate fullName with allowDuplicate: true → success
   it('succeeds with allowDuplicate=true even when name duplicate exists (REQ-RYT-08-C)', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({} as any);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as any);
     vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
 
     const result = await useCase.execute({
@@ -199,6 +199,27 @@ describe('CreateStudyTutorUseCase', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().message).toBe('RELATIONSHIP_REQUIRED');
     expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
+
+  // Bug 8 RED: deactivated tutor with same name must NOT block re-registration
+  it('(Bug8) inactive tutor with same fullName does NOT trigger TUTOR_DUPLICATE_NAME', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    // findStudyTutor returns an INACTIVE guardian with the same name
+    const inactiveDup = { active: false } as any;
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue(inactiveDup);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({
+      studentId: 's1',
+      fullName: 'Ana García',
+      mobile: '+5492215551234',
+      relationship: 'tutor',
+    });
+
+    // With the bug present, findStudyTutor returns a truthy value → TUTOR_DUPLICATE_NAME
+    // After fix, findStudyTutor only returns active tutors → null → success
+    expect(result.isOk()).toBe(true);
+    expect(guardianRepo.save).toHaveBeenCalled();
   });
 
   // Student not found → NotFoundError

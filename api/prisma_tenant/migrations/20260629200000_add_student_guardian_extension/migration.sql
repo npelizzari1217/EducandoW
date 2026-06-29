@@ -3,7 +3,8 @@
 -- Postgres refuses to drop a type still referenced by a column.
 
 -- Step 1: Retype relationship column from enum to varchar(15) FIRST
-ALTER TABLE "student_guardians" ALTER COLUMN "relationship" TYPE VARCHAR(15);
+-- USING clause required: Postgres cannot implicitly cast an enum to varchar.
+ALTER TABLE "student_guardians" ALTER COLUMN "relationship" TYPE VARCHAR(15) USING "relationship"::text;
 
 -- Step 2: Make userId nullable
 ALTER TABLE "student_guardians" ALTER COLUMN "userId" DROP NOT NULL;

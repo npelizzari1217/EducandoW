@@ -129,16 +129,20 @@ export class StudentController {
   ) {
     if (body.userId) {
       // Portal-link path: AssignGuardianUseCase (userId present)
+      // Bug 4 fix: also forward fullName/mobile/email typed by the user
       const result = await this.assignGuardianUC.execute(id, {
         userId: body.userId,
         relationship: body.relationship,
+        fullName: body.fullName,
+        mobile: body.mobile,
+        email: body.email,
         isFinancialResponsible: body.isFinancialResponsible,
         isAuthorizedToPickUp: body.isAuthorizedToPickUp,
       });
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardianEntity(result.unwrap()) };
+      return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
     } else {
       // Study-tutor path: CreateStudyTutorUseCase (no userId)
       const result = await this.createStudyTutorUC.execute({
@@ -154,7 +158,7 @@ export class StudentController {
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardianEntity(result.unwrap()) };
+      return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
     }
   }
 
@@ -169,7 +173,7 @@ export class StudentController {
     if (result.isErr()) {
       this.throwGuardianError(result.unwrapErr());
     }
-    return { data: this.mapGuardianEntity(result.unwrap()) };
+    return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
   }
 
   @Delete(':id/guardians/:guardianId')
@@ -184,7 +188,11 @@ export class StudentController {
 
   // ── Helpers ─────────────────────────────────────────────────
 
-  /** Map GuardianOutput (from ListGuardiansUseCase) to response shape */
+  /**
+   * Cleanup 9: single canonical guardian → response mapper.
+   * Accepts GuardianOutput (POJO from ListGuardiansUseCase) directly.
+   * For POST/PATCH entity results, call guardianEntityToOutput() first.
+   */
   private mapGuardian(g: GuardianOutput) {
     return {
       id: g.id,
@@ -200,14 +208,14 @@ export class StudentController {
     };
   }
 
-  /** Map StudentGuardian entity directly to response shape */
-  private mapGuardianEntity(g: { id: { get(): string }; userId?: string; fullName?: string; mobile?: { get(): string }; email?: { get(): string }; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean; updatedAt: Date }) {
+  /** Convert a StudentGuardian entity to the GuardianOutput shape used by mapGuardian. */
+  private guardianEntityToOutput(g: { id: { get(): string }; userId?: string; fullName?: string; mobile?: { get(): string }; email?: { get(): string }; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean; updatedAt: Date }): GuardianOutput {
     return {
       id: g.id.get(),
-      userId: g.userId ?? null,
-      fullName: g.fullName ?? null,
-      mobile: g.mobile?.get() ?? null,
-      email: g.email?.get() ?? null,
+      userId: g.userId,
+      fullName: g.fullName,
+      mobile: g.mobile?.get(),
+      email: g.email?.get(),
       relationship: g.relationship,
       isFinancialResponsible: g.isFinancialResponsible,
       isAuthorizedToPickUp: g.isAuthorizedToPickUp,

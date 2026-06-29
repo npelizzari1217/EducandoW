@@ -77,8 +77,10 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
   }
 
   async findStudyTutor(studentId: string, fullName: string): Promise<StudentGuardian | null> {
+    // Bug 8 fix: only consider active tutors as duplicates.
+    // A deactivated tutor with the same name must not block re-registration.
     const record = await this.client.studentGuardian.findFirst({
-      where: { studentId, fullName },
+      where: { studentId, fullName, active: true },
     });
     return record ? this.toDomain(record) : null;
   }
