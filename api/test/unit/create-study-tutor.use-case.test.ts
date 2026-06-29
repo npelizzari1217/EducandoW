@@ -236,4 +236,23 @@ describe('CreateStudyTutorUseCase', () => {
     expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(guardianRepo.save).not.toHaveBeenCalled();
   });
+
+  // Bug 2 round-2 RED→GREEN: creating tutor with active:false must persist active:false
+  it('(Bug2-round2) creating tutor with active:false persists active:false', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue(null);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({
+      studentId: 's1',
+      fullName: 'Ana García',
+      mobile: '+5492215551234',
+      relationship: 'tutor',
+      active: false,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().active).toBe(false);
+    expect(guardianRepo.save).toHaveBeenCalled();
+  });
 });

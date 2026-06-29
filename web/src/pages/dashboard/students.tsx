@@ -134,6 +134,8 @@ export default function StudentsPage() {
   const [assigningGuardian, setAssigningGuardian] = useState(false);
   const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null);
   const [updatingGuardian, setUpdatingGuardian] = useState(false);
+  // Bug 4 fix: track when a 409 TUTOR_DUPLICATE_NAME was received so the UI can offer override
+  const [duplicateNamePending, setDuplicateNamePending] = useState(false);
   const [detailStudent, setDetailStudent] = useState<{ fatherEmail?: string; motherEmail?: string } | null>(null);
   const [removeGuardianId, setRemoveGuardianId] = useState<string | null>(null);
   const [removingGuardian, setRemovingGuardian] = useState(false);
@@ -193,6 +195,7 @@ export default function StudentsPage() {
     setEditingGuardianId(null);
     setShowAssignGuardian(false);
     setGuardianError('');
+    setDuplicateNamePending(false);
   };
 
   const startEditGuardian = (g: { id: string; userId?: string | null; fullName?: string; mobile?: string; email?: string; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean }) => {
@@ -224,7 +227,9 @@ export default function StudentsPage() {
     setGuardianAssignForm({ ...guardianAssignForm, relationship: newRelationship, email: emailValue });
   };
 
-  const handleSaveGuardian = async () => {
+  // Bug 4 fix: overrideAllowDuplicate=true re-sends the form with allowDuplicate:true
+  // after the user clicks "Confirmar de todas formas" following a 409 TUTOR_DUPLICATE_NAME.
+  const handleSaveGuardian = async (overrideAllowDuplicate = false) => {
     if (!detailStudentId) return;
     // Bug 7 fix: fullName/mobile required only for study-tutor path (no userId).
     // Portal-link path (userId present) needs only userId + relationship.
@@ -241,7 +246,8 @@ export default function StudentsPage() {
         const body: Record<string, unknown> = {
           fullName: guardianAssignForm.fullName || undefined,
           mobile: guardianAssignForm.mobile || undefined,
-          email: guardianAssignForm.email || undefined,
+          // Bug 3 fix: empty email in EDIT mode sends null (explicit clear) not undefined (leave unchanged)
+          email: guardianAssignForm.email || null,
           relationship: guardianAssignForm.relationship || undefined,
           active: guardianAssignForm.active,
           isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
@@ -255,6 +261,7 @@ export default function StudentsPage() {
     } else {
       // POST new guardian — study tutor (no userId) or portal link (userId provided)
       setAssigningGuardian(true); setGuardianError('');
+      setDuplicateNamePending(false);
       try {
         const body: Record<string, unknown> = {
           // Bug 7 fix: omit fullName/mobile when empty so Zod's min(1) doesn't reject portal-link.
@@ -269,11 +276,22 @@ export default function StudentsPage() {
         };
         // Only include userId if provided (portal-link path)
         if (guardianAssignForm.userId.trim()) body.userId = guardianAssignForm.userId.trim();
+        // Bug 4 fix: include allowDuplicate:true when admin confirmed the duplicate override
+        if (overrideAllowDuplicate) body.allowDuplicate = true;
         await apiClient.post(`/students/${detailStudentId}/guardians`, body);
         // axios treats all 2xx (incl. 201) as success — no explicit status check needed
         resetGuardianForm();
         loadGuardians(detailStudentId);
-      } catch (e: unknown) { setGuardianError(extractErrorMessage(e) || 'Error al asignar tutor'); }
+      } catch (e: unknown) {
+        const msg = extractErrorMessage(e);
+        // Bug 4 fix: on TUTOR_DUPLICATE_NAME show a confirm override instead of a generic error
+        if (msg === 'TUTOR_DUPLICATE_NAME') {
+          setDuplicateNamePending(true);
+          setGuardianError('Ya existe un tutor activo con ese nombre. Hacé clic en "Confirmar de todas formas" para crear uno diferente.');
+        } else {
+          setGuardianError(msg || 'Error al asignar tutor');
+        }
+      }
       finally { setAssigningGuardian(false); }
     }
   };
@@ -599,7 +617,11 @@ export default function StudentsPage() {
                     <input type="checkbox" checked={guardianAssignForm.isAuthorizedToPickUp} onChange={e => setGuardianAssignForm({...guardianAssignForm, isAuthorizedToPickUp: e.target.checked})} />
                     Autorizado a retirar
                   </label>
-                  <Button variant="success-soft" onClick={handleSaveGuardian} loading={assigningGuardian || updatingGuardian}>Guardar tutor</Button>
+                  <Button variant="success-soft" onClick={() => handleSaveGuardian()} loading={assigningGuardian || updatingGuardian}>Guardar tutor</Button>
+                  {/* Bug 4 fix: show override button when a 409 TUTOR_DUPLICATE_NAME was returned */}
+                  {duplicateNamePending && !editingGuardianId && (
+                    <Button variant="danger-soft" onClick={() => handleSaveGuardian(true)}>Confirmar de todas formas</Button>
+                  )}
                 </div>
               </Card>
             </div>

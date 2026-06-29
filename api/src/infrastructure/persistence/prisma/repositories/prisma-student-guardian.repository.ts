@@ -6,6 +6,7 @@ import {
   NotFoundError,
   Mobile,
   Email,
+  ValidationError,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -19,33 +20,47 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
   }
 
   async save(guardian: StudentGuardian): Promise<void> {
-    await this.client.studentGuardian.upsert({
-      where: { id: guardian.id.get() },
-      create: {
-        id: guardian.id.get(),
-        studentId: guardian.studentId,
-        userId: guardian.userId ?? null,
-        relationship: guardian.relationship,
-        fullName: guardian.fullName ?? null,
-        mobile: guardian.mobile?.get() ?? null,
-        email: guardian.email?.get() ?? null,
-        isFinancialResponsible: guardian.isFinancialResponsible,
-        isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
-        active: guardian.active,
-        createdAt: guardian.createdAt,
-        updatedAt: guardian.updatedAt,
-      },
-      update: {
-        relationship: guardian.relationship,
-        fullName: guardian.fullName ?? null,
-        mobile: guardian.mobile?.get() ?? null,
-        email: guardian.email?.get() ?? null,
-        isFinancialResponsible: guardian.isFinancialResponsible,
-        isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
-        active: guardian.active,
-        updatedAt: guardian.updatedAt,
-      },
-    });
+    try {
+      await this.client.studentGuardian.upsert({
+        where: { id: guardian.id.get() },
+        create: {
+          id: guardian.id.get(),
+          studentId: guardian.studentId,
+          userId: guardian.userId ?? null,
+          relationship: guardian.relationship,
+          fullName: guardian.fullName ?? null,
+          mobile: guardian.mobile?.get() ?? null,
+          email: guardian.email?.get() ?? null,
+          isFinancialResponsible: guardian.isFinancialResponsible,
+          isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
+          active: guardian.active,
+          createdAt: guardian.createdAt,
+          updatedAt: guardian.updatedAt,
+        },
+        update: {
+          relationship: guardian.relationship,
+          fullName: guardian.fullName ?? null,
+          mobile: guardian.mobile?.get() ?? null,
+          email: guardian.email?.get() ?? null,
+          isFinancialResponsible: guardian.isFinancialResponsible,
+          isAuthorizedToPickUp: guardian.isAuthorizedToPickUp,
+          active: guardian.active,
+          updatedAt: guardian.updatedAt,
+        },
+      });
+    } catch (e: unknown) {
+      // Bug 7 fix: map Postgres unique-violation (P2002) on the partial index
+      // "student_guardians_studentId_fullName_active_partial" to the domain TUTOR_DUPLICATE_NAME error.
+      // This catches TOCTOU races that bypass the application-layer findStudyTutor check.
+      if (
+        e instanceof Error &&
+        (e as Record<string, unknown>)['code'] === 'P2002' &&
+        String((e as Record<string, unknown>)['meta']?.['target'] ?? '').includes('fullName')
+      ) {
+        throw new ValidationError('TUTOR_DUPLICATE_NAME');
+      }
+      throw e;
+    }
   }
 
   async findById(id: string): Promise<StudentGuardian | null> {

@@ -199,8 +199,9 @@ describe('StudentGuardian', () => {
       expect(result.isOk()).toBe(true);
       const guardian = result.unwrap();
 
-      guardian.update({ fullName: 'New Name' });
+      const updateResult = guardian.update({ fullName: 'New Name' });
 
+      expect(updateResult.isOk()).toBe(true);
       expect(guardian.fullName).toBe('New Name');
       expect(guardian.updatedAt).toBeInstanceOf(Date);
     });
@@ -210,7 +211,8 @@ describe('StudentGuardian', () => {
       const guardian = result.unwrap();
       expect(guardian.active).toBe(true);
 
-      guardian.update({ active: false });
+      const updateResult = guardian.update({ active: false });
+      expect(updateResult.isOk()).toBe(true);
       expect(guardian.active).toBe(false);
     });
 
@@ -220,8 +222,9 @@ describe('StudentGuardian', () => {
 
       const mobileResult = Mobile.create('+5492215554321');
       expect(mobileResult.isOk()).toBe(true);
-      guardian.update({ mobile: mobileResult.unwrap() });
+      const updateResult = guardian.update({ mobile: mobileResult.unwrap() });
 
+      expect(updateResult.isOk()).toBe(true);
       expect(guardian.mobile?.get()).toBe('+5492215554321');
     });
 
@@ -235,8 +238,42 @@ describe('StudentGuardian', () => {
       const guardian = result.unwrap();
       expect(guardian.email).toBeDefined();
 
-      guardian.update({ email: null });
+      const updateResult = guardian.update({ email: null });
+      expect(updateResult.isOk()).toBe(true);
       expect(guardian.email).toBeUndefined();
+    });
+
+    // Bug 5 round-2 RED→GREEN: update() must trim + validate relationship (mirrors create())
+    it('(Bug5-round2) update with whitespace-only relationship returns Err', () => {
+      const result = StudentGuardian.create({ studentId: 's1', relationship: 'padre' });
+      const guardian = result.unwrap();
+
+      const updateResult = guardian.update({ relationship: '   ' });
+
+      expect(updateResult.isErr()).toBe(true);
+      expect(updateResult.unwrapErr().message).toMatch(/cannot be empty/i);
+      // Mutation must NOT have happened
+      expect(guardian.relationship).toBe('padre');
+    });
+
+    it('(Bug5-round2) update with relationship > 15 chars returns Err', () => {
+      const result = StudentGuardian.create({ studentId: 's1', relationship: 'padre' });
+      const guardian = result.unwrap();
+
+      const updateResult = guardian.update({ relationship: 'a'.repeat(16) });
+
+      expect(updateResult.isErr()).toBe(true);
+      expect(guardian.relationship).toBe('padre');
+    });
+
+    it('update with valid relationship trims and stores it', () => {
+      const result = StudentGuardian.create({ studentId: 's1', relationship: 'padre' });
+      const guardian = result.unwrap();
+
+      const updateResult = guardian.update({ relationship: '  madre  ' });
+
+      expect(updateResult.isOk()).toBe(true);
+      expect(guardian.relationship).toBe('madre');
     });
   });
 });

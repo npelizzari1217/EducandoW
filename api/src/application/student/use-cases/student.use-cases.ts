@@ -204,13 +204,13 @@ export class PatchStudentUseCase {
   }
 
   /**
-   * Cleanup 10: single resolveEmail helper — eliminates duplicated fatherEmail/motherEmail blocks.
+   * Cleanup 10 (round-2): resolveEmail — simplified, no dead _current param.
    * Returns:
    *   - undefined   → raw is empty/falsy → clear the field
-   *   - Email VO    → raw is a valid email string
+   *   - Email VO    → validated Email.create() (not reconstruct) for patched input
    * Throws the domain ValidationError if the email is non-empty but invalid.
    */
-  private resolveEmail(raw: string, _current: Email | undefined): Email | undefined {
+  private resolveEmail(raw: string): Email | undefined {
     if (!raw) return undefined;
     const result = Email.create(raw);
     if (result.isErr()) throw result.unwrapErr();
@@ -218,8 +218,10 @@ export class PatchStudentUseCase {
   }
 
   private applyChanges(student: Student, body: Record<string, unknown>): Student {
+    // Bug 8/10 fix: use resolveEmail (Email.create, validated) consistently for all email fields.
+    // reconstruct() skips validation and is reserved for already-persisted values only.
     const emailVo = body.email !== undefined
-      ? (body.email as string ? Email.reconstruct(body.email as string) : undefined)
+      ? this.resolveEmail(body.email as string)
       : student.email;
 
     const dniVo = body.dni !== undefined
@@ -228,11 +230,11 @@ export class PatchStudentUseCase {
 
     // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS (Cleanup 10)
     const fatherEmailVo = body.fatherEmail !== undefined
-      ? this.resolveEmail(body.fatherEmail as string, student.fatherEmail)
+      ? this.resolveEmail(body.fatherEmail as string)
       : student.fatherEmail;
 
     const motherEmailVo = body.motherEmail !== undefined
-      ? this.resolveEmail(body.motherEmail as string, student.motherEmail)
+      ? this.resolveEmail(body.motherEmail as string)
       : student.motherEmail;
 
     return Student.reconstruct({
@@ -372,6 +374,7 @@ export interface CreateStudyTutorInput {
   mobile: string;
   relationship?: string;
   email?: string;
+  active?: boolean;
   isFinancialResponsible?: boolean;
   isAuthorizedToPickUp?: boolean;
   allowDuplicate?: boolean;
@@ -433,13 +436,19 @@ export class CreateStudyTutorUseCase {
       fullName: input.fullName,
       mobile: mobileVO,
       email: emailVO,
+      active: input.active ?? true,
       isFinancialResponsible: input.isFinancialResponsible ?? false,
       isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });
     if (createResult.isErr()) return err(createResult.unwrapErr());
     const guardian = createResult.unwrap();
 
-    await this.guardianRepo.save(guardian);
+    try {
+      await this.guardianRepo.save(guardian);
+    } catch (e) {
+      if (e instanceof ValidationError) return err(e);
+      throw e;
+    }
     return ok(guardian);
   }
 }
@@ -447,6 +456,7 @@ export class CreateStudyTutorUseCase {
 // ── UpdateStudyTutorUseCase ─────────────────────────────────
 
 export interface UpdateStudyTutorInput {
+  studentId?: string;  // Bug 1 fix: thread studentId for ownership validation (controller always passes it)
   guardianId: string;
   fullName?: string;
   mobile?: string;
@@ -465,6 +475,11 @@ export class UpdateStudyTutorUseCase {
     // 1. Load guardian (REQ-RYT-06-C)
     const guardian = await this.guardianRepo.findById(input.guardianId);
     if (!guardian) return err(new NotFoundError('GUARDIAN_NOT_FOUND', input.guardianId));
+
+    // Bug 1 fix: ownership check — guardianId must belong to the given studentId
+    if (input.studentId && guardian.studentId !== input.studentId) {
+      return err(new NotFoundError('GUARDIAN_NOT_FOUND', input.guardianId));
+    }
 
     // 2. Validate mobile if provided
     let mobileVO: Mobile | undefined;
@@ -509,9 +524,15 @@ export class UpdateStudyTutorUseCase {
     if (input.active !== undefined) patch.active = input.active;
     if (input.isFinancialResponsible !== undefined) patch.isFinancialResponsible = input.isFinancialResponsible;
     if (input.isAuthorizedToPickUp !== undefined) patch.isAuthorizedToPickUp = input.isAuthorizedToPickUp;
-    guardian.update(patch);
+    const updateResult = guardian.update(patch);
+    if (updateResult.isErr()) return err(updateResult.unwrapErr());
 
-    await this.guardianRepo.save(guardian);
+    try {
+      await this.guardianRepo.save(guardian);
+    } catch (e) {
+      if (e instanceof ValidationError) return err(e);
+      throw e;
+    }
     return ok(guardian);
   }
 }
@@ -545,6 +566,26 @@ export interface GuardianOutput {
   updatedAt: Date;
 }
 
+/**
+ * Cleanup 9 (round-2): single canonical StudentGuardian→GuardianOutput projection.
+ * Used by ListGuardiansUseCase AND the controller (POST/PATCH responses) so both
+ * callers can never drift from each other.
+ */
+export function toGuardianOutput(g: StudentGuardian): GuardianOutput {
+  return {
+    id: g.id.get(),
+    userId: g.userId,
+    fullName: g.fullName,
+    mobile: g.mobile?.get(),
+    email: g.email?.get(),
+    relationship: g.relationship,
+    isFinancialResponsible: g.isFinancialResponsible,
+    isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+    active: g.active,
+    updatedAt: g.updatedAt,
+  };
+}
+
 @Injectable()
 export class ListGuardiansUseCase {
   constructor(
@@ -557,17 +598,6 @@ export class ListGuardiansUseCase {
     if (!student) throw new NotFoundError('Student', studentId);
 
     const guardians = await this.guardianRepo.findByStudentId(studentId);
-    return guardians.map((g) => ({
-      id: g.id.get(),
-      userId: g.userId,
-      fullName: g.fullName,
-      mobile: g.mobile?.get(),
-      email: g.email?.get(),
-      relationship: g.relationship,
-      isFinancialResponsible: g.isFinancialResponsible,
-      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
-      active: g.active,
-      updatedAt: g.updatedAt,
-    }));
+    return guardians.map(toGuardianOutput);
   }
 }

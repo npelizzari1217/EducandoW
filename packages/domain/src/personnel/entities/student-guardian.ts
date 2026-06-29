@@ -74,17 +74,29 @@ export class StudentGuardian {
     active?: boolean;
     isFinancialResponsible?: boolean;
     isAuthorizedToPickUp?: boolean;
-  }): void {
+  }): Result<void, ValidationError> {
+    // Validate relationship first, before mutating any field (Bug 5 round-2 fix)
+    if (patch.relationship !== undefined) {
+      const trimmed = patch.relationship.trim();
+      if (trimmed.length === 0) {
+        return err(new ValidationError('Relationship cannot be empty'));
+      }
+      if (trimmed.length > 15) {
+        return err(new ValidationError('Relationship must be 15 characters or fewer'));
+      }
+      this.props.relationship = trimmed;
+    }
+
     if (patch.fullName !== undefined) this.props.fullName = patch.fullName;
     if (patch.mobile !== undefined) this.props.mobile = patch.mobile;
     if ('email' in patch) {
       this.props.email = patch.email ?? undefined;
     }
-    if (patch.relationship !== undefined) this.props.relationship = patch.relationship;
     if (patch.active !== undefined) this.props.active = patch.active;
     if (patch.isFinancialResponsible !== undefined) this.props.isFinancialResponsible = patch.isFinancialResponsible;
     if (patch.isAuthorizedToPickUp !== undefined) this.props.isAuthorizedToPickUp = patch.isAuthorizedToPickUp;
     this.props.updatedAt = new Date();
+    return ok(undefined);
   }
 
   // ── Getters ──────────────────────────────────────────────

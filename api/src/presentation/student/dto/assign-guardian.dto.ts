@@ -11,6 +11,7 @@ export const AssignGuardianSchema = z.object({
   fullName: z.string().min(1).optional(),
   mobile: z.string().min(1).optional(),
   email: z.string().email().optional(),
+  active: z.boolean().optional().default(true),
   isFinancialResponsible: z.boolean().optional().default(false),
   isAuthorizedToPickUp: z.boolean().optional().default(false),
   allowDuplicate: z.boolean().optional().default(false),

@@ -151,4 +151,44 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
     expect(guardianRepo.save).not.toHaveBeenCalled();
   });
+
+  // Bug 1 RED→GREEN: PATCH with guardianId that belongs to a DIFFERENT student must return NotFoundError
+  it('(Bug1) PATCH with guardianId belonging to different student returns NotFoundError', async () => {
+    // guardian belongs to studentId 's1'
+    const guardian = mockGuardian({ id: 'g1', studentId: 's1' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    // But request is for student 's2' — cross-student mutation attempt
+    const result = await useCase.execute({ studentId: 's2', guardianId: 'g1', fullName: 'Hacker' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
+
+  // Bug 1: same studentId as the guardian's → must succeed
+  it('(Bug1) PATCH with matching studentId succeeds normally', async () => {
+    const guardian = mockGuardian({ id: 'g1', studentId: 's1' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue(null);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ studentId: 's1', guardianId: 'g1', fullName: 'Ana G. López' });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().fullName).toBe('Ana G. López');
+  });
+
+  // Bug 5 round-2 RED→GREEN: update with whitespace-only relationship must be rejected
+  it('(Bug5-round2) update with whitespace-only relationship returns validation error', async () => {
+    const guardian = mockGuardian({ studentId: 's1' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+
+    const result = await useCase.execute({ guardianId: 'g1', relationship: '   ' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toMatch(/cannot be empty/i);
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
 });

@@ -321,6 +321,104 @@ describe('StudentsPage — code-review bug fixes', () => {
   });
 });
 
+// ── Code-review bug fixes round 2 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-2 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: 'ana@example.com', relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Bug 3 RED→GREEN: clearing a tutor's email in edit mode must send null (not undefined)
+  it('(Bug3) clearing tutor email in edit mode sends null in PATCH body', async () => {
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    // Wait for guardian list to load and click the guardian's Edit button
+    // There are two "Editar" buttons: one for the student row, one for the guardian
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    // Last "Editar" is in the guardian table
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    // Email input is pre-filled with 'ana@example.com'
+    const emailInput = await screen.findByDisplayValue('ana@example.com') as HTMLInputElement;
+    await userEvent.clear(emailInput);
+    expect(emailInput.value).toBe('');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    await waitFor(() => {
+      expect(mockApiPatch).toHaveBeenCalled();
+    });
+    const patchBody = mockApiPatch.mock.calls[0][1];
+    // Bug 3: with the bug, email: '' || undefined → key absent → no clear
+    // After fix: email: '' || null → email: null → explicit clear
+    expect(patchBody).toHaveProperty('email', null);
+  });
+
+  // Bug 4 RED→GREEN: on 409 TUTOR_DUPLICATE_NAME, UI shows override button that re-POSTs with allowDuplicate:true
+  it('(Bug4) on 409 TUTOR_DUPLICATE_NAME UI shows confirm button and re-POSTs with allowDuplicate:true', async () => {
+    // First POST: fail with TUTOR_DUPLICATE_NAME (as extractErrorMessage mock returns e.message)
+    mockApiPost.mockRejectedValueOnce(new Error('TUTOR_DUPLICATE_NAME'));
+    // Second POST: succeed
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+
+    // No guardians in list for this test (we're creating)
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    await userEvent.type(screen.getByLabelText('Nombre completo'), 'Ana García');
+    await userEvent.type(screen.getByLabelText('Móvil'), '+5491155554444');
+    await userEvent.type(screen.getByLabelText('Parentesco'), 'tutor');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    // After 409, "Confirmar de todas formas" button must appear
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /confirmar de todas formas/i })).toBeInTheDocument();
+    });
+
+    // Click confirm — second POST must include allowDuplicate: true
+    await userEvent.click(screen.getByRole('button', { name: /confirmar de todas formas/i }));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledTimes(2);
+    });
+    const secondCallBody = mockApiPost.mock.calls[1][1];
+    expect(secondCallBody).toMatchObject({ allowDuplicate: true });
+  });
+});
+
 // ── Guardian panel tests (PR3) ────────────────────────────────────────────────
 describe('StudentsPage — guardian panel (PR3)', () => {
   const mockStudent = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };

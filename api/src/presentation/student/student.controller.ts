@@ -19,6 +19,7 @@ import {
   AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
   CreateStudyTutorUseCase, UpdateStudyTutorUseCase,
   GuardianOutput,
+  toGuardianOutput,
 } from '../../application/student/use-cases/student.use-cases';
 
 @Controller('students')
@@ -142,7 +143,7 @@ export class StudentController {
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
+      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
     } else {
       // Study-tutor path: CreateStudyTutorUseCase (no userId)
       const result = await this.createStudyTutorUC.execute({
@@ -151,6 +152,7 @@ export class StudentController {
         mobile: body.mobile ?? '',
         relationship: body.relationship,
         email: body.email,
+        active: body.active,
         isFinancialResponsible: body.isFinancialResponsible,
         isAuthorizedToPickUp: body.isAuthorizedToPickUp,
         allowDuplicate: body.allowDuplicate,
@@ -158,22 +160,23 @@ export class StudentController {
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
+      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
     }
   }
 
   @Patch(':id/guardians/:guardianId')
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
   async updateGuardian(
-    @Param('id') _studentId: string,
+    @Param('id') studentId: string,
     @Param('guardianId') guardianId: string,
     @Body(new ZodValidationPipe(UpdateGuardianSchema)) body: UpdateGuardianDTO,
   ) {
-    const result = await this.updateStudyTutorUC.execute({ guardianId, ...body });
+    // Bug 1 fix: pass studentId so the use case can verify ownership
+    const result = await this.updateStudyTutorUC.execute({ studentId, guardianId, ...body });
     if (result.isErr()) {
       this.throwGuardianError(result.unwrapErr());
     }
-    return { data: this.mapGuardian(this.guardianEntityToOutput(result.unwrap())) };
+    return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
   }
 
   @Delete(':id/guardians/:guardianId')
@@ -200,22 +203,6 @@ export class StudentController {
       fullName: g.fullName ?? null,
       mobile: g.mobile ?? null,
       email: g.email ?? null,
-      relationship: g.relationship,
-      isFinancialResponsible: g.isFinancialResponsible,
-      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
-      active: g.active,
-      updatedAt: g.updatedAt,
-    };
-  }
-
-  /** Convert a StudentGuardian entity to the GuardianOutput shape used by mapGuardian. */
-  private guardianEntityToOutput(g: { id: { get(): string }; userId?: string; fullName?: string; mobile?: { get(): string }; email?: { get(): string }; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean; updatedAt: Date }): GuardianOutput {
-    return {
-      id: g.id.get(),
-      userId: g.userId,
-      fullName: g.fullName,
-      mobile: g.mobile?.get(),
-      email: g.email?.get(),
       relationship: g.relationship,
       isFinancialResponsible: g.isFinancialResponsible,
       isAuthorizedToPickUp: g.isAuthorizedToPickUp,
