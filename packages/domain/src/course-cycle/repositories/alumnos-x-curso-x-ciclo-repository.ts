@@ -25,6 +25,8 @@ export interface StudentMembershipEnriched {
   level: number;
   /** CourseSection.academicYear string, e.g. "2026". */
   academicYear: string;
+  /** AcademicCycle.name del ciclo lectivo, p.ej. "Secundario 2026". */
+  cycleName: string;
   /** CourseSection.grade, nullable. */
   grade: string | null;
   /** CourseSection.division, nullable. */

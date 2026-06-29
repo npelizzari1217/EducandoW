@@ -54,6 +54,7 @@ const MEMBERSHIPS_SINGLE = [
     printable: true,
     level: 2,
     academicYear: '2026',
+    cycleName: 'Primario 2026',
     grade: '1',
     division: 'A',
     createdAt: '2026-03-01T00:00:00.000Z',
@@ -68,6 +69,7 @@ const MEMBERSHIPS_MULTI = [
     printable: false,
     level: 2,
     academicYear: '2025',
+    cycleName: 'Primario 2025',
     grade: '1',
     division: 'A',
     createdAt: '2025-03-01T00:00:00.000Z',
@@ -78,6 +80,7 @@ const MEMBERSHIPS_MULTI = [
     printable: true,
     level: 2,
     academicYear: '2026',
+    cycleName: 'Primario 2026',
     grade: '2',
     division: 'A',
     createdAt: '2026-03-01T00:00:00.000Z',
@@ -248,6 +251,16 @@ describe('StudentLegajo — selección de ciclo (varios ciclos)', () => {
     );
     // Solo el ciclo seleccionado (cc-1), nunca cc-2 mientras no se cambie.
     expect(gradeCalls.every((c: any[]) => c[1]?.params?.courseCycleId === 'cc-1')).toBe(true);
+  });
+
+  it('el combo muestra el nombre del ciclo lectivo (cycleName), no un texto compuesto', async () => {
+    render(<StudentLegajo studentId="stu-1" institutionId="inst-1" />);
+
+    await screen.findByLabelText(/ciclo lectivo/i);
+
+    // Las opciones deben rotularse con AcademicCycle.name.
+    expect(screen.getByRole('option', { name: 'Primario 2026' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Primario 2025' })).toBeInTheDocument();
   });
 
   it('al cambiar de ciclo pide las notas del nuevo courseCycleId', async () => {

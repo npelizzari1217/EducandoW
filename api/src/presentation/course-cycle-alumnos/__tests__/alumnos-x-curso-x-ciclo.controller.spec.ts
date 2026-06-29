@@ -123,7 +123,7 @@ describe('AlumnosXCursoXCicloController — DELETE /course-cycles/:ccId/alumnos/
 describe('AlumnosXCursoXCicloController — GET /students/:studentId/memberships', () => {
   it('C-08: 200 — returns { data: StudentMembershipEnriched[] }', async () => {
     const memberships = [
-      { id: 'axcc-1', courseCycleId: 'cc-1', printable: true, level: 3, academicYear: '2026', grade: '1', division: 'A', createdAt: '2026-01-01T00:00:00.000Z' },
+      { id: 'axcc-1', courseCycleId: 'cc-1', printable: true, level: 3, academicYear: '2026', cycleName: 'Secundario 2026', grade: '1', division: 'A', createdAt: '2026-01-01T00:00:00.000Z' },
     ];
     const listMembershipsUC = { execute: vi.fn().mockResolvedValue(memberships) };
     const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);

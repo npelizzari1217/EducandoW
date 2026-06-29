@@ -31,6 +31,8 @@ interface StudentMembership {
   printable: boolean;
   level: number;
   academicYear: string;
+  /** AcademicCycle.name del ciclo lectivo, p.ej. "Secundario 2026". */
+  cycleName: string;
   grade: string | null;
   division: string | null;
   createdAt: string;
@@ -294,9 +296,7 @@ export function StudentLegajo({ studentId, institutionId }: StudentLegajoProps) 
                 >
                   {memberships.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.academicYear} — {levelLabel(String(m.level))}
-                      {m.grade ? ` ${m.grade}` : ''}
-                      {m.division ? ` "${m.division}"` : ''}
+                      {m.cycleName}
                     </option>
                   ))}
                 </select>
