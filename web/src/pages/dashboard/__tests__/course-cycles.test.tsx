@@ -30,6 +30,13 @@ vi.mock('../../../api/client', () => ({
   },
 }));
 
+// ── Mock useBoletin ──
+const mockDownloadBoletinBatch = vi.fn((..._args: unknown[]) => Promise.resolve());
+vi.mock('../../../hooks/useBoletin', () => ({
+  downloadBoletinBatch: (...args: any[]) => mockDownloadBoletinBatch(...args),
+  downloadBoletin: vi.fn(),
+}));
+
 // ── Mock useAuth ──
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
@@ -296,6 +303,49 @@ describe('CourseCyclesPage', () => {
         expect(screen.getByRole('columnheader', { name: 'Alumnos' })).toBeInTheDocument();
         expect(screen.getByRole('cell', { name: '0' })).toBeInTheDocument();
       });
+    });
+  });
+
+  // ── Boletines per-row button ─────────────────────────────────────────────────
+
+  describe('Boletines por fila', () => {
+    const ccRow = {
+      uuid: 'cc-bol-1', courseName: '2do B', level: 30, cycleId: 'cycle-1',
+      studyPlanId: 'plan-1', active: true, passingGrade: 7, studentCount: 4,
+    };
+    function mockWith(row: { studentCount?: number } & Record<string, unknown>) {
+      mockDownloadBoletinBatch.mockClear();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockGet.mockImplementation((url: string): any => {
+        if (url === '/academic-cycles') return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }] } });
+        if (url === '/study-plans') return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan Primario 2026' }] } });
+        if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: [row], page: 1, pageSize: 20, total: 1 } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+    }
+
+    it('ya no muestra el boton roto "Boletines del Curso" en la barra de filtros', async () => {
+      mockWith(ccRow);
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-boletines-cc-bol-1')).toBeInTheDocument());
+      expect(screen.queryByRole('button', { name: /Boletines del Curso/i })).not.toBeInTheDocument();
+    });
+
+    it('baja el ZIP del curso (cc.uuid) al clickear Boletines de la fila', async () => {
+      mockWith(ccRow);
+      renderPage();
+      const btn = await screen.findByTestId('btn-boletines-cc-bol-1');
+      expect(btn).not.toBeDisabled();
+      await userEvent.click(btn);
+      expect(mockDownloadBoletinBatch).toHaveBeenCalledWith('cc-bol-1');
+    });
+
+    it('deshabilita Boletines cuando el curso no tiene alumnos', async () => {
+      mockWith({ ...ccRow, studentCount: 0 });
+      renderPage();
+      const btn = await screen.findByTestId('btn-boletines-cc-bol-1');
+      expect(btn).toBeDisabled();
     });
   });
 

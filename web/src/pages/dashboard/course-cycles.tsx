@@ -55,16 +55,15 @@ export default function CourseCyclesPage() {
   const [editing, setEditing] = useState<CourseCycle | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [boletinBatchLoading, setBoletinBatchLoading] = useState(false);
+  const [boletinBatchCcId, setBoletinBatchCcId] = useState<string | null>(null);
   const [alumnosPanelCcId, setAlumnosPanelCcId] = useState<string | null>(null);
   const [confirmCascadeCcId, setConfirmCascadeCcId] = useState<string | null>(null);
   const [cascadingBulkCcId, setCascadingBulkCcId] = useState<string | null>(null);
 
-  const handleBoletinBatch = async () => {
-    if (!filters.cycleId) return;
-    setBoletinBatchLoading(true);
+  const handleBoletinBatch = async (ccId: string) => {
+    setBoletinBatchCcId(ccId);
     try {
-      await downloadBoletinBatch(filters.cycleId);
+      await downloadBoletinBatch(ccId);
     } catch (e: unknown) {
       const err = e as { response?: { data?: { error?: { message?: string } } }; message?: string };
       setToast({
@@ -72,7 +71,7 @@ export default function CourseCyclesPage() {
         type: 'error',
       });
     } finally {
-      setBoletinBatchLoading(false);
+      setBoletinBatchCcId(null);
     }
   };
 
@@ -281,14 +280,6 @@ export default function CourseCyclesPage() {
             >
               {generating ? 'Generando...' : 'Generar Cursos'}
             </Button>
-            <Button
-              variant="action"
-              onClick={handleBoletinBatch}
-              disabled={!filters.cycleId || boletinBatchLoading}
-              loading={boletinBatchLoading}
-            >
-              {boletinBatchLoading ? 'Descargando...' : 'Boletines del Curso'}
-            </Button>
           </div>
         </div>
       </Card>
@@ -387,6 +378,17 @@ export default function CourseCyclesPage() {
                     onClick={() => setConfirmCascadeCcId(cc.uuid)}
                   >
                     Asignar materias y competencias
+                  </Button>
+                  <Button
+                    variant="action"
+                    size="sm"
+                    data-testid={`btn-boletines-${cc.uuid}`}
+                    disabled={boletinBatchCcId === cc.uuid || (cc.studentCount ?? 0) === 0}
+                    loading={boletinBatchCcId === cc.uuid}
+                    title={(cc.studentCount ?? 0) === 0 ? 'El curso no tiene alumnos inscriptos' : 'Descargar boletines imprimibles del curso (ZIP)'}
+                    onClick={() => handleBoletinBatch(cc.uuid)}
+                  >
+                    📄 Boletines
                   </Button>
                   <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
