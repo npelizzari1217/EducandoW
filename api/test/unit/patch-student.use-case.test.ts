@@ -75,9 +75,9 @@ describe('PatchStudentUseCase', () => {
     const s = mockStudent({ userId: 'user-student' });
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
 
-    await expect(
-      useCase.execute('s1', { firstName: 'Nuevo' }, { userId: 'user-student', roles: ['STUDENT'] }),
-    ).rejects.toThrow(ForbiddenError);
+    const result = await useCase.execute('s1', { firstName: 'Nuevo' }, { userId: 'user-student', roles: ['STUDENT'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
   // ── STUDENT: patches another student ────────────────────
@@ -86,9 +86,9 @@ describe('PatchStudentUseCase', () => {
     const s = mockStudent({ id: 's2', userId: 'user-other' });
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
 
-    await expect(
-      useCase.execute('s2', { phone: '2215551234' }, { userId: 'user-student', roles: ['STUDENT'] }),
-    ).rejects.toThrow(ForbiddenError);
+    const result = await useCase.execute('s2', { phone: '2215551234' }, { userId: 'user-student', roles: ['STUDENT'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
   // ── TUTOR: allowed field on child ───────────────────────
@@ -113,9 +113,9 @@ describe('PatchStudentUseCase', () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
     vi.mocked(guardianRepo.findByGuardianUserId).mockResolvedValue([]);
 
-    await expect(
-      useCase.execute('s2', { phone: '2215559999' }, { userId: 'user-tutor', roles: ['TUTOR'] }),
-    ).rejects.toThrow(ForbiddenError);
+    const result = await useCase.execute('s2', { phone: '2215559999' }, { userId: 'user-tutor', roles: ['TUTOR'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
   // ── ADMIN: all fields ───────────────────────────────────
@@ -136,9 +136,9 @@ describe('PatchStudentUseCase', () => {
     const s = mockStudent({ userId: 'user-student' });
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
 
-    await expect(
-      useCase.execute('s1', { phone: '2215551234', firstName: 'Nuevo' }, { userId: 'user-student', roles: ['STUDENT'] }),
-    ).rejects.toThrow(ForbiddenError);
+    const result = await useCase.execute('s1', { phone: '2215551234', firstName: 'Nuevo' }, { userId: 'user-student', roles: ['STUDENT'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
   // ── Student not found ───────────────────────────────────
@@ -146,9 +146,9 @@ describe('PatchStudentUseCase', () => {
   it('returns NotFoundError when student does not exist', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(null);
 
-    await expect(
-      useCase.execute('s-nonexistent', { phone: '2215551234' }, { userId: 'user-admin', roles: ['ADMIN'] }),
-    ).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute('s-nonexistent', { phone: '2215551234' }, { userId: 'user-admin', roles: ['ADMIN'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   // Round6-Fix3 RED: patching unrelated field on student with legacy (invalid-by-current-rules) email succeeds
@@ -170,14 +170,14 @@ describe('PatchStudentUseCase', () => {
     expect(studentRepo.save).toHaveBeenCalled();
   });
 
-  // Round6-Fix3 RED: changing email to a truly new invalid value still fails validation
+  // Round6-Fix3: changing email to a truly new invalid value returns err(ValidationError)
   it('(Round6-Fix3) changing email to a new invalid value still throws validation error', async () => {
     const s = mockStudent();  // no stored email
     vi.mocked(studentRepo.findById).mockResolvedValue(s);
 
-    await expect(
-      useCase.execute('s1', { email: 'not-valid-at-all' }, { userId: 'user-admin', roles: ['ADMIN'] }),
-    ).rejects.toThrow('Invalid email format');
+    const result = await useCase.execute('s1', { email: 'not-valid-at-all' }, { userId: 'user-admin', roles: ['ADMIN'] });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('Invalid email format');
   });
 
   // ── Round7-Fix6: empty string clears email consistently for all three fields ──

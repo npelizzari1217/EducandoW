@@ -10,7 +10,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { PatchStudentUseCase } from '../student.use-cases';
 import {
   Student,
-  StudentGuardian,
   StudentRepository,
   StudentGuardianRepository,
   Email,
@@ -75,7 +74,7 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
 
     await expect(
       uc.execute(student.id.get(), { fatherEmail: LEGACY_INVALID }, adminCaller),
-    ).resolves.toBeDefined();
+    ).resolves.toSatisfy(r => r.isOk() === true);
   });
 
   // RED before the fix: same reason
@@ -86,7 +85,7 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
 
     await expect(
       uc.execute(student.id.get(), { motherEmail: LEGACY_INVALID }, adminCaller),
-    ).resolves.toBeDefined();
+    ).resolves.toSatisfy(r => r.isOk() === true);
   });
 
   // These are already GREEN (pre-existing behavior must stay intact)
@@ -95,7 +94,8 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
     const uc = new PatchStudentUseCase(makeStudentRepo(student), makeGuardianRepo());
 
     const result = await uc.execute(student.id.get(), { fatherEmail: '' }, adminCaller);
-    expect(result.fatherEmail).toBeUndefined();
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().fatherEmail).toBeUndefined();
   });
 
   it("empty string motherEmail ('') clears the field to undefined", async () => {
@@ -103,7 +103,8 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
     const uc = new PatchStudentUseCase(makeStudentRepo(student), makeGuardianRepo());
 
     const result = await uc.execute(student.id.get(), { motherEmail: '' }, adminCaller);
-    expect(result.motherEmail).toBeUndefined();
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().motherEmail).toBeUndefined();
   });
 
   it('a genuinely changed fatherEmail is validated and stored', async () => {
@@ -111,7 +112,8 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
     const uc = new PatchStudentUseCase(makeStudentRepo(student), makeGuardianRepo());
 
     const result = await uc.execute(student.id.get(), { fatherEmail: 'new@test.com' }, adminCaller);
-    expect(result.fatherEmail?.get()).toBe('new@test.com');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().fatherEmail?.get()).toBe('new@test.com');
   });
 
   it('a genuinely changed motherEmail is validated and stored', async () => {
@@ -119,6 +121,7 @@ describe('PatchStudentUseCase — fatherEmail / motherEmail pass-through guard (
     const uc = new PatchStudentUseCase(makeStudentRepo(student), makeGuardianRepo());
 
     const result = await uc.execute(student.id.get(), { motherEmail: 'new@test.com' }, adminCaller);
-    expect(result.motherEmail?.get()).toBe('new@test.com');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().motherEmail?.get()).toBe('new@test.com');
   });
 });

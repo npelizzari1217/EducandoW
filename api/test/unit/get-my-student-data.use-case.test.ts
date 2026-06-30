@@ -36,12 +36,15 @@ describe('GetMyStudentDataUseCase', () => {
     vi.mocked(studentRepo.findByUserId).mockResolvedValue(s);
 
     const result = await useCase.execute('user-student');
-    expect(result).toBe(s);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(s);
   });
 
   it('throws NotFoundError when no student has that userId', async () => {
     vi.mocked(studentRepo.findByUserId).mockResolvedValue(null);
 
-    await expect(useCase.execute('nonexistent')).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute('nonexistent');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 });

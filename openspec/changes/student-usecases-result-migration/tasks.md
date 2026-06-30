@@ -156,7 +156,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 **Satisfies**: REQ-01, REQ-03, REQ-06, REQ-07, REQ-08, REQ-09-A, REQ-09-B
 **Sequential**: after Phase 3. TASK-09/10/11 may be written in parallel (different files, all RED).
 
-### TASK-09 [RED] Update 5 stale assertions in patch-student-email-guard.test.ts → Result-aware
+### TASK-09 [x] Update 5 stale assertions in patch-student-email-guard.test.ts → Result-aware
 
 - **File**: `api/src/application/student/use-cases/__tests__/patch-student-email-guard.test.ts`
 - **2 `.resolves.toBeDefined()` assertions** → `.resolves.toSatisfy(r => r.isOk() === true)`.
@@ -164,7 +164,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — confirm these 5 assertions now FAIL (execute() still returns raw Student or throws).
 - **Satisfies**: REQ-09-A
 
-### TASK-10 [RED] Write new error-path tests for PatchStudentUseCase (5 scenarios)
+### TASK-10 [x] Write new error-path tests for PatchStudentUseCase (5 scenarios)
 
 - **File (new)**: `api/src/application/student/use-cases/__tests__/patch-student.use-case.spec.ts`
 - **Test A** (student not found): student repo returns `null` → `result.isErr() && result.unwrapErr() instanceof NotFoundError`.
@@ -175,7 +175,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — confirm all 5 FAIL.
 - **Satisfies**: REQ-09-B (PatchStudent ×5 error scenarios), REQ-03
 
-### TASK-11 [RED] Write error-path test for GetMyStudentDataUseCase
+### TASK-11 [x] Write error-path test for GetMyStudentDataUseCase
 
 - **File (new)**: `api/src/application/student/use-cases/__tests__/get-my-student-data.use-case.spec.ts`
 - Mock: student repo returns `null` for given userId.
@@ -184,7 +184,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — confirm FAILS.
 - **Satisfies**: REQ-09-B (GetMyStudentData scenario), REQ-06
 
-### TASK-12 [GREEN] Refactor PatchStudent private methods to thread Result (no throw)
+### TASK-12 [x] Refactor PatchStudent private methods to thread Result (no throw)
 
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - **`checkOwnership()`** — change return type to `Promise<Result<void, ForbiddenError>>`; replace each `throw new ForbiddenError(...)` with `return err(new ForbiddenError(...))`.
@@ -198,7 +198,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — existing tests that don't touch execute() stay green; no new RED yet (execute() still calls old paths).
 - **Satisfies**: REQ-01 (internal threading), REQ-08
 
-### TASK-13 [GREEN] Migrate PatchStudentUseCase.execute() → Promise<Result<Student, DomainError>>
+### TASK-13 [x] Migrate PatchStudentUseCase.execute() → Promise<Result<Student, DomainError>>
 
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - Change return type annotation: `Promise<Result<Student, DomainError>>`.
@@ -210,7 +210,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — TASK-09 (all 5 stale assertions) + TASK-10 (all 5 error scenarios) go GREEN.
 - **Satisfies**: REQ-01, REQ-03
 
-### TASK-14 [GREEN] Migrate GetMyStudentDataUseCase.execute() → Promise<Result<Student, NotFoundError>>
+### TASK-14 [x] Migrate GetMyStudentDataUseCase.execute() → Promise<Result<Student, NotFoundError>>
 
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - Change return type: `Promise<Result<Student, NotFoundError>>`.
@@ -219,7 +219,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — TASK-11 GREEN; full suite green.
 - **Satisfies**: REQ-01, REQ-06
 
-### TASK-15 [GREEN] Unwrap Results in patch + me controller handlers
+### TASK-15 [x] Unwrap Results in patch + me controller handlers
 
 - **File**: `api/src/presentation/student/student.controller.ts`
 - **`patch` handler**:
