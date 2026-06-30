@@ -148,10 +148,10 @@ export class PatchStudentUseCase {
     studentId: string,
     body: Record<string, unknown>,
     caller: CallerInfo,
-  ): Promise<Student> {
+  ): Promise<Result<Student, DomainError>> {
     // 1. Validate student exists
     const student = await this.studentRepo.findById(studentId);
-    if (!student) throw new NotFoundError('Student', studentId);
+    if (!student) return err(new NotFoundError('Student', studentId));
 
     // 2. Determine if caller has restricted roles
     const isRestricted = caller.roles.some((r) => RESTRICTED_ROLES.includes(r));
@@ -159,27 +159,50 @@ export class PatchStudentUseCase {
 
     // 3. Check ownership
     if (isRestricted) {
-      await this.checkOwnership(student, caller);
+      const own = await this.checkOwnership(student, caller);
+      if (own.isErr()) return err(own.unwrapErr());
     }
 
     // 4. Field-level validation for restricted roles
     if (isRestricted && !isFullAccess) {
-      this.validateAllowedFields(body, caller.roles);
+      const v = this.validateAllowedFields(body, caller.roles);
+      if (v.isErr()) return err(v.unwrapErr());
     }
 
-    // 5. Apply changes and save
-    const updated = this.applyChanges(student, body);
+    // 5. Resolve email fields (Round6-Fix3 / Fix8: pass-through guard in resolveEmailField)
+    const emailR = this.resolveEmailField(body.email as string | null | undefined, student.email);
+    if (emailR.isErr()) return err(emailR.unwrapErr());
+
+    const fatherEmailR = this.resolveEmailField(body.fatherEmail as string | null | undefined, student.fatherEmail);
+    if (fatherEmailR.isErr()) return err(fatherEmailR.unwrapErr());
+
+    const motherEmailR = this.resolveEmailField(body.motherEmail as string | null | undefined, student.motherEmail);
+    if (motherEmailR.isErr()) return err(motherEmailR.unwrapErr());
+
+    // 6. Apply changes (pure — receives already-resolved Email VOs) and save
+    const updated = this.applyChanges(student, body, {
+      email: emailR.unwrap(),
+      fatherEmail: fatherEmailR.unwrap(),
+      motherEmail: motherEmailR.unwrap(),
+    });
     await this.studentRepo.save(updated);
-    return updated;
+    return ok(updated);
   }
 
-  private async checkOwnership(student: Student, caller: CallerInfo): Promise<void> {
+  /**
+   * checkOwnership — Result-threaded (TASK-12).
+   * Returns err(ForbiddenError) instead of throwing.
+   */
+  private async checkOwnership(
+    student: Student,
+    caller: CallerInfo,
+  ): Promise<Result<void, ForbiddenError>> {
     // STUDENT: must match userId
     if (caller.roles.includes('STUDENT')) {
       if (student.userId !== caller.userId) {
-        throw new ForbiddenError('You can only edit your own profile');
+        return err(new ForbiddenError('You can only edit your own profile'));
       }
-      return;
+      return ok(undefined);
     }
 
     // TUTOR: must be linked via StudentGuardian
@@ -187,87 +210,79 @@ export class PatchStudentUseCase {
       const guardians = await this.guardianRepo.findByGuardianUserId(caller.userId);
       const isLinked = guardians.some((g) => g.studentId === student.id.get());
       if (!isLinked) {
-        throw new ForbiddenError('You can only edit students linked to you as guardian');
+        return err(new ForbiddenError('You can only edit students linked to you as guardian'));
       }
     }
-  }
 
-  private validateAllowedFields(body: Record<string, unknown>, _roles: string[]): void {
-    const fieldKeys = Object.keys(body);
-    for (const key of fieldKeys) {
-      if (!ALLOWED_TUTOR_FIELDS.includes(key)) {
-        throw new ForbiddenError(
-          `Field "${key}" is not editable by your role. Allowed fields: ${ALLOWED_TUTOR_FIELDS.join(', ')}`,
-        );
-      }
-    }
+    return ok(undefined);
   }
 
   /**
-   * Cleanup 10 (round-2): resolveEmail — simplified, no dead _current param.
-   * Returns:
-   *   - undefined   → raw is empty/falsy → clear the field
-   *   - Email VO    → validated Email.create() (not reconstruct) for patched input
-   * Throws the domain ValidationError if the email is non-empty but invalid.
+   * validateAllowedFields — Result-threaded (TASK-12).
+   * Returns err(ForbiddenError) instead of throwing.
    */
-  private resolveEmail(raw: string): Email | undefined {
-    if (!raw) return undefined;
-    const result = Email.create(raw);
-    if (result.isErr()) throw result.unwrapErr();
-    return result.unwrap();
+  private validateAllowedFields(
+    body: Record<string, unknown>,
+    _roles: string[],
+  ): Result<void, ForbiddenError> {
+    for (const key of Object.keys(body)) {
+      if (!ALLOWED_TUTOR_FIELDS.includes(key)) {
+        return err(
+          new ForbiddenError(
+            `Field "${key}" is not editable by your role. Allowed fields: ${ALLOWED_TUTOR_FIELDS.join(', ')}`,
+          ),
+        );
+      }
+    }
+    return ok(undefined);
   }
 
-  private applyChanges(student: Student, body: Record<string, unknown>): Student {
-    // Round6-Fix3: only validate the student's own email when it actually changed.
-    // The web re-sends the pre-filled email on every PATCH; if the stored email is a legacy
-    // value that doesn't satisfy current Email.create rules, re-validating it would block
-    // all edits on that student. Skip validation (use Email.reconstruct) when the raw value
-    // is identical to what's already stored; validate only when it differs.
-    const emailVo: Email | undefined = (() => {
-      if (body.email === undefined) return student.email;          // not in body → keep stored
-      const rawEmail = body.email as string | null;
-      if (!rawEmail) return undefined;                             // null / '' → explicit clear
-      if (student.email && rawEmail === student.email.get()) return student.email; // unchanged → pass-through
-      return this.resolveEmail(rawEmail);                          // changed → validate
-    })();
+  /**
+   * resolveEmailField — lifted from applyChanges into execute() (TASK-12).
+   * Encapsulates the absent/clear/passthrough/validate logic for a single email field.
+   *
+   * - bodyVal === undefined  → field absent from body → keep stored (pass-through)
+   * - bodyVal falsy (null/''') → explicit clear → ok(undefined)
+   * - bodyVal === stored.get() → unchanged value → pass-through (preserves legacy invalid stored values)
+   * - else → Email.create(bodyVal) — validated change (returns err on invalid format)
+   */
+  private resolveEmailField(
+    bodyVal: string | null | undefined,
+    stored: Email | undefined,
+  ): Result<Email | undefined, ValidationError> {
+    if (bodyVal === undefined) return ok(stored);                            // absent → keep stored
+    if (!bodyVal) return ok(undefined);                                      // null / '' → explicit clear
+    if (stored && bodyVal === stored.get()) return ok(stored);               // unchanged → pass-through
+    return Email.create(bodyVal) as Result<Email | undefined, ValidationError>; // changed → validate
+  }
 
+  /**
+   * applyChanges — pure (TASK-12): receives 3 already-resolved Email VOs, no email logic inside.
+   * Round6-Fix3 / Fix8 pass-through guard now lives entirely in resolveEmailField.
+   */
+  private applyChanges(
+    student: Student,
+    body: Record<string, unknown>,
+    emails: { email: Email | undefined; fatherEmail: Email | undefined; motherEmail: Email | undefined },
+  ): Student {
     const dniVo = body.dni !== undefined
       ? Dni.reconstruct(body.dni as string)
       : student.dni;
-
-    // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS (Cleanup 10)
-    // Fix 8: mirror the unchanged→pass-through guard already applied to student.email (~line 230).
-    // Re-sending the same stored value skips Email.create so legacy values are never blocked.
-    const fatherEmailVo: Email | undefined = (() => {
-      if (body.fatherEmail === undefined) return student.fatherEmail;      // absent → keep stored
-      const rawFather = body.fatherEmail as string;
-      if (!rawFather) return undefined;                                    // '' → explicit clear
-      if (student.fatherEmail && rawFather === student.fatherEmail.get()) return student.fatherEmail; // unchanged → pass-through
-      return this.resolveEmail(rawFather);                                 // changed → validate
-    })();
-
-    const motherEmailVo: Email | undefined = (() => {
-      if (body.motherEmail === undefined) return student.motherEmail;      // absent → keep stored
-      const rawMother = body.motherEmail as string;
-      if (!rawMother) return undefined;                                    // '' → explicit clear
-      if (student.motherEmail && rawMother === student.motherEmail.get()) return student.motherEmail; // unchanged → pass-through
-      return this.resolveEmail(rawMother);                                 // changed → validate
-    })();
 
     return Student.reconstruct({
       id: student.id,
       firstName: body.firstName !== undefined ? (body.firstName as string) : student.firstName,
       lastName: body.lastName !== undefined ? (body.lastName as string) : student.lastName,
       dni: dniVo,
-      email: emailVo,
+      email: emails.email,
       birthDate: body.birthDate !== undefined ? new Date(body.birthDate as string) : student.birthDate,
       guardianName: body.guardianName !== undefined ? (body.guardianName as string) : student.guardianName,
       guardianPhone: body.guardianPhone !== undefined ? (body.guardianPhone as string) : student.guardianPhone,
       motherName: body.motherName !== undefined ? (body.motherName as string) : student.motherName,
       fatherDni: body.fatherDni !== undefined ? (body.fatherDni as string) : student.fatherDni,
       motherDni: body.motherDni !== undefined ? (body.motherDni as string) : student.motherDni,
-      fatherEmail: fatherEmailVo,
-      motherEmail: motherEmailVo,
+      fatherEmail: emails.fatherEmail,
+      motherEmail: emails.motherEmail,
       address: body.address !== undefined ? (body.address as string) : student.address,
       phone: body.phone !== undefined ? (body.phone as string) : student.phone,
       photoUrl: body.photoUrl !== undefined ? (body.photoUrl as string) : student.photoUrl,
@@ -285,10 +300,10 @@ export class PatchStudentUseCase {
 export class GetMyStudentDataUseCase {
   constructor(private readonly studentRepo: StudentRepository) {}
 
-  async execute(userId: string): Promise<Student> {
+  async execute(userId: string): Promise<Result<Student, NotFoundError>> {
     const student = await this.studentRepo.findByUserId(userId);
-    if (!student) throw new NotFoundError('Student', userId);
-    return student;
+    if (!student) return err(new NotFoundError('Student', userId));
+    return ok(student);
   }
 }
 

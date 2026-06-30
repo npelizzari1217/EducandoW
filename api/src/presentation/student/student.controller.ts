@@ -45,8 +45,9 @@ export class StudentController {
   @Get('me')
   @Roles({ module: 'STUDENTS', action: 'READ' })
   async me(@CurrentUser() user: { userId: string; roles: string[] }) {
-    const student = await this.myDataUC.execute(user.userId);
-    return { data: this.mapStudent(student) };
+    const result = await this.myDataUC.execute(user.userId);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.mapStudent(result.unwrap()) };
   }
 
   @Get('my-children')
@@ -82,8 +83,9 @@ export class StudentController {
     @Body(new ZodValidationPipe(UpdateStudentSchema)) body: UpdateStudentDTO,
     @CurrentUser() user: { userId: string; roles: string[] },
   ) {
-    const updated = await this.patchUC.execute(id, body as Record<string, unknown>, { userId: user.userId, roles: user.roles });
-    return { data: this.mapStudent(updated) };
+    const result = await this.patchUC.execute(id, body as Record<string, unknown>, { userId: user.userId, roles: user.roles });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.mapStudent(result.unwrap()) };
   }
 
   @Get()
