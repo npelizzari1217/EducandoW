@@ -1,7 +1,9 @@
 import {
   Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject,
+  ConflictException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
+import { NotFoundError, ValidationError, DomainError } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -10,10 +12,14 @@ import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateStudentSchema, CreateStudentDTO } from './dto/create-student.dto';
 import { UpdateStudentSchema, UpdateStudentDTO } from './dto/update-student.dto';
 import { AssignGuardianSchema, AssignGuardianDTO } from './dto/assign-guardian.dto';
+import { UpdateGuardianSchema, UpdateGuardianDTO } from './dto/update-guardian.dto';
 import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
   AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
+  CreateStudyTutorUseCase, UpdateStudyTutorUseCase,
+  GuardianOutput,
+  toGuardianOutput,
 } from '../../application/student/use-cases/student.use-cases';
 
 @Controller('students')
@@ -30,6 +36,8 @@ export class StudentController {
     private readonly assignGuardianUC: AssignGuardianUseCase,
     private readonly removeGuardianUC: RemoveGuardianUseCase,
     private readonly listGuardiansUC: ListGuardiansUseCase,
+    private readonly createStudyTutorUC: CreateStudyTutorUseCase,
+    private readonly updateStudyTutorUC: UpdateStudyTutorUseCase,
     @Inject('StudentRepository') private readonly studentRepo: StudentRepository,
   ) {}
 
@@ -110,32 +118,128 @@ export class StudentController {
   @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async listGuardians(@Param('id') id: string) {
     const guardians = await this.listGuardiansUC.execute(id);
-    return { data: guardians };
+    return { data: guardians.map((g) => this.mapGuardian(g)) };
   }
 
   @Post(':id/guardians')
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
-  async assignGuardian(
+  @HttpCode(HttpStatus.CREATED)
+  async assignOrCreateGuardian(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(AssignGuardianSchema)) body: AssignGuardianDTO,
   ) {
-    await this.assignGuardianUC.execute(id, body);
-    return { data: { message: 'Guardian assigned' } };
+    if (body.userId) {
+      // Portal-link path: AssignGuardianUseCase (userId present)
+      // Bug 4 fix: also forward fullName/mobile/email typed by the user
+      // Fix #7 (round-3): forward active so portal-link with active:false is persisted correctly
+      const result = await this.assignGuardianUC.execute(id, {
+        userId: body.userId,
+        relationship: body.relationship,
+        fullName: body.fullName,
+        mobile: body.mobile,
+        email: body.email,
+        active: body.active,
+        isFinancialResponsible: body.isFinancialResponsible,
+        isAuthorizedToPickUp: body.isAuthorizedToPickUp,
+      });
+      if (result.isErr()) {
+        this.throwGuardianError(result.unwrapErr());
+      }
+      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
+    } else {
+      // Study-tutor path: CreateStudyTutorUseCase (no userId)
+      const result = await this.createStudyTutorUC.execute({
+        studentId: id,
+        fullName: body.fullName ?? '',
+        mobile: body.mobile ?? '',
+        relationship: body.relationship,
+        email: body.email,
+        active: body.active,
+        isFinancialResponsible: body.isFinancialResponsible,
+        isAuthorizedToPickUp: body.isAuthorizedToPickUp,
+        allowDuplicate: body.allowDuplicate,
+      });
+      if (result.isErr()) {
+        this.throwGuardianError(result.unwrapErr());
+      }
+      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
+    }
+  }
+
+  @Patch(':id/guardians/:guardianId')
+  @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
+  async updateGuardian(
+    @Param('id') studentId: string,
+    @Param('guardianId') guardianId: string,
+    @Body(new ZodValidationPipe(UpdateGuardianSchema)) body: UpdateGuardianDTO,
+  ) {
+    // Bug 1 fix: pass studentId so the use case can verify ownership
+    const result = await this.updateStudyTutorUC.execute({ studentId, guardianId, ...body });
+    if (result.isErr()) {
+      this.throwGuardianError(result.unwrapErr());
+    }
+    return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
   }
 
   @Delete(':id/guardians/:guardianId')
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeGuardian(
-    @Param('id') _id: string,
+    @Param('id') studentId: string,
     @Param('guardianId') guardianId: string,
   ) {
-    await this.removeGuardianUC.execute(guardianId);
+    // Round4-Bug1: pass studentId so the use case can verify ownership (mirrors PATCH fix)
+    try {
+      await this.removeGuardianUC.execute(guardianId, studentId);
+    } catch (e) {
+      this.throwGuardianError(e as Error);
+    }
   }
 
-  // ── Helper ─────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────
 
-  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; address?: string; phone?: string; photoUrl?: string; institutionId?: { get(): string } | string }) {
+  /**
+   * Cleanup 9: single canonical guardian → response mapper.
+   * Accepts GuardianOutput (POJO from ListGuardiansUseCase) directly.
+   * For POST/PATCH entity results, call guardianEntityToOutput() first.
+   */
+  private mapGuardian(g: GuardianOutput) {
+    return {
+      id: g.id,
+      userId: g.userId ?? null,
+      fullName: g.fullName ?? null,
+      mobile: g.mobile ?? null,
+      email: g.email ?? null,
+      relationship: g.relationship,
+      isFinancialResponsible: g.isFinancialResponsible,
+      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+      active: g.active,
+      updatedAt: g.updatedAt,
+    };
+  }
+
+  /**
+   * Map KNOWN domain errors from guardian use cases to HTTP exceptions.
+   * Round5-Bug3 fix: unknown/infra errors are re-thrown as-is so the global
+   * AppExceptionFilter maps them to 500 (and logs them). Only domain-layer errors
+   * are converted to 400/404/409 — never infra exceptions.
+   */
+  private throwGuardianError(error: Error): never {
+    const msg = error.message;
+    if (msg === 'GUARDIAN_ALREADY_ASSIGNED' || msg === 'TUTOR_DUPLICATE_NAME') {
+      throw new ConflictException(msg);
+    }
+    if (error instanceof NotFoundError || msg === 'GUARDIAN_NOT_FOUND') {
+      throw new NotFoundException(msg);
+    }
+    if (error instanceof ValidationError || error instanceof DomainError) {
+      throw new BadRequestException(msg);
+    }
+    // Unknown/infra error — re-throw so AppExceptionFilter handles it as 500
+    throw error;
+  }
+
+  private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; fatherEmail?: { get(): string } | undefined; motherEmail?: { get(): string } | undefined; address?: string; phone?: string; photoUrl?: string; institutionId?: { get(): string } | string }) {
     return {
       id: s.id.get(),
       firstName: s.firstName,
@@ -149,6 +253,8 @@ export class StudentController {
       motherName: s.motherName,
       fatherDni: s.fatherDni,
       motherDni: s.motherDni,
+      fatherEmail: s.fatherEmail?.get?.() ?? null,
+      motherEmail: s.motherEmail?.get?.() ?? null,
       address: s.address,
       phone: s.phone,
       photoUrl: s.photoUrl,

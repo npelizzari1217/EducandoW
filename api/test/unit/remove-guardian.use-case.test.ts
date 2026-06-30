@@ -13,6 +13,7 @@ describe('RemoveGuardianUseCase', () => {
       findByStudentId: vi.fn(),
       findByGuardianUserId: vi.fn(),
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
     };
     useCase = new RemoveGuardianUseCase(guardianRepo);
@@ -38,5 +39,37 @@ describe('RemoveGuardianUseCase', () => {
     vi.mocked(guardianRepo.findById).mockResolvedValue(null);
 
     await expect(useCase.execute('sg-missing')).rejects.toThrow(NotFoundError);
+  });
+
+  // Round4-Bug1: DELETE cross-student ownership guard
+  it('(Round4-Bug1-Delete) throws NotFoundError when guardianId belongs to a different student', async () => {
+    const mockGuardian = {
+      id: { get: () => 'sg1' },
+      studentId: 's1', // guardian belongs to student s1
+      relationship: 'father',
+      createdAt: new Date(),
+    } as unknown as StudentGuardian;
+
+    vi.mocked(guardianRepo.findById).mockResolvedValue(mockGuardian);
+    vi.mocked(guardianRepo.delete).mockResolvedValue(undefined);
+
+    // Request is for student 's2' — cross-student deletion attempt
+    await expect(useCase.execute('sg1', 's2')).rejects.toThrow(NotFoundError);
+    expect(guardianRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('(Round4-Bug1-Delete) succeeds when studentId matches the guardian\'s student', async () => {
+    const mockGuardian = {
+      id: { get: () => 'sg1' },
+      studentId: 's1',
+      relationship: 'father',
+      createdAt: new Date(),
+    } as unknown as StudentGuardian;
+
+    vi.mocked(guardianRepo.findById).mockResolvedValue(mockGuardian);
+    vi.mocked(guardianRepo.delete).mockResolvedValue(undefined);
+
+    await expect(useCase.execute('sg1', 's1')).resolves.toBeUndefined();
+    expect(guardianRepo.delete).toHaveBeenCalledWith('sg1');
   });
 });

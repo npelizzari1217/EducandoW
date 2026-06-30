@@ -12,6 +12,7 @@ export type { EventBus, EventHandler } from './shared/event-bus';
 // Shared Value Objects
 export { Id } from './shared/value-objects/id';
 export { Email } from './shared/value-objects/email';
+export { Mobile } from './shared/value-objects/mobile';
 export { EducationalLevel, EducationalLevelCode } from './shared/value-objects/educational-level';
 export { EducationalModality, EducationalModalityCode } from './shared/value-objects/educational-modality';
 export { GradingPeriod } from './shared/value-objects/grading-period';
@@ -27,7 +28,7 @@ export type { InstitutionRepository } from './institution/repositories/instituti
 
 // Personnel
 export { Student, StudentGuardian } from './personnel/entities';
-export type { StudentGuardianProps, GuardianRelationship } from './personnel/entities';
+export type { StudentGuardianProps } from './personnel/entities';
 export { Dni } from './personnel/value-objects';
 export type { StudentRepository } from './personnel/repositories/student-repository';
 export type { StudentGuardianRepository } from './personnel/repositories/student-guardian-repository';

@@ -7,4 +7,5 @@ export interface StudentGuardianRepository {
   findByGuardianUserId(guardianUserId: string): Promise<StudentGuardian[]>;
   delete(id: string): Promise<void>;
   findByComposite(studentId: string, userId: string): Promise<StudentGuardian | null>;
+  findStudyTutor(studentId: string, fullName: string): Promise<StudentGuardian | null>;
 }

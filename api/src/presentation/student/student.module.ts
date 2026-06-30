@@ -5,6 +5,7 @@ import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
   AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
+  CreateStudyTutorUseCase, UpdateStudyTutorUseCase,
 } from '../../application/student/use-cases/student.use-cases';
 import { PrismaStudentRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-student.repository';
 import { PrismaStudentGuardianRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-student-guardian.repository';
@@ -27,6 +28,8 @@ import { PrismaStudentGuardianRepository } from '../../infrastructure/persistenc
     { provide: AssignGuardianUseCase, useFactory: (r, g) => new AssignGuardianUseCase(r, g), inject: ['StudentRepository', 'StudentGuardianRepository'] },
     { provide: RemoveGuardianUseCase, useFactory: (g) => new RemoveGuardianUseCase(g), inject: ['StudentGuardianRepository'] },
     { provide: ListGuardiansUseCase, useFactory: (r, g) => new ListGuardiansUseCase(r, g), inject: ['StudentRepository', 'StudentGuardianRepository'] },
+    { provide: CreateStudyTutorUseCase, useFactory: (r, g) => new CreateStudyTutorUseCase(r, g), inject: ['StudentRepository', 'StudentGuardianRepository'] },
+    { provide: UpdateStudyTutorUseCase, useFactory: (g) => new UpdateStudyTutorUseCase(g), inject: ['StudentGuardianRepository'] },
   ],
   exports: ['StudentRepository', 'StudentGuardianRepository', PrismaStudentRepository, PrismaStudentGuardianRepository],
 })

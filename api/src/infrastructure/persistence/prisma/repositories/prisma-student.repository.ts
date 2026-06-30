@@ -36,8 +36,12 @@ export class PrismaStudentRepository implements StudentRepository {
   async findByGuardianUserId(guardianUserId: string): Promise<Student[]> {
     const records = await this.client.student.findMany({
       where: {
+        // Round7-Fix1 (Security): filter active:true so deactivated guardian links lose
+        // list access. ListStudentsUseCase (TUTOR branch) reads through this method — a
+        // guardian set active:false must NOT see linked students via GET /students.
+        // Mirrors PrismaStudentGuardianRepository.findByGuardianUserId.
         guardians: {
-          some: { userId: guardianUserId },
+          some: { userId: guardianUserId, active: true },
         },
       },
       orderBy: { lastName: 'asc' },
@@ -75,6 +79,8 @@ export class PrismaStudentRepository implements StudentRepository {
         motherName: student.motherName,
         fatherDni: student.fatherDni,
         motherDni: student.motherDni,
+        fatherEmail: student.fatherEmail?.get() ?? null,
+        motherEmail: student.motherEmail?.get() ?? null,
         address: student.address,
         phone: student.phone,
         photoUrl: student.photoUrl,
@@ -91,6 +97,8 @@ export class PrismaStudentRepository implements StudentRepository {
         motherName: student.motherName,
         fatherDni: student.fatherDni,
         motherDni: student.motherDni,
+        fatherEmail: student.fatherEmail?.get() ?? null,
+        motherEmail: student.motherEmail?.get() ?? null,
         address: student.address,
         phone: student.phone,
         photoUrl: student.photoUrl,
@@ -126,6 +134,8 @@ export class PrismaStudentRepository implements StudentRepository {
       motherName: record.motherName as string | undefined,
       fatherDni: record.fatherDni as string | undefined,
       motherDni: record.motherDni as string | undefined,
+      fatherEmail: record.fatherEmail ? Email.reconstruct(record.fatherEmail as string) : undefined,
+      motherEmail: record.motherEmail ? Email.reconstruct(record.motherEmail as string) : undefined,
       address: record.address as string | undefined,
       phone: record.phone as string | undefined,
       photoUrl: record.photoUrl as string | undefined,

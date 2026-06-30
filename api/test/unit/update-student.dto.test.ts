@@ -31,4 +31,38 @@ describe('UpdateStudentSchema', () => {
     const result = UpdateStudentSchema.safeParse({ dni: '' });
     expect(result.success).toBe(false);
   });
+
+  // Round-4 Bug-3: fatherEmail/motherEmail must accept null (explicit clear) and empty string
+  it('(Round4-Bug3) PATCH with null fatherEmail succeeds (explicit clear)', () => {
+    const result = UpdateStudentSchema.safeParse({ fatherEmail: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('(Round4-Bug3) PATCH with null motherEmail succeeds (explicit clear)', () => {
+    const result = UpdateStudentSchema.safeParse({ motherEmail: null });
+    expect(result.success).toBe(true);
+  });
+
+  it('(Round4-Bug3) PATCH with only address change + empty fatherEmail succeeds', () => {
+    const result = UpdateStudentSchema.safeParse({ address: 'Calle 123', fatherEmail: '' });
+    expect(result.success).toBe(true);
+  });
+
+  it('(Round4-Bug3) PATCH with malformed non-empty fatherEmail is rejected', () => {
+    const result = UpdateStudentSchema.safeParse({ fatherEmail: 'not-an-email' });
+    expect(result.success).toBe(false);
+  });
+
+  // Round7-Fix6: student's own email must accept '' (clear) consistently with father/motherEmail.
+  // RED (before fix): email field lacks .or(z.literal('')) → '' rejected → can never be cleared.
+  // GREEN (after fix): '' is accepted (and the use-case treats it as clear-to-null).
+  it('(Round7-Fix6) PATCH with empty string email succeeds (clear the field)', () => {
+    const result = UpdateStudentSchema.safeParse({ email: '' });
+    expect(result.success).toBe(true);
+  });
+
+  it('(Round7-Fix6) PATCH with malformed non-empty email is still rejected', () => {
+    const result = UpdateStudentSchema.safeParse({ email: 'not-an-email' });
+    expect(result.success).toBe(false);
+  });
 });

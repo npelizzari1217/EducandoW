@@ -50,6 +50,7 @@ describe('PatchStudentUseCase', () => {
       findByStudentId: vi.fn(),
       findByGuardianUserId: vi.fn(),
       findByComposite: vi.fn(),
+      findStudyTutor: vi.fn(),
       save: vi.fn(),
       delete: vi.fn(),
     };
@@ -148,5 +149,66 @@ describe('PatchStudentUseCase', () => {
     await expect(
       useCase.execute('s-nonexistent', { phone: '2215551234' }, { userId: 'user-admin', roles: ['ADMIN'] }),
     ).rejects.toThrow(NotFoundError);
+  });
+
+  // Round6-Fix3 RED: patching unrelated field on student with legacy (invalid-by-current-rules) email succeeds
+  it('(Round6-Fix3) patching unrelated field when stored email is legacy (invalid by current rules) succeeds', async () => {
+    // Simulate a student whose stored email doesn't pass Email.create validation
+    const s = mockStudent({
+      email: { get: () => 'not-a-valid-email' } as any,
+    });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    // Web re-sends the same pre-filled email value on every PATCH
+    const result = await useCase.execute(
+      's1',
+      { phone: '2215551234', email: 'not-a-valid-email' },
+      { userId: 'user-admin', roles: ['ADMIN'] },
+    );
+
+    expect(result).not.toBeNull();
+    expect(studentRepo.save).toHaveBeenCalled();
+  });
+
+  // Round6-Fix3 RED: changing email to a truly new invalid value still fails validation
+  it('(Round6-Fix3) changing email to a new invalid value still throws validation error', async () => {
+    const s = mockStudent();  // no stored email
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await expect(
+      useCase.execute('s1', { email: 'not-valid-at-all' }, { userId: 'user-admin', roles: ['ADMIN'] }),
+    ).rejects.toThrow('Invalid email format');
+  });
+
+  // ── Round7-Fix6: empty string clears email consistently for all three fields ──
+
+  it('(Round7-Fix6) clearing student email via "" nulls it', async () => {
+    const s = mockStudent({ email: { get: () => 'alumno@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { email: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.email).toBeUndefined();
+  });
+
+  it('(Round7-Fix6) clearing fatherEmail via "" nulls it', async () => {
+    const s = mockStudent({ fatherEmail: { get: () => 'padre@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { fatherEmail: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.fatherEmail).toBeUndefined();
+  });
+
+  it('(Round7-Fix6) clearing motherEmail via "" nulls it', async () => {
+    const s = mockStudent({ motherEmail: { get: () => 'madre@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { motherEmail: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.motherEmail).toBeUndefined();
   });
 });

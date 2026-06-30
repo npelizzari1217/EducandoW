@@ -112,16 +112,31 @@ export default function StudentsPage() {
   const { updating, updateError, update } = useApiUpdate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+  const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', fatherEmail: '', motherDni: '', motherEmail: '', institutionId: institutionId });
   const [formError, setFormError] = useState('');
   const [showPrint, setShowPrint] = useState(false);
   const [detailStudentId, setDetailStudentId] = useState<string | null>(null);
-  const [guardians, setGuardians] = useState<{ id: string; userId: string; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean }[]>([]);
+  const [guardians, setGuardians] = useState<{
+    id: string;
+    userId?: string | null;
+    fullName?: string;
+    mobile?: string;
+    email?: string;
+    relationship: string;
+    isFinancialResponsible: boolean;
+    isAuthorizedToPickUp: boolean;
+    active: boolean;
+  }[]>([]);
   const [guardiansLoading, setGuardiansLoading] = useState(false);
   const [guardianError, setGuardianError] = useState('');
   const [showAssignGuardian, setShowAssignGuardian] = useState(false);
-  const [guardianAssignForm, setGuardianAssignForm] = useState({ userId: '', relationship: 'mother', isFinancialResponsible: false, isAuthorizedToPickUp: false });
+  const [guardianAssignForm, setGuardianAssignForm] = useState({ userId: '', fullName: '', mobile: '', email: '', relationship: '', isFinancialResponsible: false, isAuthorizedToPickUp: false, active: true });
   const [assigningGuardian, setAssigningGuardian] = useState(false);
+  const [editingGuardianId, setEditingGuardianId] = useState<string | null>(null);
+  const [updatingGuardian, setUpdatingGuardian] = useState(false);
+  // Bug 4 fix: track when a 409 TUTOR_DUPLICATE_NAME was received so the UI can offer override
+  const [duplicateNamePending, setDuplicateNamePending] = useState(false);
+  const [detailStudent, setDetailStudent] = useState<{ fatherEmail?: string; motherEmail?: string } | null>(null);
   const [removeGuardianId, setRemoveGuardianId] = useState<string | null>(null);
   const [removingGuardian, setRemovingGuardian] = useState(false);
   const [boletinStudentId, setBoletinStudentId] = useState<string | null>(null);
@@ -159,27 +174,148 @@ export default function StudentsPage() {
     finally { setGuardiansLoading(false); }
   };
 
-  const handleSelectDetail = (studentId: string) => {
-    setDetailStudentId(studentId);
-    loadGuardians(studentId);
+  const loadStudentDetail = (studentId: string) => {
+    apiClient.get(`/students/${studentId}`)
+      .then(r => {
+        const s = r.data?.data;
+        if (s) setDetailStudent({ fatherEmail: s.fatherEmail ?? undefined, motherEmail: s.motherEmail ?? undefined });
+      })
+      .catch(() => { /* non-critical — email pre-fill won't work */ });
   };
 
-  const handleAssignGuardian = async () => {
-    if (!detailStudentId || !guardianAssignForm.userId.trim()) { setGuardianError('Completá el ID del usuario tutor'); return; }
-    setAssigningGuardian(true); setGuardianError('');
-    try {
-      const body: Record<string, unknown> = {
-        userId: guardianAssignForm.userId,
-        relationship: guardianAssignForm.relationship,
-        isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
-        isAuthorizedToPickUp: guardianAssignForm.isAuthorizedToPickUp,
-      };
-      await apiClient.post(`/students/${detailStudentId}/guardians`, body);
-      setShowAssignGuardian(false);
-      setGuardianAssignForm({ userId: '', relationship: 'mother', isFinancialResponsible: false, isAuthorizedToPickUp: false });
-      loadGuardians(detailStudentId);
-    } catch (e: unknown) { setGuardianError(extractErrorMessage(e)); }
-    finally { setAssigningGuardian(false); }
+  const handleSelectDetail = (studentId: string) => {
+    // Round7-Fix4: reset any open guardian edit form so it never leaks across students
+    // (a leaked editingGuardianId would PATCH the previously-selected student → 404).
+    resetGuardianForm();
+    setDetailStudentId(studentId);
+    setDetailStudent(null);
+    loadGuardians(studentId);
+    loadStudentDetail(studentId);
+  };
+
+  const resetGuardianForm = () => {
+    setGuardianAssignForm({ userId: '', fullName: '', mobile: '', email: '', relationship: '', isFinancialResponsible: false, isAuthorizedToPickUp: false, active: true });
+    setEditingGuardianId(null);
+    setShowAssignGuardian(false);
+    setGuardianError('');
+    setDuplicateNamePending(false);
+  };
+
+  const startEditGuardian = (g: { id: string; userId?: string | null; fullName?: string; mobile?: string; email?: string; relationship: string; isFinancialResponsible: boolean; isAuthorizedToPickUp: boolean; active: boolean }) => {
+    setEditingGuardianId(g.id);
+    setGuardianAssignForm({
+      userId: g.userId ?? '',
+      fullName: g.fullName ?? '',
+      mobile: g.mobile ?? '',
+      email: g.email ?? '',
+      relationship: g.relationship,
+      isFinancialResponsible: g.isFinancialResponsible,
+      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
+      active: g.active,
+    });
+    setShowAssignGuardian(true);
+  };
+
+  const handleGuardianRelationshipChange = (newRelationship: string) => {
+    const lower = newRelationship.toLowerCase().trim();
+    let emailValue = guardianAssignForm.email;
+    // Only pre-fill if email is currently empty (never overwrite user-typed content)
+    if (!emailValue) {
+      if (['father', 'padre', 'papá', 'papa'].includes(lower) && detailStudent?.fatherEmail) {
+        emailValue = detailStudent.fatherEmail;
+      } else if (['mother', 'madre', 'mamá', 'mama'].includes(lower) && detailStudent?.motherEmail) {
+        emailValue = detailStudent.motherEmail;
+      }
+    }
+    setGuardianAssignForm({ ...guardianAssignForm, relationship: newRelationship, email: emailValue });
+  };
+
+  // Bug 4 fix: overrideAllowDuplicate=true re-sends the form with allowDuplicate:true
+  // after the user clicks "Confirmar de todas formas" following a 409 TUTOR_DUPLICATE_NAME.
+  const handleSaveGuardian = async (overrideAllowDuplicate = false) => {
+    if (!detailStudentId) return;
+    // Bug 7 fix: fullName/mobile required only for study-tutor path (no userId).
+    // Portal-link path (userId present) needs only userId + relationship.
+    // Round4-Bug5: mobile is required only in CREATE mode; in EDIT mode it can be cleared (sends null).
+    if (!guardianAssignForm.userId.trim()) {
+      if (!guardianAssignForm.fullName.trim()) { setGuardianError('El nombre completo es requerido'); return; }
+      if (!editingGuardianId && !guardianAssignForm.mobile.trim()) { setGuardianError('El móvil es requerido'); return; }
+    }
+    if (!guardianAssignForm.relationship.trim()) { setGuardianError('El parentesco es requerido'); return; }
+
+    if (editingGuardianId) {
+      // PATCH existing guardian
+      setUpdatingGuardian(true); setGuardianError('');
+      // Round7-Fix5: reset the override flag at retry start (mirrors the create branch) so the
+      // "Confirmar de todas formas" button never persists past an unrelated error.
+      setDuplicateNamePending(false);
+      try {
+        const body: Record<string, unknown> = {
+          fullName: guardianAssignForm.fullName || undefined,
+          // Round4-Bug5: empty mobile in EDIT mode sends null (explicit clear) not undefined (leave unchanged)
+          mobile: guardianAssignForm.mobile || null,
+          // Bug 3 fix: empty email in EDIT mode sends null (explicit clear) not undefined (leave unchanged)
+          email: guardianAssignForm.email || null,
+          relationship: guardianAssignForm.relationship || undefined,
+          active: guardianAssignForm.active,
+          isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
+          isAuthorizedToPickUp: guardianAssignForm.isAuthorizedToPickUp,
+        };
+        // Round6-Fix2: honor override in edit mode too (UpdateStudyTutorUseCase already supports allowDuplicate)
+        if (overrideAllowDuplicate) body.allowDuplicate = true;
+        await apiClient.patch(`/students/${detailStudentId}/guardians/${editingGuardianId}`, body);
+        resetGuardianForm();
+        loadGuardians(detailStudentId);
+      } catch (e: unknown) {
+        // Round6-Fix2: edit mode now also shows the override flow on TUTOR_DUPLICATE_NAME.
+        const msg = extractErrorMessage(e);
+        if (msg === 'TUTOR_DUPLICATE_NAME') {
+          setDuplicateNamePending(true);
+          setGuardianError('Ya existe un tutor activo con ese nombre. Hacé clic en "Confirmar de todas formas" para guardarlo de todas formas.');
+        } else {
+          setGuardianError(msg || 'Error al actualizar tutor');
+        }
+      }
+      finally { setUpdatingGuardian(false); }
+    } else {
+      // POST new guardian — study tutor (no userId) or portal link (userId provided)
+      setAssigningGuardian(true); setGuardianError('');
+      setDuplicateNamePending(false);
+      try {
+        const body: Record<string, unknown> = {
+          // Bug 7 fix: omit fullName/mobile when empty so Zod's min(1) doesn't reject portal-link.
+          // Study-tutor path always has non-empty values (validated above); portal-link may skip them.
+          fullName: guardianAssignForm.fullName || undefined,
+          mobile: guardianAssignForm.mobile || undefined,
+          email: guardianAssignForm.email || undefined,
+          relationship: guardianAssignForm.relationship,
+          isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
+          isAuthorizedToPickUp: guardianAssignForm.isAuthorizedToPickUp,
+          active: guardianAssignForm.active,
+        };
+        // Only include userId if provided (portal-link path)
+        if (guardianAssignForm.userId.trim()) body.userId = guardianAssignForm.userId.trim();
+        // Bug 4 fix: include allowDuplicate:true when admin confirmed the duplicate override
+        if (overrideAllowDuplicate) body.allowDuplicate = true;
+        await apiClient.post(`/students/${detailStudentId}/guardians`, body);
+        // axios treats all 2xx (incl. 201) as success — no explicit status check needed
+        resetGuardianForm();
+        loadGuardians(detailStudentId);
+      } catch (e: unknown) {
+        const msg = extractErrorMessage(e);
+        // Bug 4 fix: on TUTOR_DUPLICATE_NAME show a confirm override instead of a generic error
+        if (msg === 'TUTOR_DUPLICATE_NAME') {
+          setDuplicateNamePending(true);
+          setGuardianError('Ya existe un tutor activo con ese nombre. Hacé clic en "Confirmar de todas formas" para crear uno diferente.');
+        // Round5-Bug5 fix: translate GUARDIAN_ALREADY_ASSIGNED to a friendly Spanish message
+        } else if (msg === 'GUARDIAN_ALREADY_ASSIGNED') {
+          setGuardianError('Esta cuenta ya está vinculada como tutor de este alumno.');
+        } else {
+          setGuardianError(msg || 'Error al asignar tutor');
+        }
+      }
+      finally { setAssigningGuardian(false); }
+    }
   };
 
   const handleRemoveGuardian = async () => {
@@ -198,7 +334,11 @@ export default function StudentsPage() {
     if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
     if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
     if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
-    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, motherDni: form.motherDni || undefined, email: form.email || undefined, institutionId: institutionId };
+    // Round7-Fix6: send email/fatherEmail/motherEmail as raw strings ('' clears, undefined = absent),
+    // consistently for all three. PatchStudentUseCase treats '' as clear-to-null and a missing key
+    // as "leave unchanged". Previously the student's own email used `form.email || undefined`, so an
+    // emptied value was omitted and could never be cleared.
+    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail, email: form.email, institutionId: institutionId };
     if (editingId) {
       const ok = await update(editingId, body);
       if (ok) { resetForm(); adminReload(); }
@@ -208,20 +348,21 @@ export default function StudentsPage() {
     }
   };
 
-  const startEdit = (s: { id: string; firstName: string; lastName: string; dni: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string }) => {
+  const startEdit = (s: { id: string; firstName: string; lastName: string; dni: string; email?: string; birthDate?: string; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; fatherEmail?: string | null; motherDni?: string; motherEmail?: string | null }) => {
     setEditingId(s.id);
     setForm({
       firstName: s.firstName, lastName: s.lastName, dni: s.dni,
       email: s.email ?? '', birthDate: s.birthDate ?? '',
       guardianName: s.guardianName ?? '', guardianPhone: s.guardianPhone ?? '',
-      motherName: s.motherName ?? '', fatherDni: s.fatherDni ?? '', motherDni: s.motherDni ?? '',
+      motherName: s.motherName ?? '', fatherDni: s.fatherDni ?? '', fatherEmail: s.fatherEmail ?? '',
+      motherDni: s.motherDni ?? '', motherEmail: s.motherEmail ?? '',
       institutionId: institutionId,
     });
     setShowForm(true);
   };
 
   const resetForm = () => {
-    setForm({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', motherDni: '', institutionId: institutionId });
+    setForm({ firstName: '', lastName: '', dni: '', email: '', birthDate: '', guardianName: '', guardianPhone: '', motherName: '', fatherDni: '', fatherEmail: '', motherDni: '', motherEmail: '', institutionId: institutionId });
     setEditingId(null);
     setShowForm(false);
     setFormError('');
@@ -410,8 +551,10 @@ export default function StudentsPage() {
             <Input label="Nombre completo del Padre" value={form.guardianName} onChange={e => setForm({...form, guardianName: e.target.value})} />
             <Input label="Teléfono del Padre" value={form.guardianPhone} onChange={e => setForm({...form, guardianPhone: e.target.value})} />
             <Input label="DNI del Padre" value={form.fatherDni} onChange={e => setForm({...form, fatherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
+            <Input label="Email del Padre" type="email" value={form.fatherEmail} onChange={e => setForm({...form, fatherEmail: e.target.value})} />
             <Input label="Nombre completo de la Madre" value={form.motherName} onChange={e => setForm({...form, motherName: e.target.value})} />
             <Input label="DNI de la Madre" value={form.motherDni} onChange={e => setForm({...form, motherDni: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')})} />
+            <Input label="Email de la Madre" type="email" value={form.motherEmail} onChange={e => setForm({...form, motherEmail: e.target.value})} />
             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
               <Button variant="success-soft" onClick={handleSave} loading={creating || updating}>{editingId ? 'Guardar cambios' : 'Crear estudiante'}</Button>
               <Button variant="danger-soft" onClick={resetForm}>Cancelar</Button>
@@ -472,51 +615,76 @@ export default function StudentsPage() {
           {guardianError && <div style={{ background: guardianError.includes('correctamente') ? '#f0fdf4' : '#fef2f2', color: guardianError.includes('correctamente') ? 'var(--color-success)' : 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>{guardianError}</div>}
 
           <div style={{ marginBottom: 'var(--space-md)' }}>
-            <Button variant="success-soft" onClick={() => { setShowAssignGuardian(!showAssignGuardian); setGuardianError(''); }}>
-              {showAssignGuardian ? 'Cancelar' : 'Asignar tutor'}
+            <Button variant="success-soft" onClick={() => { if (showAssignGuardian) { resetGuardianForm(); } else { setShowAssignGuardian(true); setGuardianError(''); } }}>
+              {showAssignGuardian ? 'Cancelar' : 'Agregar tutor'}
             </Button>
           </div>
 
           {showAssignGuardian && (
             <div style={{ marginBottom: 'var(--space-md)' }}>
-              <Card title="Asignar tutor">
+              <Card title={editingGuardianId ? 'Editar tutor' : 'Agregar tutor'}>
                 <div className="flex flex-col gap-md">
-                <Input label="ID del usuario tutor" value={guardianAssignForm.userId} onChange={e => setGuardianAssignForm({...guardianAssignForm, userId: e.target.value})} required />
-                <div>
-                  <label style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: '0.25rem', display: 'block' }}>Parentesco</label>
-                  <select value={guardianAssignForm.relationship} onChange={e => setGuardianAssignForm({...guardianAssignForm, relationship: e.target.value})}
-                    style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)', fontSize: 'var(--text-sm)', width: '100%' }}>
-                    <option value="mother">Madre</option>
-                    <option value="father">Padre</option>
-                    <option value="legal_guardian">Tutor legal</option>
-                    <option value="other">Otro</option>
-                  </select>
+                  <Input label="Nombre completo" name="guardian-fullName" value={guardianAssignForm.fullName} onChange={e => setGuardianAssignForm({...guardianAssignForm, fullName: e.target.value})} required />
+                  <Input label="Móvil" name="guardian-mobile" value={guardianAssignForm.mobile} onChange={e => setGuardianAssignForm({...guardianAssignForm, mobile: e.target.value})} required />
+                  <Input label="Parentesco" name="guardian-relationship" value={guardianAssignForm.relationship} onChange={e => handleGuardianRelationshipChange(e.target.value)} maxLength={15} required />
+                  <Input label="Email del tutor" type="email" name="guardian-email" value={guardianAssignForm.email} onChange={e => setGuardianAssignForm({...guardianAssignForm, email: e.target.value})} />
+                  <Input label="ID de cuenta (opcional)" name="guardian-userId" value={guardianAssignForm.userId} onChange={e => setGuardianAssignForm({...guardianAssignForm, userId: e.target.value})} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+                    <input type="checkbox" checked={guardianAssignForm.active} onChange={e => setGuardianAssignForm({...guardianAssignForm, active: e.target.checked})} />
+                    Activo
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+                    <input type="checkbox" checked={guardianAssignForm.isFinancialResponsible} onChange={e => setGuardianAssignForm({...guardianAssignForm, isFinancialResponsible: e.target.checked})} />
+                    Responsable económico
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+                    <input type="checkbox" checked={guardianAssignForm.isAuthorizedToPickUp} onChange={e => setGuardianAssignForm({...guardianAssignForm, isAuthorizedToPickUp: e.target.checked})} />
+                    Autorizado a retirar
+                  </label>
+                  <Button variant="success-soft" onClick={() => handleSaveGuardian()} loading={assigningGuardian || updatingGuardian}>Guardar tutor</Button>
+                  {/* Round6-Fix2: show override button in both create and edit mode on TUTOR_DUPLICATE_NAME */}
+                  {duplicateNamePending && (
+                    <Button variant="danger-soft" onClick={() => handleSaveGuardian(true)}>Confirmar de todas formas</Button>
+                  )}
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
-                  <input type="checkbox" checked={guardianAssignForm.isFinancialResponsible} onChange={e => setGuardianAssignForm({...guardianAssignForm, isFinancialResponsible: e.target.checked})} />
-                  Responsable económico
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
-                  <input type="checkbox" checked={guardianAssignForm.isAuthorizedToPickUp} onChange={e => setGuardianAssignForm({...guardianAssignForm, isAuthorizedToPickUp: e.target.checked})} />
-                  Autorizado a retirar
-                </label>
-                <Button variant="success-soft" onClick={handleAssignGuardian} loading={assigningGuardian}>Asignar</Button>
-              </div>
-            </Card>
+              </Card>
             </div>
           )}
 
           {guardiansLoading ? <p>Cargando tutores...</p> : guardians.length === 0 ? <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)' }}>No hay tutores asignados</p> : (
             <Table
               columns={[
-                { key: 'userId', header: 'Usuario ID' },
-                { key: 'relationship', header: 'Parentesco', render: (g: { relationship: string }) => {
+                { key: 'fullName', header: 'Nombre', render: (g: Record<string, unknown>) => (
+                  <span>
+                    {(g.fullName as string) || '-'}
+                    {' '}
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      fontSize: '0.7rem',
+                      fontWeight: 500,
+                      background: g.userId ? '#eff6ff' : '#f8fafc',
+                      color: g.userId ? '#1d4ed8' : '#64748b',
+                      border: `1px solid ${g.userId ? '#bfdbfe' : '#e2e8f0'}`,
+                    }}>
+                      {g.userId ? 'Con cuenta de portal' : 'Sin cuenta'}
+                    </span>
+                  </span>
+                )},
+                { key: 'relationship', header: 'Parentesco', render: (g: Record<string, unknown>) => {
                   const labels: Record<string, string> = { mother: 'Madre', father: 'Padre', legal_guardian: 'Tutor legal', other: 'Otro' };
-                  return labels[g.relationship] || g.relationship;
+                  return labels[g.relationship as string] ?? (g.relationship as string);
                 }},
-                { key: 'isFinancialResponsible', header: 'Resp. Económico', render: (g: { isFinancialResponsible: boolean }) => g.isFinancialResponsible ? '✓ Sí' : '✗ No' },
-                { key: 'isAuthorizedToPickUp', header: 'Autorizado a retirar', render: (g: { isAuthorizedToPickUp: boolean }) => g.isAuthorizedToPickUp ? '✓ Sí' : '✗ No' },
-                { key: 'actions', header: '', render: (g: { id: string }) => <Button variant="danger-soft" size="sm" onClick={() => setRemoveGuardianId(g.id)} loading={removingGuardian}>Quitar</Button> },
+                { key: 'mobile', header: 'Móvil', render: (g: Record<string, unknown>) => (g.mobile as string) || '-' },
+                { key: 'email', header: 'Email', render: (g: Record<string, unknown>) => (g.email as string) || '-' },
+                { key: 'active', header: 'Estado', render: (g: Record<string, unknown>) => g.active ? '✓ Activo' : '✗ Inactivo' },
+                { key: 'actions', header: '', render: (g: Record<string, unknown>) => (
+                  <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
+                    <Button variant="action" size="sm" onClick={() => startEditGuardian(g as Parameters<typeof startEditGuardian>[0])}>Editar</Button>
+                    <Button variant="danger-soft" size="sm" onClick={() => setRemoveGuardianId(g.id as string)} loading={removingGuardian}>Quitar</Button>
+                  </div>
+                )},
               ]}
               data={guardians}
               emptyMessage="No hay tutores"
@@ -524,7 +692,7 @@ export default function StudentsPage() {
           )}
 
           <div style={{ marginTop: 'var(--space-md)' }}>
-            <Button variant="ghost" onClick={() => setDetailStudentId(null)}>← Volver a lista</Button>
+            <Button variant="ghost" onClick={() => { resetGuardianForm(); setDetailStudentId(null); }}>← Volver a lista</Button>
           </div>
         </Card>
       )}
