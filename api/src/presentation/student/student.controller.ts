@@ -185,10 +185,15 @@ export class StudentController {
   @Roles('ROOT', { module: 'STUDENTS', action: 'UPDATE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeGuardian(
-    @Param('id') _id: string,
+    @Param('id') studentId: string,
     @Param('guardianId') guardianId: string,
   ) {
-    await this.removeGuardianUC.execute(guardianId);
+    // Round4-Bug1: pass studentId so the use case can verify ownership (mirrors PATCH fix)
+    try {
+      await this.removeGuardianUC.execute(guardianId, studentId);
+    } catch (e) {
+      this.throwGuardianError(e as Error);
+    }
   }
 
   // ── Helpers ─────────────────────────────────────────────────

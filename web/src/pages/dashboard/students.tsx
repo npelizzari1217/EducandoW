@@ -233,9 +233,10 @@ export default function StudentsPage() {
     if (!detailStudentId) return;
     // Bug 7 fix: fullName/mobile required only for study-tutor path (no userId).
     // Portal-link path (userId present) needs only userId + relationship.
+    // Round4-Bug5: mobile is required only in CREATE mode; in EDIT mode it can be cleared (sends null).
     if (!guardianAssignForm.userId.trim()) {
       if (!guardianAssignForm.fullName.trim()) { setGuardianError('El nombre completo es requerido'); return; }
-      if (!guardianAssignForm.mobile.trim()) { setGuardianError('El móvil es requerido'); return; }
+      if (!editingGuardianId && !guardianAssignForm.mobile.trim()) { setGuardianError('El móvil es requerido'); return; }
     }
     if (!guardianAssignForm.relationship.trim()) { setGuardianError('El parentesco es requerido'); return; }
 
@@ -245,7 +246,8 @@ export default function StudentsPage() {
       try {
         const body: Record<string, unknown> = {
           fullName: guardianAssignForm.fullName || undefined,
-          mobile: guardianAssignForm.mobile || undefined,
+          // Round4-Bug5: empty mobile in EDIT mode sends null (explicit clear) not undefined (leave unchanged)
+          mobile: guardianAssignForm.mobile || null,
           // Bug 3 fix: empty email in EDIT mode sends null (explicit clear) not undefined (leave unchanged)
           email: guardianAssignForm.email || null,
           relationship: guardianAssignForm.relationship || undefined,

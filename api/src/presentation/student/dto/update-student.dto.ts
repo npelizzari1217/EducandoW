@@ -11,8 +11,8 @@ export const UpdateStudentSchema = z.object({
   motherName: z.string().optional().nullable(),
   fatherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI del padre debe ser alfanumérico en mayúscula sin símbolos').optional().nullable(),
   motherDni: z.string().min(6).max(12).regex(/^[A-Z0-9]+$/, 'El DNI de la madre debe ser alfanumérico en mayúscula sin símbolos').optional().nullable(),
-  fatherEmail: z.string().email().optional().or(z.literal('')),
-  motherEmail: z.string().email().optional().or(z.literal('')),
+  fatherEmail: z.string().email().nullable().optional().or(z.literal('')),  // Round4-Bug3: null = explicit clear; '' = unchanged/empty
+  motherEmail: z.string().email().nullable().optional().or(z.literal('')),  // Round4-Bug3: same
   address: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
   photoUrl: z.string().url().optional().nullable(),

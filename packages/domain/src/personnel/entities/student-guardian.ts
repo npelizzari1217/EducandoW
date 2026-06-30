@@ -68,7 +68,7 @@ export class StudentGuardian {
 
   update(patch: {
     fullName?: string;
-    mobile?: Mobile;
+    mobile?: Mobile | null;  // Round4-Bug5: null = explicit clear (same pattern as email)
     email?: Email | null;
     relationship?: string;
     active?: boolean;
@@ -88,7 +88,10 @@ export class StudentGuardian {
     }
 
     if (patch.fullName !== undefined) this.props.fullName = patch.fullName;
-    if (patch.mobile !== undefined) this.props.mobile = patch.mobile;
+    // Round4-Bug5: use 'in patch' pattern (same as email) to distinguish null-clear from absent
+    if ('mobile' in patch) {
+      this.props.mobile = patch.mobile ?? undefined;
+    }
     if ('email' in patch) {
       this.props.email = patch.email ?? undefined;
     }

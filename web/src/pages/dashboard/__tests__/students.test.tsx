@@ -617,3 +617,55 @@ describe('StudentsPage — guardian panel (PR3)', () => {
     expect(emailInput.value).toBe('otro@example.com');
   });
 });
+
+// ── Code-review bug fixes round 4 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-4 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+    mockApiDelete.mockResolvedValue({ status: 204, data: {} });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: 'ana@example.com', relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Bug 5 RED: clearing mobile in EDIT mode must send null (not undefined)
+  it('(Round4-Bug5) clearing mobile in edit mode sends null in PATCH body', async () => {
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    // Click the Editar button for the guardian
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    // Mobile input pre-filled with existing value — clear it
+    const mobileInput = await screen.findByDisplayValue('+5491112345678') as HTMLInputElement;
+    await userEvent.clear(mobileInput);
+    expect(mobileInput.value).toBe('');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    // After fix: empty mobile in edit mode must become null (explicit clear), not undefined
+    await waitFor(() => {
+      expect(mockApiPatch).toHaveBeenCalledWith(
+        expect.stringContaining('/guardians/g1'),
+        expect.objectContaining({ mobile: null }),
+      );
+    });
+  });
+});

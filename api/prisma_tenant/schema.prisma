@@ -80,7 +80,7 @@ model StudentGuardian {
   isAuthorizedToPickUp   Boolean  @default(false) @map("is_authorized_to_pick_up")
   active                 Boolean  @default(true)
   createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  updatedAt              DateTime @default(now()) @updatedAt  // Round4-Bug4: matches migration DEFAULT CURRENT_TIMESTAMP; no drift
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 

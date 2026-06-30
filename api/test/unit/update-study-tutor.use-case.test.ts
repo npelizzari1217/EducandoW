@@ -192,18 +192,56 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(guardianRepo.save).not.toHaveBeenCalled();
   });
 
-  // Round-3: reactivating a guardian (active:true) with no fullName change must NOT trigger
-  // the uniqueness check (only runs when fullName changes). This proves the index revert
-  // doesn't affect the reactivation path.
-  it('(Round3) reactivating guardian (active:true) with same fullName does not call findStudyTutor', async () => {
+  // Round-3 (updated for Round-4): reactivating a guardian with NO active homonym must succeed.
+  // (Round-3 originally asserted findStudyTutor was not called; Round-4 Bug-2 fix runs the check
+  // but allows the operation to proceed when no duplicate is found.)
+  it('(Round3) reactivating guardian with no active homonym succeeds', async () => {
     const guardian = mockGuardian({ active: false, fullName: 'Ana García' });
     vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue(null); // no duplicate
     vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
 
     const result = await useCase.execute({ guardianId: 'g1', active: true });
 
     expect(result.isOk()).toBe(true);
     expect(result.unwrap().active).toBe(true);
-    expect(guardianRepo.findStudyTutor).not.toHaveBeenCalled();
+  });
+
+  // Round-4 Bug-5: clearing mobile (null input) must clear the mobile on the entity
+  it('(Round4-Bug5) clears mobile when null is passed', async () => {
+    const guardian = mockGuardian({ mobile: '+5492215551234' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', mobile: null as unknown as string });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().mobile).toBeUndefined();
+  });
+
+  // Round-4 Bug-2: reactivation must run duplicate guard
+  it('(Round4-Bug2) reactivating guardian when active homonym exists returns TUTOR_DUPLICATE_NAME', async () => {
+    const guardian = mockGuardian({ active: false, fullName: 'Ana García' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    // Another active tutor with the same fullName already exists
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('(Round4-Bug2) reactivating guardian with allowDuplicate:true skips duplicate guard', async () => {
+    const guardian = mockGuardian({ active: false, fullName: 'Ana García' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true, allowDuplicate: true });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().active).toBe(true);
   });
 });
