@@ -13,6 +13,7 @@ import StudentPrintView from '../../components/reports/StudentPrintView';
 import { buildBranding } from '../../components/reports/PremiumPrintReport';
 import { downloadBoletin } from '../../hooks/useBoletin';
 import { AceptadosPanel } from './components/AceptadosPanel';
+import { deriveDetailStudent } from './student-detail.utils';
 
 interface Institution { id: string; name: string; }
 
@@ -174,23 +175,19 @@ export default function StudentsPage() {
     finally { setGuardiansLoading(false); }
   };
 
-  const loadStudentDetail = (studentId: string) => {
-    apiClient.get(`/students/${studentId}`)
-      .then(r => {
-        const s = r.data?.data;
-        if (s) setDetailStudent({ fatherEmail: s.fatherEmail ?? undefined, motherEmail: s.motherEmail ?? undefined });
-      })
-      .catch(() => { /* non-critical — email pre-fill won't work */ });
-  };
-
   const handleSelectDetail = (studentId: string) => {
     // Round7-Fix4: reset any open guardian edit form so it never leaks across students
     // (a leaked editingGuardianId would PATCH the previously-selected student → 404).
     resetGuardianForm();
     setDetailStudentId(studentId);
-    setDetailStudent(null);
+    // Fix 10: derive fatherEmail/motherEmail from the already-loaded list row —
+    // no extra GET /students/:id needed.
+    // CONTRATO DE RUNTIME: depende de que GET /students serialice fatherEmail/motherEmail
+    // por fila (controller mapStudent). El cast pierde el tipo, así que si se recorta esa
+    // serialización el pre-llenado se rompe en silencio (sin error de TS). No quitar esos
+    // campos del listado sin actualizar deriveDetailStudent.
+    setDetailStudent(deriveDetailStudent(adminData as { id: string; [key: string]: unknown }[], studentId));
     loadGuardians(studentId);
-    loadStudentDetail(studentId);
   };
 
   const resetGuardianForm = () => {

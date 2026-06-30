@@ -424,7 +424,7 @@ describe('Guardian Integration Tests', () => {
       const result = await useCase.execute('s1');
 
       expect(result).toHaveLength(2);
-      expect(result[1]).toMatchObject({ id: 'g2', userId: undefined, relationship: 'abuela' });
+      expect(result[1]).toMatchObject({ id: 'g2', userId: null, relationship: 'abuela' });
     });
 
     it('returns empty array when no guardians', async () => {

@@ -18,7 +18,6 @@ import {
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
   AssignGuardianUseCase, RemoveGuardianUseCase, ListGuardiansUseCase,
   CreateStudyTutorUseCase, UpdateStudyTutorUseCase,
-  GuardianOutput,
   toGuardianOutput,
 } from '../../application/student/use-cases/student.use-cases';
 
@@ -118,7 +117,7 @@ export class StudentController {
   @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async listGuardians(@Param('id') id: string) {
     const guardians = await this.listGuardiansUC.execute(id);
-    return { data: guardians.map((g) => this.mapGuardian(g)) };
+    return { data: guardians };
   }
 
   @Post(':id/guardians')
@@ -145,7 +144,7 @@ export class StudentController {
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
+      return { data: toGuardianOutput(result.unwrap()) };
     } else {
       // Study-tutor path: CreateStudyTutorUseCase (no userId)
       const result = await this.createStudyTutorUC.execute({
@@ -162,7 +161,7 @@ export class StudentController {
       if (result.isErr()) {
         this.throwGuardianError(result.unwrapErr());
       }
-      return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
+      return { data: toGuardianOutput(result.unwrap()) };
     }
   }
 
@@ -178,7 +177,7 @@ export class StudentController {
     if (result.isErr()) {
       this.throwGuardianError(result.unwrapErr());
     }
-    return { data: this.mapGuardian(toGuardianOutput(result.unwrap())) };
+    return { data: toGuardianOutput(result.unwrap()) };
   }
 
   @Delete(':id/guardians/:guardianId')
@@ -197,26 +196,6 @@ export class StudentController {
   }
 
   // ── Helpers ─────────────────────────────────────────────────
-
-  /**
-   * Cleanup 9: single canonical guardian → response mapper.
-   * Accepts GuardianOutput (POJO from ListGuardiansUseCase) directly.
-   * For POST/PATCH entity results, call guardianEntityToOutput() first.
-   */
-  private mapGuardian(g: GuardianOutput) {
-    return {
-      id: g.id,
-      userId: g.userId ?? null,
-      fullName: g.fullName ?? null,
-      mobile: g.mobile ?? null,
-      email: g.email ?? null,
-      relationship: g.relationship,
-      isFinancialResponsible: g.isFinancialResponsible,
-      isAuthorizedToPickUp: g.isAuthorizedToPickUp,
-      active: g.active,
-      updatedAt: g.updatedAt,
-    };
-  }
 
   /**
    * Map KNOWN domain errors from guardian use cases to HTTP exceptions.

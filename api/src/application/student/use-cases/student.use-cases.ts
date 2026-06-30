@@ -236,13 +236,23 @@ export class PatchStudentUseCase {
       : student.dni;
 
     // fatherEmail / motherEmail — ADMIN-only; NOT in ALLOWED_TUTOR_FIELDS (Cleanup 10)
-    const fatherEmailVo = body.fatherEmail !== undefined
-      ? this.resolveEmail(body.fatherEmail as string)
-      : student.fatherEmail;
+    // Fix 8: mirror the unchanged→pass-through guard already applied to student.email (~line 230).
+    // Re-sending the same stored value skips Email.create so legacy values are never blocked.
+    const fatherEmailVo: Email | undefined = (() => {
+      if (body.fatherEmail === undefined) return student.fatherEmail;      // absent → keep stored
+      const rawFather = body.fatherEmail as string;
+      if (!rawFather) return undefined;                                    // '' → explicit clear
+      if (student.fatherEmail && rawFather === student.fatherEmail.get()) return student.fatherEmail; // unchanged → pass-through
+      return this.resolveEmail(rawFather);                                 // changed → validate
+    })();
 
-    const motherEmailVo = body.motherEmail !== undefined
-      ? this.resolveEmail(body.motherEmail as string)
-      : student.motherEmail;
+    const motherEmailVo: Email | undefined = (() => {
+      if (body.motherEmail === undefined) return student.motherEmail;      // absent → keep stored
+      const rawMother = body.motherEmail as string;
+      if (!rawMother) return undefined;                                    // '' → explicit clear
+      if (student.motherEmail && rawMother === student.motherEmail.get()) return student.motherEmail; // unchanged → pass-through
+      return this.resolveEmail(rawMother);                                 // changed → validate
+    })();
 
     return Student.reconstruct({
       id: student.id,
@@ -618,10 +628,10 @@ export class RemoveGuardianUseCase {
 
 export interface GuardianOutput {
   id: string;
-  userId?: string;
-  fullName?: string;
-  mobile?: string;
-  email?: string;
+  userId: string | null;
+  fullName: string | null;
+  mobile: string | null;
+  email: string | null;
   relationship: string;
   isFinancialResponsible: boolean;
   isAuthorizedToPickUp: boolean;
@@ -637,10 +647,10 @@ export interface GuardianOutput {
 export function toGuardianOutput(g: StudentGuardian): GuardianOutput {
   return {
     id: g.id.get(),
-    userId: g.userId,
-    fullName: g.fullName,
-    mobile: g.mobile?.get(),
-    email: g.email?.get(),
+    userId: g.userId ?? null,
+    fullName: g.fullName ?? null,
+    mobile: g.mobile?.get() ?? null,
+    email: g.email?.get() ?? null,
     relationship: g.relationship,
     isFinancialResponsible: g.isFinancialResponsible,
     isAuthorizedToPickUp: g.isAuthorizedToPickUp,
