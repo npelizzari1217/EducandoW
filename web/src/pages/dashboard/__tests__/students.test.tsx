@@ -478,7 +478,8 @@ describe('StudentsPage — code-review round-3 bug fixes', () => {
 
 // ── Guardian panel tests (PR3) ────────────────────────────────────────────────
 describe('StudentsPage — guardian panel (PR3)', () => {
-  const mockStudent = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+  // Fix 10: include fatherEmail/motherEmail in the list row so deriveDetailStudent can read them
+  const mockStudent = { id: 's1', fullName: 'Juan Pérez', dni: '12345678', fatherEmail: 'padre@example.com', motherEmail: 'madre@example.com' };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -592,11 +593,8 @@ describe('StudentsPage — guardian panel (PR3)', () => {
     const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
     await userEvent.click(tutoresBtn);
 
-    // Wait for student detail to load (async)
-    await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalledWith('/students/s1');
-    });
-
+    // Fix 10: no extra GET /students/:id — email pre-fill comes from the already-loaded list row.
+    // Wait for the guardian panel to appear instead.
     const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
     await userEvent.click(agregarBtn);
 
