@@ -44,6 +44,15 @@ Este proyecto trabaja con **Spec-Driven Development**. Respetá el ciclo complet
 - Changes activos en `openspec/changes/` (si está vacío salvo `archive/`, no hay ninguno en curso); los cerrados en `openspec/changes/archive/` y `sdd/archive/`.
 - Seguí el plan hasta el último change previsto; no lo des por terminado antes del `archive`.
 
+## Persistencia (modo gentle-ai)
+
+- **Modo por defecto: `hybrid`.** Cada artefacto SDD se persiste en los dos lados: engram local **y** openspec commiteado.
+- **Engram** = memoria local de trabajo. Guardar con `scope: project`, `type: architecture`, `capture_prompt: false`, `topic_key: sdd/{change}/{artifact}`. La base (`~/.engram/engram.db`) es **local a la máquina** y **NO se commitea**.
+- **openspec** = fuente de verdad compartida. Viaja por git (push/pull), tiene historial y es la base para cualquier reconciliación cross-PC.
+- **Resolución de proyecto:** el cwd tiene varios repos → engram falla con "ambiguous project". Pasar siempre `project: "educandow"` explícito en `mem_search`/`mem_save`/`mem_get_observation`.
+- **Trigger en lenguaje natural** — "verificá si engram está actualizado" / "sincronizá engram con el repo":
+  reconciliar engram-local contra el openspec commiteado; backfillear en engram (desde openspec) lo que falte. Nunca commitear engram ni su snapshot.
+
 ## Convenciones
 
 - Toda operación Prisma distingue **master vs tenant** — no mezclar schemas ni clientes.
