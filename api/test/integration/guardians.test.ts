@@ -117,7 +117,8 @@ describe('Guardian Integration Tests', () => {
 
     it('returns err GUARDIAN_ALREADY_ASSIGNED on duplicate guardian', async () => {
       vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-      vi.mocked(guardianRepo.findByComposite).mockResolvedValue({} as StudentGuardian);
+      // Must mock active:true so the use case takes the conflict branch (not the reactivation branch)
+      vi.mocked(guardianRepo.findByComposite).mockResolvedValue({ active: true } as StudentGuardian);
 
       const result = await useCase.execute('s1', {
         userId: 'u-tutor',

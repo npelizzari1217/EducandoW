@@ -62,11 +62,40 @@ describe('AssignGuardianUseCase', () => {
     expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
-  // REQ-RYT-08-A: duplicate → GUARDIAN_ALREADY_ASSIGNED
-  it('returns err GUARDIAN_ALREADY_ASSIGNED on duplicate (REQ-RYT-08-A)', async () => {
+  // REQ-RYT-08-A: active duplicate → GUARDIAN_ALREADY_ASSIGNED
+  it('returns err GUARDIAN_ALREADY_ASSIGNED when active link already exists (REQ-RYT-08-A)', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
-    vi.mocked(guardianRepo.findByComposite).mockResolvedValue({} as any);
+    // Must have active:true so the use case treats it as a conflict (not a reactivation)
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue({ active: true } as any);
     const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'other' });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
+  });
+
+  // Round6-Fix1 RED: inactive guardian must be reactivated, not rejected with 409
+  it('(Round6-Fix1) inactive existing guardian is reactivated (no 409)', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    const inactiveGuardian = {
+      active: false,
+      update: vi.fn().mockReturnValue({ isOk: () => true, isErr: () => false }),
+    } as any;
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(inactiveGuardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father' });
+
+    expect(result.isOk()).toBe(true);
+    expect(inactiveGuardian.update).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
+    expect(guardianRepo.save).toHaveBeenCalledWith(inactiveGuardian);
+  });
+
+  // Round6-Fix1 RED: active guardian must still return conflict even after inactive-reactivation path exists
+  it('(Round6-Fix1) active existing guardian still returns GUARDIAN_ALREADY_ASSIGNED', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue({ active: true } as any);
+
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father' });
+
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
   });

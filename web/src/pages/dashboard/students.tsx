@@ -255,16 +255,17 @@ export default function StudentsPage() {
           isFinancialResponsible: guardianAssignForm.isFinancialResponsible,
           isAuthorizedToPickUp: guardianAssignForm.isAuthorizedToPickUp,
         };
+        // Round6-Fix2: honor override in edit mode too (UpdateStudyTutorUseCase already supports allowDuplicate)
+        if (overrideAllowDuplicate) body.allowDuplicate = true;
         await apiClient.patch(`/students/${detailStudentId}/guardians/${editingGuardianId}`, body);
         resetGuardianForm();
         loadGuardians(detailStudentId);
       } catch (e: unknown) {
-        // Fix #4 (round-3): translate TUTOR_DUPLICATE_NAME to the same friendly message as the
-        // create path, so the user never sees the raw error code.
-        // Note: edit mode has no allowDuplicate path; just show the message.
+        // Round6-Fix2: edit mode now also shows the override flow on TUTOR_DUPLICATE_NAME.
         const msg = extractErrorMessage(e);
         if (msg === 'TUTOR_DUPLICATE_NAME') {
-          setGuardianError('Ya existe un tutor activo con ese nombre.');
+          setDuplicateNamePending(true);
+          setGuardianError('Ya existe un tutor activo con ese nombre. Hacé clic en "Confirmar de todas formas" para guardarlo de todas formas.');
         } else {
           setGuardianError(msg || 'Error al actualizar tutor');
         }
@@ -633,8 +634,8 @@ export default function StudentsPage() {
                     Autorizado a retirar
                   </label>
                   <Button variant="success-soft" onClick={() => handleSaveGuardian()} loading={assigningGuardian || updatingGuardian}>Guardar tutor</Button>
-                  {/* Bug 4 fix: show override button when a 409 TUTOR_DUPLICATE_NAME was returned */}
-                  {duplicateNamePending && !editingGuardianId && (
+                  {/* Round6-Fix2: show override button in both create and edit mode on TUTOR_DUPLICATE_NAME */}
+                  {duplicateNamePending && (
                     <Button variant="danger-soft" onClick={() => handleSaveGuardian(true)}>Confirmar de todas formas</Button>
                   )}
                 </div>

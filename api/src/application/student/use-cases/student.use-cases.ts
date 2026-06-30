@@ -218,11 +218,18 @@ export class PatchStudentUseCase {
   }
 
   private applyChanges(student: Student, body: Record<string, unknown>): Student {
-    // Bug 8/10 fix: use resolveEmail (Email.create, validated) consistently for all email fields.
-    // reconstruct() skips validation and is reserved for already-persisted values only.
-    const emailVo = body.email !== undefined
-      ? this.resolveEmail(body.email as string)
-      : student.email;
+    // Round6-Fix3: only validate the student's own email when it actually changed.
+    // The web re-sends the pre-filled email on every PATCH; if the stored email is a legacy
+    // value that doesn't satisfy current Email.create rules, re-validating it would block
+    // all edits on that student. Skip validation (use Email.reconstruct) when the raw value
+    // is identical to what's already stored; validate only when it differs.
+    const emailVo: Email | undefined = (() => {
+      if (body.email === undefined) return student.email;          // not in body → keep stored
+      const rawEmail = body.email as string | null;
+      if (!rawEmail) return undefined;                             // null / '' → explicit clear
+      if (student.email && rawEmail === student.email.get()) return student.email; // unchanged → pass-through
+      return this.resolveEmail(rawEmail);                          // changed → validate
+    })();
 
     const dniVo = body.dni !== undefined
       ? Dni.reconstruct(body.dni as string)
@@ -327,13 +334,7 @@ export class AssignGuardianUseCase {
     const student = await this.studentRepo.findById(studentId);
     if (!student) return err(new NotFoundError('Student', studentId));
 
-    // Check for duplicate
-    const existing = await this.guardianRepo.findByComposite(studentId, input.userId);
-    if (existing) {
-      return err(new ValidationError('GUARDIAN_ALREADY_ASSIGNED'));
-    }
-
-    // Validate optional mobile/email on portal-link path (Bug 4 fix)
+    // Validate optional mobile/email upfront (needed for both create and reactivate paths)
     let mobileVO: Mobile | undefined;
     if (input.mobile) {
       const mobileResult = Mobile.create(input.mobile);
@@ -348,7 +349,34 @@ export class AssignGuardianUseCase {
       emailVO = emailResult.unwrap();
     }
 
-    // Create and save — propagate entity validation errors
+    // Check for existing (studentId, userId) guardian — active or inactive
+    const existing = await this.guardianRepo.findByComposite(studentId, input.userId);
+    if (existing) {
+      if (existing.active) {
+        // Active link already exists → conflict (REQ-RYT-08-A)
+        return err(new ValidationError('GUARDIAN_ALREADY_ASSIGNED'));
+      }
+      // Round6-Fix1: inactive link → reactivate instead of returning 409.
+      // An admin deactivating then re-granting access must not be permanently blocked.
+      const reactivatePatch: Parameters<typeof existing.update>[0] = { active: true };
+      if (input.relationship !== undefined) reactivatePatch.relationship = input.relationship;
+      if (input.fullName !== undefined) reactivatePatch.fullName = input.fullName;
+      if (input.mobile !== undefined) reactivatePatch.mobile = mobileVO;
+      if (input.email !== undefined) reactivatePatch.email = emailVO;
+      if (input.isFinancialResponsible !== undefined) reactivatePatch.isFinancialResponsible = input.isFinancialResponsible;
+      if (input.isAuthorizedToPickUp !== undefined) reactivatePatch.isAuthorizedToPickUp = input.isAuthorizedToPickUp;
+      const updateResult = existing.update(reactivatePatch);
+      if (updateResult.isErr()) return err(updateResult.unwrapErr());
+      try {
+        await this.guardianRepo.save(existing);
+      } catch (e) {
+        if (e instanceof ValidationError) return err(e);
+        throw e;
+      }
+      return ok(existing);
+    }
+
+    // No existing guardian — create new one
     // Fix #7 (round-3): forward active so portal-link with active:false is persisted correctly
     const createResult = StudentGuardian.create({
       studentId,

@@ -693,6 +693,7 @@ describe('StudentsPage — code-review round-4 bug fixes', () => {
   });
 
   // Bug 5 RED: clearing mobile in EDIT mode must send null (not undefined)
+  // (kept in round-4 describe for context cohesion)
   it('(Round4-Bug5) clearing mobile in edit mode sends null in PATCH body', async () => {
     renderStudents();
 
@@ -718,5 +719,68 @@ describe('StudentsPage — code-review round-4 bug fixes', () => {
         expect.objectContaining({ mobile: null }),
       );
     });
+  });
+});
+
+// ── Code-review bug fixes round 6 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-6 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+    mockApiDelete.mockResolvedValue({ status: 204, data: {} });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: null, relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Round6-Fix2 RED: edit mode TUTOR_DUPLICATE_NAME must show "Confirmar de todas formas" button
+  it('(Round6-Fix2) editing guardian into duplicate name shows override button and re-PATCHes with allowDuplicate:true', async () => {
+    // First PATCH: fail with TUTOR_DUPLICATE_NAME
+    mockApiPatch.mockRejectedValueOnce(new Error('TUTOR_DUPLICATE_NAME'));
+    // Second PATCH (after override): succeed
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    // Enter edit mode
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    // Change the name to something that conflicts
+    const fullNameInput = await screen.findByDisplayValue('Ana García') as HTMLInputElement;
+    await userEvent.clear(fullNameInput);
+    await userEvent.type(fullNameInput, 'María García');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    // "Confirmar de todas formas" must appear in edit mode
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /confirmar de todas formas/i })).toBeInTheDocument();
+    });
+
+    // Click confirm — second PATCH must include allowDuplicate: true
+    await userEvent.click(screen.getByRole('button', { name: /confirmar de todas formas/i }));
+
+    await waitFor(() => {
+      expect(mockApiPatch).toHaveBeenCalledTimes(2);
+    });
+    const secondCallBody = mockApiPatch.mock.calls[1][1];
+    expect(secondCallBody).toMatchObject({ allowDuplicate: true });
   });
 });
