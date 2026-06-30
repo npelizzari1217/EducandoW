@@ -358,7 +358,9 @@ export class AssignGuardianUseCase {
       }
       // Round6-Fix1: inactive link → reactivate instead of returning 409.
       // An admin deactivating then re-granting access must not be permanently blocked.
-      const reactivatePatch: Parameters<typeof existing.update>[0] = { active: true };
+      // Round7-Fix2: honor input.active (respect caller intent) — re-POSTing with active:false
+      // must keep the link inactive; omitted active defaults to reactivation (true).
+      const reactivatePatch: Parameters<typeof existing.update>[0] = { active: input.active ?? true };
       if (input.relationship !== undefined) reactivatePatch.relationship = input.relationship;
       if (input.fullName !== undefined) reactivatePatch.fullName = input.fullName;
       if (input.mobile !== undefined) reactivatePatch.mobile = mobileVO;
@@ -549,7 +551,12 @@ export class UpdateStudyTutorUseCase {
     const effectiveName = (input.fullName !== undefined ? input.fullName : guardian.fullName);
     const isRename = input.fullName !== undefined && input.fullName !== guardian.fullName;
     const isReactivation = guardian.active === false && input.active === true;
-    if (!input.allowDuplicate && (isRename || isReactivation) && effectiveName) {
+    // Round7-Fix3: the duplicate-name guard only applies to STUDY TUTORS (userId IS NULL).
+    // findStudyTutor matches userId IS NULL rows only, so running this guard for a portal-linked
+    // guardian (userId set) would raise a false TUTOR_DUPLICATE_NAME 409 against a homonymous
+    // study tutor — a different record type. Portal guardians skip the guard entirely.
+    const isStudyTutor = guardian.userId == null;
+    if (isStudyTutor && !input.allowDuplicate && (isRename || isReactivation) && effectiveName) {
       const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, effectiveName.trim());
       if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
     }

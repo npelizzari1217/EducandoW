@@ -184,6 +184,9 @@ export default function StudentsPage() {
   };
 
   const handleSelectDetail = (studentId: string) => {
+    // Round7-Fix4: reset any open guardian edit form so it never leaks across students
+    // (a leaked editingGuardianId would PATCH the previously-selected student → 404).
+    resetGuardianForm();
     setDetailStudentId(studentId);
     setDetailStudent(null);
     loadGuardians(studentId);
@@ -243,6 +246,9 @@ export default function StudentsPage() {
     if (editingGuardianId) {
       // PATCH existing guardian
       setUpdatingGuardian(true); setGuardianError('');
+      // Round7-Fix5: reset the override flag at retry start (mirrors the create branch) so the
+      // "Confirmar de todas formas" button never persists past an unrelated error.
+      setDuplicateNamePending(false);
       try {
         const body: Record<string, unknown> = {
           fullName: guardianAssignForm.fullName || undefined,
@@ -328,9 +334,11 @@ export default function StudentsPage() {
     if (!form.firstName.trim()) { setFormError('El nombre es requerido'); return; }
     if (!form.lastName.trim()) { setFormError('El apellido es requerido'); return; }
     if (!form.dni.trim()) { setFormError('El DNI es requerido'); return; }
-    // Bug 6 fix: send fatherEmail/motherEmail as raw strings ('' clears, undefined = absent).
-    // PatchStudentUseCase treats '' as clear and missing key as "leave unchanged".
-    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail, email: form.email || undefined, institutionId: institutionId };
+    // Round7-Fix6: send email/fatherEmail/motherEmail as raw strings ('' clears, undefined = absent),
+    // consistently for all three. PatchStudentUseCase treats '' as clear-to-null and a missing key
+    // as "leave unchanged". Previously the student's own email used `form.email || undefined`, so an
+    // emptied value was omitted and could never be cleared.
+    const body = { ...form, birthDate: form.birthDate || undefined, guardianName: form.guardianName || undefined, guardianPhone: form.guardianPhone || undefined, motherName: form.motherName || undefined, fatherDni: form.fatherDni || undefined, fatherEmail: form.fatherEmail, motherDni: form.motherDni || undefined, motherEmail: form.motherEmail, email: form.email, institutionId: institutionId };
     if (editingId) {
       const ok = await update(editingId, body);
       if (ok) { resetForm(); adminReload(); }
@@ -684,7 +692,7 @@ export default function StudentsPage() {
           )}
 
           <div style={{ marginTop: 'var(--space-md)' }}>
-            <Button variant="ghost" onClick={() => setDetailStudentId(null)}>← Volver a lista</Button>
+            <Button variant="ghost" onClick={() => { resetGuardianForm(); setDetailStudentId(null); }}>← Volver a lista</Button>
           </div>
         </Card>
       )}

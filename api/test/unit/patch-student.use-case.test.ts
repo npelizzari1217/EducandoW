@@ -179,4 +179,36 @@ describe('PatchStudentUseCase', () => {
       useCase.execute('s1', { email: 'not-valid-at-all' }, { userId: 'user-admin', roles: ['ADMIN'] }),
     ).rejects.toThrow('Invalid email format');
   });
+
+  // ── Round7-Fix6: empty string clears email consistently for all three fields ──
+
+  it('(Round7-Fix6) clearing student email via "" nulls it', async () => {
+    const s = mockStudent({ email: { get: () => 'alumno@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { email: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.email).toBeUndefined();
+  });
+
+  it('(Round7-Fix6) clearing fatherEmail via "" nulls it', async () => {
+    const s = mockStudent({ fatherEmail: { get: () => 'padre@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { fatherEmail: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.fatherEmail).toBeUndefined();
+  });
+
+  it('(Round7-Fix6) clearing motherEmail via "" nulls it', async () => {
+    const s = mockStudent({ motherEmail: { get: () => 'madre@example.com' } });
+    vi.mocked(studentRepo.findById).mockResolvedValue(s);
+
+    await useCase.execute('s1', { motherEmail: '' }, { userId: 'user-admin', roles: ['ADMIN'] });
+
+    const saved = vi.mocked(studentRepo.save).mock.calls[0][0];
+    expect(saved.motherEmail).toBeUndefined();
+  });
 });

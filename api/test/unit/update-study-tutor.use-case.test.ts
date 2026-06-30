@@ -304,4 +304,60 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
     expect(guardianRepo.save).not.toHaveBeenCalled();
   });
+
+  // ── Round7 Fix3 (duplicate-name guard must not run for portal guardians) ──────
+
+  function mockPortalGuardian(overrides: Partial<{ fullName: string; active: boolean }> = {}): StudentGuardian {
+    const now = new Date();
+    return StudentGuardian.reconstruct({
+      id: Id.reconstruct('g-portal'),
+      studentId: 's1',
+      userId: 'u-parent-123',          // portal-linked guardian (NOT a study tutor)
+      relationship: 'father',
+      fullName: overrides.fullName ?? 'Ana García',
+      mobile: Mobile.reconstruct('+5492215551234'),
+      email: undefined,
+      isFinancialResponsible: false,
+      isAuthorizedToPickUp: false,
+      active: overrides.active ?? false,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  /**
+   * RED (before fix): reactivation/rename guard runs for portal guardians too. findStudyTutor
+   * (which only matches userId IS NULL rows) returns an active homonymous study tutor → portal
+   * guardian gets a false TUTOR_DUPLICATE_NAME 409.
+   * GREEN (after fix): guard only applies to study tutors (userId IS NULL); portal guardians skip it.
+   */
+  it('(Round7-Fix3) reactivating a portal guardian homonymous with an active study tutor succeeds (no 409)', async () => {
+    const guardian = mockPortalGuardian({ fullName: 'Ana García', active: false });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    // An active study tutor with the same name exists — must NOT block the portal guardian
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g-portal', active: true });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().active).toBe(true);
+    // Guard must be skipped entirely for portal guardians
+    expect(guardianRepo.findStudyTutor).not.toHaveBeenCalled();
+    expect(guardianRepo.save).toHaveBeenCalled();
+  });
+
+  /**
+   * Regression lock: study-tutor duplicate detection MUST still work after the portal skip.
+   */
+  it('(Round7-Fix3) study-tutor reactivation still detects active homonym (409 preserved)', async () => {
+    const guardian = mockGuardian({ fullName: 'Ana García', active: false });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockResolvedValue({ active: true } as StudentGuardian);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
+  });
 });

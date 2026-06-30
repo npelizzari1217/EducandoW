@@ -784,3 +784,124 @@ describe('StudentsPage — code-review round-6 bug fixes', () => {
     expect(secondCallBody).toMatchObject({ allowDuplicate: true });
   });
 });
+
+// ── Code-review bug fixes round 7 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-7 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+    mockApiDelete.mockResolvedValue({ status: 204, data: {} });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: 'ana@example.com', relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Round7-Fix4 RED: open guardian edit form must NOT leak across detail re-entry.
+  // RED (before fix): handleSelectDetail does not reset guardian-form state → form stays open
+  //   in edit mode (editingGuardianId/showAssignGuardian persist) → PATCH targets wrong student.
+  // GREEN (after fix): re-entering detail resets the guardian edit form (form closed).
+  it('(Round7-Fix4) re-entering a student detail clears an open guardian edit form', async () => {
+    renderStudents();
+
+    // Enter detail and open the guardian edit form
+    await userEvent.click(await screen.findByRole('button', { name: 'Tutores' }));
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    // Edit form is open, pre-filled with the guardian's name
+    expect(await screen.findByDisplayValue('Ana García')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nombre completo')).toBeInTheDocument();
+
+    // Go back to the list, then re-enter the detail
+    await userEvent.click(screen.getByRole('button', { name: /volver a lista/i }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Tutores' }));
+
+    // The guardian edit form must be closed (no leaked edit form)
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre completo')).not.toBeInTheDocument();
+    });
+  });
+
+  // Round7-Fix5 RED: override flag must not persist past an unrelated error in the edit branch.
+  // RED (before fix): edit branch never calls setDuplicateNamePending(false) at retry start →
+  //   "Confirmar de todas formas" persists after a non-duplicate error.
+  // GREEN (after fix): edit branch resets the flag at start → button disappears on a generic error.
+  it('(Round7-Fix5) override button does not persist after an unrelated error on retry (edit mode)', async () => {
+    // First PATCH: duplicate → shows override button. Second PATCH: a generic, unrelated error.
+    mockApiPatch.mockRejectedValueOnce(new Error('TUTOR_DUPLICATE_NAME'));
+    mockApiPatch.mockRejectedValueOnce(new Error('Algo salió mal en el servidor'));
+
+    renderStudents();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Tutores' }));
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    const fullNameInput = await screen.findByDisplayValue('Ana García') as HTMLInputElement;
+    await userEvent.clear(fullNameInput);
+    await userEvent.type(fullNameInput, 'María García');
+    await userEvent.click(screen.getByRole('button', { name: /guardar tutor/i }));
+
+    // Override button appears after the duplicate error
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /confirmar de todas formas/i })).toBeInTheDocument();
+    });
+
+    // Retry with a different name; this PATCH fails with an UNRELATED error
+    await userEvent.clear(fullNameInput);
+    await userEvent.type(fullNameInput, 'Pedro López');
+    await userEvent.click(screen.getByRole('button', { name: /guardar tutor/i }));
+
+    // The override button must be gone (flag reset at retry start)
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /confirmar de todas formas/i })).not.toBeInTheDocument();
+    });
+  });
+
+  // Round7-Fix6 RED: clearing the student's OWN email must send raw '' (not undefined).
+  // RED (before fix): `email: form.email || undefined` → empty omitted → can never be cleared.
+  // GREEN (after fix): `email: form.email` → '' is sent → backend clears the field.
+  it('(Round7-Fix6) clearing student email in edit mode calls update with email as empty string', async () => {
+    const studentWithEmail = {
+      id: 's1',
+      firstName: 'Juan',
+      lastName: 'Pérez',
+      dni: '12345678',
+      fullName: 'Pérez, Juan',
+      email: 'alumno@example.com',
+      fatherEmail: null,
+      motherEmail: null,
+    };
+    mockStudentList = [studentWithEmail];
+    mockStudentUpdate.mockResolvedValue(true);
+
+    renderStudents();
+
+    const editBtn = await screen.findByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtn);
+
+    const emailInput = await screen.findByDisplayValue('alumno@example.com') as HTMLInputElement;
+    await userEvent.clear(emailInput);
+    expect(emailInput.value).toBe('');
+
+    await userEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(mockStudentUpdate).toHaveBeenCalled();
+    });
+    const calledBody = mockStudentUpdate.mock.calls[0][1];
+    expect(calledBody).toHaveProperty('email', '');
+  });
+});

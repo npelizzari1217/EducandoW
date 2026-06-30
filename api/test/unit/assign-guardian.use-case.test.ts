@@ -89,6 +89,40 @@ describe('AssignGuardianUseCase', () => {
     expect(guardianRepo.save).toHaveBeenCalledWith(inactiveGuardian);
   });
 
+  // Round7-Fix2 RED: re-POST existing inactive guardian with active:false must STAY inactive
+  // RED (before fix): reactivation branch hardcodes { active: true } → silently reactivates
+  // GREEN (after fix): honors input.active → update called with active:false
+  it('(Round7-Fix2) re-POST inactive guardian with active:false keeps it inactive', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    const inactiveGuardian = {
+      active: false,
+      update: vi.fn().mockReturnValue({ isOk: () => true, isErr: () => false }),
+    } as any;
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(inactiveGuardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father', active: false });
+
+    expect(result.isOk()).toBe(true);
+    expect(inactiveGuardian.update).toHaveBeenCalledWith(expect.objectContaining({ active: false }));
+  });
+
+  // Round7-Fix2 RED: re-POST inactive guardian with active omitted reactivates (default true)
+  it('(Round7-Fix2) re-POST inactive guardian with active omitted reactivates (default true)', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    const inactiveGuardian = {
+      active: false,
+      update: vi.fn().mockReturnValue({ isOk: () => true, isErr: () => false }),
+    } as any;
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(inactiveGuardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father' });
+
+    expect(result.isOk()).toBe(true);
+    expect(inactiveGuardian.update).toHaveBeenCalledWith(expect.objectContaining({ active: true }));
+  });
+
   // Round6-Fix1 RED: active guardian must still return conflict even after inactive-reactivation path exists
   it('(Round6-Fix1) active existing guardian still returns GUARDIAN_ALREADY_ASSIGNED', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());

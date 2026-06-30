@@ -36,8 +36,12 @@ export class PrismaStudentRepository implements StudentRepository {
   async findByGuardianUserId(guardianUserId: string): Promise<Student[]> {
     const records = await this.client.student.findMany({
       where: {
+        // Round7-Fix1 (Security): filter active:true so deactivated guardian links lose
+        // list access. ListStudentsUseCase (TUTOR branch) reads through this method — a
+        // guardian set active:false must NOT see linked students via GET /students.
+        // Mirrors PrismaStudentGuardianRepository.findByGuardianUserId.
         guardians: {
-          some: { userId: guardianUserId },
+          some: { userId: guardianUserId, active: true },
         },
       },
       orderBy: { lastName: 'asc' },
