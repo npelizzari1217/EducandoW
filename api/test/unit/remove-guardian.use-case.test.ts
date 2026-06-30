@@ -31,18 +31,22 @@ describe('RemoveGuardianUseCase', () => {
     vi.mocked(guardianRepo.findById).mockResolvedValue(mockGuardian);
     vi.mocked(guardianRepo.delete).mockResolvedValue(undefined);
 
-    await expect(useCase.execute('sg1')).resolves.toBeUndefined();
+    const result = await useCase.execute('sg1');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
     expect(guardianRepo.delete).toHaveBeenCalledWith('sg1');
   });
 
-  it('throws NotFoundError when guardian does not exist', async () => {
+  it('returns err(NotFoundError) when guardian does not exist', async () => {
     vi.mocked(guardianRepo.findById).mockResolvedValue(null);
 
-    await expect(useCase.execute('sg-missing')).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute('sg-missing');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   // Round4-Bug1: DELETE cross-student ownership guard
-  it('(Round4-Bug1-Delete) throws NotFoundError when guardianId belongs to a different student', async () => {
+  it('(Round4-Bug1-Delete) returns err(NotFoundError) when guardianId belongs to a different student', async () => {
     const mockGuardian = {
       id: { get: () => 'sg1' },
       studentId: 's1', // guardian belongs to student s1
@@ -54,7 +58,9 @@ describe('RemoveGuardianUseCase', () => {
     vi.mocked(guardianRepo.delete).mockResolvedValue(undefined);
 
     // Request is for student 's2' — cross-student deletion attempt
-    await expect(useCase.execute('sg1', 's2')).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute('sg1', 's2');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(guardianRepo.delete).not.toHaveBeenCalled();
   });
 
@@ -69,7 +75,9 @@ describe('RemoveGuardianUseCase', () => {
     vi.mocked(guardianRepo.findById).mockResolvedValue(mockGuardian);
     vi.mocked(guardianRepo.delete).mockResolvedValue(undefined);
 
-    await expect(useCase.execute('sg1', 's1')).resolves.toBeUndefined();
+    const result = await useCase.execute('sg1', 's1');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
     expect(guardianRepo.delete).toHaveBeenCalledWith('sg1');
   });
 });
