@@ -77,7 +77,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 **Satisfies**: REQ-01, REQ-05, REQ-09-B
 **Sequential**: after Phase 1.
 
-### TASK-03 [RED] Write test: ListGuardians student not found → err(NotFoundError)
+### TASK-03 [x] Write test: ListGuardians student not found → err(NotFoundError)
 
 - **File (new)**: `api/src/application/student/use-cases/__tests__/list-guardians.use-case.spec.ts`
 - Mock student repo: returns `null` for any studentId.
@@ -87,7 +87,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — confirm test fails (current impl throws instead of returning err).
 - **Satisfies**: REQ-09-B (ListGuardians error scenario)
 
-### TASK-04 [GREEN] Migrate ListGuardiansUseCase.execute() → Promise<Result<GuardianOutput[], NotFoundError>>
+### TASK-04 [x] Migrate ListGuardiansUseCase.execute() → Promise<Result<GuardianOutput[], NotFoundError>>
 
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - Change return type annotation: `Promise<Result<GuardianOutput[], NotFoundError>>`.
@@ -97,7 +97,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — TASK-03 GREEN; full suite green.
 - **Satisfies**: REQ-01
 
-### TASK-05 [GREEN] Unwrap Result in listGuardians controller handler
+### TASK-05 [x] Unwrap Result in listGuardians controller handler
 
 - **File**: `api/src/presentation/student/student.controller.ts`
 - Change handler body:
@@ -117,7 +117,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 **Satisfies**: REQ-01, REQ-04, REQ-09-B
 **Sequential**: after Phase 2.
 
-### TASK-06 [RED] Write tests: RemoveGuardian error paths + success
+### TASK-06 [x] Write tests: RemoveGuardian error paths + success
 
 - **File (new)**: `api/src/application/student/use-cases/__tests__/remove-guardian.use-case.spec.ts`
 - **Test A** (guardian not found): guardian repo returns `null` → `result.isErr() && result.unwrapErr() instanceof NotFoundError`.
@@ -126,7 +126,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — confirm all 3 fail (current impl throws on A/B; returns void bare on C, no wrapper).
 - **Satisfies**: REQ-09-B (RemoveGuardian ×2 error scenarios), REQ-04
 
-### TASK-07 [GREEN] Migrate RemoveGuardianUseCase.execute() → Promise<Result<void, NotFoundError>>
+### TASK-07 [x] Migrate RemoveGuardianUseCase.execute() → Promise<Result<void, NotFoundError>>
 
 - **File**: `api/src/application/student/use-cases/student.use-cases.ts`
 - Change return type: `Promise<Result<void, NotFoundError>>`.
@@ -136,7 +136,7 @@ TASK-15 requires both TASK-13 and TASK-14 to be GREEN.
 - Run `pnpm test` — TASK-06 A/B/C GREEN; full suite green.
 - **Satisfies**: REQ-01
 
-### TASK-08 [GREEN] Update removeGuardian handler: drop try/catch, route err to throwGuardianError()
+### TASK-08 [x] Update removeGuardian handler: drop try/catch, route err to throwGuardianError()
 
 - **File**: `api/src/presentation/student/student.controller.ts`
 - Remove: `try { ... result = await this.removeGuardianUseCase.execute(...) } catch (e) { this.throwGuardianError(e) }`.

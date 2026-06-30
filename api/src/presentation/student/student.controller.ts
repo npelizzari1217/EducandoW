@@ -116,8 +116,9 @@ export class StudentController {
   @Get(':id/guardians')
   @Roles('ROOT', { module: 'STUDENTS', action: 'READ' })
   async listGuardians(@Param('id') id: string) {
-    const guardians = await this.listGuardiansUC.execute(id);
-    return { data: guardians };
+    const result = await this.listGuardiansUC.execute(id);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
   }
 
   @Post(':id/guardians')
@@ -188,11 +189,8 @@ export class StudentController {
     @Param('guardianId') guardianId: string,
   ) {
     // Round4-Bug1: pass studentId so the use case can verify ownership (mirrors PATCH fix)
-    try {
-      await this.removeGuardianUC.execute(guardianId, studentId);
-    } catch (e) {
-      this.throwGuardianError(e as Error);
-    }
+    const result = await this.removeGuardianUC.execute(guardianId, studentId);
+    if (result.isErr()) this.throwGuardianError(result.unwrapErr());
   }
 
   // ── Helpers ─────────────────────────────────────────────────

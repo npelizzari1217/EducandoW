@@ -393,9 +393,11 @@ describe('Guardian Integration Tests', () => {
 
       const result = await useCase.execute('s1');
 
-      expect(result).toHaveLength(2);
+      expect(result.isOk()).toBe(true);
+      const data = result.unwrap();
+      expect(data).toHaveLength(2);
       // Use toMatchObject to allow additional fields from extended GuardianOutput
-      expect(result[0]).toMatchObject({
+      expect(data[0]).toMatchObject({
         id: 'g1',
         userId: 'u1',
         relationship: 'mother',
@@ -403,7 +405,7 @@ describe('Guardian Integration Tests', () => {
         isAuthorizedToPickUp: false,
         active: true,
       });
-      expect(result[1]).toMatchObject({
+      expect(data[1]).toMatchObject({
         id: 'g2',
         userId: 'u2',
         relationship: 'father',
@@ -423,8 +425,10 @@ describe('Guardian Integration Tests', () => {
 
       const result = await useCase.execute('s1');
 
-      expect(result).toHaveLength(2);
-      expect(result[1]).toMatchObject({ id: 'g2', userId: null, relationship: 'abuela' });
+      expect(result.isOk()).toBe(true);
+      const data = result.unwrap();
+      expect(data).toHaveLength(2);
+      expect(data[1]).toMatchObject({ id: 'g2', userId: null, relationship: 'abuela' });
     });
 
     it('returns empty array when no guardians', async () => {
@@ -433,13 +437,17 @@ describe('Guardian Integration Tests', () => {
 
       const result = await useCase.execute('s2');
 
-      expect(result).toEqual([]);
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toEqual([]);
     });
 
-    it('throws 404 when student does not exist', async () => {
+    it('returns err(NotFoundError) when student does not exist', async () => {
       vi.mocked(studentRepo.findById).mockResolvedValue(null);
 
-      await expect(useCase.execute('s-nonexistent')).rejects.toThrow(NotFoundError);
+      const result = await useCase.execute('s-nonexistent');
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
   });
 
@@ -465,14 +473,18 @@ describe('Guardian Integration Tests', () => {
     it('removes guardian successfully', async () => {
       vi.mocked(guardianRepo.findById).mockResolvedValue({} as StudentGuardian);
 
-      await expect(useCase.execute('g1')).resolves.toBeUndefined();
+      const result = await useCase.execute('g1');
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toBeUndefined();
       expect(guardianRepo.delete).toHaveBeenCalledWith('g1');
     });
 
-    it('throws 404 when guardian does not exist', async () => {
+    it('returns err(NotFoundError) when guardian does not exist', async () => {
       vi.mocked(guardianRepo.findById).mockResolvedValue(null);
 
-      await expect(useCase.execute('g-nonexistent')).rejects.toThrow(NotFoundError);
+      const result = await useCase.execute('g-nonexistent');
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
   });
 });

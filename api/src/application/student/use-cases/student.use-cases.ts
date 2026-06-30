@@ -611,16 +611,17 @@ export class RemoveGuardianUseCase {
   constructor(private readonly guardianRepo: StudentGuardianRepository) {}
 
   // Round4-Bug1: thread studentId for ownership validation — same pattern as UpdateStudyTutorUseCase.
-  async execute(guardianId: string, studentId?: string): Promise<void> {
+  async execute(guardianId: string, studentId?: string): Promise<Result<void, NotFoundError>> {
     const guardian = await this.guardianRepo.findById(guardianId);
-    if (!guardian) throw new NotFoundError('StudentGuardian', guardianId);
+    if (!guardian) return err(new NotFoundError('StudentGuardian', guardianId));
 
     // Ownership check: guardianId must belong to the given studentId
     if (studentId && guardian.studentId !== studentId) {
-      throw new NotFoundError('StudentGuardian', guardianId);
+      return err(new NotFoundError('StudentGuardian', guardianId));
     }
 
     await this.guardianRepo.delete(guardianId);
+    return ok(undefined);
   }
 }
 
@@ -666,11 +667,11 @@ export class ListGuardiansUseCase {
     private readonly guardianRepo: StudentGuardianRepository,
   ) {}
 
-  async execute(studentId: string): Promise<GuardianOutput[]> {
+  async execute(studentId: string): Promise<Result<GuardianOutput[], NotFoundError>> {
     const student = await this.studentRepo.findById(studentId);
-    if (!student) throw new NotFoundError('Student', studentId);
+    if (!student) return err(new NotFoundError('Student', studentId));
 
     const guardians = await this.guardianRepo.findByStudentId(studentId);
-    return guardians.map(toGuardianOutput);
+    return ok(guardians.map(toGuardianOutput));
   }
 }
