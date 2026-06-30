@@ -1,9 +1,9 @@
 import {
   Controller, Get, Post, Delete, Patch, Body, Param, HttpCode, HttpStatus, UseGuards, Query, Inject,
-  ConflictException, NotFoundException, BadRequestException,
+  ConflictException, NotFoundException, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
-import { NotFoundError, ValidationError, DomainError } from '@educandow/domain';
+import { NotFoundError, ValidationError, DomainError, ForbiddenError } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -210,6 +210,9 @@ export class StudentController {
     }
     if (error instanceof NotFoundError || msg === 'GUARDIAN_NOT_FOUND') {
       throw new NotFoundException(msg);
+    }
+    if (error instanceof ForbiddenError) {
+      throw new ForbiddenException(msg);
     }
     if (error instanceof ValidationError || error instanceof DomainError) {
       throw new BadRequestException(msg);
