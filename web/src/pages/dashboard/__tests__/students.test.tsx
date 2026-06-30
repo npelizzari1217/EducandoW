@@ -618,6 +618,57 @@ describe('StudentsPage — guardian panel (PR3)', () => {
   });
 });
 
+// ── Code-review bug fixes round 5 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-5 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Round5-Bug5 RED: GUARDIAN_ALREADY_ASSIGNED must show friendly message, not raw code
+  it('(Round5-Bug5) portal-link duplicate (GUARDIAN_ALREADY_ASSIGNED) shows friendly Spanish message, not raw code', async () => {
+    mockApiPost.mockRejectedValueOnce(new Error('GUARDIAN_ALREADY_ASSIGNED'));
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    const agregarBtn = await screen.findByRole('button', { name: /agregar tutor/i });
+    await userEvent.click(agregarBtn);
+
+    // Fill userId for portal-link path + relationship
+    const userIdInput = screen.getByLabelText('ID de cuenta (opcional)');
+    await userEvent.type(userIdInput, 'aaaa-bbbb-cccc-dddd');
+    await userEvent.type(screen.getByLabelText('Parentesco'), 'padre');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    // Must NOT show raw code
+    await waitFor(() => {
+      expect(screen.queryByText('GUARDIAN_ALREADY_ASSIGNED')).not.toBeInTheDocument();
+    });
+    // Must show friendly message
+    await waitFor(() => {
+      expect(screen.getByText(/esta cuenta ya está vinculada/i)).toBeInTheDocument();
+    });
+  });
+});
+
 // ── Code-review bug fixes round 4 ────────────────────────────────────────────
 describe('StudentsPage — code-review round-4 bug fixes', () => {
   const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };

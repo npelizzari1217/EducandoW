@@ -41,6 +41,9 @@ export class StudentGuardian {
       return err(new ValidationError('Relationship must be 15 characters or fewer'));
     }
 
+    // Round5-Bug4: trim fullName so "Juan " and "Juan" are treated as the same name.
+    const trimmedFullName = input.fullName?.trim() || undefined;
+
     const now = new Date();
     return ok(
       new StudentGuardian({
@@ -48,7 +51,7 @@ export class StudentGuardian {
         studentId: input.studentId,
         userId: input.userId,
         relationship: trimmed,
-        fullName: input.fullName,
+        fullName: trimmedFullName,
         mobile: input.mobile,
         email: input.email,
         isFinancialResponsible: input.isFinancialResponsible ?? false,
@@ -87,7 +90,8 @@ export class StudentGuardian {
       this.props.relationship = trimmed;
     }
 
-    if (patch.fullName !== undefined) this.props.fullName = patch.fullName;
+    // Round5-Bug4: trim fullName on update too so "Juan " and "Juan" are the same name
+    if (patch.fullName !== undefined) this.props.fullName = patch.fullName?.trim() || undefined;
     // Round4-Bug5: use 'in patch' pattern (same as email) to distinguish null-clear from absent
     if ('mobile' in patch) {
       this.props.mobile = patch.mobile ?? undefined;

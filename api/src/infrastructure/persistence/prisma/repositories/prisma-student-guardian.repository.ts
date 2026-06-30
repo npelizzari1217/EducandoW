@@ -79,8 +79,11 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
   }
 
   async findByGuardianUserId(guardianUserId: string): Promise<StudentGuardian[]> {
+    // Round5-Bug1 (Security): filter active:true so deactivated portal guardians lose access.
+    // A guardian set active:false must NOT appear in GetMyChildrenUseCase or PatchStudentUseCase
+    // ownership checks — deactivation revokes portal access immediately.
     const records = await this.client.studentGuardian.findMany({
-      where: { userId: guardianUserId },
+      where: { userId: guardianUserId, active: true },
       orderBy: { createdAt: 'desc' },
     });
     return records.map((r) => this.toDomain(r));

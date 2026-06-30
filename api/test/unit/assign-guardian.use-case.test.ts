@@ -91,6 +91,20 @@ describe('AssignGuardianUseCase', () => {
     expect(saved.active).toBe(false);
   });
 
+  // Round5-Bug6 RED: P2002 from save() must surface as GUARDIAN_ALREADY_ASSIGNED Result err (not thrown)
+  it('(Round5-Bug6) P2002 from repo save() surfaces as err(GUARDIAN_ALREADY_ASSIGNED), not an unhandled throw', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(null); // app-layer check passes
+    // Repo throws ValidationError on P2002 (as the repo does on studentId+userId unique violation)
+    const { ValidationError } = await import('@educandow/domain');
+    vi.mocked(guardianRepo.save).mockRejectedValueOnce(new ValidationError('GUARDIAN_ALREADY_ASSIGNED'));
+
+    const result = await useCase.execute('s1', { userId: 'u-tutor', relationship: 'father' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
+  });
+
   // Bug 4 RED: portal-link with fullName+mobile → fullName and mobile must be persisted
   it('(Bug4) portal-link with fullName and mobile persists them on the guardian', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());

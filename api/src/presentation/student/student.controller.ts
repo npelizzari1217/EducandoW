@@ -3,7 +3,7 @@ import {
   ConflictException, NotFoundException, BadRequestException,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ValidationError, DomainError } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -218,7 +218,12 @@ export class StudentController {
     };
   }
 
-  /** Map domain errors from guardian use cases to HTTP exceptions */
+  /**
+   * Map KNOWN domain errors from guardian use cases to HTTP exceptions.
+   * Round5-Bug3 fix: unknown/infra errors are re-thrown as-is so the global
+   * AppExceptionFilter maps them to 500 (and logs them). Only domain-layer errors
+   * are converted to 400/404/409 — never infra exceptions.
+   */
   private throwGuardianError(error: Error): never {
     const msg = error.message;
     if (msg === 'GUARDIAN_ALREADY_ASSIGNED' || msg === 'TUTOR_DUPLICATE_NAME') {
@@ -227,7 +232,11 @@ export class StudentController {
     if (error instanceof NotFoundError || msg === 'GUARDIAN_NOT_FOUND') {
       throw new NotFoundException(msg);
     }
-    throw new BadRequestException(msg);
+    if (error instanceof ValidationError || error instanceof DomainError) {
+      throw new BadRequestException(msg);
+    }
+    // Unknown/infra error — re-throw so AppExceptionFilter handles it as 500
+    throw error;
   }
 
   private mapStudent(s: { id: { get(): string }; firstName: string; lastName: string; dni: { get(): string }; fullName: string; email?: { get(): string } | undefined; birthDate?: Date; guardianName?: string; guardianPhone?: string; motherName?: string; fatherDni?: string; motherDni?: string; fatherEmail?: { get(): string } | undefined; motherEmail?: { get(): string } | undefined; address?: string; phone?: string; photoUrl?: string; institutionId?: { get(): string } | string }) {

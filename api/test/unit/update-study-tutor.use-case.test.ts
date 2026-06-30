@@ -244,4 +244,64 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(result.isOk()).toBe(true);
     expect(result.unwrap().active).toBe(true);
   });
+
+  // ── Round5 Bug2 (Regression — reactivation guard uses old name) ───────────────
+
+  /**
+   * RED (before fix): 4b guard uses guardian.fullName → 'Old Name' has active homonym →
+   *   PATCH {active:true, fullName:'New Name'} is wrongly rejected
+   * GREEN (after fix): unified guard uses effectiveName='New Name' → no conflict → success
+   */
+  it('(Round5-Bug2) reactivate + rename to non-conflicting name in one PATCH succeeds', async () => {
+    const guardian = mockGuardian({ active: false, fullName: 'Old Name' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    // 'Old Name' has an active homonym; 'New Name' does not
+    vi.mocked(guardianRepo.findStudyTutor).mockImplementation(async (_sid, name) => {
+      return name === 'Old Name' ? ({ active: true } as StudentGuardian) : null;
+    });
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true, fullName: 'New Name' });
+
+    expect(result.isOk()).toBe(true);
+    expect(guardianRepo.save).toHaveBeenCalled();
+  });
+
+  /**
+   * Reactivate + rename to a COLLIDING name → must still return 409.
+   * (This is a correctness validation that the fix doesn't break the collision path.)
+   */
+  it('(Round5-Bug2) reactivate + rename to conflicting name in one PATCH returns TUTOR_DUPLICATE_NAME', async () => {
+    const guardian = mockGuardian({ active: false, fullName: 'Old Name' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockImplementation(async (_sid, name) => {
+      return name === 'New Conflicting' ? ({ active: true } as StudentGuardian) : null;
+    });
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true, fullName: 'New Conflicting' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
+
+  // ── Round5 Bug4 (Untrimmed fullName bypasses duplicate guard) ────────────────
+
+  /**
+   * RED (before fix): 'Juan ' is passed raw to findStudyTutor → doesn't match 'Juan' record → no dup detected
+   * GREEN (after fix): use case trims before comparison → 'Juan' checked → conflict returned
+   */
+  it('(Round5-Bug4) updating to "Juan " when active "Juan" exists returns TUTOR_DUPLICATE_NAME', async () => {
+    const guardian = mockGuardian({ fullName: 'Other Name' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.findStudyTutor).mockImplementation(async (_sid, name) => {
+      return name === 'Juan' ? ({ active: true } as StudentGuardian) : null;
+    });
+
+    const result = await useCase.execute({ guardianId: 'g1', fullName: 'Juan ' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
 });

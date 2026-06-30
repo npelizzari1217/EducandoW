@@ -110,6 +110,17 @@ describe('StudentGuardian', () => {
       expect(result.unwrap().mobile).toBeUndefined();
     });
 
+    // Round5-Bug4: fullName must be trimmed on create
+    it('(Round5-Bug4) create() trims leading/trailing whitespace from fullName', () => {
+      const result = StudentGuardian.create({
+        studentId: 's1',
+        relationship: 'padre',
+        fullName: '  Ana García  ',
+      });
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap().fullName).toBe('Ana García');
+    });
+
     it('accepts email optional (REQ-RYT-02)', () => {
       const emailResult = Email.create('test@example.com');
       expect(emailResult.isOk()).toBe(true);
@@ -204,6 +215,16 @@ describe('StudentGuardian', () => {
       expect(updateResult.isOk()).toBe(true);
       expect(guardian.fullName).toBe('New Name');
       expect(guardian.updatedAt).toBeInstanceOf(Date);
+    });
+
+    // Round5-Bug4: fullName must be trimmed on update
+    it('(Round5-Bug4) update() trims leading/trailing whitespace from fullName', () => {
+      const guardian = StudentGuardian.create({ studentId: 's1', relationship: 'padre', fullName: 'Old Name' }).unwrap();
+
+      const updateResult = guardian.update({ fullName: '  New Name  ' });
+
+      expect(updateResult.isOk()).toBe(true);
+      expect(guardian.fullName).toBe('New Name');
     });
 
     it('updates active status', () => {

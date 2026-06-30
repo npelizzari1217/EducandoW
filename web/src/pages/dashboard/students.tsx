@@ -300,6 +300,9 @@ export default function StudentsPage() {
         if (msg === 'TUTOR_DUPLICATE_NAME') {
           setDuplicateNamePending(true);
           setGuardianError('Ya existe un tutor activo con ese nombre. Hacé clic en "Confirmar de todas formas" para crear uno diferente.');
+        // Round5-Bug5 fix: translate GUARDIAN_ALREADY_ASSIGNED to a friendly Spanish message
+        } else if (msg === 'GUARDIAN_ALREADY_ASSIGNED') {
+          setGuardianError('Esta cuenta ya está vinculada como tutor de este alumno.');
         } else {
           setGuardianError(msg || 'Error al asignar tutor');
         }

@@ -222,6 +222,26 @@ describe('CreateStudyTutorUseCase', () => {
     expect(guardianRepo.save).toHaveBeenCalled();
   });
 
+  // Round5-Bug4: untrimmed fullName must trigger dup check on trimmed name
+  it('(Round5-Bug4) creating with "Juan " when active "Juan" exists returns TUTOR_DUPLICATE_NAME', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    // findStudyTutor returns active guardian only when queried with the TRIMMED name
+    vi.mocked(guardianRepo.findStudyTutor).mockImplementation(async (_sid, name) => {
+      return name === 'Juan' ? ({ active: true } as any) : null;
+    });
+
+    const result = await useCase.execute({
+      studentId: 's1',
+      fullName: 'Juan ', // trailing space — must be trimmed before dup check
+      mobile: '+5492215551234',
+      relationship: 'tutor',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr().message).toBe('TUTOR_DUPLICATE_NAME');
+    expect(guardianRepo.save).not.toHaveBeenCalled();
+  });
+
   // Student not found → NotFoundError
   it('returns err NOT_FOUND when student does not exist', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(null);

@@ -137,4 +137,20 @@ describe('PrismaStudentGuardianRepository — round-3 fixes', () => {
     const result = await repo.findStudyTutor('s1', 'Ana García');
     expect(result).toBeNull();
   });
+
+  // ── Round5 Bug1 (Security — deactivated guardian keeps access) ────────────────
+
+  /**
+   * RED (before fix): findByGuardianUserId queries without active filter → inactive guardians returned
+   * GREEN (after fix): where clause includes { active: true } → only active guardians
+   */
+  it('(Round5-Bug1) findByGuardianUserId queries with active:true filter', async () => {
+    const mockFindMany = vi.mocked(mockPrismaClient.studentGuardian.findMany);
+    mockFindMany.mockResolvedValueOnce([]);
+
+    await repo.findByGuardianUserId('u-parent-123');
+
+    const callArgs = mockFindMany.mock.calls[0][0];
+    expect(callArgs.where).toMatchObject({ active: true });
+  });
 });

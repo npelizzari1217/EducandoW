@@ -364,7 +364,15 @@ export class AssignGuardianUseCase {
     if (createResult.isErr()) return err(createResult.unwrapErr());
     const guardian = createResult.unwrap();
 
-    await this.guardianRepo.save(guardian);
+    // Round5-Bug6: wrap save() so a P2002 race on @@unique([studentId,userId]) that slips
+    // past the findByComposite check is surfaced as a Result err (GUARDIAN_ALREADY_ASSIGNED →
+    // 409 by the controller), consistent with CreateStudyTutor/UpdateStudyTutor patterns.
+    try {
+      await this.guardianRepo.save(guardian);
+    } catch (e) {
+      if (e instanceof ValidationError) return err(e);
+      throw e;
+    }
     return ok(guardian);
   }
 }
@@ -425,9 +433,10 @@ export class CreateStudyTutorUseCase {
 
     // 6. Uniqueness check on (studentId, fullName) unless allowDuplicate (REQ-RYT-08-B/C)
     // Bug 8 fix: only active tutors count as conflicts; deactivated tutors must not block re-registration.
-    // The repo query already filters active:true for performance; the use-case guard adds defensive correctness.
+    // Round5-Bug4 fix: trim fullName before comparison so "Juan " matches "Juan".
+    const trimmedFullName = input.fullName.trim();
     if (!input.allowDuplicate) {
-      const dup = await this.guardianRepo.findStudyTutor(input.studentId, input.fullName);
+      const dup = await this.guardianRepo.findStudyTutor(input.studentId, trimmedFullName);
       if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
     }
 
@@ -436,7 +445,7 @@ export class CreateStudyTutorUseCase {
     const createResult = StudentGuardian.create({
       studentId: input.studentId,
       relationship: input.relationship,
-      fullName: input.fullName,
+      fullName: trimmedFullName,
       mobile: mobileVO,
       email: emailVO,
       active: input.active ?? true,
@@ -505,17 +514,15 @@ export class UpdateStudyTutorUseCase {
       emailVO = emailResult.unwrap();
     }
 
-    // 4a. Re-check uniqueness if fullName changes (Bug 8 fix: only active tutors block rename)
-    if (input.fullName !== undefined && input.fullName !== guardian.fullName) {
-      const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, input.fullName);
-      if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
-    }
-
-    // 4b. Round4-Bug2: re-check uniqueness when reactivating (inactive → active transition).
-    // The fullName check above only fires on name changes; reactivating with an existing homonym
-    // would silently create two active tutors with the same name. Honor allowDuplicate override.
-    if (!input.allowDuplicate && guardian.active === false && input.active === true && guardian.fullName) {
-      const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, guardian.fullName);
+    // 4. Unified uniqueness guard (Round5-Bug2 fix: merged 4a rename + 4b reactivation into one).
+    // effectiveName = the name this guardian WILL have after the PATCH completes.
+    // We must check effectiveName — NOT guardian.fullName — so a PATCH that simultaneously
+    // reactivates AND renames to a non-conflicting name is not wrongly rejected.
+    const effectiveName = (input.fullName !== undefined ? input.fullName : guardian.fullName);
+    const isRename = input.fullName !== undefined && input.fullName !== guardian.fullName;
+    const isReactivation = guardian.active === false && input.active === true;
+    if (!input.allowDuplicate && (isRename || isReactivation) && effectiveName) {
+      const dup = await this.guardianRepo.findStudyTutor(guardian.studentId, effectiveName.trim());
       if (dup && dup.active) return err(new ValidationError('TUTOR_DUPLICATE_NAME'));
     }
 
