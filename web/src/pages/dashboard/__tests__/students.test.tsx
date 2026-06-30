@@ -419,6 +419,63 @@ describe('StudentsPage — code-review round-2 bug fixes', () => {
   });
 });
 
+// ── Code-review bug fixes round 3 ────────────────────────────────────────────
+describe('StudentsPage — code-review round-3 bug fixes', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiPost.mockResolvedValue({ status: 201, data: { data: {} } });
+    mockApiPatch.mockResolvedValue({ status: 200, data: { data: {} } });
+
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+      if (url === '/students/s1') return Promise.resolve({ data: { data: { ...mockStudentBase, fatherEmail: null, motherEmail: null } } });
+      if (url === '/students/s1/guardians') return Promise.resolve({ data: { data: [
+        { id: 'g1', userId: null, fullName: 'Ana García', mobile: '+5491112345678', email: null, relationship: 'abuela', active: true, isFinancialResponsible: false, isAuthorizedToPickUp: false },
+      ] } });
+      return Promise.resolve({ data: { data: [] } });
+    });
+  });
+
+  // Fix #4 (round-3) RED: edit mode TUTOR_DUPLICATE_NAME must show friendly message, not raw code
+  // RED (before fix): setGuardianError gets raw 'TUTOR_DUPLICATE_NAME' string
+  // GREEN (after fix): shows 'Ya existe un tutor activo con ese nombre.'
+  it('(Round3-Fix4) editing guardian into a duplicate name shows friendly message not raw TUTOR_DUPLICATE_NAME code', async () => {
+    // PATCH returns TUTOR_DUPLICATE_NAME error
+    mockApiPatch.mockRejectedValueOnce(new Error('TUTOR_DUPLICATE_NAME'));
+
+    renderStudents();
+
+    const tutoresBtn = await screen.findByRole('button', { name: 'Tutores' });
+    await userEvent.click(tutoresBtn);
+
+    // Click the last "Editar" button — the one in the guardian table
+    const editBtns = await screen.findAllByRole('button', { name: 'Editar' });
+    await userEvent.click(editBtns[editBtns.length - 1]);
+
+    // fullName input is pre-filled with 'Ana García'
+    const fullNameInput = await screen.findByDisplayValue('Ana García') as HTMLInputElement;
+    await userEvent.clear(fullNameInput);
+    await userEvent.type(fullNameInput, 'María García');
+
+    const saveTutorBtn = screen.getByRole('button', { name: /guardar tutor/i });
+    await userEvent.click(saveTutorBtn);
+
+    // Must NOT show the raw code
+    await waitFor(() => {
+      expect(screen.queryByText('TUTOR_DUPLICATE_NAME')).not.toBeInTheDocument();
+    });
+    // Must show the friendly message
+    await waitFor(() => {
+      expect(screen.getByText(/ya existe un tutor activo con ese nombre/i)).toBeInTheDocument();
+    });
+  });
+});
+
 // ── Guardian panel tests (PR3) ────────────────────────────────────────────────
 describe('StudentsPage — guardian panel (PR3)', () => {
   const mockStudent = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };

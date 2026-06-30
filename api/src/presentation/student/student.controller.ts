@@ -131,12 +131,14 @@ export class StudentController {
     if (body.userId) {
       // Portal-link path: AssignGuardianUseCase (userId present)
       // Bug 4 fix: also forward fullName/mobile/email typed by the user
+      // Fix #7 (round-3): forward active so portal-link with active:false is persisted correctly
       const result = await this.assignGuardianUC.execute(id, {
         userId: body.userId,
         relationship: body.relationship,
         fullName: body.fullName,
         mobile: body.mobile,
         email: body.email,
+        active: body.active,
         isFinancialResponsible: body.isFinancialResponsible,
         isAuthorizedToPickUp: body.isAuthorizedToPickUp,
       });

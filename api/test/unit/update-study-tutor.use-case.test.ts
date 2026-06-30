@@ -191,4 +191,19 @@ describe('UpdateStudyTutorUseCase', () => {
     expect(result.unwrapErr().message).toMatch(/cannot be empty/i);
     expect(guardianRepo.save).not.toHaveBeenCalled();
   });
+
+  // Round-3: reactivating a guardian (active:true) with no fullName change must NOT trigger
+  // the uniqueness check (only runs when fullName changes). This proves the index revert
+  // doesn't affect the reactivation path.
+  it('(Round3) reactivating guardian (active:true) with same fullName does not call findStudyTutor', async () => {
+    const guardian = mockGuardian({ active: false, fullName: 'Ana García' });
+    vi.mocked(guardianRepo.findById).mockResolvedValue(guardian);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    const result = await useCase.execute({ guardianId: 'g1', active: true });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().active).toBe(true);
+    expect(guardianRepo.findStudyTutor).not.toHaveBeenCalled();
+  });
 });

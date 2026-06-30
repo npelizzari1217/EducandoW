@@ -71,6 +71,26 @@ describe('AssignGuardianUseCase', () => {
     expect(result.unwrapErr().message).toBe('GUARDIAN_ALREADY_ASSIGNED');
   });
 
+  // Fix #7 (round-3) RED: portal-link with active:false must persist active:false
+  // RED (before fix): AssignGuardianInput has no active field → defaults to true
+  // GREEN (after fix): active is forwarded and saved as false
+  it('(Round3-Fix7) portal-link with active:false persists active:false', async () => {
+    vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());
+    vi.mocked(guardianRepo.findByComposite).mockResolvedValue(null);
+    vi.mocked(guardianRepo.save).mockResolvedValue(undefined);
+
+    // Cast to any: AssignGuardianInput doesn't have active yet (before the fix)
+    const result = await useCase.execute('s1', {
+      userId: 'u-parent',
+      relationship: 'father',
+      active: false,
+    } as any);
+
+    expect(result.isOk()).toBe(true);
+    const saved = vi.mocked(guardianRepo.save).mock.calls[0][0];
+    expect(saved.active).toBe(false);
+  });
+
   // Bug 4 RED: portal-link with fullName+mobile → fullName and mobile must be persisted
   it('(Bug4) portal-link with fullName and mobile persists them on the guardian', async () => {
     vi.mocked(studentRepo.findById).mockResolvedValue(mockStudent());

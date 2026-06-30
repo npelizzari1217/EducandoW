@@ -305,6 +305,7 @@ export interface AssignGuardianInput {
   fullName?: string;
   mobile?: string;
   email?: string;
+  active?: boolean;
   isFinancialResponsible?: boolean;
   isAuthorizedToPickUp?: boolean;
 }
@@ -348,6 +349,7 @@ export class AssignGuardianUseCase {
     }
 
     // Create and save — propagate entity validation errors
+    // Fix #7 (round-3): forward active so portal-link with active:false is persisted correctly
     const createResult = StudentGuardian.create({
       studentId,
       userId: input.userId,
@@ -355,6 +357,7 @@ export class AssignGuardianUseCase {
       fullName: input.fullName,
       mobile: mobileVO,
       email: emailVO,
+      active: input.active,
       isFinancialResponsible: input.isFinancialResponsible ?? false,
       isAuthorizedToPickUp: input.isAuthorizedToPickUp ?? false,
     });

@@ -49,15 +49,17 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
         },
       });
     } catch (e: unknown) {
-      // Bug 7 fix: map Postgres unique-violation (P2002) on the partial index
-      // "student_guardians_studentId_fullName_active_partial" to the domain TUTOR_DUPLICATE_NAME error.
-      // This catches TOCTOU races that bypass the application-layer findStudyTutor check.
+      // Fix #3 (round-3): map Postgres unique-violation (P2002) on the @@unique([studentId, userId])
+      // portal-link constraint to GUARDIAN_ALREADY_ASSIGNED so the controller can return 409.
+      // This catches TOCTOU races that bypass the application-layer findByComposite check.
+      // NOTE: the partial index on (studentId, fullName) was reverted (REQ-RYT-08-C requires
+      // allowDuplicate to truly work); there is no longer a DB constraint for study-tutor names.
       if (
         e instanceof Error &&
         (e as Record<string, unknown>)['code'] === 'P2002' &&
-        String((e as Record<string, unknown>)['meta']?.['target'] ?? '').includes('fullName')
+        String((e as Record<string, unknown>)['meta']?.['target'] ?? '').includes('userId')
       ) {
-        throw new ValidationError('TUTOR_DUPLICATE_NAME');
+        throw new ValidationError('GUARDIAN_ALREADY_ASSIGNED');
       }
       throw e;
     }
@@ -93,9 +95,10 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
 
   async findStudyTutor(studentId: string, fullName: string): Promise<StudentGuardian | null> {
     // Bug 8 fix: only consider active tutors as duplicates.
-    // A deactivated tutor with the same name must not block re-registration.
+    // Fix #2 (round-3): filter userId IS NULL so portal-linked guardians sharing a name
+    // do not block study-tutor registration (they are different record types).
     const record = await this.client.studentGuardian.findFirst({
-      where: { studentId, fullName, active: true },
+      where: { studentId, fullName, active: true, userId: null },
     });
     return record ? this.toDomain(record) : null;
   }

@@ -256,7 +256,17 @@ export default function StudentsPage() {
         await apiClient.patch(`/students/${detailStudentId}/guardians/${editingGuardianId}`, body);
         resetGuardianForm();
         loadGuardians(detailStudentId);
-      } catch (e: unknown) { setGuardianError(extractErrorMessage(e) || 'Error al actualizar tutor'); }
+      } catch (e: unknown) {
+        // Fix #4 (round-3): translate TUTOR_DUPLICATE_NAME to the same friendly message as the
+        // create path, so the user never sees the raw error code.
+        // Note: edit mode has no allowDuplicate path; just show the message.
+        const msg = extractErrorMessage(e);
+        if (msg === 'TUTOR_DUPLICATE_NAME') {
+          setGuardianError('Ya existe un tutor activo con ese nombre.');
+        } else {
+          setGuardianError(msg || 'Error al actualizar tutor');
+        }
+      }
       finally { setUpdatingGuardian(false); }
     } else {
       // POST new guardian — study tutor (no userId) or portal link (userId provided)
