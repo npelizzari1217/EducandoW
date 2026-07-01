@@ -1,10 +1,12 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query,
-  HttpCode, HttpStatus, UseGuards,
+  HttpCode, HttpStatus, UseGuards, Inject,
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
+import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateAttendanceTypeSchema, CreateAttendanceTypeDTO } from './dto/create-attendance-type.dto';
 import { UpdateAttendanceTypeSchema, UpdateAttendanceTypeDTO } from './dto/update-attendance-type.dto';
@@ -35,17 +37,20 @@ function toResponse(entity: AttendanceType) {
 @UseGuards(AuthGuard, RolesGuard)
 export class AttendanceTypeController {
   constructor(
-    private readonly createUC: CreateAttendanceTypeUseCase,
-    private readonly listUC: ListAttendanceTypesUseCase,
-    private readonly getUC: GetAttendanceTypeUseCase,
-    private readonly updateUC: UpdateAttendanceTypeUseCase,
-    private readonly deleteUC: DeleteAttendanceTypeUseCase,
+    @Inject(CreateAttendanceTypeUseCase) private readonly createUC: CreateAttendanceTypeUseCase,
+    @Inject(ListAttendanceTypesUseCase) private readonly listUC: ListAttendanceTypesUseCase,
+    @Inject(GetAttendanceTypeUseCase) private readonly getUC: GetAttendanceTypeUseCase,
+    @Inject(UpdateAttendanceTypeUseCase) private readonly updateUC: UpdateAttendanceTypeUseCase,
+    @Inject(DeleteAttendanceTypeUseCase) private readonly deleteUC: DeleteAttendanceTypeUseCase,
   ) {}
 
   @Post()
   @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'CREATE' })
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body(new ZodValidationPipe(CreateAttendanceTypeSchema)) body: CreateAttendanceTypeDTO) {
+  async create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(CreateAttendanceTypeSchema)) body: CreateAttendanceTypeDTO,
+  ) {
     const result = await this.createUC.execute({
       code: body.code,
       description: body.description,
@@ -53,7 +58,7 @@ export class AttendanceTypeController {
       level: body.level,
       behavior: body.behavior,
       active: body.active,
-    });
+    }, user);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toResponse(result.unwrap()) };
   }
@@ -61,6 +66,7 @@ export class AttendanceTypeController {
   @Get()
   @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'READ' })
   async list(
+    @CurrentUser() user: AuthenticatedUser,
     @Query('level') level?: string,
     @Query('active') active?: string,
   ) {
@@ -69,7 +75,7 @@ export class AttendanceTypeController {
     if (active === 'true') filters.active = true;
     else if (active === 'false') filters.active = false;
 
-    const entities = await this.listUC.execute(Object.keys(filters).length ? filters : undefined);
+    const entities = await this.listUC.execute(Object.keys(filters).length ? filters : undefined, user);
     return { data: entities.map(toResponse) };
   }
 

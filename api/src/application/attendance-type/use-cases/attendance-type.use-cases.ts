@@ -6,10 +6,22 @@ import {
   AttendanceTypeFilters,
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
+  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   AttendanceBehavior,
   AttendanceBehaviorValue,
+  resolveAccessScope,
 } from '@educandow/domain';
+
+/**
+ * Subconjunto de `AuthenticatedUser` (api/infra) requerido por `resolveAccessScope`.
+ * Application no importa el tipo de infra — solo lo que necesita del scope de nivel
+ * (REQ-16/REQ-17/REQ-18, design.md Q1). Precedente: list-grupos-global.use-case.ts.
+ */
+export interface AttendanceTypeCurrentUser {
+  roles: string[];
+  levels?: number[];
+}
 
 // ─────────────────────────────────────────────────────────────
 // Create
@@ -30,7 +42,13 @@ export class CreateAttendanceTypeUseCase {
 
   async execute(
     input: CreateAttendanceTypeInput,
+    currentUser: AttendanceTypeCurrentUser,
   ): Promise<Result<AttendanceType, AttendanceTypeCodeDuplicateError>> {
+    const scope = resolveAccessScope(currentUser);
+    if (!scope.allLevels && !scope.baseLevels.includes(input.level)) {
+      throw new AttendanceTypeLevelOutOfScopeError(input.level);
+    }
+
     const duplicate = await this.repo.existsByLevelCode(input.level, input.code.toUpperCase().trim());
     if (duplicate) {
       return err(new AttendanceTypeCodeDuplicateError(input.level, input.code));
@@ -136,8 +154,21 @@ export class DeleteAttendanceTypeUseCase {
 export class ListAttendanceTypesUseCase {
   constructor(private readonly repo: AttendanceTypeRepository) {}
 
-  async execute(filters?: AttendanceTypeFilters): Promise<AttendanceType[]> {
-    return this.repo.list(filters);
+  async execute(
+    filters: AttendanceTypeFilters | undefined,
+    currentUser: AttendanceTypeCurrentUser,
+  ): Promise<AttendanceType[]> {
+    const scope = resolveAccessScope(currentUser);
+
+    if (scope.allLevels) {
+      return this.repo.list(filters);
+    }
+
+    if (filters?.level !== undefined && !scope.baseLevels.includes(filters.level)) {
+      throw new AttendanceTypeLevelOutOfScopeError(filters.level);
+    }
+
+    return this.repo.list({ ...filters, allowedLevels: scope.baseLevels });
   }
 }
 
