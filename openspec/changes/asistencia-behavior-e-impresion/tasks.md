@@ -338,22 +338,27 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 **Satisfies:** REQ-P2-1 / Scenarios P2-1, P2-2 / AC-P2-1, AC-P2-2
 **Depends on:** PR3 (consumes the print endpoints)
 
+**PR4 COMPLETED (this session) — CHANGE COMPLETO (PR1→PR4 all done):** T4.1-T4.2 done. TDD RED→GREEN: 7 tests written first against the not-yet-existing buttons (confirmed RED — `btn-imprimir-general`/`btn-imprimir-materia` not found), then the buttons were implemented and all went GREEN on first pass after the implementation (plus one fixture-scoping fix for the `document.createElement` spy, see Learned below).
+
 ### Web — print buttons
 
 #### T4.1 [TEST] Component tests: "Imprimir" buttons trigger blob download
 
-- [ ] Extend `web/src/pages/dashboard/__tests__/asistencia-mensual.spec.tsx`
-- [ ] General module: "Imprimir" button renders; click calls `apiClient.get(generalPrintEndpoint, { responseType: 'blob' })` with current `courseCycleId`/`year`/`month` (Scenario P2-1)
-- [ ] Por Materia module: "Imprimir" button renders; click calls the materia print endpoint with `materiaXCursoXCicloId`/`year`/`month` (Scenario P2-2)
-- [ ] On success, a blob URL is created and a download is triggered (mock URL.createObjectURL + anchor click)
-- [ ] No `html2pdf`/client-side generation path is invoked (regression guard — REQ-P2-2)
+- [x] Extended `web/src/pages/dashboard/__tests__/asistencia-mensual.test.tsx` (actual filename; `.spec.tsx` referenced in this task did not exist — same naming reality already noted for T2.8) — new `describe('Impresión — PR-4', ...)` block, 7 tests (PR4-1..PR4-7)
+- [x] General module: "Imprimir" button renders (PR4-1); click calls `apiClient.get(generalPrintEndpoint, { responseType: 'blob' })` with current `courseCycleId`/`year`/`month` (PR4-2, Scenario P2-1) — asserted via regex on the URL (`\\d{4}`/`\\d{1,2}` for year/month) to avoid coupling the test to the system clock
+- [x] Por Materia module: "Imprimir" button renders (PR4-3); click calls the materia print endpoint with `materiaXCursoXCicloId`/`year`/`month` (PR4-4, Scenario P2-2)
+- [x] On success, a blob URL is created and a download is triggered (PR4-2/PR4-4 — mocked `URL.createObjectURL`/`revokeObjectURL` + a scoped `document.createElement` spy that only intercepts `'a'` tags, delegating everything else to the real implementation — see Learned)
+- [x] Disabled-state tests added (not in the original checklist, added per apply-scope instruction): PR4-5 (General disabled when no course cycle selected), PR4-6 (Por Materia disabled when no materia selected)
+- [x] No `html2pdf`/client-side generation path is invoked (PR4-7, regression guard — REQ-P2-2) — `html2pdf.js` module-mocked via `vi.hoisted` + `vi.mock`, asserted never called after a successful print click
 
 #### T4.2 [IMPL] Add print buttons — run until T4.1 green
 
-- [ ] Edit `web/src/pages/dashboard/asistencia-mensual.tsx`
-- [ ] Add "Imprimir" button to the General module block: `apiClient.get(...)` with `responseType: 'blob'`, build `blob` URL + `<a download>` trigger, no `html2pdf`
-- [ ] Add "Imprimir" button to the Por Materia module block: same pattern against the materia endpoint
-- [ ] `pnpm --filter web test` (or root `pnpm test`) green; `pnpm build` green (root)
+- [x] Edited `web/src/pages/dashboard/asistencia-mensual.tsx`
+- [x] Added "Imprimir" button to the General module block (rendered only when `mode === 'general'`): `handlePrintGeneral` calls `apiClient.get(...)` with `responseType: 'blob'`, shared `triggerPdfDownload(blob, filename)` helper builds a `blob` URL + `<a download>` trigger (same pattern as `downloadBoletinBatch` in `hooks/useBoletin.ts`), no `html2pdf`
+- [x] Added "Imprimir" button to the Por Materia module block (rendered only when `mode === 'materia'`): `handlePrintMateria`, same pattern against the materia endpoint, includes optional `&grupoId=` param for ADR-2 parity with `loadSubjectRows`
+- [x] Filename convention mirrors the backend's `Content-Disposition`: `asistencia-mensual-{ccId|materiaId}-{year}-{month}.pdf`
+- [x] Loading/disabled state: shared `printLoading` boolean (button disabled + label "Generando PDF…" while in flight); each button additionally disabled when its own scope id (`selectedCCId`/`selectedMateriaId`) is empty
+- [x] `pnpm --filter web test` → 49 files / 595 tests green (was 48/588 before this session — +1 describe block / +7 tests); `pnpm test` (root, turbo) → 4/4 tasks green (domain 110 files, api 196 files/1972 tests, web 49 files/595 tests); `pnpm build` (root, turbo) → 3/3 tasks green (web build includes the pre-existing `html2pdf.js` chunk used by `PremiumPrintReport.tsx`, unrelated to this change — confirms no new client-side PDF path was added)
 
 ---
 
