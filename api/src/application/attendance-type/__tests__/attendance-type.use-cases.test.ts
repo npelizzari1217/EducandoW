@@ -16,6 +16,8 @@ import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
   SystemAttendanceTypeError,
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
 } from '@educandow/domain';
 
 // ── Mock repo ────────────────────────────────────────────────
@@ -41,7 +43,7 @@ function makeEntity(overrides: {
   active?: boolean;
   description?: string;
   absenceValue?: number;
-  assignable?: boolean;
+  behavior?: AttendanceBehaviorValue;
 } = {}): AttendanceType {
   return AttendanceType.reconstruct({
     id: overrides.id ?? 'at-uuid-1',
@@ -49,7 +51,7 @@ function makeEntity(overrides: {
     description: overrides.description ?? 'Presente',
     absenceValue: overrides.absenceValue ?? 0,
     level: overrides.level ?? 2,
-    assignable: overrides.assignable ?? true,
+    behavior: AttendanceBehavior.reconstruct(overrides.behavior ?? AttendanceBehaviorValue.NO_COMPUTA),
     isSystem: overrides.isSystem ?? false,
     active: overrides.active ?? true,
   });
@@ -76,7 +78,7 @@ describe('CreateAttendanceTypeUseCase', () => {
       description: 'Tardanza',
       absenceValue: 0.5,
       level: 2,
-      assignable: true,
+      behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
     });
 
     expect(result.isOk()).toBe(true);
@@ -95,7 +97,7 @@ describe('CreateAttendanceTypeUseCase', () => {
       description: 'Otro Presente',
       absenceValue: 0,
       level: 2,
-      assignable: true,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA,
     });
 
     expect(result.isErr()).toBe(true);

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { BadRequestException } from '@nestjs/common';
+import { AttendanceBehaviorValue } from '@educandow/domain';
 
 // Dynamic imports allow tests to be written before the DTOs are created (RED phase).
 let CreateAttendanceTypeSchema: any;
@@ -19,7 +20,7 @@ const validCreate = {
   description: 'Tardanza',
   absenceValue: 0.5,
   level: 2,
-  assignable: true,
+  behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
 };
 
 describe('CreateAttendanceTypeSchema — ZodValidationPipe', () => {
@@ -69,6 +70,24 @@ describe('CreateAttendanceTypeSchema — ZodValidationPipe', () => {
     const pipe = new ZodValidationPipe(CreateAttendanceTypeSchema);
     expect(() => pipe.transform({ ...validCreate, description: '' })).toThrow(BadRequestException);
   });
+
+  it('rejects behavior with an unknown value → 400', () => {
+    const pipe = new ZodValidationPipe(CreateAttendanceTypeSchema);
+    expect(() => pipe.transform({ ...validCreate, behavior: 'INVALID' })).toThrow(BadRequestException);
+  });
+
+  it('rejects payload missing behavior → 400', () => {
+    const pipe = new ZodValidationPipe(CreateAttendanceTypeSchema);
+    const { behavior: _behavior, ...withoutBehavior } = validCreate;
+    expect(() => pipe.transform(withoutBehavior)).toThrow(BadRequestException);
+  });
+
+  it('accepts each of the 7 AttendanceBehavior values', () => {
+    const pipe = new ZodValidationPipe(CreateAttendanceTypeSchema);
+    for (const behavior of Object.values(AttendanceBehaviorValue)) {
+      expect(() => pipe.transform({ ...validCreate, behavior })).not.toThrow();
+    }
+  });
 });
 
 describe('UpdateAttendanceTypeSchema — invariants', () => {
@@ -98,5 +117,20 @@ describe('UpdateAttendanceTypeSchema — invariants', () => {
   it('accepts absenceValue = 0 in update', () => {
     const pipe = new ZodValidationPipe(UpdateAttendanceTypeSchema);
     expect(() => pipe.transform({ absenceValue: 0 })).not.toThrow();
+  });
+
+  it('behavior is optional — omitted payload does not throw', () => {
+    const pipe = new ZodValidationPipe(UpdateAttendanceTypeSchema);
+    expect(() => pipe.transform({ description: 'ok' })).not.toThrow();
+  });
+
+  it('rejects an invalid behavior value when present', () => {
+    const pipe = new ZodValidationPipe(UpdateAttendanceTypeSchema);
+    expect(() => pipe.transform({ behavior: 'INVALID' })).toThrow(BadRequestException);
+  });
+
+  it('accepts a valid behavior value when present', () => {
+    const pipe = new ZodValidationPipe(UpdateAttendanceTypeSchema);
+    expect(() => pipe.transform({ behavior: AttendanceBehaviorValue.DIA_NO_HABIL })).not.toThrow();
   });
 });

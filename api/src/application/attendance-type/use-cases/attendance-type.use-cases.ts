@@ -7,6 +7,8 @@ import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
   SystemAttendanceTypeError,
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
 } from '@educandow/domain';
 
 // ─────────────────────────────────────────────────────────────
@@ -18,7 +20,7 @@ export interface CreateAttendanceTypeInput {
   description: string;
   absenceValue: number;
   level: number;
-  assignable: boolean;
+  behavior: AttendanceBehaviorValue;
   active?: boolean;
 }
 
@@ -39,7 +41,7 @@ export class CreateAttendanceTypeUseCase {
       description: input.description,
       absenceValue: input.absenceValue,
       level: input.level,
-      assignable: input.assignable,
+      behavior: input.behavior,
       active: input.active ?? true,
       isSystem: false,
     });
@@ -57,7 +59,7 @@ export interface UpdateAttendanceTypeInput {
   description?: string;
   absenceValue?: number;
   active?: boolean;
-  assignable?: boolean;
+  behavior?: AttendanceBehaviorValue;
 }
 
 @Injectable()
@@ -86,7 +88,9 @@ export class UpdateAttendanceTypeUseCase {
       description: input.description ?? entity.description,
       absenceValue: input.absenceValue ?? entity.absenceValue,
       level: entity.level,
-      assignable: input.assignable ?? entity.assignable,
+      behavior: input.behavior
+        ? AttendanceBehavior.create(input.behavior).unwrap()
+        : entity.behavior,
       isSystem: entity.isSystem,
       active: input.active ?? entity.active,
       deletedAt: entity.deletedAt,

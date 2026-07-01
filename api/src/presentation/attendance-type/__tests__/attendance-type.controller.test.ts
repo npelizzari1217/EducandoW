@@ -6,7 +6,7 @@ import {
   ok,
   err,
 } from '@educandow/domain';
-import { AttendanceType, AttendanceTypeCode } from '@educandow/domain';
+import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 
 // Dynamically imported to run after mocks are wired (TDD pattern).
 let AttendanceTypeController: any;
@@ -24,7 +24,7 @@ function makeEntity(overrides: Partial<{
   code: string;
   description: string;
   absenceValue: number;
-  assignable: boolean;
+  behavior: AttendanceBehaviorValue;
   isSystem: boolean;
   active: boolean;
 }> = {}) {
@@ -34,7 +34,7 @@ function makeEntity(overrides: Partial<{
     description: overrides.description ?? 'Presente',
     absenceValue: overrides.absenceValue ?? 0,
     level: overrides.level ?? 2,
-    assignable: overrides.assignable ?? true,
+    behavior: AttendanceBehavior.reconstruct(overrides.behavior ?? AttendanceBehaviorValue.NO_COMPUTA),
     isSystem: overrides.isSystem ?? false,
     active: overrides.active ?? true,
   });
@@ -77,7 +77,7 @@ describe('AttendanceTypeController.create', () => {
       description: 'Presente',
       absenceValue: 0,
       level: 2,
-      assignable: true,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA,
     });
 
     expect(result.data).toBeDefined();
@@ -92,7 +92,7 @@ describe('AttendanceTypeController.create', () => {
     });
 
     await expect(
-      ctrl.create({ code: 'P', description: 'Presente', absenceValue: 0, level: 2, assignable: true }),
+      ctrl.create({ code: 'P', description: 'Presente', absenceValue: 0, level: 2, behavior: AttendanceBehaviorValue.NO_COMPUTA }),
     ).rejects.toThrow(AttendanceTypeCodeDuplicateError);
   });
 });
@@ -243,14 +243,14 @@ describe('AttendanceTypeController — HTTP status codes', () => {
     expect(result).toBeUndefined();
   });
 
-  it('toResponse helper returns expected fields', async () => {
+  it('toResponse helper returns expected fields, including behavior + derived assignable', async () => {
     const entity = makeEntity({
       id: 'resp-1',
       code: 'SAB',
       description: 'Sábado',
       absenceValue: 0,
       level: 2,
-      assignable: false,
+      behavior: AttendanceBehaviorValue.NO_ELEGIBLE,
       isSystem: true,
       active: true,
     });
@@ -264,7 +264,8 @@ describe('AttendanceTypeController — HTTP status codes', () => {
       description: 'Sábado',
       absence_value: 0,
       level: 2,
-      assignable: false,
+      behavior: AttendanceBehaviorValue.NO_ELEGIBLE,
+      assignable: false, // derived: NO_ELEGIBLE.isEligible() === false (compat check)
       is_system: true,
       active: true,
     });

@@ -24,7 +24,8 @@ function toResponse(entity: AttendanceType) {
     description: entity.description,
     absence_value: entity.absenceValue,
     level: entity.level,
-    assignable: entity.assignable,
+    behavior: entity.behavior.get(),
+    assignable: entity.assignable, // derived (ADR-03), kept for backward compat
     is_system: entity.isSystem,
     active: entity.active,
   };
@@ -50,7 +51,7 @@ export class AttendanceTypeController {
       description: body.description,
       absenceValue: body.absenceValue,
       level: body.level,
-      assignable: body.assignable,
+      behavior: body.behavior,
       active: body.active,
     });
     if (result.isErr()) throw result.unwrapErr();
