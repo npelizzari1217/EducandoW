@@ -13,6 +13,14 @@ import CourseCycleForm from '../../components/course-cycle/CourseCycleForm';
 import apiClient from '../../api/client';
 import { downloadBoletinBatch } from '../../hooks/useBoletin';
 import { AlumnosCursoCicloPanel } from './components/AlumnosCursoCicloPanel';
+import { isManagementUser } from '../../types/materia-grupo';
+import { useGradingPhase } from '../../hooks/useGradingPhase';
+import {
+  GRADING_PHASE_OPTIONS,
+  GRADING_PHASE_LABELS,
+  gradingPhaseStatusLabel,
+  type GradingPhaseValue,
+} from './components/grading-phase-utils';
 
 interface Institution { id: string; name: string; }
 
@@ -33,6 +41,51 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+
+/** Levels that support the bimester grading phase (Capacidad A): Primario (20-22) + Secundario (30-32). */
+const CAN_GRADE_PHASE_LEVELS = [20, 21, 22, 30, 31, 32];
+
+/**
+ * GradingPhasePopupBody — Modal content for activating/changing the bimester grading phase.
+ * Shows the 5 activatable phases (1er..4to Bimestre + Cierre), marking the active one.
+ */
+function GradingPhasePopupBody({ ccId }: { ccId: string }) {
+  const { gradingPhase, loading, saving, error, setPhase } = useGradingPhase(ccId);
+
+  if (loading) {
+    return <p style={{ color: 'var(--color-text-secondary)' }}>Cargando...</p>;
+  }
+
+  return (
+    <div>
+      <p style={{ marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>
+        Fase activa: <strong>{gradingPhaseStatusLabel(gradingPhase as GradingPhaseValue)}</strong>
+      </p>
+      <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+        {GRADING_PHASE_OPTIONS.map((code) => {
+          const active = gradingPhase === code;
+          return (
+            <Button
+              key={code}
+              variant={active ? 'action' : 'ghost'}
+              size="sm"
+              aria-pressed={active}
+              disabled={saving}
+              onClick={() => setPhase(code)}
+            >
+              {GRADING_PHASE_LABELS[code]}
+            </Button>
+          );
+        })}
+      </div>
+      {error && (
+        <p style={{ color: 'var(--color-danger)', marginTop: 'var(--space-sm)', fontSize: 'var(--text-sm)' }}>
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
 
 const selectStyle: React.CSSProperties = {
   padding: '0.5rem', borderRadius: 'var(--radius-md)',
@@ -57,6 +110,7 @@ export default function CourseCyclesPage() {
   const [generating, setGenerating] = useState(false);
   const [boletinBatchCcId, setBoletinBatchCcId] = useState<string | null>(null);
   const [alumnosPanelCcId, setAlumnosPanelCcId] = useState<string | null>(null);
+  const [gradingPhaseCcId, setGradingPhaseCcId] = useState<string | null>(null);
   const [confirmCascadeCcId, setConfirmCascadeCcId] = useState<string | null>(null);
   const [cascadingBulkCcId, setCascadingBulkCcId] = useState<string | null>(null);
 
@@ -390,6 +444,16 @@ export default function CourseCyclesPage() {
                   >
                     📄 Boletines
                   </Button>
+                  {isManagementUser(user?.roles) && CAN_GRADE_PHASE_LEVELS.includes(cc.level) && (
+                    <Button
+                      variant="action"
+                      size="sm"
+                      data-testid={`btn-grading-phase-${cc.uuid}`}
+                      onClick={() => setGradingPhaseCcId(cc.uuid)}
+                    >
+                      Fase de Calificación
+                    </Button>
+                  )}
                   <Button variant="action" size="sm" onClick={() => setEditing(cc)}>Editar</Button>
                   <Button variant="danger-soft" size="sm" onClick={() => handleDelete(cc.uuid)} loading={deleting}>Eliminar</Button>
                 </div>
@@ -414,6 +478,16 @@ export default function CourseCyclesPage() {
             embedded
           />
         )}
+      </Modal>
+
+      {/* Fase de Calificación — popup modal above the listing (Capacidad A) */}
+      <Modal
+        open={!!gradingPhaseCcId}
+        title="Fase de Calificación"
+        size="md"
+        onClose={() => setGradingPhaseCcId(null)}
+      >
+        {gradingPhaseCcId && <GradingPhasePopupBody ccId={gradingPhaseCcId} />}
       </Modal>
 
       {/* Bulk cascade confirmation dialog */}
