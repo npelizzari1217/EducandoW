@@ -187,24 +187,33 @@ Cubre AC-B-1..15 (spec #1645), secciones B1–B5 (design #1646).
 
 ### 3.1 Domain
 
-- [ ] 3.1.1 Test: entidad `AttendanceMonthStatus` — `monthOrdinal` (`year*12+month-1`),
+- [x] 3.1.1 Test: entidad `AttendanceMonthStatus` — `monthOrdinal` (`year*12+month-1`),
       `isClosed()`, `canRecord()`, `close(userId)` setea `CLOSED/closedAt/closedBy`,
-      `open(userId)` limpia `closedAt/closedBy`.
+      `open(userId)` limpia `closedAt/closedBy`. (ruta real:
+      `packages/domain/src/asistencia/__tests__/entities/attendance-month-status.test.ts`
+      — convención `__tests__/`, no co-localizado, igual que el resto del bounded context
+      `asistencia` y que `grading-phase.errors.test.ts` de PR-1)
       `packages/domain/src/asistencia/entities/attendance-month-status.test.ts`
-- [ ] 3.1.2 Impl: entidad `AttendanceMonthStatus` (`create`/`reconstruct`).
+- [x] 3.1.2 Impl: entidad `AttendanceMonthStatus` (`create`/`reconstruct`). Incluye además
+      `static canGenerate(previous: AttendanceMonthStatus|null): boolean` (exención primer
+      mes / previo debe estar cerrado) — regla de dominio pura, sin acceso a repo.
       `packages/domain/src/asistencia/entities/attendance-month-status.ts`
-- [ ] 3.1.3 [P] Test: `MonthClosedError` (code `MONTH_CLOSED`), `PreviousMonthOpenError`
-      (code `PREVIOUS_MONTH_OPEN`) — construcción y código.
+- [x] 3.1.3 [P] Test: `MonthClosedError` (code `MONTH_CLOSED`), `PreviousMonthOpenError`
+      (code `PREVIOUS_MONTH_OPEN`) — construcción y código. (ruta real: archivo combinado
+      `packages/domain/src/asistencia/__tests__/errors/attendance-month-status.errors.test.ts`,
+      igual convención combinada que `errors/__tests__/domain-errors.spec.ts` y
+      `grading-phase.errors.test.ts`)
       `packages/domain/src/asistencia/errors/month-closed-error.test.ts`,
       `packages/domain/src/asistencia/errors/previous-month-open-error.test.ts`
-- [ ] 3.1.4 [P] Impl: los dos errores.
+- [x] 3.1.4 [P] Impl: los dos errores. (ruta real: archivo combinado
+      `attendance-month-status.errors.ts`, misma convención que `grading-phase.errors.ts`)
       `packages/domain/src/asistencia/errors/month-closed-error.ts`,
       `packages/domain/src/asistencia/errors/previous-month-open-error.ts`
-- [ ] 3.1.5 [P] Impl (contrato, sin test unitario propio): puerto
+- [x] 3.1.5 [P] Impl (contrato, sin test unitario propio): puerto
       `AttendanceMonthStatusRepository` (`findOne`, `findLatestBefore`, `upsert`).
       `packages/domain/src/asistencia/repositories/attendance-month-status.repository.ts`
-- [ ] 3.1.6 Impl: actualizar barrels de dominio.
-      `packages/domain/src/index.ts` (y barrels intermedios)
+- [x] 3.1.6 Impl: actualizar barrels de dominio.
+      `packages/domain/src/index.ts`, `packages/domain/src/asistencia/index.ts`
 
 ### 3.2 Infrastructure
 
