@@ -288,10 +288,10 @@ componente; si el harness no soporta tests de React en este momento, marcar T31/
 
 ## Cierre transversal
 
-- [ ] **T40** Correr `pnpm build && pnpm test && pnpm lint` en la raíz del monorepo — build,
+- [x] **T40** Correr `pnpm build && pnpm test && pnpm lint` en la raíz del monorepo — build,
   suite completa y lint sin regresiones; cobertura ≥80% en los paquetes tocados
   (`packages/domain`, `api`, `web` si aplica).
-- [ ] **T41** Verificar los 4 criterios de aceptación transversales de la spec (sección final del
+- [x] **T41** Verificar los 4 criterios de aceptación transversales de la spec (sección final del
   delta): ningún test asume 200+vacío como sustituto de 403; `resolveAccessScope` es la única
   fuente de verdad de scope (grep para confirmar que ningún use-case reimplementa el colapso de
   modalidad); un request directo a la API fuera de scope (bypaseando el front) sigue devolviendo
