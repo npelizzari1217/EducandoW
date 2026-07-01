@@ -139,6 +139,8 @@ interface RawSubjectGradeStudent {
 interface RawSubjectGradesData {
   periods: RawSubjectGradePeriod[];
   students: RawSubjectGradeStudent[];
+  /** Active grading phase (Capacidad A, PR-1b) — gates which columns are editable. */
+  gradingPhase?: string | null;
   // NOTE: no top-level competencies[] — imprimible is in students[].competencyValuations[].periodValuations[]
 }
 
@@ -178,6 +180,8 @@ export interface UseGradingGridReturn {
   saveSubjectGrades: () => Promise<void>;
   saveSubjectFinalGrades: () => Promise<void>;
   isSavingSubjectGrades: boolean;
+  /** Active grading phase (Capacidad A) — null when subjectId is absent or no phase is active. */
+  gradingPhase: string | null;
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────────
@@ -206,6 +210,7 @@ export function useGradingGrid({
   const [subjectPeriodGradeCells, setSubjectPeriodGradeCells] = useState<Map<string, SubjectPeriodGradeCell>>(new Map());
   const [subjectFinalGradeCells, setSubjectFinalGradeCells] = useState<Map<string, SubjectFinalGradeCell>>(new Map());
   const [isSavingSubjectGrades, setIsSavingSubjectGrades] = useState(false);
+  const [gradingPhase, setGradingPhase] = useState<string | null>(null);
 
   // Keep refs in sync for async reads in save functions
   const cellsRef = useRef<Map<string, CellState>>(new Map());
@@ -311,6 +316,7 @@ export function useGradingGrid({
       let newSubjectGradePeriods: SubjectGradingPeriod[] = [];
       const newSubjectPeriodGradeCells = new Map<string, SubjectPeriodGradeCell>();
       const newSubjectFinalGradeCells = new Map<string, SubjectFinalGradeCell>();
+      let newGradingPhase: string | null = null;
 
       if (subjectId && subjectGradesRes && subjectGradesRes.status === 'fulfilled') {
         const sgData: RawSubjectGradesData =
@@ -320,6 +326,7 @@ export function useGradingGrid({
           };
 
         newSubjectGradePeriods = sgData.periods ?? [];
+        newGradingPhase = sgData.gradingPhase ?? null;
 
         // Derive imprimible per competency from students[].competencyValuations[].periodValuations[].imprimible
         // The real API has no top-level competencies[]; imprimible is on each period valuation.
@@ -377,6 +384,7 @@ export function useGradingGrid({
       setSubjectGradePeriods(newSubjectGradePeriods);
       setSubjectPeriodGradeCells(newSubjectPeriodGradeCells);
       setSubjectFinalGradeCells(newSubjectFinalGradeCells);
+      setGradingPhase(newGradingPhase);
       setLoading(false);
     }).catch(() => {
       setError('Error al cargar los datos de la grilla');
@@ -833,5 +841,6 @@ export function useGradingGrid({
     saveSubjectGrades,
     saveSubjectFinalGrades,
     isSavingSubjectGrades,
+    gradingPhase,
   };
 }

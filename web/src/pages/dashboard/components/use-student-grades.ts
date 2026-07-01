@@ -69,6 +69,8 @@ interface RawSubjectEntry {
 interface RawByStudentResponse {
   courseCycleId: string;
   studentId: string;
+  /** Active grading phase (Capacidad A, PR-1b) — gates which columns are editable. */
+  gradingPhase?: string | null;
   subjects: RawSubjectEntry[];
 }
 
@@ -120,6 +122,8 @@ export interface UseStudentGradesReturn {
   error: string;
   subjects: SubjectWithState[];
   scaleValues: ScaleValue[];
+  /** Active grading phase (Capacidad A) — null when no phase is active. */
+  gradingPhase: string | null;
   updatePeriodGrade(subjectId: string, periodOrdinal: number, updates: Partial<PeriodGradeState>): void;
   updateFinalGrade(subjectId: string, type: string, updates: Partial<FinalGradeState>): void;
   updateImprimible(valuationId: string, periodItemId: string, imprimible: boolean): void;
@@ -139,6 +143,7 @@ export function useStudentGrades({
   const [error, setError] = useState('');
   const [subjects, setSubjects] = useState<SubjectWithState[]>([]);
   const [scaleValues, setScaleValues] = useState<ScaleValue[]>([]);
+  const [gradingPhase, setGradingPhase] = useState<string | null>(null);
 
   // Ref for sync reads in update callbacks
   const subjectsRef = useRef<SubjectWithState[]>([]);
@@ -213,6 +218,7 @@ export function useStudentGrades({
 
       setSubjects(newSubjects);
       setScaleValues(allValues);
+      setGradingPhase(byStudentData?.gradingPhase ?? null);
       setLoading(false);
     }).catch(() => {
       setError('Error al cargar los datos del alumno');
@@ -514,6 +520,7 @@ export function useStudentGrades({
     error,
     subjects,
     scaleValues,
+    gradingPhase,
     updatePeriodGrade,
     updateFinalGrade,
     updateImprimible,
