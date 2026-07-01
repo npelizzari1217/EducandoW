@@ -233,7 +233,7 @@ describe('UpdateAttendanceTypeUseCase', () => {
     const result = await useCase.execute('at-uuid-1', {
       description: 'Tardanza leve',
       absenceValue: 0.25,
-    });
+    }, rootUser);
 
     expect(result.isOk()).toBe(true);
     expect(repo.save).toHaveBeenCalledTimes(1);
@@ -246,7 +246,7 @@ describe('UpdateAttendanceTypeUseCase', () => {
     const entity = makeEntity({ isSystem: true, code: 'P' });
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1', { description: 'Hacked' });
+    const result = await useCase.execute('at-uuid-1', { description: 'Hacked' }, rootUser);
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
@@ -258,7 +258,7 @@ describe('UpdateAttendanceTypeUseCase', () => {
   it('returns AttendanceTypeNotFoundError when entity does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    const result = await useCase.execute('nonexistent', { description: 'Nope' });
+    const result = await useCase.execute('nonexistent', { description: 'Nope' }, rootUser);
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
@@ -281,7 +281,7 @@ describe('UpdateAttendanceTypeUseCase', () => {
       description: 'Hackeado',
       absenceValue: 1,
       behavior: AttendanceBehaviorValue.AUSENTE_INJUSTIFICADO,
-    });
+    }, rootUser);
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(SystemAttendanceTypeError);
@@ -299,7 +299,7 @@ describe('UpdateAttendanceTypeUseCase', () => {
 
     const result = await useCase.execute('at-uuid-1', {
       behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
-    });
+    }, rootUser);
 
     expect(result.isOk()).toBe(true);
     expect(result.unwrap().behavior.get()).toBe(AttendanceBehaviorValue.TARDE_JUSTIFICADA);
@@ -311,12 +311,46 @@ describe('UpdateAttendanceTypeUseCase', () => {
     const entity = makeEntity({ isSystem: false, behavior: AttendanceBehaviorValue.DIA_NO_HABIL });
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1', { description: 'Solo descripción' });
+    const result = await useCase.execute('at-uuid-1', { description: 'Solo descripción' }, rootUser);
 
     expect(result.isOk()).toBe(true);
     const updated = result.unwrap();
     expect(updated.description).toBe('Solo descripción');
     expect(updated.behavior.get()).toBe(AttendanceBehaviorValue.DIA_NO_HABIL);
+  });
+
+  // ── PR3 — T12 (RED): scope de nivel en edición (REQ "Editar tipo no-sistema" MODIFIED / Escenarios 4.3-4.5) ──
+
+  it('updates when entity.level belongs to the caller baseLevels (in-scope)', async () => {
+    const entity = makeEntity({ isSystem: false, level: 2, description: 'Original' });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', { description: 'Actualizado' }, teacherLevel2);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.save).toHaveBeenCalledTimes(1);
+    expect(result.unwrap().description).toBe('Actualizado');
+  });
+
+  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels, repo.save is never called and the record is unchanged', async () => {
+    const entity = makeEntity({ isSystem: false, level: 3, description: 'Original' });
+    repo.findById.mockResolvedValue(entity);
+
+    await expect(
+      useCase.execute('at-uuid-1', { description: 'Hackeado' }, teacherLevel2),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(entity.description).toBe('Original');
+  });
+
+  it('allows ROOT/ADMIN to update a type of any level, unrestricted', async () => {
+    const entity = makeEntity({ isSystem: false, level: 4, description: 'Original' });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', { active: false }, rootUser);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.save).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -338,7 +372,7 @@ describe('DeleteAttendanceTypeUseCase', () => {
     const entity = makeEntity({ isSystem: false });
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1');
+    const result = await useCase.execute('at-uuid-1', rootUser);
 
     expect(result.isOk()).toBe(true);
     expect(repo.delete).toHaveBeenCalledWith('at-uuid-1');
@@ -348,7 +382,7 @@ describe('DeleteAttendanceTypeUseCase', () => {
     const entity = makeEntity({ isSystem: true, code: 'DOM' });
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1');
+    const result = await useCase.execute('at-uuid-1', rootUser);
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
@@ -362,7 +396,7 @@ describe('DeleteAttendanceTypeUseCase', () => {
     const entity = makeEntity({ isSystem: true, code: 'P', active: true, behavior: AttendanceBehaviorValue.NO_COMPUTA });
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1');
+    const result = await useCase.execute('at-uuid-1', rootUser);
 
     expect(result.isErr()).toBe(true);
     expect(repo.delete).not.toHaveBeenCalled();
@@ -373,10 +407,42 @@ describe('DeleteAttendanceTypeUseCase', () => {
   it('returns AttendanceTypeNotFoundError when entity does not exist', async () => {
     repo.findById.mockResolvedValue(null);
 
-    const result = await useCase.execute('nonexistent');
+    const result = await useCase.execute('nonexistent', rootUser);
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeNotFoundError);
+  });
+
+  // ── PR3 — T14 (RED): scope de nivel en eliminación (cierra el riesgo "Delete NO scopeado", design §9) ──
+
+  it('deletes when entity.level belongs to the caller baseLevels (in-scope)', async () => {
+    const entity = makeEntity({ isSystem: false, level: 2 });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', teacherLevel2);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.delete).toHaveBeenCalledWith('at-uuid-1');
+  });
+
+  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels, repo.delete is never called', async () => {
+    const entity = makeEntity({ isSystem: false, level: 3 });
+    repo.findById.mockResolvedValue(entity);
+
+    await expect(
+      useCase.execute('at-uuid-1', teacherLevel2),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it('allows ROOT/ADMIN to delete a type of any level, unrestricted', async () => {
+    const entity = makeEntity({ isSystem: false, level: 4 });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', rootUser);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.delete).toHaveBeenCalledWith('at-uuid-1');
   });
 });
 
@@ -470,7 +536,7 @@ describe('GetAttendanceTypeUseCase', () => {
     const entity = makeEntity();
     repo.findById.mockResolvedValue(entity);
 
-    const result = await useCase.execute('at-uuid-1');
+    const result = await useCase.execute('at-uuid-1', rootUser);
 
     expect(result.isOk()).toBe(true);
     expect(result.unwrap()).toBe(entity);
@@ -479,9 +545,40 @@ describe('GetAttendanceTypeUseCase', () => {
   it('returns AttendanceTypeNotFoundError when not found', async () => {
     repo.findById.mockResolvedValue(null);
 
-    const result = await useCase.execute('nonexistent');
+    const result = await useCase.execute('nonexistent', rootUser);
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeNotFoundError);
+  });
+
+  // ── PR3 — T16 (RED): scope de nivel en get-by-id (cierra el riesgo "Get by id NO scopeado", design §9) ──
+
+  it('returns the entity when entity.level belongs to the caller baseLevels (in-scope)', async () => {
+    const entity = makeEntity({ level: 2 });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', teacherLevel2);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(entity);
+  });
+
+  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels', async () => {
+    const entity = makeEntity({ level: 3 });
+    repo.findById.mockResolvedValue(entity);
+
+    await expect(
+      useCase.execute('at-uuid-1', teacherLevel2),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+  });
+
+  it('allows ROOT/ADMIN to get a type of any level, unrestricted', async () => {
+    const entity = makeEntity({ level: 4 });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', rootUser);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(entity);
   });
 });
