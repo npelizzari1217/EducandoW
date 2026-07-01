@@ -292,6 +292,14 @@ export type {
 export { MonthClosedError, PreviousMonthOpenError } from './asistencia';
 export type { AttendanceMonthStatusRepository } from './asistencia';
 
+// ── asistencia-behavior-e-impresion — Parte 2: agregador de impresión (PR3a) ─
+export { computeStudentTotals, computeDiasHabiles } from './asistencia';
+export type {
+  AttendanceTypeCatalogEntry,
+  AttendanceTypeCatalog,
+  StudentAttendanceTotals,
+} from './asistencia';
+
 // PlanificacionCurso (Fase 7)
 export { PlanificacionCurso } from './planificacion-curso';
 export type { PlanificacionCursoProps, CreatePlanificacionCursoInput } from './planificacion-curso';

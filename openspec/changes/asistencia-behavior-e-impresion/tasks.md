@@ -142,81 +142,85 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 - Existing tests (`attendance-type.use-cases.test.ts`, `dto-validation.test.ts`, `attendance-type.controller.test.ts`) updated to the new shape, plus a handful of behavior-validation assertions added (rejects invalid/missing behavior, accepts all 7 values) — a subset of T2.1/T2.3/T2.4, NOT the full scenario coverage below.
 - **STILL PENDING for PR2** (not done by this agent): T2.1's full scenario list (system-type lock re-verified specifically against `behavior` input attempts, 7-distinct-custom-types-no-uniqueness-conflict test, "behavior optional on update keeps unchanged" explicit test), all of T2.6-T2.9 (web UI selector + grid filter/lock — `asistencia-mensual.tsx` and `attendance-types.tsx` untouched, still read/write nothing about `behavior`).
 
+**PR2 COMPLETED (this session):** all items above marked STILL PENDING are now done — T2.1's full use-case scenario list (system lock re-verified against `behavior` input, 7-distinct-custom-types, update-omits-behavior), T2.6/T2.7 (`attendance-types.tsx` behavior selector + table column), T2.8/T2.9 (`asistencia-mensual.tsx` grid filter/lock migrated from `assignable` to `behavior`). See PR2 task checkboxes below for detail per task.
+
 ### API application — use-cases
 
 #### T2.1 [TEST] Use-case tests: create/update accept `behavior`, reject out-of-range, keep system lock
 
-- [ ] Edit `api/src/application/attendance-type/__tests__/attendance-type.use-cases.test.ts`
-- [ ] Create: valid `behavior` (e.g. 6) → succeeds, `absenceValue` stored independent of `behavior` (P1-1/Scenario P1-1)
-- [ ] Create: `behavior` out of range (e.g. `'INVALID'` payload before DTO layer, or invalid enum member) → validation error, no row created (Scenario P1-2)
-- [ ] Update: system type (`isSystem=true`) attempted update to description/absenceValue/behavior → rejected via existing `assertMutable`, row unchanged (Scenario P1-5)
-- [ ] Delete: system type → rejected, row remains active (Scenario P1-6)
-- [ ] Update/Delete: custom type → succeeds (Scenario P1-7)
-- [ ] Update: `behavior` optional on input; omitted → keeps `entity.behavior` unchanged
-- [ ] Create 7 distinct custom types, one per behavior 1-7 → all succeed, no uniqueness conflict on `behavior` (Scenario P1-11)
+- [x] Edit `api/src/application/attendance-type/__tests__/attendance-type.use-cases.test.ts`
+- [x] Create: valid `behavior` (e.g. 6) → succeeds, `absenceValue` stored independent of `behavior` (P1-1/Scenario P1-1)
+- [x] Create: `behavior` out of range (e.g. `'INVALID'` payload before DTO layer, or invalid enum member) → validation error, no row created (Scenario P1-2)
+- [x] Update: system type (`isSystem=true`) attempted update to description/absenceValue/behavior → rejected via existing `assertMutable`, row unchanged (Scenario P1-5)
+- [x] Delete: system type → rejected, row remains active (Scenario P1-6)
+- [x] Update/Delete: custom type → succeeds (Scenario P1-7)
+- [x] Update: `behavior` optional on input; omitted → keeps `entity.behavior` unchanged
+- [x] Create 7 distinct custom types, one per behavior 1-7 → all succeed, no uniqueness conflict on `behavior` (Scenario P1-11)
 
 #### T2.2 [IMPL] Update `attendance-type.use-cases.ts` — run until T2.1 green
 
-- [ ] Edit `api/src/application/attendance-type/use-cases/attendance-type.use-cases.ts`
-- [ ] `CreateAttendanceTypeUseCase`: input takes `behavior` instead of `assignable`
-- [ ] `UpdateAttendanceTypeUseCase`: `behavior` optional in input; reconstruct with `input.behavior ?? entity.behavior`
-- [ ] No change to `assertMutable` call sites (lock already wired — ADR-04)
+- [x] Edit `api/src/application/attendance-type/use-cases/attendance-type.use-cases.ts` (brought forward in PR1b)
+- [x] `CreateAttendanceTypeUseCase`: input takes `behavior` instead of `assignable`
+- [x] `UpdateAttendanceTypeUseCase`: `behavior` optional in input; reconstruct with `input.behavior ?? entity.behavior`
+- [x] No change to `assertMutable` call sites (lock already wired — ADR-04)
 
 ### API presentation — DTO + controller
 
 #### T2.3 [TEST] DTO validation tests
 
-- [ ] Edit `api/src/presentation/attendance-type/__tests__/dto-validation.test.ts`
-- [ ] Create DTO: `behavior` required, must be one of the 7 enum members; rejects unknown values (Scenario P1-2)
-- [ ] Update DTO: `behavior` optional; when present, same enum validation
-- [ ] Both DTOs no longer accept/require `assignable` as input
+- [x] Edit `api/src/presentation/attendance-type/__tests__/dto-validation.test.ts` (done in PR1b)
+- [x] Create DTO: `behavior` required, must be one of the 7 enum members; rejects unknown values (Scenario P1-2)
+- [x] Update DTO: `behavior` optional; when present, same enum validation
+- [x] Both DTOs no longer accept/require `assignable` as input
 
 #### T2.4 [TEST] Controller tests: `toResponse` exposes `behavior` + derived `assignable`
 
-- [ ] Edit `api/src/presentation/attendance-type/__tests__/attendance-type.controller.test.ts`
-- [ ] Response payload includes `behavior: <value>` for created/updated/listed types
-- [ ] Response payload still includes `assignable` (derived, for backward compat with current consumers)
-- [ ] `behavior=3` (`NO_ELEGIBLE`) type still returns `assignable: false` in the response (compat check)
+- [x] Edit `api/src/presentation/attendance-type/__tests__/attendance-type.controller.test.ts` (done in PR1b)
+- [x] Response payload includes `behavior: <value>` for created/updated/listed types
+- [x] Response payload still includes `assignable` (derived, for backward compat with current consumers)
+- [x] `behavior=3` (`NO_ELEGIBLE`) type still returns `assignable: false` in the response (compat check)
 
 #### T2.5 [IMPL] Update DTOs + controller — run until T2.3 + T2.4 green
 
-- [ ] Edit `api/src/presentation/attendance-type/dto/create-attendance-type.dto.ts`: replace `assignable: z.boolean()` with `behavior: z.nativeEnum(AttendanceBehaviorValue)` (or `z.enum([...7 literals])`)
-- [ ] Edit `api/src/presentation/attendance-type/dto/update-attendance-type.dto.ts`: replace `assignable` with optional `behavior`
-- [ ] Edit `api/src/presentation/attendance-type/attendance-type.controller.ts`: `toResponse` adds `behavior: entity.behavior.get()`, keeps `assignable` in output; wire DTO `behavior` into use-case inputs
-- [ ] `pnpm --filter api test` green; `pnpm --filter api typecheck` clean
+- [x] Edit `api/src/presentation/attendance-type/dto/create-attendance-type.dto.ts`: replace `assignable: z.boolean()` with `behavior: z.nativeEnum(AttendanceBehaviorValue)` (done in PR1b)
+- [x] Edit `api/src/presentation/attendance-type/dto/update-attendance-type.dto.ts`: replace `assignable` with optional `behavior` (done in PR1b)
+- [x] Edit `api/src/presentation/attendance-type/attendance-type.controller.ts`: `toResponse` adds `behavior: entity.behavior.get()`, keeps `assignable` in output; wire DTO `behavior` into use-case inputs (done in PR1b)
+- [x] `pnpm --filter api test` green; `pnpm --filter api typecheck` clean
+- [x] HTTP error mapping verified: `ATTENDANCE_TYPE_SYSTEM_PROTECTED`→409, `ATTENDANCE_TYPE_NOT_FOUND`→404, `VALIDATION_ERROR` (invalid behavior)→400, already wired in `api/src/presentation/shared/filters/exception.filter.ts` (`DOMAIN_STATUS` map) — no change needed, confirmed by use-case test asserting the invalid-behavior create rejects.
 
 ### Web — attendance-types admin UI
 
 #### T2.6 [TEST] Component test: `behavior` selector in create/edit form
 
-- [ ] Locate or create test file alongside `web/src/pages/dashboard/attendance-types.tsx` (mirror existing test conventions in `web/src/pages/dashboard/__tests__/`)
-- [ ] Form renders a `behavior` dropdown with the 7 labeled options for custom-type create/edit
-- [ ] Selector disabled/hidden when editing a system type (`isSystem=true`)
-- [ ] Submitting create sends `behavior` in the payload; no `assignable` toggle rendered as input anymore
+- [x] Extended `web/src/pages/dashboard/__tests__/attendance-types.test.tsx` (new `describe('AttendanceTypesPage — behavior selector')` block)
+- [x] Form renders a `behavior` dropdown with the 7 labeled options for custom-type create/edit
+- [x] Selector effectively hidden when editing a system type — system rows never render an "Editar" button (pre-existing lock), so the form/selector never opens for `isSystem=true` rows; verified no regression
+- [x] Submitting create sends `behavior` in the payload; no `assignable` toggle rendered as input anymore
 
 #### T2.7 [IMPL] Update `attendance-types.tsx` — run until T2.6 green
 
-- [ ] Edit `web/src/pages/dashboard/attendance-types.tsx`
-- [ ] Add `behavior` select (7 labeled options) to create/edit form; remove `assignable` boolean input
-- [ ] Disable/hide behavior field for system-type rows
+- [x] Edit `web/src/pages/dashboard/attendance-types.tsx`
+- [x] Add `behavior` select (7 labeled options, from new `web/src/constants/attendance-behavior.ts`) to create/edit form; removed `assignable` boolean checkbox input
+- [x] Table column `Asignable` replaced by `Comportamiento` (readable label via `attendanceBehaviorLabel`)
+- [x] Behavior field never shown for system-type rows (no edit action rendered for them — pre-existing lock)
 
 ### Web — grid filter/lock
 
 #### T2.8 [TEST] Component tests: grid combo filters by `behavior`, lock by `behavior`
 
-- [ ] Locate or extend `web/src/pages/dashboard/__tests__/asistencia-mensual.spec.tsx` (existing file from prior change `asistencia-dias-bloqueados`)
-- [ ] `behavior = NO_ELEGIBLE` (3) type MUST NOT appear in the editable-cell combo (Scenario P1-8, AC-P1-7)
-- [ ] Types with `behavior` in `{1,2,4,5,6,7}` MUST appear in the combo when `active` (Scenario P1-9, AC-P1-8)
-- [ ] Lock check (previously `at?.assignable === false`) now reads `at?.behavior === 'NO_ELEGIBLE'`
-- [ ] Custom `Feriado` (`behavior=7`, `active=true`) IS selectable and can be assigned day-by-day for one student without affecting others (Scenario P1-10, AC-P1-9)
+- [x] Extended `web/src/pages/dashboard/__tests__/asistencia-mensual.test.tsx` (actual filename; `.spec.tsx` referenced in this task did not exist)
+- [x] `behavior = NO_ELEGIBLE` (3) type MUST NOT appear in the editable-cell combo (Scenario P1-8, AC-P1-7) — GRID-5/GRID-6 renamed+updated
+- [x] Types with `behavior` in `{1,2,4,5,6,7}` MUST appear in the combo when `active` (Scenario P1-9, AC-P1-8)
+- [x] Lock check (previously `at?.assignable === false`) now reads `at?.behavior === 'NO_ELEGIBLE'`
+- [x] Custom `Feriado` (`behavior=DIA_NO_HABIL`, `active=true`) IS selectable (new GRID-8 test, Scenario P1-10, AC-P1-9)
 
 #### T2.9 [IMPL] Update `asistencia-mensual.tsx` — run until T2.8 green
 
-- [ ] Edit `web/src/pages/dashboard/asistencia-mensual.tsx`
-- [ ] Add `behavior: string` to `AttendanceTypeItem` interface
-- [ ] Line ~439 combo filter: `attendanceTypes.filter(t => t.active && t.behavior !== 'NO_ELEGIBLE')` (was `t.assignable`)
-- [ ] Line ~677 lock check: `isLockedByCode = at?.behavior === 'NO_ELEGIBLE'` (was `at?.assignable === false`)
-- [ ] `pnpm --filter web test` (or root `pnpm test`) green; `pnpm build` green
+- [x] Edit `web/src/pages/dashboard/asistencia-mensual.tsx`
+- [x] Add `behavior: string` to `AttendanceTypeItem` interface (replaced `assignable: boolean`)
+- [x] Line ~439 combo filter: `attendanceTypes.filter(t => t.active && t.behavior !== NO_ELEGIBLE_BEHAVIOR)` (constant from `web/src/constants/attendance-behavior.ts`, was `t.assignable`)
+- [x] Line ~677 lock check: `isLockedByCode = at?.behavior === NO_ELEGIBLE_BEHAVIOR` (was `at?.assignable === false`)
+- [x] `pnpm --filter web test` green; `pnpm build` green
 
 ---
 
@@ -225,34 +229,36 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 **Satisfies:** REQ-P2-1 through REQ-P2-7 / Scenarios P2-1..P2-11 / AC-P2-1..AC-P2-17
 **Depends on:** PR1 (catalog needs `behavior`). Independent of PR2 in code; stacked after it by delivery order.
 
+**PR3a COMPLETED (this session):** T3.1-T3.3 done — pure domain aggregator (`computeStudentTotals`, `computeDiasHabiles`) in `packages/domain/src/asistencia/utils/asistencia-totals.ts`, TDD RED→GREEN, exported from `asistencia/index.ts` + `domain/src/index.ts`. **STILL PENDING:** T3.4-T3.11 (PR3b PDF-service landscape option + `.hbs` template; PR3c use-case + `AsistenciaReportingError` + controller/module + endpoint wiring) and PR4 (front print buttons).
+
 ### Domain — aggregator
 
 #### T3.1 [TEST] Unit tests for `computeStudentTotals`
 
-- [ ] Create `packages/domain/src/asistencia/utils/__tests__/asistencia-totals.test.ts`
-- [ ] P2-3: days with behavior 6 (0.5+0.5) and behavior 5 (1) → `tardesJust=1.0`, `tardesInj=1.0`, `totalTardes=2.0`
-- [ ] P2-4: days with behavior 1 (1) and behavior 2 (1+0.5) → `ausJust=1.5`, `ausInj=1.0`, `ausTotal=2.5`
-- [ ] P2-8: fractional absenceValue 0.25 + 0.75 both behavior 6 → `tardesJust=1.00`
-- [ ] P2-9: student with no marks (empty/blank days) → all six totals = 0, no throw
-- [ ] Days with behavior 3, 4, 7 contribute to none of the six totals
-- [ ] Unknown/missing catalog entry for a day code → does not throw, contributes 0 (defensive, supports P2-9/edge)
+- [x] Create `packages/domain/src/asistencia/utils/__tests__/asistencia-totals.test.ts`
+- [x] P2-3: days with behavior 6 (0.5+0.5) and behavior 5 (1) → `tardesJust=1.0`, `tardesInj=1.0`, `totalTardes=2.0`
+- [x] P2-4: days with behavior 1 (1) and behavior 2 (1+0.5) → `ausJust=1.5`, `ausInj=1.0`, `ausTotal=2.5`
+- [x] P2-8: fractional absenceValue 0.25 + 0.75 both behavior 6 → `tardesJust=1.00`
+- [x] P2-9: student with no marks (empty/blank days) → all six totals = 0, no throw
+- [x] Days with behavior 3, 4, 7 contribute to none of the six totals
+- [x] Unknown/missing catalog entry for a day code → does not throw, contributes 0 (defensive, supports P2-9/edge)
 
 #### T3.2 [TEST] Unit tests for días hábiles computation
 
-- [ ] Same or sibling test file as T3.1 (e.g. `computeDiasHabiles` suite)
-- [ ] P2-5: 30-day month, 4 Sundays (behavior 3) + 1 weekday Feriado (behavior 7) → `díasHábiles = 30 - 5 = 25`
-- [ ] P2-6: day is BOTH Sunday (behavior 3 source) AND marked Feriado (behavior 7 source) → subtracted exactly once, not twice
-- [ ] P2-7: 31-day month, 4 Sundays + 4 Saturdays + 2 weekday Feriados → `díasHábiles = 31 - 10 = 21`
-- [ ] P2-10: month with 28 days, evaluated over a 31-column grid → columns 29/30/31 excluded from both the totals and the días hábiles subtraction (they render "X" per web, but the pure function only sees valid day indices 1..daysInMonth)
-- [ ] AC-P2-12: days with behavior in `{1,2,4,5,6}` count as día hábil (not subtracted)
+- [x] Same or sibling test file as T3.1 (e.g. `computeDiasHabiles` suite)
+- [x] P2-5: 30-day month, 4 Sundays (behavior 3) + 1 weekday Feriado (behavior 7) → `díasHábiles = 30 - 5 = 25`
+- [x] P2-6: day is BOTH Sunday (behavior 3 source) AND marked Feriado (behavior 7 source) → subtracted exactly once, not twice
+- [x] P2-7: 31-day month, 4 Sundays + 4 Saturdays + 2 weekday Feriados → `díasHábiles = 31 - 10 = 21`
+- [x] P2-10: month with 28 days, evaluated over a 31-column grid → columns 29/30/31 excluded from both the totals and the días hábiles subtraction (they render "X" per web, but the pure function only sees valid day indices 1..daysInMonth)
+- [x] AC-P2-12: days with behavior in `{1,2,4,5,6}` count as día hábil (not subtracted)
 
 #### T3.3 [IMPL] Create `asistencia-totals.ts` — run until T3.1 + T3.2 green
 
-- [ ] Create `packages/domain/src/asistencia/utils/asistencia-totals.ts`
-- [ ] `computeStudentTotals(days: Record<string,string>, catalog: Map<string,{behavior: AttendanceBehaviorValue, absenceValue: number}>)`: returns `{ tardesJust, tardesInj, totalTardes, ausJust, ausInj, ausTotal }` as weighted sums per ADR-06 formula
-- [ ] `computeDiasHabiles(daysInMonth: number, dayCodes: Record<string,string>, catalog: Map<...>)`: builds a `Set` of day indices 1..daysInMonth classified as behavior 3 or 7 (ADR-07 anti-double-count), returns `daysInMonth - set.size`
-- [ ] Add exports to `packages/domain/src/asistencia/index.ts` and `packages/domain/src/index.ts`
-- [ ] `pnpm --filter @educandow/domain test` green; `pnpm build` green in `packages/domain`
+- [x] Create `packages/domain/src/asistencia/utils/asistencia-totals.ts`
+- [x] `computeStudentTotals(days: Record<string,string>, catalog: Map<string,{behavior: AttendanceBehaviorValue, absenceValue: number}>)`: returns `{ tardesJust, tardesInj, totalTardes, ausJust, ausInj, ausTotal }` as weighted sums per ADR-06 formula
+- [x] `computeDiasHabiles(daysInMonth: number, dayCodes: Record<string,string>, catalog: Map<...>)`: builds a `Set` of day indices 1..daysInMonth classified as behavior 3 or 7 (ADR-07 anti-double-count), returns `daysInMonth - set.size`
+- [x] Add exports to `packages/domain/src/asistencia/index.ts` and `packages/domain/src/index.ts`
+- [x] `pnpm --filter @educandow/domain test` green; `pnpm build` green in `packages/domain`
 
 ### API infrastructure — PDF options + template
 
