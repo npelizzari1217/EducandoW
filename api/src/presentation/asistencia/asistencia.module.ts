@@ -1,7 +1,8 @@
 /**
- * AsistenciaModule — Monthly attendance register (SDD-4, PR-3).
+ * AsistenciaModule — Monthly attendance register (SDD-4, PR-3) + cierre mensual
+ * de asistencia (Capacidad B, fase-bimestre-cierre-asistencia PR-3b).
  *
- * Wires the 5 new monthly attendance use-cases and all required repositories.
+ * Wires the monthly attendance use-cases and all required repositories.
  *
  * Use-cases:
  *   - GenerateMonthlyAttendanceUseCase  (admin: materializes register rows)
@@ -9,11 +10,15 @@
  *   - RecordGeneralAttendanceDayUseCase (preceptor/admin: write one day)
  *   - ListSubjectAttendanceUseCase      (teacher/admin: read per-materia register)
  *   - RecordSubjectAttendanceDayUseCase (teacher/admin: write one day per-materia)
+ *   - GetAttendanceMonthStatusUseCase   (broad read: month open/closed status)
+ *   - OpenAttendanceMonthUseCase        (Secretario+: reopen a month)
+ *   - CloseAttendanceMonthUseCase       (Secretario+: close a month)
  *
  * Repositories consumed:
  *   Asistencia (new):
  *     PrismaAsistenciaGeneralRepository — general monthly register
  *     PrismaAsistenciaMateriaRepository — per-materia monthly register
+ *     PrismaAttendanceMonthStatusRepository — cierre mensual (PR-3b)
  *   Enrollment (existing):
  *     PrismaAlumnosXCursoXCicloRepository — general roster for generate
  *     PrismaMateriaXCursoXCicloRepository — materia list for generate
@@ -36,6 +41,7 @@ import { AsistenciaController } from './asistencia.controller';
 // ── Repositories — asistencia (new in SDD-4) ──────────────────────────────────
 import { PrismaAsistenciaGeneralRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asistencia-general.repository';
 import { PrismaAsistenciaMateriaRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asistencia-materia.repository';
+import { PrismaAttendanceMonthStatusRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance-month-status.repository';
 
 // ── Repositories — enrollment ─────────────────────────────────────────────────
 import { PrismaAlumnosXCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-curso-x-ciclo.repository';
@@ -59,6 +65,11 @@ import { ListGeneralAttendanceUseCase } from '../../application/asistencia/list-
 import { RecordGeneralAttendanceDayUseCase } from '../../application/asistencia/record-general-attendance-day.use-case';
 import { ListSubjectAttendanceUseCase } from '../../application/asistencia/list-subject-attendance.use-case';
 import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/record-subject-attendance-day.use-case';
+import {
+  GetAttendanceMonthStatusUseCase,
+  OpenAttendanceMonthUseCase,
+  CloseAttendanceMonthUseCase,
+} from '../../application/asistencia/attendance-month-status.use-cases';
 
 @Module({
   imports: [AuthModule],
@@ -67,6 +78,7 @@ import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/
     // ── Repositories ──────────────────────────────────────────────────────────
     PrismaAsistenciaGeneralRepository,
     PrismaAsistenciaMateriaRepository,
+    PrismaAttendanceMonthStatusRepository,
     PrismaAlumnosXCursoXCicloRepository,
     PrismaMateriaXCursoXCicloRepository,
     PrismaAlumnosXMateriaRepository,
@@ -86,13 +98,17 @@ import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/
         alumnosXMateriaRepo: PrismaAlumnosXMateriaRepository,
         generalRepo: PrismaAsistenciaGeneralRepository,
         materiaAsistRepo: PrismaAsistenciaMateriaRepository,
-      ) => new GenerateMonthlyAttendanceUseCase(alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo),
+        monthStatusRepo: PrismaAttendanceMonthStatusRepository,
+      ) => new GenerateMonthlyAttendanceUseCase(
+        alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo, monthStatusRepo,
+      ),
       inject: [
         PrismaAlumnosXCursoXCicloRepository,
         PrismaMateriaXCursoXCicloRepository,
         PrismaAlumnosXMateriaRepository,
         PrismaAsistenciaGeneralRepository,
         PrismaAsistenciaMateriaRepository,
+        PrismaAttendanceMonthStatusRepository,
       ],
     },
 
@@ -117,12 +133,16 @@ import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/
         attendanceTypeRepo: PrismaAttendanceTypeRepository,
         docenteRepo: PrismaDocenteXCicloRepository,
         asignacionRepo: PrismaAsignacionCursoXCicloRepository,
-      ) => new RecordGeneralAttendanceDayUseCase(generalRepo, attendanceTypeRepo, docenteRepo, asignacionRepo),
+        monthStatusRepo: PrismaAttendanceMonthStatusRepository,
+      ) => new RecordGeneralAttendanceDayUseCase(
+        generalRepo, attendanceTypeRepo, docenteRepo, asignacionRepo, monthStatusRepo,
+      ),
       inject: [
         PrismaAsistenciaGeneralRepository,
         PrismaAttendanceTypeRepository,
         PrismaDocenteXCicloRepository,
         PrismaAsignacionCursoXCicloRepository,
+        PrismaAttendanceMonthStatusRepository,
       ],
     },
 
@@ -150,14 +170,39 @@ import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/
         grupoRepo: PrismaGrupoRepository,
         alumnosXGrupoRepo: PrismaAlumnosXGrupoRepository,
         docenteRepo: PrismaDocenteXCicloRepository,
-      ) => new RecordSubjectAttendanceDayUseCase(materiaAsistRepo, attendanceTypeRepo, grupoRepo, alumnosXGrupoRepo, docenteRepo),
+        monthStatusRepo: PrismaAttendanceMonthStatusRepository,
+      ) => new RecordSubjectAttendanceDayUseCase(
+        materiaAsistRepo, attendanceTypeRepo, grupoRepo, alumnosXGrupoRepo, docenteRepo, monthStatusRepo,
+      ),
       inject: [
         PrismaAsistenciaMateriaRepository,
         PrismaAttendanceTypeRepository,
         PrismaGrupoRepository,
         PrismaAlumnosXGrupoRepository,
         PrismaDocenteXCicloRepository,
+        PrismaAttendanceMonthStatusRepository,
       ],
+    },
+
+    {
+      provide: GetAttendanceMonthStatusUseCase,
+      useFactory: (monthStatusRepo: PrismaAttendanceMonthStatusRepository) =>
+        new GetAttendanceMonthStatusUseCase(monthStatusRepo),
+      inject: [PrismaAttendanceMonthStatusRepository],
+    },
+
+    {
+      provide: OpenAttendanceMonthUseCase,
+      useFactory: (monthStatusRepo: PrismaAttendanceMonthStatusRepository) =>
+        new OpenAttendanceMonthUseCase(monthStatusRepo),
+      inject: [PrismaAttendanceMonthStatusRepository],
+    },
+
+    {
+      provide: CloseAttendanceMonthUseCase,
+      useFactory: (monthStatusRepo: PrismaAttendanceMonthStatusRepository) =>
+        new CloseAttendanceMonthUseCase(monthStatusRepo),
+      inject: [PrismaAttendanceMonthStatusRepository],
     },
   ],
 })

@@ -9,9 +9,14 @@
  *   PATCH /course-cycles/:ccId/asistencia-mensual/dia      → record a day in general register
  *   GET   /materias-curso-ciclo/:materiaId/asistencia-mensual → list subject register (+ optional grupoId)
  *   PATCH /materias-curso-ciclo/:materiaId/asistencia-mensual/dia → record a day in subject register
+ *   GET   /course-cycles/:ccId/asistencia-mensual/estado   → read the month's open/closed status
+ *   PATCH /course-cycles/:ccId/asistencia-mensual/estado   → open/close the month (Secretario+, @Rank(40))
  *
  * Door 1 (module check) is enforced via @Roles at each endpoint.
  * Door 2 (scope check) is enforced inside the use-cases.
+ *
+ * Estado endpoints — Capacidad B (cierre mensual, fase-bimestre-cierre-asistencia PR-3b):
+ * ORTOGONAL a GradingPhase — nunca lee CourseCycle.gradingPhase.
  */
 import {
   Controller,
@@ -33,7 +38,9 @@ import type {
 } from '@educandow/domain';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { RankGuard } from '../../infrastructure/auth/guards/rank.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Rank } from '../../infrastructure/auth/decorators/rank.decorator';
 import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
@@ -51,15 +58,26 @@ import {
   RecordSubjectDayDto,
   AsistenciaGeneralResponse,
   AsistenciaMateriaResponse,
+  AttendanceMonthStatusQuerySchema,
+  AttendanceMonthStatusQueryDto,
+  SetAttendanceMonthStatusSchema,
+  SetAttendanceMonthStatusDto,
+  AttendanceMonthStatusResponse,
 } from './dto/asistencia.dto';
 import { GenerateMonthlyAttendanceUseCase } from '../../application/asistencia/generate-monthly-attendance.use-case';
 import { ListGeneralAttendanceUseCase } from '../../application/asistencia/list-general-attendance.use-case';
 import { RecordGeneralAttendanceDayUseCase } from '../../application/asistencia/record-general-attendance-day.use-case';
 import { ListSubjectAttendanceUseCase } from '../../application/asistencia/list-subject-attendance.use-case';
 import { RecordSubjectAttendanceDayUseCase } from '../../application/asistencia/record-subject-attendance-day.use-case';
+import {
+  GetAttendanceMonthStatusUseCase,
+  OpenAttendanceMonthUseCase,
+  CloseAttendanceMonthUseCase,
+  AttendanceMonthStatusResult,
+} from '../../application/asistencia/attendance-month-status.use-cases';
 
 @Controller()
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, RankGuard)
 export class AsistenciaController {
   constructor(
     private readonly generateMonthlyUC: GenerateMonthlyAttendanceUseCase,
@@ -67,6 +85,9 @@ export class AsistenciaController {
     private readonly recordGeneralUC: RecordGeneralAttendanceDayUseCase,
     private readonly listSubjectUC: ListSubjectAttendanceUseCase,
     private readonly recordSubjectUC: RecordSubjectAttendanceDayUseCase,
+    private readonly getMonthStatusUC: GetAttendanceMonthStatusUseCase,
+    private readonly openMonthUC: OpenAttendanceMonthUseCase,
+    private readonly closeMonthUC: CloseAttendanceMonthUseCase,
   ) {}
 
   /**
@@ -224,6 +245,45 @@ export class AsistenciaController {
     }
   }
 
+  /**
+   * GET /course-cycles/:ccId/asistencia-mensual/estado?year=&month=
+   * Read is broad — front needs the value to render read-only banners/badges.
+   * Absence of a row means OPEN (default-open, no cutover — design §B1).
+   */
+  @Get('course-cycles/:ccId/asistencia-mensual/estado')
+  @Roles('ROOT', { module: 'ATTENDANCE', action: 'READ' })
+  async getMonthStatus(
+    @Param('ccId') ccId: string,
+    @Query(new ZodValidationPipe(AttendanceMonthStatusQuerySchema)) query: AttendanceMonthStatusQueryDto,
+  ): Promise<{ data: AttendanceMonthStatusResponse }> {
+    const result = await this.getMonthStatusUC.execute({
+      courseCycleId: ccId,
+      year: query.year,
+      month: query.month,
+    });
+    return { data: this.toStatusResponse(result) };
+  }
+
+  /**
+   * PATCH /course-cycles/:ccId/asistencia-mensual/estado
+   * Secretario+ only (@Rank(40) + RankGuard) — opens or closes the month.
+   * Reopening is permitted even when a later month has already been generated
+   * (design §B1 — no extra guard beyond the rank gate here).
+   */
+  @Patch('course-cycles/:ccId/asistencia-mensual/estado')
+  @Rank(40)
+  async setMonthStatus(
+    @Param('ccId') ccId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(SetAttendanceMonthStatusSchema)) body: SetAttendanceMonthStatusDto,
+  ): Promise<{ data: AttendanceMonthStatusResponse }> {
+    const input = { courseCycleId: ccId, year: body.year, month: body.month, userId: user.userId };
+    const result = body.status === 'CLOSED'
+      ? await this.closeMonthUC.execute(input)
+      : await this.openMonthUC.execute(input);
+    return { data: this.toStatusResponse(result) };
+  }
+
   // ── Response mappers ───────────────────────────────────────────────────────
 
   /**
@@ -257,6 +317,18 @@ export class AsistenciaController {
       year: row.year,
       month: row.month,
       days: row.days.toJSON(),
+    };
+  }
+
+  /** Map a month-status use-case result to the response DTO (closed:boolean → status enum string). */
+  private toStatusResponse(result: AttendanceMonthStatusResult): AttendanceMonthStatusResponse {
+    return {
+      courseCycleId: result.courseCycleId,
+      year: result.year,
+      month: result.month,
+      status: result.closed ? 'CLOSED' : 'OPEN',
+      closedAt: result.closedAt ? result.closedAt.toISOString() : null,
+      closedBy: result.closedBy,
     };
   }
 }

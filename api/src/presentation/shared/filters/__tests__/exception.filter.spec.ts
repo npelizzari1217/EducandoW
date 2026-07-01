@@ -7,6 +7,7 @@
  *   FILTER-3: error.status is still present for all domain errors (additive, not rename)
  *   FILTER-4: Non-domain HttpException → error.code is absent/undefined (no regression)
  *   FILTER-5: Existing domain error (e.g., NOT_FOUND) → code appears in error.code
+ *   FILTER-6: MonthClosedError / PreviousMonthOpenError → HTTP 409 (PR-3b)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
@@ -14,6 +15,8 @@ import {
   DayNotAssignableError,
   StatusNotAssignableError,
   NotFoundError,
+  MonthClosedError,
+  PreviousMonthOpenError,
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
 
@@ -135,6 +138,34 @@ describe('AppExceptionFilter', () => {
       const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
       expect(body.error.code).toBe('NOT_FOUND');
       expect(body.error.status).toBe(404);
+    });
+  });
+
+  describe('FILTER-6: MonthClosedError / PreviousMonthOpenError → HTTP 409', () => {
+    it('MonthClosedError maps to 409 with code "MONTH_CLOSED"', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new MonthClosedError('cc-1', 2026, 6);
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(409);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('MONTH_CLOSED');
+      expect(body.error.status).toBe(409);
+    });
+
+    it('PreviousMonthOpenError maps to 409 with code "PREVIOUS_MONTH_OPEN"', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new PreviousMonthOpenError('cc-1', 2026, 6);
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(409);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('PREVIOUS_MONTH_OPEN');
+      expect(body.error.status).toBe(409);
     });
   });
 });

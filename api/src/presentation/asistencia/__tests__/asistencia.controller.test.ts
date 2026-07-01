@@ -14,6 +14,8 @@
  *   CTR-T08: GET listSubject — passes grupoId through
  *   CTR-T09: PATCH recordSubjectDay — studentName === '' (ADR-5)
  *   CTR-T10: non-ForbiddenError propagates as-is
+ *   CTR-T11: GET estado — returns mapped status (OPEN default / CLOSED with attribution)
+ *   CTR-T12: PATCH estado — status:'CLOSED' calls closeMonthUC; status:'OPEN' calls openMonthUC
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { ForbiddenException } from '@nestjs/common';
@@ -99,7 +101,28 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.recordSubjectUC = overrides.recordSubjectUC ?? {
     execute: vi.fn().mockResolvedValue(makeMateriaRow()),
   };
+  // Attendance month status use-cases (PR-3b)
+  ctrl.getMonthStatusUC = overrides.getMonthStatusUC ?? {
+    execute: vi.fn().mockResolvedValue(makeOpenStatusResult()),
+  };
+  ctrl.openMonthUC = overrides.openMonthUC ?? {
+    execute: vi.fn().mockResolvedValue(makeOpenStatusResult()),
+  };
+  ctrl.closeMonthUC = overrides.closeMonthUC ?? {
+    execute: vi.fn().mockResolvedValue(makeClosedStatusResult()),
+  };
   return ctrl;
+}
+
+function makeOpenStatusResult() {
+  return { courseCycleId: 'cc-1', year: 2026, month: 6, closed: false, closedAt: null, closedBy: null };
+}
+
+function makeClosedStatusResult() {
+  return {
+    courseCycleId: 'cc-1', year: 2026, month: 6, closed: true,
+    closedAt: new Date('2026-06-15T00:00:00.000Z'), closedBy: 'user-1',
+  };
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -295,5 +318,69 @@ describe('AsistenciaController — recordSubjectDay', () => {
     const body = { studentId: 'stu-1', year: 2026, month: 6, day: 10, statusCode: 'A' };
 
     await expect(ctrl.recordSubjectDay('mx-1', mockUser, body)).rejects.toBe(domainError);
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// GET/PATCH /course-cycles/:ccId/asistencia-mensual/estado (PR-3b, Capacidad B)
+// ═════════════════════════════════════════════════════════════════════════════
+
+describe('AsistenciaController — getMonthStatus', () => {
+  it('CTR-T11a: returns default OPEN status when no row exists', async () => {
+    const ctrl = makeController();
+    const query = { year: 2026, month: 6 };
+
+    const result = await ctrl.getMonthStatus('cc-1', query);
+
+    expect(result.data).toEqual({
+      courseCycleId: 'cc-1', year: 2026, month: 6, status: 'OPEN', closedAt: null, closedBy: null,
+    });
+    expect(ctrl.getMonthStatusUC.execute).toHaveBeenCalledWith({ courseCycleId: 'cc-1', year: 2026, month: 6 });
+  });
+
+  it('CTR-T11b: returns CLOSED status with attribution when the month is closed', async () => {
+    const ctrl = makeController({
+      getMonthStatusUC: { execute: vi.fn().mockResolvedValue(makeClosedStatusResult()) },
+    });
+    const query = { year: 2026, month: 6 };
+
+    const result = await ctrl.getMonthStatus('cc-1', query);
+
+    expect(result.data).toEqual({
+      courseCycleId: 'cc-1',
+      year: 2026,
+      month: 6,
+      status: 'CLOSED',
+      closedAt: '2026-06-15T00:00:00.000Z',
+      closedBy: 'user-1',
+    });
+  });
+});
+
+describe('AsistenciaController — setMonthStatus', () => {
+  it("CTR-T12a: status:'CLOSED' calls closeMonthUC with courseCycleId/year/month/userId", async () => {
+    const ctrl = makeController();
+    const body = { year: 2026, month: 6, status: 'CLOSED' as const };
+
+    const result = await ctrl.setMonthStatus('cc-1', mockUser, body);
+
+    expect(ctrl.closeMonthUC.execute).toHaveBeenCalledWith({
+      courseCycleId: 'cc-1', year: 2026, month: 6, userId: 'u-1',
+    });
+    expect(ctrl.openMonthUC.execute).not.toHaveBeenCalled();
+    expect(result.data.status).toBe('CLOSED');
+  });
+
+  it("CTR-T12b: status:'OPEN' calls openMonthUC with courseCycleId/year/month/userId", async () => {
+    const ctrl = makeController();
+    const body = { year: 2026, month: 6, status: 'OPEN' as const };
+
+    const result = await ctrl.setMonthStatus('cc-1', mockUser, body);
+
+    expect(ctrl.openMonthUC.execute).toHaveBeenCalledWith({
+      courseCycleId: 'cc-1', year: 2026, month: 6, userId: 'u-1',
+    });
+    expect(ctrl.closeMonthUC.execute).not.toHaveBeenCalled();
+    expect(result.data.status).toBe('OPEN');
   });
 });
