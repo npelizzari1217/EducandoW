@@ -79,6 +79,7 @@ describe('ListGruposGlobalUseCase', () => {
         allLevels: true,
         isAdministrative: true,
         compositeLevels: [],
+        baseLevels: [],
       });
     });
 
@@ -135,6 +136,7 @@ describe('ListGruposGlobalUseCase', () => {
         allLevels: false,
         isAdministrative: true,
         compositeLevels: [10, 20],
+        baseLevels: [1, 2],
       });
     });
 
@@ -187,6 +189,7 @@ describe('ListGruposGlobalUseCase', () => {
         allLevels: false,
         isAdministrative: true,
         compositeLevels: [],
+        baseLevels: [],
       });
       const grupoRepo = makeGrupoRepo([]);
       const docenteRepo = makeDocenteRepo();
@@ -208,6 +211,7 @@ describe('ListGruposGlobalUseCase', () => {
         allLevels: false,
         isAdministrative: false,
         compositeLevels: [20],
+        baseLevels: [2],
       });
     });
 
