@@ -133,6 +133,7 @@ export { RecuperatorioPolicy, FinalEligibilityPolicy } from './terciario';
 export { AttendanceType } from './attendance-type/entities/attendance-type';
 export type { CreateAttendanceTypeInput, ReconstructAttendanceTypeProps } from './attendance-type/entities/attendance-type';
 export { AttendanceTypeCode } from './attendance-type/value-objects/attendance-type-code';
+export { AttendanceBehavior, AttendanceBehaviorValue } from './attendance-type/value-objects/attendance-behavior';
 export { SystemAttendanceTypeError } from './attendance-type/errors/system-attendance-type-error';
 export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
