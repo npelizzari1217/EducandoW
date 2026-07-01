@@ -106,6 +106,53 @@ describe('CreateAttendanceTypeUseCase', () => {
     expect(error.code).toBe('ATTENDANCE_TYPE_CODE_DUPLICATE');
     expect(repo.save).not.toHaveBeenCalled();
   });
+
+  // T2.1 — Scenario P1-1: absenceValue stored independent of behavior
+  it('stores absenceValue independent of the chosen behavior', async () => {
+    const result = await useCase.execute({
+      code: 'TI',
+      description: 'Tarde Injustificada',
+      absenceValue: 0.25,
+      level: 2,
+      behavior: AttendanceBehaviorValue.TARDE_INJUSTIFICADA,
+    });
+
+    expect(result.isOk()).toBe(true);
+    const entity = result.unwrap();
+    expect(entity.absenceValue).toBe(0.25);
+    expect(entity.behavior.get()).toBe(AttendanceBehaviorValue.TARDE_INJUSTIFICADA);
+  });
+
+  // T2.1 — Scenario P1-2: out-of-range behavior rejected, no row created
+  it('rejects an out-of-range behavior value and does not save', async () => {
+    await expect(
+      useCase.execute({
+        code: 'BAD',
+        description: 'Inválido',
+        absenceValue: 0,
+        level: 2,
+        behavior: 'INVALID' as AttendanceBehaviorValue,
+      }),
+    ).rejects.toThrow();
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  // T2.1 — Scenario P1-11 (edge): one custom type per behavior value, no uniqueness conflict
+  it('creates 7 distinct custom types, one per behavior value, without cross-validation conflict', async () => {
+    const values = Object.values(AttendanceBehaviorValue);
+    for (const [i, behavior] of values.entries()) {
+      const result = await useCase.execute({
+        code: `B${i}`,
+        description: `Behavior ${behavior}`,
+        absenceValue: 0.5,
+        level: 2,
+        behavior,
+      });
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap().behavior.get()).toBe(behavior);
+    }
+    expect(repo.save).toHaveBeenCalledTimes(values.length);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -161,6 +208,59 @@ describe('UpdateAttendanceTypeUseCase', () => {
     expect(error).toBeInstanceOf(AttendanceTypeNotFoundError);
     expect(error.code).toBe('ATTENDANCE_TYPE_NOT_FOUND');
   });
+
+  // T2.1 — Scenario P1-5: system type update attempt (incl. behavior) rejected, row unchanged
+  it('rejects a behavior update attempt on a system type and leaves the row unchanged', async () => {
+    const entity = makeEntity({
+      isSystem: true,
+      code: 'SAB',
+      behavior: AttendanceBehaviorValue.NO_ELEGIBLE,
+      description: 'Sábado',
+      absenceValue: 0,
+    });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', {
+      description: 'Hackeado',
+      absenceValue: 1,
+      behavior: AttendanceBehaviorValue.AUSENTE_INJUSTIFICADO,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(SystemAttendanceTypeError);
+    expect(repo.save).not.toHaveBeenCalled();
+    // Row unchanged — same entity reference returned by findById, untouched
+    expect(entity.description).toBe('Sábado');
+    expect(entity.absenceValue).toBe(0);
+    expect(entity.behavior.get()).toBe(AttendanceBehaviorValue.NO_ELEGIBLE);
+  });
+
+  // T2.1 — Scenario P1-7: custom type behavior update succeeds
+  it('updates behavior on a custom (non-system) type successfully', async () => {
+    const entity = makeEntity({ isSystem: false, behavior: AttendanceBehaviorValue.AUSENTE_INJUSTIFICADO });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', {
+      behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().behavior.get()).toBe(AttendanceBehaviorValue.TARDE_JUSTIFICADA);
+    expect(repo.save).toHaveBeenCalledTimes(1);
+  });
+
+  // T2.1 — "behavior optional on input; omitted → keeps entity.behavior unchanged"
+  it('keeps the existing behavior when omitted from the update input', async () => {
+    const entity = makeEntity({ isSystem: false, behavior: AttendanceBehaviorValue.DIA_NO_HABIL });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1', { description: 'Solo descripción' });
+
+    expect(result.isOk()).toBe(true);
+    const updated = result.unwrap();
+    expect(updated.description).toBe('Solo descripción');
+    expect(updated.behavior.get()).toBe(AttendanceBehaviorValue.DIA_NO_HABIL);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -198,6 +298,19 @@ describe('DeleteAttendanceTypeUseCase', () => {
     expect(error).toBeInstanceOf(SystemAttendanceTypeError);
     expect(error.code).toBe('ATTENDANCE_TYPE_SYSTEM_PROTECTED');
     expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  // T2.1 — Scenario P1-6: system type delete rejected, row remains active/unchanged
+  it('leaves the system type row active and unchanged when delete is rejected', async () => {
+    const entity = makeEntity({ isSystem: true, code: 'P', active: true, behavior: AttendanceBehaviorValue.NO_COMPUTA });
+    repo.findById.mockResolvedValue(entity);
+
+    const result = await useCase.execute('at-uuid-1');
+
+    expect(result.isErr()).toBe(true);
+    expect(repo.delete).not.toHaveBeenCalled();
+    expect(entity.active).toBe(true);
+    expect(entity.behavior.get()).toBe(AttendanceBehaviorValue.NO_COMPUTA);
   });
 
   it('returns AttendanceTypeNotFoundError when entity does not exist', async () => {

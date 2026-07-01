@@ -31,6 +31,7 @@ import { useSearchParams } from 'react-router-dom';
 // El barrel de @educandow/domain no es bundleable por rollup (ciclos), y la convencion
 // del proyecto es no importar runtime values del barrel en el web (ver constants/levels.ts).
 import { daysInMonth } from '@educandow/domain/asistencia/utils/calendar-utils';
+import { NO_ELEGIBLE_BEHAVIOR } from '../../constants/attendance-behavior';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
 import { AlertModal } from '../../components/ui/alert-modal';
@@ -64,7 +65,7 @@ interface AttendanceTypeItem {
   code: string;
   name: string;
   active: boolean;
-  assignable: boolean;
+  behavior: string;
 }
 
 interface AsistenciaGeneralRow {
@@ -436,7 +437,7 @@ export default function AsistenciaMensualPage() {
 
   const numDays = daysInMonth(year, month);
   const dayColumns = Array.from({ length: 31 }, (_, i) => i + 1);
-  const codes = attendanceTypes.filter((t) => t.active && t.assignable).map((t) => t.code);
+  const codes = attendanceTypes.filter((t) => t.active && t.behavior !== NO_ELEGIBLE_BEHAVIOR).map((t) => t.code);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -674,7 +675,7 @@ export default function AsistenciaMensualPage() {
                       const at = code
                         ? attendanceTypes.find((a) => a.code === code)
                         : undefined;
-                      const isLockedByCode = at?.assignable === false;
+                      const isLockedByCode = at?.behavior === NO_ELEGIBLE_BEHAVIOR;
                       const isNonExistent = d > numDays;
                       // AC-B-4/5/6: mes cerrado → read-only total para TODOS los roles, sin excepción.
                       const locked = isLockedByCode || isNonExistent || isMonthClosed;

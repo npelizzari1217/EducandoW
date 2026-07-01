@@ -88,8 +88,8 @@ const courseCycles = [
 ];
 
 const attendanceTypes = [
-  { id: 'at-1', code: 'P', name: 'Presente', active: true, assignable: true },
-  { id: 'at-2', code: 'A', name: 'Ausente', active: true, assignable: true },
+  { id: 'at-1', code: 'P', name: 'Presente', active: true, behavior: 'NO_COMPUTA' },
+  { id: 'at-2', code: 'A', name: 'Ausente', active: true, behavior: 'AUSENTE_INJUSTIFICADO' },
 ];
 
 const generalRows = [
@@ -480,13 +480,13 @@ describe('AsistenciaMensualPage', () => {
   // ── GRID scenarios — T8.1 (REQ-GRID-1..7 / Scenarios GRID-1..7) ─────────────
 
   describe('GRID scenarios — T8.1', () => {
-    // Full attendance types including non-assignable system codes
+    // Full attendance types including non-eligible (behavior=NO_ELEGIBLE) system codes
     const fullTypes = [
-      { id: 'at-1', code: 'P', name: 'Presente', active: true, assignable: true },
-      { id: 'at-2', code: 'A', name: 'Ausente', active: true, assignable: true },
-      { id: 'at-3', code: 'SAB', name: 'Sábado', active: true, assignable: false },
-      { id: 'at-4', code: 'DOM', name: 'Domingo', active: true, assignable: false },
-      { id: 'at-5', code: 'X', name: 'No existe', active: true, assignable: false },
+      { id: 'at-1', code: 'P', name: 'Presente', active: true, behavior: 'NO_COMPUTA' },
+      { id: 'at-2', code: 'A', name: 'Ausente', active: true, behavior: 'AUSENTE_INJUSTIFICADO' },
+      { id: 'at-3', code: 'SAB', name: 'Sábado', active: true, behavior: 'NO_ELEGIBLE' },
+      { id: 'at-4', code: 'DOM', name: 'Domingo', active: true, behavior: 'NO_ELEGIBLE' },
+      { id: 'at-5', code: 'X', name: 'No existe', active: true, behavior: 'NO_ELEGIBLE' },
     ];
 
     // Row with days 4=SAB, 5=DOM, 29/30/31=X; day 6 has no entry (editable)
@@ -571,7 +571,7 @@ describe('AsistenciaMensualPage', () => {
       }
     });
 
-    it('GRID-5: hábil cell renders a select with only assignable codes (REQ-GRID-5)', async () => {
+    it('GRID-5: hábil cell renders a select with only eligible (behavior !== NO_ELEGIBLE) codes (REQ-GRID-5)', async () => {
       renderWithLockedRows();
       // Day 6 has no entry in lockedRow.days → editable
       await waitFor(() =>
@@ -588,10 +588,10 @@ describe('AsistenciaMensualPage', () => {
       expect(optionValues).not.toContain('X');
     });
 
-    it('GRID-6: combo uses assignable flag — custom non-assignable code excluded (REQ-GRID-6)', async () => {
+    it('GRID-6: combo uses behavior — custom NO_ELEGIBLE code excluded (REQ-GRID-6)', async () => {
       const typesWithCustom = [
         ...fullTypes,
-        { id: 'at-6', code: 'CUSTOM', name: 'Custom non-assignable', active: true, assignable: false },
+        { id: 'at-6', code: 'CUSTOM', name: 'Custom no elegible', active: true, behavior: 'NO_ELEGIBLE' },
       ];
       mockGet.mockImplementation((url: string) => {
         if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
@@ -623,6 +623,30 @@ describe('AsistenciaMensualPage', () => {
       // No PATCH should have been called; cell stays read-only
       expect(mockPatch).not.toHaveBeenCalled();
       expect(lockedCell.tagName.toLowerCase()).toBe('span');
+    });
+
+    it('GRID-8: custom Feriado (behavior=DIA_NO_HABIL) IS selectable in the combo (Scenario P1-10, AC-P1-9)', async () => {
+      const typesWithFeriado = [
+        ...fullTypes,
+        { id: 'at-7', code: 'FER', name: 'Feriado', active: true, behavior: 'DIA_NO_HABIL' },
+      ];
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: typesWithFeriado } });
+        if (url.includes('/asistencia-mensual')) return Promise.resolve({ data: { data: [lockedRow] } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+      render(
+        <MemoryRouter initialEntries={['/asistencia-mensual']}>
+          <AsistenciaMensualPage />
+        </MemoryRouter>,
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('cell-stu-grid-6')).toBeInTheDocument(),
+      );
+      const select = screen.getByTestId('cell-stu-grid-6') as HTMLSelectElement;
+      const optionValues = Array.from(select.options).map((o) => o.value);
+      expect(optionValues).toContain('FER');
     });
   });
 
