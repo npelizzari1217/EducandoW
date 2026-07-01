@@ -24,6 +24,14 @@
  *   GET  /grupos?materiaId=:materiaId                                 → grupos for materia
  *   GET  /materias-curso-ciclo/:id/asistencia-mensual?year=&month=[&grupoId=]
  *   PATCH /materias-curso-ciclo/:id/asistencia-mensual/dia           → updated row
+ *   GET  /course-cycles/:ccId/asistencia-mensual/print?year=&month=  → PDF (blob), server-side
+ *   GET  /materias-curso-ciclo/:id/asistencia-mensual/print?year=&month=[&grupoId=] → PDF (blob)
+ *
+ * "Imprimir" buttons (PR-4): download the server-generated landscape PDF for the
+ * currently selected course/month(/materia). Blob fetched via apiClient (auth injected
+ * automatically) then saved via a temporary <a download> anchor — same pattern as
+ * `downloadBoletinBatch` in `hooks/useBoletin.ts`. No client-side PDF generation
+ * (no html2pdf) — the PDF is fully rendered server-side (Puppeteer/Handlebars).
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -31,6 +39,7 @@ import { useSearchParams } from 'react-router-dom';
 // El barrel de @educandow/domain no es bundleable por rollup (ciclos), y la convencion
 // del proyecto es no importar runtime values del barrel en el web (ver constants/levels.ts).
 import { daysInMonth } from '@educandow/domain/asistencia/utils/calendar-utils';
+import { NO_ELEGIBLE_BEHAVIOR } from '../../constants/attendance-behavior';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
 import { AlertModal } from '../../components/ui/alert-modal';
@@ -64,7 +73,7 @@ interface AttendanceTypeItem {
   code: string;
   name: string;
   active: boolean;
-  assignable: boolean;
+  behavior: string;
 }
 
 interface AsistenciaGeneralRow {
@@ -202,6 +211,7 @@ export default function AsistenciaMensualPage() {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [noCourseModal, setNoCourseModal] = useState(false);
+  const [printLoading, setPrintLoading] = useState(false);
 
   // ── Cierre mensual (Capacidad B, PR-4) ──────────────────────────────────
   // Status is keyed by CourseCycle+year+month regardless of general/materia mode
@@ -372,6 +382,54 @@ export default function AsistenciaMensualPage() {
     }
   };
 
+  // ── Imprimir (PR-4) — server-side PDF, blob download ──────────────────────
+  // No html2pdf / client-side generation (REQ-P2-2) — the PDF is fully built
+  // server-side (Puppeteer/Handlebars) by the PR-3c print endpoints.
+
+  const triggerPdfDownload = (blob: Blob, filename: string) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  };
+
+  const handlePrintGeneral = async () => {
+    if (!selectedCCId) return;
+    setPrintLoading(true);
+    try {
+      const res = await apiClient.get<Blob>(
+        `/course-cycles/${selectedCCId}/asistencia-mensual/print?year=${year}&month=${month}`,
+        { responseType: 'blob' },
+      );
+      triggerPdfDownload(res.data, `asistencia-mensual-${selectedCCId}-${year}-${month}.pdf`);
+    } catch {
+      setToast({ message: 'Error al imprimir la asistencia', type: 'error' });
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
+  const handlePrintMateria = async () => {
+    if (!selectedMateriaId) return;
+    setPrintLoading(true);
+    try {
+      const grupoParam = selectedGrupoId ? `&grupoId=${selectedGrupoId}` : '';
+      const res = await apiClient.get<Blob>(
+        `/materias-curso-ciclo/${selectedMateriaId}/asistencia-mensual/print?year=${year}&month=${month}${grupoParam}`,
+        { responseType: 'blob' },
+      );
+      triggerPdfDownload(res.data, `asistencia-mensual-${selectedMateriaId}-${year}-${month}.pdf`);
+    } catch {
+      setToast({ message: 'Error al imprimir la asistencia por materia', type: 'error' });
+    } finally {
+      setPrintLoading(false);
+    }
+  };
+
   const handleToggleMonthStatus = async () => {
     const next = isMonthClosed ? 'OPEN' : 'CLOSED';
     const ok = await monthStatus.setStatus(next);
@@ -436,7 +494,7 @@ export default function AsistenciaMensualPage() {
 
   const numDays = daysInMonth(year, month);
   const dayColumns = Array.from({ length: 31 }, (_, i) => i + 1);
-  const codes = attendanceTypes.filter((t) => t.active && t.assignable).map((t) => t.code);
+  const codes = attendanceTypes.filter((t) => t.active && t.behavior !== NO_ELEGIBLE_BEHAVIOR).map((t) => t.code);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -571,6 +629,32 @@ export default function AsistenciaMensualPage() {
           {generateLoading ? 'Generando…' : 'Generar asistencia del mes'}
         </Button>
 
+        {/* Imprimir — General (PR-4, AC-P2-1): server-side landscape PDF */}
+        {mode === 'general' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="btn-imprimir-general"
+            onClick={handlePrintGeneral}
+            disabled={printLoading || !selectedCCId}
+          >
+            {printLoading ? 'Generando PDF…' : 'Imprimir'}
+          </Button>
+        )}
+
+        {/* Imprimir — Por Materia (PR-4, AC-P2-2): server-side landscape PDF */}
+        {mode === 'materia' && (
+          <Button
+            variant="ghost"
+            size="sm"
+            data-testid="btn-imprimir-materia"
+            onClick={handlePrintMateria}
+            disabled={printLoading || !selectedMateriaId}
+          >
+            {printLoading ? 'Generando PDF…' : 'Imprimir'}
+          </Button>
+        )}
+
         {/* Cierre mensual toggle — visible/operable solo Secretario+ (rank>=40) */}
         {canManageMonth && selectedCCId && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -674,7 +758,7 @@ export default function AsistenciaMensualPage() {
                       const at = code
                         ? attendanceTypes.find((a) => a.code === code)
                         : undefined;
-                      const isLockedByCode = at?.assignable === false;
+                      const isLockedByCode = at?.behavior === NO_ELEGIBLE_BEHAVIOR;
                       const isNonExistent = d > numDays;
                       // AC-B-4/5/6: mes cerrado → read-only total para TODOS los roles, sin excepción.
                       const locked = isLockedByCode || isNonExistent || isMonthClosed;

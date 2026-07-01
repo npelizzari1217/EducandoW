@@ -1,6 +1,10 @@
 import { Id } from '../../shared/value-objects/id';
 import { ValidationError } from '../../shared/errors/validation-error';
 import { AttendanceTypeCode } from '../value-objects/attendance-type-code';
+import {
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
+} from '../value-objects/attendance-behavior';
 import { SystemAttendanceTypeError } from '../errors/system-attendance-type-error';
 
 /** Valid pedagogical levels for AttendanceType (excludes ADMINISTRACION=9). */
@@ -11,7 +15,7 @@ export interface CreateAttendanceTypeInput {
   description: string;
   absenceValue: number;
   level: number;
-  assignable: boolean;
+  behavior: AttendanceBehaviorValue;
   isSystem?: boolean;
   active?: boolean;
 }
@@ -22,7 +26,7 @@ export interface ReconstructAttendanceTypeProps {
   description: string;
   absenceValue: number;
   level: number;
-  assignable: boolean;
+  behavior: AttendanceBehavior;
   isSystem: boolean;
   active: boolean;
   deletedAt?: Date | null;
@@ -34,7 +38,7 @@ interface AttendanceTypeProps {
   description: string;
   absenceValue: number;
   level: number;
-  assignable: boolean;
+  behavior: AttendanceBehavior;
   isSystem: boolean;
   active: boolean;
   deletedAt: Date | null;
@@ -59,13 +63,18 @@ export class AttendanceType {
       );
     }
 
+    const behaviorResult = AttendanceBehavior.create(input.behavior);
+    if (behaviorResult.isErr()) {
+      throw behaviorResult.unwrapErr();
+    }
+
     return new AttendanceType({
       id: Id.create().get(),
       code: codeResult.unwrap(),
       description: input.description,
       absenceValue: input.absenceValue,
       level: input.level,
-      assignable: input.assignable,
+      behavior: behaviorResult.unwrap(),
       isSystem: input.isSystem ?? false,
       active: input.active ?? true,
       deletedAt: null,
@@ -79,7 +88,7 @@ export class AttendanceType {
       description: props.description,
       absenceValue: props.absenceValue,
       level: props.level,
-      assignable: props.assignable,
+      behavior: props.behavior,
       isSystem: props.isSystem,
       active: props.active,
       deletedAt: props.deletedAt ?? null,
@@ -113,8 +122,13 @@ export class AttendanceType {
     return this.props.level;
   }
 
+  get behavior(): AttendanceBehavior {
+    return this.props.behavior;
+  }
+
+  /** Derived from behavior (ADR-03): assignable = behavior.isEligible(). */
   get assignable(): boolean {
-    return this.props.assignable;
+    return this.props.behavior.isEligible();
   }
 
   get isSystem(): boolean {

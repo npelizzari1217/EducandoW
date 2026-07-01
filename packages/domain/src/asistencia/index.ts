@@ -32,3 +32,11 @@ export type {
 } from './entities/attendance-month-status';
 export { MonthClosedError, PreviousMonthOpenError } from './errors/attendance-month-status.errors';
 export type { AttendanceMonthStatusRepository } from './repositories/attendance-month-status.repository';
+
+// ── asistencia-behavior-e-impresion — Parte 2: agregador de impresión (PR3a) ─
+export { computeStudentTotals, computeDiasHabiles } from './utils/asistencia-totals';
+export type {
+  AttendanceTypeCatalogEntry,
+  AttendanceTypeCatalog,
+  StudentAttendanceTotals,
+} from './utils/asistencia-totals';

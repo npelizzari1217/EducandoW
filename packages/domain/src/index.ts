@@ -133,6 +133,7 @@ export { RecuperatorioPolicy, FinalEligibilityPolicy } from './terciario';
 export { AttendanceType } from './attendance-type/entities/attendance-type';
 export type { CreateAttendanceTypeInput, ReconstructAttendanceTypeProps } from './attendance-type/entities/attendance-type';
 export { AttendanceTypeCode } from './attendance-type/value-objects/attendance-type-code';
+export { AttendanceBehavior, AttendanceBehaviorValue } from './attendance-type/value-objects/attendance-behavior';
 export { SystemAttendanceTypeError } from './attendance-type/errors/system-attendance-type-error';
 export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
@@ -290,6 +291,14 @@ export type {
 } from './asistencia';
 export { MonthClosedError, PreviousMonthOpenError } from './asistencia';
 export type { AttendanceMonthStatusRepository } from './asistencia';
+
+// ── asistencia-behavior-e-impresion — Parte 2: agregador de impresión (PR3a) ─
+export { computeStudentTotals, computeDiasHabiles } from './asistencia';
+export type {
+  AttendanceTypeCatalogEntry,
+  AttendanceTypeCatalog,
+  StudentAttendanceTotals,
+} from './asistencia';
 
 // PlanificacionCurso (Fase 7)
 export { PlanificacionCurso } from './planificacion-curso';

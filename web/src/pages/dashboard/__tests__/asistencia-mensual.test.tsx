@@ -15,12 +15,24 @@
  * WM-11: T-FE-2 — pre-selects CC from ?ccId= search param (async list)
  * WM-12: T-FE-2 — no pre-selection when ccId not in list (graceful fallback)
  * WM-13: T-FE-2 — no regression: behavior unchanged when no ccId param
+ *
+ * PR4-1: General module — "Imprimir" button renders
+ * PR4-2: General module — click calls GET print endpoint (responseType:blob) with ccId/year/month
+ * PR4-3: Por Materia module — "Imprimir" button renders
+ * PR4-4: Por Materia module — click calls GET print endpoint with materiaXCursoXCicloId/year/month
+ * PR4-5: General "Imprimir" disabled when no course cycle is selected
+ * PR4-6: Por Materia "Imprimir" disabled when no materia is selected
+ * PR4-7: regression guard — html2pdf.js is never invoked by the print flow (server-side only)
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
+
+// ── Mock html2pdf.js (regression guard — PR4-7: print MUST be server-side only) ─
+const { mockHtml2pdf } = vi.hoisted(() => ({ mockHtml2pdf: vi.fn() }));
+vi.mock('html2pdf.js', () => ({ default: mockHtml2pdf }));
 
 // ── Mock apiClient ────────────────────────────────────────────────────────────
 
@@ -88,8 +100,8 @@ const courseCycles = [
 ];
 
 const attendanceTypes = [
-  { id: 'at-1', code: 'P', name: 'Presente', active: true, assignable: true },
-  { id: 'at-2', code: 'A', name: 'Ausente', active: true, assignable: true },
+  { id: 'at-1', code: 'P', name: 'Presente', active: true, behavior: 'NO_COMPUTA' },
+  { id: 'at-2', code: 'A', name: 'Ausente', active: true, behavior: 'AUSENTE_INJUSTIFICADO' },
 ];
 
 const generalRows = [
@@ -480,13 +492,13 @@ describe('AsistenciaMensualPage', () => {
   // ── GRID scenarios — T8.1 (REQ-GRID-1..7 / Scenarios GRID-1..7) ─────────────
 
   describe('GRID scenarios — T8.1', () => {
-    // Full attendance types including non-assignable system codes
+    // Full attendance types including non-eligible (behavior=NO_ELEGIBLE) system codes
     const fullTypes = [
-      { id: 'at-1', code: 'P', name: 'Presente', active: true, assignable: true },
-      { id: 'at-2', code: 'A', name: 'Ausente', active: true, assignable: true },
-      { id: 'at-3', code: 'SAB', name: 'Sábado', active: true, assignable: false },
-      { id: 'at-4', code: 'DOM', name: 'Domingo', active: true, assignable: false },
-      { id: 'at-5', code: 'X', name: 'No existe', active: true, assignable: false },
+      { id: 'at-1', code: 'P', name: 'Presente', active: true, behavior: 'NO_COMPUTA' },
+      { id: 'at-2', code: 'A', name: 'Ausente', active: true, behavior: 'AUSENTE_INJUSTIFICADO' },
+      { id: 'at-3', code: 'SAB', name: 'Sábado', active: true, behavior: 'NO_ELEGIBLE' },
+      { id: 'at-4', code: 'DOM', name: 'Domingo', active: true, behavior: 'NO_ELEGIBLE' },
+      { id: 'at-5', code: 'X', name: 'No existe', active: true, behavior: 'NO_ELEGIBLE' },
     ];
 
     // Row with days 4=SAB, 5=DOM, 29/30/31=X; day 6 has no entry (editable)
@@ -571,7 +583,7 @@ describe('AsistenciaMensualPage', () => {
       }
     });
 
-    it('GRID-5: hábil cell renders a select with only assignable codes (REQ-GRID-5)', async () => {
+    it('GRID-5: hábil cell renders a select with only eligible (behavior !== NO_ELEGIBLE) codes (REQ-GRID-5)', async () => {
       renderWithLockedRows();
       // Day 6 has no entry in lockedRow.days → editable
       await waitFor(() =>
@@ -588,10 +600,10 @@ describe('AsistenciaMensualPage', () => {
       expect(optionValues).not.toContain('X');
     });
 
-    it('GRID-6: combo uses assignable flag — custom non-assignable code excluded (REQ-GRID-6)', async () => {
+    it('GRID-6: combo uses behavior — custom NO_ELEGIBLE code excluded (REQ-GRID-6)', async () => {
       const typesWithCustom = [
         ...fullTypes,
-        { id: 'at-6', code: 'CUSTOM', name: 'Custom non-assignable', active: true, assignable: false },
+        { id: 'at-6', code: 'CUSTOM', name: 'Custom no elegible', active: true, behavior: 'NO_ELEGIBLE' },
       ];
       mockGet.mockImplementation((url: string) => {
         if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
@@ -623,6 +635,30 @@ describe('AsistenciaMensualPage', () => {
       // No PATCH should have been called; cell stays read-only
       expect(mockPatch).not.toHaveBeenCalled();
       expect(lockedCell.tagName.toLowerCase()).toBe('span');
+    });
+
+    it('GRID-8: custom Feriado (behavior=DIA_NO_HABIL) IS selectable in the combo (Scenario P1-10, AC-P1-9)', async () => {
+      const typesWithFeriado = [
+        ...fullTypes,
+        { id: 'at-7', code: 'FER', name: 'Feriado', active: true, behavior: 'DIA_NO_HABIL' },
+      ];
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: typesWithFeriado } });
+        if (url.includes('/asistencia-mensual')) return Promise.resolve({ data: { data: [lockedRow] } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+      render(
+        <MemoryRouter initialEntries={['/asistencia-mensual']}>
+          <AsistenciaMensualPage />
+        </MemoryRouter>,
+      );
+      await waitFor(() =>
+        expect(screen.getByTestId('cell-stu-grid-6')).toBeInTheDocument(),
+      );
+      const select = screen.getByTestId('cell-stu-grid-6') as HTMLSelectElement;
+      const optionValues = Array.from(select.options).map((o) => o.value);
+      expect(optionValues).toContain('FER');
     });
   });
 
@@ -754,6 +790,182 @@ describe('AsistenciaMensualPage', () => {
       await waitFor(() => {
         expect(screen.getByTestId('asistencia-toast')).toHaveTextContent(/error al generar/i);
       });
+    });
+  });
+
+  describe('Impresión — PR-4', () => {
+    const FAKE_BLOB_URL = 'blob:http://localhost/fake-asistencia-pdf';
+    let mockAnchor: { href: string; download: string; click: ReturnType<typeof vi.fn> };
+
+    beforeEach(() => {
+      URL.createObjectURL = vi.fn(() => FAKE_BLOB_URL);
+      URL.revokeObjectURL = vi.fn();
+      mockAnchor = { href: '', download: '', click: vi.fn() };
+      const realCreateElement = document.createElement.bind(document);
+      vi.spyOn(document, 'createElement').mockImplementation((tagName: string, options?: ElementCreationOptions) => {
+        if (tagName === 'a') return mockAnchor as unknown as HTMLAnchorElement;
+        return realCreateElement(tagName, options);
+      });
+      const realAppendChild = document.body.appendChild.bind(document.body);
+      vi.spyOn(document.body, 'appendChild').mockImplementation((node: Node) => {
+        if (node === (mockAnchor as unknown as Node)) return mockAnchor as unknown as Node;
+        return realAppendChild(node);
+      });
+      const realRemoveChild = document.body.removeChild.bind(document.body);
+      vi.spyOn(document.body, 'removeChild').mockImplementation((node: Node) => {
+        if (node === (mockAnchor as unknown as Node)) return mockAnchor as unknown as Node;
+        return realRemoveChild(node);
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('PR4-1: General module — "Imprimir" button renders', async () => {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-imprimir-general')).toBeInTheDocument();
+      });
+    });
+
+    it('PR4-2: General module — click GETs the print endpoint with responseType:blob and ccId/year/month', async () => {
+      const user = userEvent.setup();
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+        if (url.includes('/asistencia-mensual/print')) {
+          return Promise.resolve({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+        }
+        if (url.includes('/asistencia-mensual/estado')) {
+          return Promise.resolve({
+            data: { data: { courseCycleId: 'cc-1', year: 2026, month: 6, status: 'OPEN', closedAt: null, closedBy: null } },
+          });
+        }
+        if (url.includes('/asistencia-mensual')) return Promise.resolve({ data: { data: generalRows } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-imprimir-general')).toBeInTheDocument());
+
+      await user.click(screen.getByTestId('btn-imprimir-general'));
+
+      await waitFor(() => {
+        expect(mockGet).toHaveBeenCalledWith(
+          expect.stringMatching(/^\/course-cycles\/cc-1\/asistencia-mensual\/print\?year=\d{4}&month=\d{1,2}$/),
+          { responseType: 'blob' },
+        );
+      });
+      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(mockAnchor.click).toHaveBeenCalled();
+      expect(mockAnchor.download).toMatch(/^asistencia-mensual-cc-1-\d{4}-\d{1,2}\.pdf$/);
+    });
+
+    it('PR4-3: Por Materia module — "Imprimir" button renders', async () => {
+      const user = userEvent.setup();
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+      await user.click(screen.getByTestId('tab-materia'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-imprimir-materia')).toBeInTheDocument();
+      });
+    });
+
+    it('PR4-4: Por Materia module — click GETs the print endpoint with materiaXCursoXCicloId/year/month', async () => {
+      const user = userEvent.setup();
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+        if (url.includes('/materias-curso-ciclo') && url.includes('/asistencia-mensual/print')) {
+          return Promise.resolve({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+        }
+        if (url.includes('/asistencia-mensual/estado')) {
+          return Promise.resolve({
+            data: { data: { courseCycleId: 'cc-1', year: 2026, month: 6, status: 'OPEN', closedAt: null, closedBy: null } },
+          });
+        }
+        if (url.endsWith('/materias')) return Promise.resolve({ data: { data: materias } });
+        if (url.includes('/materias-curso-ciclo') && url.includes('/asistencia-mensual')) {
+          return Promise.resolve({ data: { data: subjectRows } });
+        }
+        if (url.includes('/grupos')) return Promise.resolve({ data: { data: [] } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+      await user.click(screen.getByTestId('tab-materia'));
+
+      await waitFor(() => expect(screen.getByTestId('btn-imprimir-materia')).toBeInTheDocument());
+      await user.click(screen.getByTestId('btn-imprimir-materia'));
+
+      await waitFor(() => {
+        expect(mockGet).toHaveBeenCalledWith(
+          expect.stringMatching(/^\/materias-curso-ciclo\/mx-1\/asistencia-mensual\/print\?year=\d{4}&month=\d{1,2}$/),
+          { responseType: 'blob' },
+        );
+      });
+      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(mockAnchor.click).toHaveBeenCalled();
+    });
+
+    it('PR4-5: General "Imprimir" is disabled when no course cycle is selected', async () => {
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: [] } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-imprimir-general')).toBeDisabled();
+      });
+    });
+
+    it('PR4-6: Por Materia "Imprimir" is disabled when no materia is selected', async () => {
+      const user = userEvent.setup();
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+        if (url.endsWith('/materias')) return Promise.resolve({ data: { data: [] } });
+        if (url.includes('/asistencia-mensual/estado')) {
+          return Promise.resolve({
+            data: { data: { courseCycleId: 'cc-1', year: 2026, month: 6, status: 'OPEN', closedAt: null, closedBy: null } },
+          });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+      await user.click(screen.getByTestId('tab-materia'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-imprimir-materia')).toBeDisabled();
+      });
+    });
+
+    it('PR4-7: regression guard — html2pdf.js is never invoked by the print flow', async () => {
+      const user = userEvent.setup();
+      mockGet.mockImplementation((url: string) => {
+        if (url === '/course-cycles') return Promise.resolve({ data: { data: courseCycles } });
+        if (url === '/attendance-types') return Promise.resolve({ data: { data: attendanceTypes } });
+        if (url.includes('/asistencia-mensual/print')) {
+          return Promise.resolve({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+        }
+        if (url.includes('/asistencia-mensual')) return Promise.resolve({ data: { data: generalRows } });
+        return Promise.resolve({ data: { data: [] } });
+      });
+
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-imprimir-general')).toBeInTheDocument());
+      await user.click(screen.getByTestId('btn-imprimir-general'));
+
+      await waitFor(() => expect(mockAnchor.click).toHaveBeenCalled());
+      expect(mockHtml2pdf).not.toHaveBeenCalled();
     });
   });
 });

@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/card';
 import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { ATTENDANCE_BEHAVIOR_OPTIONS, attendanceBehaviorLabel } from '../../constants/attendance-behavior';
 
 // ── Constants ──
 
@@ -28,7 +29,8 @@ interface AttendanceTypeRow {
   description: string;
   absence_value: number;
   level: number;
-  assignable: boolean;
+  behavior: string;
+  assignable: boolean; // derived by the backend (ADR-03), kept for backward compat — not used here
   is_system: boolean;
   active: boolean;
 }
@@ -38,7 +40,7 @@ interface AttendanceTypeForm {
   description: string;
   absenceValue: string;
   level: number;
-  assignable: boolean;
+  behavior: string;
   active: boolean;
 }
 
@@ -49,7 +51,7 @@ const EMPTY_FORM: AttendanceTypeForm = {
   description: '',
   absenceValue: '0',
   level: 2,
-  assignable: true,
+  behavior: ATTENDANCE_BEHAVIOR_OPTIONS[0].value,
   active: true,
 };
 
@@ -120,7 +122,7 @@ export default function AttendanceTypesPage() {
     description: form.description.trim(),
     absenceValue: Number(form.absenceValue),
     level: form.level,
-    assignable: form.assignable,
+    behavior: form.behavior,
     active: form.active,
   }), [form]);
 
@@ -149,7 +151,7 @@ export default function AttendanceTypesPage() {
       description: row.description,
       absenceValue: String(row.absence_value),
       level: row.level,
-      assignable: row.assignable,
+      behavior: row.behavior,
       active: row.active,
     });
     setShowForm(true);
@@ -163,7 +165,7 @@ export default function AttendanceTypesPage() {
       await apiClient.patch(`/attendance-types/${editingId}`, {
         description: form.description.trim(),
         absenceValue: Number(form.absenceValue),
-        assignable: form.assignable,
+        behavior: form.behavior,
         active: form.active,
       }, { params: rootQueryParams });
       setShowForm(false);
@@ -337,17 +339,20 @@ export default function AttendanceTypesPage() {
                 )}
 
                 <div className="field">
-                  <label className="field-label">Asignable manualmente</label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 0' }}>
-                    <input
-                      type="checkbox"
-                      checked={form.assignable}
-                      onChange={(e) => update('assignable', e.target.checked)}
-                    />
-                    <span style={{ fontSize: 'var(--text-sm)' }}>
-                      {form.assignable ? 'Sí — visible en la grilla diaria' : 'No — solo para autorrelleno'}
-                    </span>
-                  </label>
+                  <label className="field-label" htmlFor="attendance-behavior-select">Comportamiento *</label>
+                  <select
+                    id="attendance-behavior-select"
+                    name="behavior"
+                    className="input"
+                    value={form.behavior}
+                    onChange={(e) => update('behavior', e.target.value)}
+                    style={{ width: '100%' }}
+                    aria-label="Comportamiento"
+                  >
+                    {ATTENDANCE_BEHAVIOR_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="field">
@@ -423,9 +428,9 @@ export default function AttendanceTypesPage() {
                   render: (row: Record<string, unknown>) => String(row.absence_value),
                 },
                 {
-                  key: 'assignable',
-                  header: 'Asignable',
-                  render: (row: Record<string, unknown>) => (row.assignable ? 'Sí' : 'No'),
+                  key: 'behavior',
+                  header: 'Comportamiento',
+                  render: (row: Record<string, unknown>) => attendanceBehaviorLabel(String(row.behavior)),
                 },
                 {
                   key: 'active',

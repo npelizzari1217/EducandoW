@@ -82,6 +82,7 @@ const SYSTEM_TYPE = {
   description: 'Presente',
   absence_value: 0,
   level: 2,
+  behavior: 'NO_COMPUTA',
   assignable: true,
   is_system: true,
   active: true,
@@ -93,6 +94,7 @@ const CUSTOM_TYPE = {
   description: 'Tardanza',
   absence_value: 0.5,
   level: 2,
+  behavior: 'TARDE_JUSTIFICADA',
   assignable: true,
   is_system: false,
   active: true,
@@ -123,6 +125,7 @@ function setupApiMock() {
         description: 'Ausente',
         absence_value: 1,
         level: 2,
+        behavior: 'AUSENTE_INJUSTIFICADO',
         assignable: true,
         is_system: false,
         active: true,
@@ -255,6 +258,106 @@ describe('AttendanceTypesPage', () => {
       const errorEl = screen.queryByText(/máx|4 caracteres|máximo/i);
       expect(errorEl).toBeInTheDocument();
     });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// BEHAVIOR SELECTOR — T2.6/T2.7 (PR2, asistencia-behavior-e-impresion)
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypesPage — behavior selector', () => {
+  beforeEach(() => {
+    mockUserRoles = ['ROOT'];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders a behavior <select> with the 7 labeled options on create', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const newBtn = await screen.findByText(/Nuevo tipo/i);
+    await user.click(newBtn);
+
+    const behaviorSelect = await screen.findByLabelText(/comportamiento/i) as HTMLSelectElement;
+    const optionValues = Array.from(behaviorSelect.options).map((o) => o.value);
+    expect(optionValues).toEqual([
+      'AUSENTE_INJUSTIFICADO',
+      'AUSENTE_JUSTIFICADO',
+      'NO_ELEGIBLE',
+      'NO_COMPUTA',
+      'TARDE_INJUSTIFICADA',
+      'TARDE_JUSTIFICADA',
+      'DIA_NO_HABIL',
+    ]);
+  });
+
+  it('no longer renders an "asignable" boolean input', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const newBtn = await screen.findByText(/Nuevo tipo/i);
+    await user.click(newBtn);
+
+    expect(screen.queryByText(/Asignable manualmente/i)).not.toBeInTheDocument();
+  });
+
+  it('submitting create sends behavior (not assignable) in the payload', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const newBtn = await screen.findByText(/Nuevo tipo/i);
+    await user.click(newBtn);
+
+    const codeInput = await screen.findByPlaceholderText(/P, SAB/i);
+    await user.type(codeInput, 'AUS');
+    const textboxes = screen.getAllByRole('textbox');
+    await user.type(textboxes[1], 'Ausente');
+
+    const behaviorSelect = await screen.findByLabelText(/comportamiento/i) as HTMLSelectElement;
+    await user.selectOptions(behaviorSelect, 'AUSENTE_JUSTIFICADO');
+
+    await user.click(screen.getByText(/Crear tipo/i));
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/attendance-types',
+        expect.objectContaining({ behavior: 'AUSENTE_JUSTIFICADO' }),
+        expect.any(Object),
+      );
+    });
+    const payload = mockApiPost.mock.calls[0][1];
+    expect(payload.assignable).toBeUndefined();
+  });
+
+  it('renders behavior column with a readable label in the table', async () => {
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('TAR')).toBeInTheDocument();
+    });
+
+    // CUSTOM_TYPE has behavior = TARDE_JUSTIFICADA
+    expect(screen.getByText('Tarde Justificada')).toBeInTheDocument();
+  });
+
+  it('editing a custom type pre-fills the behavior selector with its current value', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('TAR')).toBeInTheDocument();
+    });
+
+    const editBtns = screen.getAllByText('Editar');
+    await user.click(editBtns[0]);
+
+    const behaviorSelect = await screen.findByLabelText(/comportamiento/i) as HTMLSelectElement;
+    expect(behaviorSelect.value).toBe('TARDE_JUSTIFICADA');
   });
 });
 

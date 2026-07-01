@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AttendanceBehaviorValue } from '@educandow/domain';
 
 export const CreateAttendanceTypeSchema = z.object({
   code: z
@@ -14,7 +15,9 @@ export const CreateAttendanceTypeSchema = z.object({
     z.literal(3),
     z.literal(4),
   ], { errorMap: () => ({ message: 'level must be 1, 2, 3 or 4 (ADMINISTRACION not allowed)' }) }),
-  assignable: z.boolean(),
+  behavior: z.nativeEnum(AttendanceBehaviorValue, {
+    errorMap: () => ({ message: 'behavior must be one of the 7 AttendanceBehavior values' }),
+  }),
   active: z.boolean().optional().default(true),
 });
 

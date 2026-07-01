@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
-import { EducationalLevelCode, EducationalModalityCode } from '@educandow/domain';
+import { EducationalLevelCode, EducationalModalityCode, AttendanceBehaviorValue } from '@educandow/domain';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -318,10 +318,10 @@ export async function seedAttendanceStatuses(_prisma: TenantPrismaClient) {
 
 /** System attendance types per educational level (P, SAB, DOM, X). */
 const SYSTEM_ATTENDANCE_TYPES = [
-  { code: 'P',   description: 'Presente',       isPresent: true,  absenceValue: 0, assignable: true  },
-  { code: 'SAB', description: 'Sábado',          isPresent: false, absenceValue: 0, assignable: false },
-  { code: 'DOM', description: 'Domingo',         isPresent: false, absenceValue: 0, assignable: false },
-  { code: 'X',   description: 'Día no utilizado', isPresent: false, absenceValue: 0, assignable: false },
+  { code: 'P',   description: 'Presente',       isPresent: true,  absenceValue: 0, assignable: true,  behavior: AttendanceBehaviorValue.NO_COMPUTA  },
+  { code: 'SAB', description: 'Sábado',          isPresent: false, absenceValue: 0, assignable: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
+  { code: 'DOM', description: 'Domingo',         isPresent: false, absenceValue: 0, assignable: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
+  { code: 'X',   description: 'Día no utilizado', isPresent: false, absenceValue: 0, assignable: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
 ] as const;
 
 /** Valid pedagogical levels (excludes ADMINISTRACION=9). */
@@ -355,6 +355,7 @@ export async function seedSystemAttendanceTypes(
           absenceValue: sysType.absenceValue,
           isPresent: sysType.isPresent,
           assignable: sysType.assignable,
+          behavior: sysType.behavior,
           isSystem: true,
           active: true,
         },

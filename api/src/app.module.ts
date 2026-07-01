@@ -22,6 +22,7 @@ import { DocenteCicloModule } from './presentation/docente-ciclo/docente-ciclo.m
 import { MateriasGruposModule } from './presentation/materia-grupo-ciclo/materia-grupo-ciclo.module';
 import { AsignacionCursoModule } from './presentation/asignacion-curso/asignacion-curso.module';
 import { AsistenciaModule } from './presentation/asistencia/asistencia.module';
+import { AsistenciaReportingModule } from './presentation/asistencia-reporting/asistencia-reporting.module';
 import { AlumnosXCursoXCicloModule } from './presentation/course-cycle-alumnos/alumnos-x-curso-x-ciclo.module';
 import { PlanificacionCursoModule } from './presentation/planificacion-curso/planificacion-curso.module';
 import { HealthController } from './presentation/shared/controllers/health.controller';
@@ -61,6 +62,7 @@ import { PostgresAdminService } from './infrastructure/persistence/postgres-admi
     MateriasGruposModule,
     AsignacionCursoModule,
     AsistenciaModule,
+    AsistenciaReportingModule,
     AlumnosXCursoXCicloModule,
     PlanificacionCursoModule,
   ],

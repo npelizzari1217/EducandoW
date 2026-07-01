@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EnsureAttendanceTypesForLevelUseCase } from '../use-cases/ensure-attendance-types-for-level.use-case';
-import { EducationalLevelCode } from '@educandow/domain';
+import { EducationalLevelCode, AttendanceBehaviorValue } from '@educandow/domain';
 
 // ── Mock PrismaService ────────────────────────────────────────
 
@@ -95,6 +95,7 @@ describe('EnsureAttendanceTypesForLevelUseCase', () => {
     expect(create.isSystem).toBe(true);
     expect(create.active).toBe(true);
     expect(create.level).toBe(EducationalLevelCode.PRIMARIO);
+    expect(create.behavior).toBe(AttendanceBehaviorValue.NO_ELEGIBLE);
   });
 
   it('upserts with exact values: DOM code — Domingo', async () => {
@@ -108,6 +109,7 @@ describe('EnsureAttendanceTypesForLevelUseCase', () => {
     expect(create.absenceValue).toBe(0);
     expect(create.isSystem).toBe(true);
     expect(create.active).toBe(true);
+    expect(create.behavior).toBe(AttendanceBehaviorValue.NO_ELEGIBLE);
   });
 
   it('upserts with exact values: P — Presente, assignable=true', async () => {
@@ -121,6 +123,7 @@ describe('EnsureAttendanceTypesForLevelUseCase', () => {
     expect(create.absenceValue).toBe(0);
     expect(create.isSystem).toBe(true);
     expect(create.active).toBe(true);
+    expect(create.behavior).toBe(AttendanceBehaviorValue.NO_COMPUTA);
   });
 
   it('upserts with exact values: X — Día no utilizado, assignable=false', async () => {
@@ -134,6 +137,7 @@ describe('EnsureAttendanceTypesForLevelUseCase', () => {
     expect(create.absenceValue).toBe(0);
     expect(create.isSystem).toBe(true);
     expect(create.active).toBe(true);
+    expect(create.behavior).toBe(AttendanceBehaviorValue.NO_ELEGIBLE);
   });
 
   it('is idempotent: running twice calls upsert twice (idempotency guaranteed by upsert, not by skipping)', async () => {

@@ -4,6 +4,8 @@ import {
   AttendanceTypeCode,
   AttendanceTypeRepository,
   AttendanceTypeFilters,
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
 } from '@educandow/domain';
 import type { PrismaClient as TenantPrismaClient, AttendanceType as PrismaAttendanceType } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -41,13 +43,15 @@ export class PrismaAttendanceTypeRepository implements AttendanceTypeRepository 
   }
 
   async save(entity: AttendanceType): Promise<void> {
+    const assignable = entity.behavior.isEligible();
     const data = {
       level: entity.level,
       code: entity.code.get(),
       description: entity.description,
       absenceValue: entity.absenceValue,
-      isPresent: entity.absenceValue === 0 && entity.assignable,
-      assignable: entity.assignable,
+      isPresent: entity.absenceValue === 0 && assignable,
+      assignable,
+      behavior: entity.behavior.get(),
       isSystem: entity.isSystem,
       active: entity.active,
       deletedAt: entity.deletedAt ?? null,
@@ -81,7 +85,7 @@ export class PrismaAttendanceTypeRepository implements AttendanceTypeRepository 
       description: r.description,
       absenceValue: Number(r.absenceValue), // Decimal(4,2) → number
       level: r.level,
-      assignable: r.assignable,
+      behavior: AttendanceBehavior.reconstruct(r.behavior as unknown as AttendanceBehaviorValue),
       isSystem: r.isSystem,
       active: r.active,
       deletedAt: r.deletedAt ?? null,

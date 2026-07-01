@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { AttendanceType } from '../../entities/attendance-type';
 import { AttendanceTypeCode } from '../../value-objects/attendance-type-code';
+import {
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
+} from '../../value-objects/attendance-behavior';
 import { SystemAttendanceTypeError } from '../../errors/system-attendance-type-error';
 import { ValidationError } from '../../../shared/errors/validation-error';
 
@@ -8,13 +12,19 @@ function validCode(s: string): AttendanceTypeCode {
   return AttendanceTypeCode.create(s).unwrap();
 }
 
+function behavior(value: AttendanceBehaviorValue): AttendanceBehavior {
+  return AttendanceBehavior.create(value).unwrap();
+}
+
+const ALL_BEHAVIOR_VALUES = Object.values(AttendanceBehaviorValue);
+
 describe('AttendanceType', () => {
   const baseInput = {
     code: 'T',
     description: 'Tardanza',
     absenceValue: 0.5,
     level: 2,
-    assignable: true,
+    behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
   };
 
   describe('create()', () => {
@@ -26,6 +36,7 @@ describe('AttendanceType', () => {
       expect(at.description).toBe('Tardanza');
       expect(at.absenceValue).toBe(0.5);
       expect(at.level).toBe(2);
+      expect(at.behavior.get()).toBe(AttendanceBehaviorValue.TARDE_JUSTIFICADA);
       expect(at.assignable).toBe(true);
       expect(at.id).toBeTruthy();
     });
@@ -77,6 +88,14 @@ describe('AttendanceType', () => {
         expect(() => AttendanceType.create({ ...baseInput, level })).not.toThrow();
       }
     });
+
+    it('derives assignable from behavior.isEligible() for every behavior value (ADR-03)', () => {
+      for (const value of ALL_BEHAVIOR_VALUES) {
+        const at = AttendanceType.create({ ...baseInput, behavior: value });
+        expect(at.assignable).toBe(at.behavior.isEligible());
+        expect(at.assignable).toBe(value !== AttendanceBehaviorValue.NO_ELEGIBLE);
+      }
+    });
   });
 
   describe('assertMutable()', () => {
@@ -92,7 +111,7 @@ describe('AttendanceType', () => {
         description: 'Presente',
         absenceValue: 0,
         level: 2,
-        assignable: true,
+        behavior: behavior(AttendanceBehaviorValue.NO_COMPUTA),
         isSystem: true,
         active: true,
       });
@@ -106,7 +125,7 @@ describe('AttendanceType', () => {
         description: 'Sábado',
         absenceValue: 0,
         level: 2,
-        assignable: false,
+        behavior: behavior(AttendanceBehaviorValue.NO_ELEGIBLE),
         isSystem: true,
         active: true,
       });
@@ -118,10 +137,26 @@ describe('AttendanceType', () => {
         expect((e as SystemAttendanceTypeError).code).toBe('ATTENDANCE_TYPE_SYSTEM_PROTECTED');
       }
     });
+
+    it('throws regardless of the behavior value attempted on a system-locked entity', () => {
+      for (const value of ALL_BEHAVIOR_VALUES) {
+        const at = AttendanceType.reconstruct({
+          id: 'sys-id-locked',
+          code: validCode('P'),
+          description: 'Presente',
+          absenceValue: 0,
+          level: 2,
+          behavior: behavior(value),
+          isSystem: true,
+          active: true,
+        });
+        expect(() => at.assertMutable()).toThrow(SystemAttendanceTypeError);
+      }
+    });
   });
 
   describe('reconstruct()', () => {
-    it('restores all fields including arbitrary id', () => {
+    it('restores all fields including arbitrary id and rebuilds the behavior VO', () => {
       const arbitraryId = 'arbitrary-uuid-123';
       const code = validCode('DOM');
       const at = AttendanceType.reconstruct({
@@ -130,7 +165,7 @@ describe('AttendanceType', () => {
         description: 'Domingo',
         absenceValue: 0,
         level: 3,
-        assignable: false,
+        behavior: behavior(AttendanceBehaviorValue.NO_ELEGIBLE),
         isSystem: true,
         active: true,
         deletedAt: new Date('2026-01-01'),
@@ -141,10 +176,31 @@ describe('AttendanceType', () => {
       expect(at.description).toBe('Domingo');
       expect(at.absenceValue).toBe(0);
       expect(at.level).toBe(3);
+      expect(at.behavior.get()).toBe(AttendanceBehaviorValue.NO_ELEGIBLE);
       expect(at.assignable).toBe(false);
       expect(at.isSystem).toBe(true);
       expect(at.active).toBe(true);
       expect(at.deletedAt).toBeInstanceOf(Date);
+    });
+
+    it('preserves fractional absenceValue (0.25, 0.75) independent of the chosen behavior', () => {
+      for (const [absenceValue, value] of [
+        [0.25, AttendanceBehaviorValue.TARDE_JUSTIFICADA],
+        [0.75, AttendanceBehaviorValue.AUSENTE_JUSTIFICADO],
+      ] as const) {
+        const at = AttendanceType.reconstruct({
+          id: 'frac-id',
+          code: validCode('X'),
+          description: 'Fraccional',
+          absenceValue,
+          level: 2,
+          behavior: behavior(value),
+          isSystem: false,
+          active: true,
+        });
+        expect(at.absenceValue).toBe(absenceValue);
+        expect(at.behavior.get()).toBe(value);
+      }
     });
   });
 });
