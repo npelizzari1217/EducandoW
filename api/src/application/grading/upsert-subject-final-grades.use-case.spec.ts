@@ -84,6 +84,9 @@ function makeRepos(overrides: Partial<{
     authorizer: {
       canWriteGrades: vi.fn().mockResolvedValue(authorized),
     },
+    phaseAuthorizer: {
+      canGradeFinal: vi.fn().mockResolvedValue({ allowed: true, reason: 'ALLOWED' }),
+    },
   };
 }
 
@@ -93,6 +96,7 @@ function makeUseCase(repos: ReturnType<typeof makeRepos>) {
     repos.ccRepo as any,
     repos.gradeScaleRepo as any,
     repos.authorizer as any,
+    repos.phaseAuthorizer as any,
   );
 }
 
@@ -683,5 +687,61 @@ describe('UpsertSubjectFinalGradesUseCase', () => {
 
     expect(result.isOk()).toBe(true);
     expect(repos.finalGradeRepo.saveMany).toHaveBeenCalled();
+  });
+
+  // ── PR-1b: grading-phase guard ──────────────────────────────────────────────
+
+  it('PR-1b: phase gate rejected (outside CIERRE) → err(GradingPhaseViolationError), no saveMany', async () => {
+    repos = makeRepos();
+    repos.phaseAuthorizer.canGradeFinal.mockResolvedValue({ allowed: false, reason: 'NOT_CIERRE' });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+      }],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(repos.finalGradeRepo.saveMany).not.toHaveBeenCalled();
+    expect(repos.phaseAuthorizer.canGradeFinal).toHaveBeenCalledWith('cc-uuid-1');
+  });
+
+  it('PR-1b: phase gate allowed (CIERRE) → proceeds to save', async () => {
+    repos = makeRepos();
+    repos.phaseAuthorizer.canGradeFinal.mockResolvedValue({ allowed: true, reason: 'ALLOWED' });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        type: SubjectFinalGradeType.FINAL,
+      }],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repos.finalGradeRepo.saveMany).toHaveBeenCalled();
+  });
+
+  it('PR-1b: dedupes phase-gate queries per unique courseCycleId', async () => {
+    repos = makeRepos();
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    await uc.execute({
+      items: [
+        { studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', type: SubjectFinalGradeType.FINAL },
+        { studentId: 'student-2', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', type: SubjectFinalGradeType.DICIEMBRE },
+      ],
+    });
+
+    expect(repos.phaseAuthorizer.canGradeFinal).toHaveBeenCalledTimes(1);
   });
 });

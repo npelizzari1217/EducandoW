@@ -15,12 +15,13 @@
  * Specs: SFG-R3..R9, AD-2
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion, GradingPhaseViolationError } from '@educandow/domain';
 import type {
   SubjectFinalGradeRepository,
   CourseCycleRepository,
   GradeScaleRepository,
   AssignmentAuthorizerPort,
+  GradingPhaseAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -58,11 +59,12 @@ export class UpsertSubjectFinalGradesUseCase {
     private readonly ccRepo: CourseCycleRepository,
     private readonly gradeScaleRepo: GradeScaleRepository,
     private readonly authorizer: AssignmentAuthorizerPort,
+    private readonly phaseAuthorizer: GradingPhaseAuthorizerPort,
   ) {}
 
   async execute(
     input: UpsertSubjectFinalGradesInput,
-  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError>> {
+  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError | GradingPhaseViolationError>> {
     if (input.items.length === 0) return ok(undefined);
 
     // ── 0. Authorization check (F5-A4) — one check per unique (cc, subject) ──
@@ -97,6 +99,20 @@ export class UpsertSubjectFinalGradesUseCase {
           return err(new NotFoundError('CourseCycle', item.courseCycleId));
         }
         ccContexts.set(item.courseCycleId, ctx);
+      }
+    }
+
+    // ── 1b. Grading-phase gate (PR-1b) — once per unique courseCycleId ────────
+    // Special grades (SubjectFinalGrade) are only writable during CIERRE.
+    for (const courseCycleId of ccContexts.keys()) {
+      const decision = await this.phaseAuthorizer.canGradeFinal(courseCycleId);
+      if (!decision.allowed) {
+        return err(
+          new GradingPhaseViolationError(
+            courseCycleId,
+            'special grades (SubjectFinalGrade) can only be written during CIERRE',
+          ),
+        );
       }
     }
 
