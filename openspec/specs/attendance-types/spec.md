@@ -385,6 +385,120 @@ Y las filas con `isSystem = false` muestran los controles de acción normales
 
 ---
 
+### REQ-15 — Campo `behavior` (clasificador de ausentismo) (asistencia-behavior-e-impresion, 2026-07-01)
+
+> Agregado por: `asistencia-behavior-e-impresion` (2026-07-01). Archivo: `openspec/changes/archive/2026-07-01-asistencia-behavior-e-impresion/`.
+> Extiende REQ-1 (modelo `AttendanceType`): se agrega la columna `behavior` (enum nativo Prisma
+> `AttendanceBehavior`, valores 1–7). `absenceValue` (REQ-1) permanece sin cambios de tipo,
+> precisión ni semántica — `behavior` es un clasificador adicional, no lo reemplaza ni recalcula.
+> `assignable` (REQ-1) deja de ser la fuente de verdad para el combo de grilla y pasa a ser
+> DERIVADO de `behavior` (`assignable = behavior !== NO_ELEGIBLE(3)`); la columna NO se elimina
+> (compatibilidad de lectura / rollback — ver design.md ADR-03). Cross-reference:
+> `attendance-recording/spec.md` — Addendum ATR-R9 (el combo sigue filtrando por `assignable`, que
+> ahora refleja `behavior` 1:1) y capacidad nueva `asistencia-reporting/spec.md` (impresión PDF que
+> consume `behavior` para totales ponderados).
+
+El modelo `AttendanceType` DEBE tener un campo `behavior` con uno de los siguientes 7 valores enteros:
+
+| behavior | Nombre                | Significado                                                              |
+|----------|-----------------------|---------------------------------------------------------------------------|
+| 1        | AUSENTE_INJUSTIFICADO | Ausente sin justificar                                                    |
+| 2        | AUSENTE_JUSTIFICADO   | Ausente justificado                                                      |
+| 3        | NO_ELEGIBLE           | No elegible — reemplaza el rol funcional de `assignable=false` en el combo|
+| 4        | NO_COMPUTA            | No considerar ausentismo (ej. Presente)                                  |
+| 5        | TARDE_INJUSTIFICADA   | Tarde injustificada                                                      |
+| 6        | TARDE_JUSTIFICADA     | Tarde justificada                                                        |
+| 7        | DIA_NO_HABIL          | Día no hábil (feriado) — a diferencia de `behavior 3`, SÍ es seleccionable|
+
+El sistema DEBE rechazar cualquier operación de create/update que provea un `behavior` fuera del
+rango 1–7.
+
+**Mapeo fijo de tipos de sistema** (inmutable, no editable vía CRUD ni API, ni por ROOT):
+- `P` → `behavior = 4` (NO_COMPUTA)
+- `SAB`, `DOM`, `X` → `behavior = 3` (NO_ELEGIBLE)
+
+`behavior = 3` (NO_ELEGIBLE) NUNCA aparece en el combo de la grilla diaria/mensual; los demás
+valores (1, 2, 4, 5, 6, 7) SÍ aparecen cuando el tipo está `active`. Un custom con `behavior = 7`
+(ej. "Feriado") ES seleccionable y marcable día a día por Secretaría para alumnos/filas
+individuales — a diferencia de `behavior = 3`, que nunca es seleccionable.
+
+`behavior` NO es único: pueden existir múltiples `AttendanceType` (incluso dentro del mismo nivel)
+con el mismo `behavior`, sin conflicto de validación cruzada.
+
+**Invariante de migración:** tras el deploy de este cambio, TODO row de `AttendanceType` (sistema
+y custom) DEBE tener un `behavior` válido no-nulo — ningún row PUEDE quedar con `behavior` null o
+faltante. La heurística de backfill para customs preexistentes sin `behavior` obvio es una decisión
+de diseño (design.md ADR-02, Riesgo A); esta spec solo fija el invariante de estado final y el
+mapeo determinístico de sistema arriba descripto.
+
+**Protección de sistema extendida:** la protección de REQ-5/REQ-7 (rechazo de edición/borrado de
+`isSystem = true`) se extiende explícitamente al campo `behavior` — cualquier intento de mutar el
+`behavior` de un tipo de sistema DEBE rechazarse igual que ya se rechaza para `description` o
+`absenceValue`.
+
+#### Escenario 15.1 — behavior válido aceptado en creación de tipo custom
+
+**Dado** un usuario autorizado (Secretario+) creando un AttendanceType custom
+**Cuando** el payload incluye `behavior = 6` (Tarde Justificado)
+**Entonces** el AttendanceType se crea con `behavior = 6`
+Y `absenceValue` se persiste tal cual se envió, independiente del `behavior`
+
+#### Escenario 15.2 — behavior inválido rechazado
+
+**Dado** un usuario autorizado creando o actualizando un AttendanceType
+**Cuando** el payload incluye `behavior = 8` (fuera de rango) o `behavior = 0`
+**Entonces** la operación se rechaza con error de validación
+Y no se crea ni modifica ningún registro
+
+#### Escenario 15.3 — tipo de sistema P fijo en behavior 4
+
+**Dado** el AttendanceType de sistema "P" para un nivel dado
+**Cuando** se inspecciona su `behavior` post-migración
+**Entonces** `behavior` DEBE ser igual a 4 (NO_COMPUTA)
+
+#### Escenario 15.4 — tipos de sistema SAB/DOM/X fijos en behavior 3
+
+**Dado** los AttendanceTypes de sistema "SAB", "DOM", "X" para un nivel dado
+**Cuando** se inspecciona su `behavior` post-migración
+**Entonces** cada uno DEBE ser igual a `behavior = 3` (NO_ELEGIBLE)
+
+#### Escenario 15.5 — behavior 3 excluido del combo de grilla
+
+**Dado** el combo de la grilla de asistencia para una celda editable (hábil)
+**Y** el AttendanceType "SAB" tiene `behavior = 3`
+**Cuando** se computan las opciones del combo
+**Entonces** "SAB" NO DEBE aparecer en el combo
+
+#### Escenario 15.6 — behaviors 1,2,4,5,6,7 incluidos en el combo de grilla
+
+**Dado** AttendanceTypes activos con `behavior` en {1,2,4,5,6,7} (ej. "A"=1, "AJ"=2, "P"=4, "TI"=5, "TJ"=6, "Feriado"=7)
+**Cuando** se computan las opciones del combo para una celda editable
+**Entonces** todos DEBEN aparecer en el combo
+
+#### Escenario 15.7 — Feriado (behavior 7) marcado día a día
+
+**Dado** un AttendanceType custom "Feriado" con `behavior = 7`, `active = true`
+**Cuando** Secretaría selecciona "Feriado" para un alumno específico en un día específico de la grilla
+**Entonces** el código de ese día para ese alumno DEBE registrarse como "Feriado" (`behavior 7`)
+Y los códigos de otros alumnos/días DEBEN permanecer sin afectar
+
+#### Escenario 15.8 (edge) — custom creado para cada valor de behavior sin conflicto de unicidad
+
+**Dado** un usuario autorizado creando 7 AttendanceTypes custom distintos, uno por cada valor de behavior 1 a 7
+**Cuando** cada uno se envía con un `absenceValue` válido
+**Entonces** cada uno se crea exitosamente con su respectivo `behavior`
+Y ninguna validación cruzada rechaza un `behavior` solo porque otro tipo ya lo usa (`behavior` no es único)
+
+#### Escenario 15.9 (edge) — absenceValue fraccionario con cualquier behavior
+
+**Dado** un AttendanceType custom con `absenceValue = 0.25` y `behavior = 5` (Tarde Injustificada)
+**Y** otro AttendanceType custom con `absenceValue = 0.75` y `behavior = 1` (Ausente Injustificado)
+**Cuando** ambos se crean
+**Entonces** ambos DEBEN persistirse con su valor decimal exacto y el `behavior` elegido
+Y la validación de `behavior` DEBE ser independiente del `absenceValue` elegido
+
+---
+
 ## Invariantes de dominio (resumen)
 
 1. `code.length ≤ 4` — validado en entidad antes de persistir

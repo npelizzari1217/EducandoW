@@ -6,10 +6,12 @@
 >   asistencia-desde-alumnos-curso (archived 2026-06-23) — ATR-R4, ATR-R5
 >   asistencia-dias-bloqueados (archived 2026-06-23) — ATR-R6, ATR-R7, ATR-R8, ATR-R9
 >   fase-bimestre-cierre-asistencia (archived 2026-07-01) — ATR-R10
+>   asistencia-behavior-e-impresion (archived 2026-07-01) — ATR-R9 Addendum (`assignable` derived from `behavior`)
 > IDs: ATR-R* / ATR-S*
 > Cross-references:
 >   ACC-R1 (`asignacion-curso-ciclo/spec.md`) — preceptor assignment basis for daily attendance
->   `attendance-types/spec.md` — defines the AttendanceType codes used when recording (SAB/DOM/P/X and assignable flag)
+>   `attendance-types/spec.md` — defines the AttendanceType codes used when recording (SAB/DOM/P/X, `behavior` classifier REQ-15, and derived `assignable` flag)
+>   `asistencia-reporting/spec.md` — server-side landscape PDF printing of the monthly grid (reads these recording models read-only)
 
 ## Purpose
 
@@ -568,6 +570,23 @@ The decision to render a cell as blocked MUST be based on the `assignable` field
 - WHEN the user clicks on the blocked cell
 - THEN no API call MUST be triggered
 - AND the cell MUST remain in its read-only state
+
+---
+
+### ATR-R9 Addendum — `assignable` becomes derived from `behavior` (asistencia-behavior-e-impresion, 2026-07-01)
+
+> Added: `asistencia-behavior-e-impresion` (2026-07-01). Archive: `openspec/changes/archive/2026-07-01-asistencia-behavior-e-impresion/`.
+> Cross-reference: `attendance-types/spec.md` — REQ-15 (`behavior` classifier 1–7).
+
+As of this change, `assignable` — the field ATR-R9 uses to lock/unlock grid cells and filter the
+combo (ATR-S57..S62) — is DERIVED server-side from the new `behavior` field on `AttendanceType`:
+`assignable = (behavior !== NO_ELEGIBLE)`. ATR-S56 through ATR-S62 remain valid verbatim; the
+`assignable` boolean read by the frontend is unchanged in shape and meaning, only its source of
+truth changed server-side (no frontend change required for those scenarios). Additionally, a custom
+`AttendanceType` with `behavior = DIA_NO_HABIL` (7) (e.g., "Feriado") is now selectable and markable
+day-by-day in the combo — unlike `behavior = NO_ELEGIBLE` (3), which is never selectable. This is a
+capability not covered by ATR-S56..S62; see `attendance-types/spec.md` REQ-15 for the full behavior
+enum contract.
 
 ---
 
