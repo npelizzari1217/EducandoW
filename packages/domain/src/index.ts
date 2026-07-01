@@ -281,6 +281,16 @@ export type {
 export type { AsistenciaGeneralRepository, GenerateGeneralInput, EnrichedGeneralAttendance } from './asistencia';
 export type { AsistenciaMateriaRepository, GenerateMateriaInput, EnrichedMateriaAttendance } from './asistencia';
 
+// ── Cierre mensual de asistencia (fase-bimestre-cierre-asistencia, PR-3a — Capacidad B) ─────
+// Ortogonal a Capacidad A (fase de calificación) — no depende de GradingPhase.
+export { AttendanceMonthStatus } from './asistencia';
+export type {
+  AttendanceMonthStatusProps,
+  CreateAttendanceMonthStatusInput,
+} from './asistencia';
+export { MonthClosedError, PreviousMonthOpenError } from './asistencia';
+export type { AttendanceMonthStatusRepository } from './asistencia';
+
 // PlanificacionCurso (Fase 7)
 export { PlanificacionCurso } from './planificacion-curso';
 export type { PlanificacionCursoProps, CreatePlanificacionCursoInput } from './planificacion-curso';
