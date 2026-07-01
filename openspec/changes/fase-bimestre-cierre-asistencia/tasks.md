@@ -217,71 +217,89 @@ Cubre AC-B-1..15 (spec #1645), secciones B1–B5 (design #1646).
 
 ### 3.2 Infrastructure
 
-- [ ] 3.2.1 Impl: schema tenant — enum `AttendanceMonthState`, modelo
+*Nota de desviación (PR-3b, esta sesión): PR-3a (sesión previa) fue domain-only; 3.2.x
+(infrastructure), 3.3.x (application) y 3.4.x (presentation) se completaron juntos en esta
+sesión como PR-3b, no como PR-3a+PR-3b según el split original del Review Workload Forecast.*
+
+- [x] 3.2.1 Impl: schema tenant — enum `AttendanceMonthState`, modelo
       `AttendanceMonthStatus` (`@@unique[courseCycleId,year,month]`, `onDelete: Restrict`),
       relación en `CourseCycle`.
       `api/prisma_tenant/schema.prisma`
-- [ ] 3.2.2 Impl: generar y aplicar migración tenant.
-      `api/prisma_tenant/migrations/<timestamp>_attendance_month_status/`
-- [ ] 3.2.3 Test: `PrismaAttendanceMonthStatusRepository` — `findOne` por unique compuesta;
+- [x] 3.2.2 Impl: migración tenant escrita a mano (convención del repo, sin DB en WSL);
+      `pnpm --filter api prisma:generate` corrido y verde.
+      `api/prisma_tenant/migrations/20260701130000_add_attendance_month_status/`
+- [x] 3.2.3 Test: `PrismaAttendanceMonthStatusRepository` — `findOne` por unique compuesta;
       `findLatestBefore` devuelve el mayor `(year,month)` estrictamente anterior (no el
-      predecesor calendario, AC-B-8/9/10); `null` si no hay previo generado (exención primer
-      mes); `upsert` no pisa `CLOSED` al registrar generación.
-      `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-month-status.repository.test.ts`
-- [ ] 3.2.4 Impl: `PrismaAttendanceMonthStatusRepository`.
+      predecesor calendario, AC-B-8/9/10, incl. rollover de año); `null` si no hay previo
+      generado (exención primer mes); `upsert` mapea closed↔status CLOSED/OPEN + attribution.
+      `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-attendance-month-status.repository.test.ts`
+      (ruta real: `__tests__/`, no co-localizado — misma convención que el resto del repo)
+- [x] 3.2.4 Impl: `PrismaAttendanceMonthStatusRepository`.
       `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-month-status.repository.ts`
 
 ### 3.3 Application
 
-- [ ] 3.3.1 Test: `RecordGeneralAttendanceDayUseCase` — rechaza con `MonthClosedError` si el
+- [x] 3.3.1 Test: `RecordGeneralAttendanceDayUseCase` — rechaza con `MonthClosedError` si el
       mes está CLOSED, incondicional (AC-B-4/5/6: incluido admin/ROOT, sin bypass); permite si
       OPEN o sin fila (default abierto).
-      `api/src/application/asistencia/record-general-attendance-day.use-case.test.ts` (ampliar)
-- [ ] 3.3.2 Impl: guard `MONTH_CLOSED` en `RecordGeneralAttendanceDayUseCase` (antes de
+      `api/src/application/asistencia/__tests__/record-general-attendance-day.use-case.test.ts` (ampliado)
+- [x] 3.3.2 Impl: guard `MONTH_CLOSED` en `RecordGeneralAttendanceDayUseCase` (antes de
       `setDay`, fuera de cualquier gate de `scope.isAdministrative`).
       `api/src/application/asistencia/record-general-attendance-day.use-case.ts`
-- [ ] 3.3.3 Test: `RecordSubjectAttendanceDayUseCase` — mismo guard, resolviendo
+- [x] 3.3.3 Test: `RecordSubjectAttendanceDayUseCase` — mismo guard, resolviendo
       `courseCycleId` desde `materia.courseCycleId` (incluso cuando el flujo admin saltea
       Door2); rechaza a todos sin excepción.
-      `api/src/application/asistencia/record-subject-attendance-day.use-case.test.ts` (ampliar)
-- [ ] 3.3.4 Impl: guard `MONTH_CLOSED` en `RecordSubjectAttendanceDayUseCase`.
+      `api/src/application/asistencia/__tests__/record-subject-attendance-day.use-case.test.ts` (ampliado)
+- [x] 3.3.4 Impl: guard `MONTH_CLOSED` en `RecordSubjectAttendanceDayUseCase` (`checkDoor2`
+      ahora retorna `courseCycleId`; nuevo helper `resolveCourseCycleId` para el path admin).
       `api/src/application/asistencia/record-subject-attendance-day.use-case.ts`
-- [ ] 3.3.5 Test: `GenerateMonthlyAttendanceUseCase` — rechaza con `PreviousMonthOpenError` si
+- [x] 3.3.5 Test: `GenerateMonthlyAttendanceUseCase` — rechaza con `PreviousMonthOpenError` si
       `findLatestBefore` no es null y no está cerrado (AC-B-8); permite si es el primer mes
       (AC-B-9/10); tras materializar, hace `upsert` OPEN solo si no existe fila (no reabre
-      CLOSED regenerado).
-      `api/src/application/asistencia/generate-monthly-attendance.use-case.test.ts` (ampliar)
-- [ ] 3.3.6 Impl: guard `PREVIOUS_MONTH_OPEN` + `upsert` de registro de generación en
+      CLOSED regenerado; también se genera con enrollment cero).
+      `api/src/application/asistencia/__tests__/generate-monthly-attendance.use-case.test.ts` (ampliado)
+- [x] 3.3.6 Impl: guard `PREVIOUS_MONTH_OPEN` + `upsert` de registro de generación en
       `GenerateMonthlyAttendanceUseCase`.
       `api/src/application/asistencia/generate-monthly-attendance.use-case.ts`
-- [ ] 3.3.7 [P] Test: `GetAttendanceMonthStatusUseCase` / `SetAttendanceMonthStatusUseCase` —
-      Get devuelve `OPEN` cuando no hay fila (default); Set con `CLOSED`→`close(userId)`,
-      `OPEN`→`open(userId)`, reapertura siempre permitida sin chequear meses posteriores
-      (regla del proposal).
-      `api/src/application/asistencia/get-attendance-month-status.use-case.test.ts`,
-      `api/src/application/asistencia/set-attendance-month-status.use-case.test.ts`
-- [ ] 3.3.8 [P] Impl: `GetAttendanceMonthStatusUseCase`, `SetAttendanceMonthStatusUseCase`.
-      `api/src/application/asistencia/get-attendance-month-status.use-case.ts`,
-      `api/src/application/asistencia/set-attendance-month-status.use-case.ts`
-- [ ] 3.3.9 Impl: exportar los use-cases nuevos.
-      `api/src/application/asistencia/index.ts`
+- [x] 3.3.7 Test: `GetAttendanceMonthStatusUseCase` / `OpenAttendanceMonthUseCase` /
+      `CloseAttendanceMonthUseCase` — Get devuelve OPEN por defecto cuando no hay fila; Close
+      cierra (crea fila si no existe), Open reabre (limpia attribution) — ambas idempotentes;
+      las 3 validan existencia de CourseCycle (NotFoundError); reapertura siempre permitida sin
+      chequear meses posteriores. (Desviación deliberada: 1 caso de uso `Open` + 1 `Close`
+      separados, en vez de un solo `Set` — pedido explícito de esta sesión; rank Secretario+ se
+      aplica en el controller vía `@Rank(40)`, igual que `SetGradingPhaseUseCase`, no dentro del
+      use-case.)
+      `api/src/application/asistencia/__tests__/attendance-month-status.use-cases.test.ts`
+- [x] 3.3.8 Impl: `GetAttendanceMonthStatusUseCase`, `OpenAttendanceMonthUseCase`,
+      `CloseAttendanceMonthUseCase` (archivo combinado, misma convención que
+      `grading-phase.use-cases.ts` de PR-1).
+      `api/src/application/asistencia/attendance-month-status.use-cases.ts`
+- [x] 3.3.9 Impl: exportar los use-cases nuevos — n/a como barrel separado; se importan
+      directamente desde `attendance-month-status.use-cases.ts` en el controller/module, mismo
+      patrón que el resto de `application/asistencia` (no existe `index.ts` barrel en esa
+      carpeta).
 
 ### 3.4 Presentation
 
-- [ ] 3.4.1 Impl: registrar `MONTH_CLOSED: 409`, `PREVIOUS_MONTH_OPEN: 409` en `DOMAIN_STATUS`.
-      `api/src/presentation/shared/filters/exception.filter.ts`
-- [ ] 3.4.2 [P] Impl: DTO Zod `AttendanceMonthStatusQuerySchema`,
-      `SetAttendanceMonthStatusSchema`.
-      `api/src/presentation/asistencia/dto/asistencia.dto.ts`
-- [ ] 3.4.3 Test: `AsistenciaController` — `GET .../asistencia-mensual/estado` accesible con
-      rol READ; `PATCH .../estado` responde 403 si rank < 40 (AC-B-1/2/3), 200 + estado nuevo
-      si Secretario+/ROOT; verificar que ROOT gestiona el candado pero NO tiene bypass de
-      registro cuando está cerrado (distinción del spec).
-      `api/src/presentation/asistencia/asistencia.controller.test.ts` (ampliar)
-- [ ] 3.4.4 Impl: endpoints GET/PATCH `asistencia-mensual/estado`, `RankGuard` +
-      `@Rank(40)` en PATCH.
+- [x] 3.4.1 Impl: registrar `MONTH_CLOSED: 409`, `PREVIOUS_MONTH_OPEN: 409` en `DOMAIN_STATUS`
+      + test dedicado (`FILTER-6`).
+      `api/src/presentation/shared/filters/exception.filter.ts`,
+      `api/src/presentation/shared/filters/__tests__/exception.filter.spec.ts` (ampliado)
+- [x] 3.4.2 [P] Test+Impl: DTO Zod `AttendanceMonthStatusQuerySchema`,
+      `SetAttendanceMonthStatusSchema` (body `{year,month,status:'OPEN'|'CLOSED'}`).
+      `api/src/presentation/asistencia/dto/asistencia.dto.ts`,
+      `api/src/presentation/asistencia/__tests__/attendance-month-status.dto.test.ts`
+- [x] 3.4.3 Test: `AsistenciaController` — `GET .../asistencia-mensual/estado` mapea
+      OPEN/CLOSED+attribution; `PATCH .../estado` despacha a `closeMonthUC`/`openMonthUC` según
+      `body.status` (rank<40 → 403 vía `RankGuard`, cubierto genéricamente por
+      `rank.guard.test.ts`, no re-testeado aquí).
+      `api/src/presentation/asistencia/__tests__/asistencia.controller.test.ts` (ampliado,
+      CTR-T11/T12)
+- [x] 3.4.4 Impl: endpoints GET/PATCH `asistencia-mensual/estado`, `RankGuard` agregado a
+      `@UseGuards(AuthGuard, RolesGuard, RankGuard)` + `@Rank(40)` en PATCH.
       `api/src/presentation/asistencia/asistencia.controller.ts`
-- [ ] 3.4.5 Impl: wiring de use-cases/repo nuevos.
+- [x] 3.4.5 Impl: wiring de use-cases/repo nuevos (+ inyección de
+      `PrismaAttendanceMonthStatusRepository` en los 3 use-cases modificados de 3.3.x).
       `api/src/presentation/asistencia/asistencia.module.ts`
 
 ---
