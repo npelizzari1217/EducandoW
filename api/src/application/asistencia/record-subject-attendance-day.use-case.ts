@@ -17,6 +17,11 @@
  *   5. findStudentIdsByGrupoIds(groupIds) → students in teacher's groups
  *   6. Verify target studentId is in that set
  *
+ * Month-closed guard (fase-bimestre-cierre-asistencia, PR-3b — Capacidad B):
+ *   UNCONDITIONAL — rejects ALL roles, including ROOT/ADMIN, when the materia's
+ *   CourseCycle+year+month is closed. Never nested inside the isAdministrative
+ *   bypass (AC-B-4/5/6). Read-only total: no role can bypass a closed month.
+ *
  * Spec: R-17, R-18, R-19, R-20, R-22.
  */
 import { Injectable } from '@nestjs/common';
@@ -29,6 +34,7 @@ import {
   dayOfWeek,
   DayNotAssignableError,
   StatusNotAssignableError,
+  MonthClosedError,
 } from '@educandow/domain';
 import type {
   AsistenciaMateriaRepository,
@@ -37,6 +43,7 @@ import type {
   AlumnosXGrupoRepository,
   DocenteXCicloRepository,
   AsistenciaXMateriaXAlumnoXCursoXCiclo,
+  AttendanceMonthStatusRepository,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -59,6 +66,7 @@ export class RecordSubjectAttendanceDayUseCase {
     private readonly grupoRepo: GrupoRepository,
     private readonly alumnosXGrupoRepo: AlumnosXGrupoRepository,
     private readonly docenteRepo: DocenteXCicloRepository,
+    private readonly monthStatusRepo: AttendanceMonthStatusRepository,
   ) {}
 
   async execute(
@@ -66,10 +74,18 @@ export class RecordSubjectAttendanceDayUseCase {
   ): Promise<AsistenciaXMateriaXAlumnoXCursoXCiclo> {
     const { materiaXCursoXCicloId, studentId, year, month, day, statusCode, userId, userRoles } = input;
 
-    // Auth: D3 or Door 2 teacher-with-group
+    // Auth: D3 or Door 2 teacher-with-group. Both paths resolve the materia's
+    // CourseCycle uuid — needed unconditionally for the month-closed guard below.
     const scope = resolveAccessScope({ roles: userRoles });
-    if (!scope.isAdministrative) {
-      await this.checkDoor2(materiaXCursoXCicloId, studentId, userId);
+    const courseCycleId = scope.isAdministrative
+      ? await this.resolveCourseCycleId(materiaXCursoXCicloId)
+      : await this.checkDoor2(materiaXCursoXCicloId, studentId, userId);
+
+    // Month-closed guard — UNCONDITIONAL, applies to every role including ROOT/ADMIN
+    // (AC-B-4/5/6). Never placed behind scope.isAdministrative — no bypass exists.
+    const monthStatus = await this.monthStatusRepo.findOne(courseCycleId, year, month);
+    if (monthStatus && monthStatus.isClosed()) {
+      throw new MonthClosedError(courseCycleId, year, month);
     }
 
     // Find existing row (ADR-4)
@@ -120,11 +136,12 @@ export class RecordSubjectAttendanceDayUseCase {
     return this.materiaAsistRepo.setDay(row.id.get(), day, statusCode);
   }
 
+  /** Returns the materia's CourseCycle uuid, reused by the caller for the month-closed guard. */
   private async checkDoor2(
     materiaXCursoXCicloId: string,
     studentId: string,
     userId: string,
-  ): Promise<void> {
+  ): Promise<string> {
     const client = TenantContext.getClient();
     if (!client) {
       throw new ForbiddenError('Tenant context unavailable');
@@ -166,5 +183,26 @@ export class RecordSubjectAttendanceDayUseCase {
     if (!studentIds.includes(studentId)) {
       throw new ForbiddenError('Target student is not in any of the teacher\'s groups for this materia');
     }
+
+    return materia.courseCycleId;
+  }
+
+  /**
+   * Resolves the materia's CourseCycle uuid without any Door 2 authorization check —
+   * used only on the D3 admin bypass path, where the caller is already authorized.
+   */
+  private async resolveCourseCycleId(materiaXCursoXCicloId: string): Promise<string> {
+    const client = TenantContext.getClient();
+    if (!client) {
+      throw new ForbiddenError('Tenant context unavailable');
+    }
+    const materia = await client.materiaXCursoXCiclo.findUnique({
+      where: { id: materiaXCursoXCicloId },
+      select: { courseCycleId: true },
+    });
+    if (!materia) {
+      throw new NotFoundError('MateriaXCursoXCiclo', materiaXCursoXCicloId);
+    }
+    return materia.courseCycleId;
   }
 }

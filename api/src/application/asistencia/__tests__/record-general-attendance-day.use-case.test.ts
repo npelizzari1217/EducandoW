@@ -9,6 +9,7 @@
  *   RGA-T05: invalid statusCode (not in AttendanceType catalog) → ValidationError
  *   RGA-T06: D3 (SECRETARIO) bypasses Door 2 preceptor check
  *   RGA-T07: non-preceptor TEACHER → ForbiddenError
+ *   RGA-T08: month closed → MonthClosedError (UNCONDITIONAL — incl. D3/ROOT, PR-3b)
  *
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
@@ -19,6 +20,8 @@ import {
   ValidationError,
   DayNotAssignableError,
   StatusNotAssignableError,
+  MonthClosedError,
+  AttendanceMonthStatus,
 } from '@educandow/domain';
 import { DayMap, AsistenciaXAlumnoXCursoXCiclo, Id, AttendanceTypeCode } from '@educandow/domain';
 
@@ -77,6 +80,7 @@ function makeUC({
   docenteId = 'dxc-1',
   docenteExists = true,
   isPreceptor = true,
+  monthStatus = null,
 }: {
   row?: AsistenciaXAlumnoXCursoXCiclo | null;
   attendanceTypes?: typeof validAttendanceTypes;
@@ -84,6 +88,7 @@ function makeUC({
   docenteId?: string;
   docenteExists?: boolean;
   isPreceptor?: boolean;
+  monthStatus?: AttendanceMonthStatus | null;
 } = {}) {
   const mockClient = {
     courseCycle: {
@@ -107,14 +112,26 @@ function makeUC({
   const asignacionRepo = {
     isPreceptor: vi.fn().mockResolvedValue(isPreceptor),
   };
+  const monthStatusRepo = {
+    findOne: vi.fn().mockResolvedValue(monthStatus),
+    findLatestBefore: vi.fn().mockResolvedValue(null),
+    upsert: vi.fn().mockResolvedValue(undefined),
+  };
 
   const uc = Object.create(RecordGeneralAttendanceDayUseCase.prototype);
   uc.generalRepo = generalRepo;
   uc.attendanceTypeRepo = attendanceTypeRepo;
   uc.docenteRepo = docenteRepo;
   uc.asignacionRepo = asignacionRepo;
+  uc.monthStatusRepo = monthStatusRepo;
 
-  return { uc, generalRepo, attendanceTypeRepo, docenteRepo, asignacionRepo, mockClient };
+  return { uc, generalRepo, attendanceTypeRepo, docenteRepo, asignacionRepo, monthStatusRepo, mockClient };
+}
+
+function makeClosedMonthStatus(): AttendanceMonthStatus {
+  const status = AttendanceMonthStatus.create({ courseCycleId: CC_ID, year: YEAR, month: MONTH });
+  status.close('secretario-1');
+  return status;
 }
 
 const baseInput = {
@@ -235,6 +252,43 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
       const { uc, generalRepo } = makeUC({ isPreceptor: true });
       await expect(
         uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
+      ).resolves.toBeDefined();
+      expect(generalRepo.setDay).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('RGA-T08: month closed → MonthClosedError (UNCONDITIONAL)', () => {
+    it('throws MonthClosedError for D3 SECRETARIO when month is closed', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('throws MonthClosedError for ROOT/ADMIN when month is closed — no bypass', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['ROOT'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('throws MonthClosedError for preceptor TEACHER when month is closed', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus(), isPreceptor: true });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('does not call setDay when month is closed', async () => {
+      const { uc, generalRepo } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      try { await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }); } catch { /* expected */ }
+      expect(generalRepo.setDay).not.toHaveBeenCalled();
+    });
+
+    it('allows recording when month is open (no status row)', async () => {
+      const { uc, generalRepo } = makeUC({ monthStatus: null });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }),
       ).resolves.toBeDefined();
       expect(generalRepo.setDay).toHaveBeenCalledOnce();
     });

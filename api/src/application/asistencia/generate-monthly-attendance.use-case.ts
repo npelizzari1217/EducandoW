@@ -11,6 +11,12 @@
  * Steps:
  *   1. Require administrative role (D3 only)
  *   2. Verify CourseCycle exists in tenant DB
+ *   2b. Guard: the previously GENERATED month (findLatestBefore, not the calendar
+ *       predecessor) must be closed, else PreviousMonthOpenError. First-ever
+ *       generated month is exempt (design §B1, AC-B-8/9/10, fase-bimestre-cierre-asistencia PR-3b).
+ *   2c. Ensure this month's own AttendanceMonthStatus row exists (OPEN) — marks
+ *       the month as "generated" for future canGenerate/findLatestBefore checks.
+ *       Idempotent: never reopens/recloses an already-existing row.
  *   3. Get enrolled students (AlumnosXCursoXCiclo)
  *   4. Get all materias for the CC (MateriaXCursoXCiclo)
  *   5. For each materia, get student-materia assignments (MateriasXAlumnoXCursoXCiclo)
@@ -27,6 +33,8 @@ import {
   ForbiddenError,
   NotFoundError,
   buildLockedDayMap,
+  AttendanceMonthStatus,
+  PreviousMonthOpenError,
 } from '@educandow/domain';
 import type {
   AlumnosXCursoXCicloRepository,
@@ -34,6 +42,7 @@ import type {
   AlumnosXMateriaRepository,
   AsistenciaGeneralRepository,
   AsistenciaMateriaRepository,
+  AttendanceMonthStatusRepository,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -60,6 +69,7 @@ export class GenerateMonthlyAttendanceUseCase {
     private readonly alumnosXMateriaRepo: AlumnosXMateriaRepository,
     private readonly generalRepo: AsistenciaGeneralRepository,
     private readonly materiaAsistRepo: AsistenciaMateriaRepository,
+    private readonly monthStatusRepo: AttendanceMonthStatusRepository,
   ) {}
 
   async execute(input: GenerateMonthlyAttendanceInput): Promise<GenerationResult> {
@@ -82,6 +92,21 @@ export class GenerateMonthlyAttendanceUseCase {
     });
     if (!cc) {
       throw new NotFoundError('CourseCycle', courseCycleId);
+    }
+
+    // 2b. Guard: previous GENERATED month (not the calendar predecessor — schools
+    // may skip months) must be closed. First-ever generated month is exempt.
+    const previousStatus = await this.monthStatusRepo.findLatestBefore(courseCycleId, year, month);
+    if (!AttendanceMonthStatus.canGenerate(previousStatus)) {
+      throw new PreviousMonthOpenError(courseCycleId, year, month);
+    }
+
+    // 2c. Ensure this month's own status row exists (OPEN) — marks the month as
+    // "generated" for future canGenerate/findLatestBefore checks. Idempotent:
+    // never reopens/recloses an already-existing row (ADR-3).
+    const existingStatus = await this.monthStatusRepo.findOne(courseCycleId, year, month);
+    if (!existingStatus) {
+      await this.monthStatusRepo.upsert(AttendanceMonthStatus.create({ courseCycleId, year, month }));
     }
 
     // 3. Get enrolled students (general roster)

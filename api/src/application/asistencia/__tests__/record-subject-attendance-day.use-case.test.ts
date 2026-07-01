@@ -10,6 +10,7 @@
  *   RSA-T06: teacher with group + student in group → success
  *   RSA-T07: teacher with group but student NOT in group → ForbiddenError
  *   RSA-T08: teacher with no group for this materia → ForbiddenError
+ *   RSA-T09: month closed → MonthClosedError (UNCONDITIONAL — incl. D3/ROOT, PR-3b)
  *
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
@@ -20,6 +21,8 @@ import {
   ValidationError,
   DayNotAssignableError,
   StatusNotAssignableError,
+  MonthClosedError,
+  AttendanceMonthStatus,
 } from '@educandow/domain';
 import { DayMap, AsistenciaXMateriaXAlumnoXCursoXCiclo, Id, AttendanceTypeCode } from '@educandow/domain';
 
@@ -81,6 +84,7 @@ function makeUC({
   docenteExists = true,
   teacherGroups = [{ id: GRUPO_ID, docenteXCicloId: DOCENTE_ID }],
   studentIdsInGroups = [STUDENT_ID],
+  monthStatus = null,
 }: {
   row?: AsistenciaXMateriaXAlumnoXCursoXCiclo | null;
   attendanceTypes?: typeof validAttendanceTypes;
@@ -89,6 +93,7 @@ function makeUC({
   docenteExists?: boolean;
   teacherGroups?: { id: string; docenteXCicloId: string }[];
   studentIdsInGroups?: string[];
+  monthStatus?: AttendanceMonthStatus | null;
 } = {}) {
   const mockClient = {
     materiaXCursoXCiclo: {
@@ -118,6 +123,11 @@ function makeUC({
       docenteExists ? { id: DOCENTE_ID, userId: 'u1', cycleId: ccCycleId } : null,
     ),
   };
+  const monthStatusRepo = {
+    findOne: vi.fn().mockResolvedValue(monthStatus),
+    findLatestBefore: vi.fn().mockResolvedValue(null),
+    upsert: vi.fn().mockResolvedValue(undefined),
+  };
 
   const uc = Object.create(RecordSubjectAttendanceDayUseCase.prototype);
   uc.materiaAsistRepo = materiaAsistRepo;
@@ -125,8 +135,17 @@ function makeUC({
   uc.grupoRepo = grupoRepo;
   uc.alumnosXGrupoRepo = alumnosXGrupoRepo;
   uc.docenteRepo = docenteRepo;
+  uc.monthStatusRepo = monthStatusRepo;
 
-  return { uc, materiaAsistRepo, attendanceTypeRepo, grupoRepo, alumnosXGrupoRepo, docenteRepo, mockClient };
+  return {
+    uc, materiaAsistRepo, attendanceTypeRepo, grupoRepo, alumnosXGrupoRepo, docenteRepo, monthStatusRepo, mockClient,
+  };
+}
+
+function makeClosedMonthStatus(): AttendanceMonthStatus {
+  const status = AttendanceMonthStatus.create({ courseCycleId: 'cc-1', year: YEAR, month: MONTH });
+  status.close('secretario-1');
+  return status;
 }
 
 const baseInput = {
@@ -242,6 +261,43 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
       await expect(
         uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
       ).rejects.toBeInstanceOf(ForbiddenError);
+    });
+  });
+
+  describe('RSA-T09: month closed → MonthClosedError (UNCONDITIONAL)', () => {
+    it('throws MonthClosedError for D3 ADMIN when month is closed', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['ADMIN'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('throws MonthClosedError for ROOT when month is closed — no bypass', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['ROOT'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('throws MonthClosedError for teacher-with-group when month is closed', async () => {
+      const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
+      ).rejects.toBeInstanceOf(MonthClosedError);
+    });
+
+    it('does not call setDay when month is closed', async () => {
+      const { uc, materiaAsistRepo } = makeUC({ monthStatus: makeClosedMonthStatus() });
+      try { await uc.execute({ ...baseInput, userRoles: ['ADMIN'] }); } catch { /* expected */ }
+      expect(materiaAsistRepo.setDay).not.toHaveBeenCalled();
+    });
+
+    it('allows recording when month is open (no status row)', async () => {
+      const { uc, materiaAsistRepo } = makeUC({ monthStatus: null });
+      await expect(
+        uc.execute({ ...baseInput, userRoles: ['ADMIN'] }),
+      ).resolves.toBeDefined();
+      expect(materiaAsistRepo.setDay).toHaveBeenCalledOnce();
     });
   });
 
