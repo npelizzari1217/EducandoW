@@ -734,6 +734,15 @@ describe('AsistenciaMensualPage', () => {
       expect(screen.getByTestId('asistencia-toast')).not.toHaveTextContent(/previous month/i);
     });
 
+    it('AM-11: "Generar" is disabled when the selected month is already closed', async () => {
+      mockMonthStatus = { status: 'CLOSED', closedAt: '2026-06-15T00:00:00.000Z', closedBy: 'admin-1' };
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-generar')).toBeInTheDocument());
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-generar')).toBeDisabled();
+      });
+    });
+
     it('AM-10: "Generar" shows a generic error message for other failures', async () => {
       const user = userEvent.setup();
       mockPost.mockRejectedValueOnce({ response: { data: { error: { message: 'boom' } } } });

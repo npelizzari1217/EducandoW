@@ -566,7 +566,7 @@ export default function AsistenciaMensualPage() {
           size="sm"
           data-testid="btn-generar"
           onClick={handleGenerate}
-          disabled={generateLoading || !selectedCCId}
+          disabled={generateLoading || !selectedCCId || isMonthClosed}
         >
           {generateLoading ? 'Generando…' : 'Generar asistencia del mes'}
         </Button>
