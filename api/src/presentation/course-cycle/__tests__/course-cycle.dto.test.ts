@@ -36,6 +36,8 @@ function makeController(overrides: Record<string, unknown> = {}) {
     overrides.listTeacherCCsUC as any,
     overrides.listTeacherSubjectsUC as any,
     overrides.listAdminSubjectsUC as any,
+    overrides.getGradingPhaseUC as any,
+    overrides.setGradingPhaseUC as any,
   );
 }
 

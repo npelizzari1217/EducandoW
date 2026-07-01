@@ -3,7 +3,9 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
+import { RankGuard } from '../../infrastructure/auth/guards/rank.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
+import { Rank } from '../../infrastructure/auth/decorators/rank.decorator';
 import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { resolveAccessScope } from '@educandow/domain';
@@ -22,6 +24,10 @@ import {
   SetGradingPeriodSchema,
   SetGradingPeriodDto,
 } from './dto/grading-period.dto';
+import {
+  SetGradingPhaseSchema,
+  SetGradingPhaseDto,
+} from './dto/grading-phase.dto';
 import {
   TeacherCCListQuerySchema,
   TeacherCCListQueryDto,
@@ -42,12 +48,16 @@ import {
   GetActivePeriodUseCase,
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
+import {
+  GetGradingPhaseUseCase,
+  SetGradingPhaseUseCase,
+} from '../../application/course-cycle/use-cases/grading-phase.use-cases';
 import { ListTeacherCourseCyclesUseCase } from '../../application/grading/list-teacher-course-cycles.use-case';
 import { ListTeacherSubjectsInCourseCycleUseCase } from '../../application/grading/list-teacher-subjects-in-course-cycle.use-case';
 import { ListAdminSubjectsInCourseCycleUseCase } from '../../application/grading/list-admin-subjects-in-course-cycle.use-case';
 
 @Controller('course-cycles')
-@UseGuards(AuthGuard, RolesGuard)
+@UseGuards(AuthGuard, RolesGuard, RankGuard)
 export class CourseCycleController {
   constructor(
     private readonly createUC: CreateCourseCycleUseCase,
@@ -64,6 +74,9 @@ export class CourseCycleController {
     private readonly listTeacherCCsUC: ListTeacherCourseCyclesUseCase,
     private readonly listTeacherSubjectsUC: ListTeacherSubjectsInCourseCycleUseCase,
     private readonly listAdminSubjectsUC: ListAdminSubjectsInCourseCycleUseCase,
+    // fase-bimestre-cierre-asistencia PR-1b
+    private readonly getGradingPhaseUC: GetGradingPhaseUseCase,
+    private readonly setGradingPhaseUC: SetGradingPhaseUseCase,
   ) {}
 
   @Post()
@@ -276,6 +289,34 @@ export class CourseCycleController {
     return { data: result.unwrap() };
   }
 
+  /**
+   * GET /course-cycles/:uuid/grading-phase
+   * Read is broad (grillas de calificación necesitan el valor para deshabilitar columnas).
+   */
+  @Get(':uuid/grading-phase')
+  @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
+  async getGradingPhase(@Param('uuid') uuid: string) {
+    const result = await this.getGradingPhaseUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
+  }
+
+  /**
+   * PATCH /course-cycles/:uuid/grading-phase
+   * Secretario+ only (AC-A-1/2: explicit rejection for PRECEPTOR/TEACHER via rank gate).
+   * 422 if the CourseCycle's level does not support grading phases (Inicial/Terciario).
+   */
+  @Patch(':uuid/grading-phase')
+  @Rank(40)
+  async setGradingPhase(
+    @Param('uuid') uuid: string,
+    @Body(new ZodValidationPipe(SetGradingPhaseSchema)) body: SetGradingPhaseDto,
+  ) {
+    const result = await this.setGradingPhaseUC.execute(uuid, { gradingPhase: body.gradingPhase });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
+  }
+
   private toResponse(
     cc: {
       uuid: string;
@@ -292,6 +333,7 @@ export class CourseCycleController {
       thirdBimonth: { start: Date; end: Date } | null;
       fourthBimonth: { start: Date; end: Date } | null;
       activeGradingPeriod: number | null;
+      gradingPhase?: { code: string } | null;
       lastModifiedAt: Date;
       deletedAt?: Date | null;
     },
@@ -322,6 +364,7 @@ export class CourseCycleController {
       passingGrade: cc.passingGrade.get(),
       promotionText: cc.promotionText,
       activeGradingPeriod: cc.activeGradingPeriod,
+      gradingPhase: cc.gradingPhase?.code ?? null,
       ownBimonthDates: {
         firstBimonthStart: cc.firstBimonth?.start?.toISOString() ?? null,
         firstBimonthEnd: cc.firstBimonth?.end?.toISOString() ?? null,
