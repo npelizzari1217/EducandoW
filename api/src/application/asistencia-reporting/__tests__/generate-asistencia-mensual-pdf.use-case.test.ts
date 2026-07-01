@@ -252,6 +252,19 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 
+  it('non-admin, courseCycle not found (Door 2) → ForbiddenError, fails closed', async () => {
+    const { uc, docenteRepo, asignacionRepo } = makeUC({ ccExists: false });
+    await expect(
+      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
+    // Door 2 short-circuits before ever reaching the docente/preceptor lookups.
+    expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+    expect(asignacionRepo.isPreceptor).not.toHaveBeenCalled();
+  });
+
   it('falls back to a default institution name when no institution is resolved (no institutionId)', async () => {
     const { uc, pdfGenerator } = makeUC({ institution: null });
     vi.mocked(TenantContext.getInstitutionId).mockReturnValue(undefined as never);

@@ -82,6 +82,7 @@ const CATALOG_TYPES = [
 
 function makeUC({
   materiaExists = true,
+  ccExists = true,
   ccLevel = 2,
   ccCourseName = '5° A',
   subjectName = 'Matemática',
@@ -92,6 +93,7 @@ function makeUC({
   studentIdsInGroup = ['stu-1'],
 }: {
   materiaExists?: boolean;
+  ccExists?: boolean;
   ccLevel?: number;
   ccCourseName?: string;
   subjectName?: string;
@@ -108,7 +110,9 @@ function makeUC({
       ),
     },
     courseCycle: {
-      findUnique: vi.fn().mockResolvedValue({ level: ccLevel, courseName: ccCourseName, cycleId: CYCLE_ID }),
+      findUnique: vi.fn().mockResolvedValue(
+        ccExists ? { level: ccLevel, courseName: ccCourseName, cycleId: CYCLE_ID } : null,
+      ),
     },
   };
   vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as never);
@@ -230,5 +234,30 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
     await expect(
       uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
     ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('non-admin, materiaXCursoXCiclo not found (Door 2) → ForbiddenError, fails closed', async () => {
+    const { uc, docenteRepo, grupoRepo } = makeUC({ materiaExists: false });
+    await expect(
+      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('MateriaXCursoXCiclo not found') });
+    // Door 2 short-circuits before ever reaching the docente/group lookups.
+    expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+    expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
+  });
+
+  it('non-admin, courseCycle not found for the materia (Door 2) → ForbiddenError, fails closed', async () => {
+    const { uc, docenteRepo, grupoRepo } = makeUC({ ccExists: false });
+    await expect(
+      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
+    ).rejects.toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
+    expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
+    expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
   });
 });
