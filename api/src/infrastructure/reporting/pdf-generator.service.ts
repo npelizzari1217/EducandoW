@@ -1,6 +1,14 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import puppeteer, { Browser, Page } from 'puppeteer';
 
+/** Optional per-call overrides for {@link PdfGeneratorService.generatePdf}. */
+export interface GeneratePdfOptions {
+  /** Renders the page in landscape orientation. Default: `false` (portrait). */
+  landscape?: boolean;
+  /** Overrides individual margin sides; unspecified sides keep the default (15mm/12mm). */
+  margin?: Partial<{ top: string; bottom: string; left: string; right: string }>;
+}
+
 /**
  * PdfGeneratorService — renders HTML to PDF via Puppeteer.
  *
@@ -13,8 +21,13 @@ export class PdfGeneratorService implements OnModuleDestroy {
   private readonly logger = new Logger(PdfGeneratorService.name);
   private browserPromise: Promise<Browser> | null = null;
 
-  /** Renders the given HTML string to a PDF Buffer. */
-  async generatePdf(html: string): Promise<Buffer> {
+  /**
+   * Renders the given HTML string to a PDF Buffer.
+   *
+   * `options` is additive and optional — omitting it (or any of its keys)
+   * preserves the original portrait A4 defaults used by boletines/constancias.
+   */
+  async generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer> {
     const page = await this.newPage();
     try {
       await page.setContent(html, {
@@ -22,9 +35,12 @@ export class PdfGeneratorService implements OnModuleDestroy {
         timeout: 15_000,
       });
 
+      const defaultMargin = { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' };
+
       const pdf = await page.pdf({
         format: 'A4',
-        margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' },
+        landscape: options?.landscape ?? false,
+        margin: { ...defaultMargin, ...options?.margin },
         printBackground: true,
         preferCSSPageSize: false,
         displayHeaderFooter: false,

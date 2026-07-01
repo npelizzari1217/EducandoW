@@ -229,7 +229,9 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 **Satisfies:** REQ-P2-1 through REQ-P2-7 / Scenarios P2-1..P2-11 / AC-P2-1..AC-P2-17
 **Depends on:** PR1 (catalog needs `behavior`). Independent of PR2 in code; stacked after it by delivery order.
 
-**PR3a COMPLETED (this session):** T3.1-T3.3 done — pure domain aggregator (`computeStudentTotals`, `computeDiasHabiles`) in `packages/domain/src/asistencia/utils/asistencia-totals.ts`, TDD RED→GREEN, exported from `asistencia/index.ts` + `domain/src/index.ts`. **STILL PENDING:** T3.4-T3.11 (PR3b PDF-service landscape option + `.hbs` template; PR3c use-case + `AsistenciaReportingError` + controller/module + endpoint wiring) and PR4 (front print buttons).
+**PR3a COMPLETED (this session):** T3.1-T3.3 done — pure domain aggregator (`computeStudentTotals`, `computeDiasHabiles`) in `packages/domain/src/asistencia/utils/asistencia-totals.ts`, TDD RED→GREEN, exported from `asistencia/index.ts` + `domain/src/index.ts`.
+
+**PR3b COMPLETED (this session):** T3.4-T3.6 done — `PdfGeneratorService.generatePdf` now accepts an optional `{ landscape?, margin? }` second argument (additive, portrait A4 defaults unchanged when omitted — regression-guarded by test); new landscape template `asistencia-mensual.hbs` (alumnos × días grid + 6 totals columns + días hábiles label), context shape documented as an `.hbs` comment block for PR3c. **STILL PENDING:** T3.7-T3.11 (PR3c use-case + `AsistenciaReportingError` + controller/module + endpoint wiring) and PR4 (front print buttons).
 
 ### Domain — aggregator
 
@@ -264,25 +266,25 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 #### T3.4 [TEST] `PdfGeneratorService.generatePdf` accepts landscape option
 
-- [ ] Locate/create `api/src/infrastructure/reporting/__tests__/pdf-generator.service.test.ts`
-- [ ] `generatePdf(html)` (no options) still calls `page.pdf({ format:'A4', ...portrait defaults })` unchanged (regression guard for boletines/constancia — ADR-09)
-- [ ] `generatePdf(html, { landscape: true })` calls `page.pdf({ format:'A4', landscape: true, ... })`
-- [ ] `generatePdf(html, { margin: {...} })` overrides only the provided margin keys, others keep default
+- [x] Locate/create `api/src/infrastructure/reporting/__tests__/pdf-generator.service.test.ts`
+- [x] `generatePdf(html)` (no options) still calls `page.pdf({ format:'A4', ...portrait defaults })` unchanged (regression guard for boletines/constancia — ADR-09)
+- [x] `generatePdf(html, { landscape: true })` calls `page.pdf({ format:'A4', landscape: true, ... })`
+- [x] `generatePdf(html, { margin: {...} })` overrides only the provided margin keys, others keep default
 
 #### T3.5 [IMPL] Extend `pdf-generator.service.ts` — run until T3.4 green
 
-- [ ] Edit `api/src/infrastructure/reporting/pdf-generator.service.ts`
-- [ ] `generatePdf(html: string, options?: { landscape?: boolean; margin?: Partial<{top:string;bottom:string;left:string;right:string}> }): Promise<Buffer>`
-- [ ] Merge `options.margin` over the current default margin object; pass `landscape: options?.landscape ?? false` to `page.pdf(...)`
-- [ ] Confirm the 3 existing call sites (boletín single/batch, constancia) still compile with zero args (backward compatible)
+- [x] Edit `api/src/infrastructure/reporting/pdf-generator.service.ts`
+- [x] `generatePdf(html: string, options?: { landscape?: boolean; margin?: Partial<{top:string;bottom:string;left:string;right:string}> }): Promise<Buffer>`
+- [x] Merge `options.margin` over the current default margin object; pass `landscape: options?.landscape ?? false` to `page.pdf(...)`
+- [x] Confirm the 3 existing call sites (boletín single/batch, constancia) still compile with zero args (backward compatible)
 
 #### T3.6 [IMPL] Create landscape template (no dedicated unit test — covered by T3.9 use-case test rendering real HTML)
 
-- [ ] Create `api/src/infrastructure/reporting/html-templates/asistencia-mensual.hbs`
-- [ ] `@page { size: A4 landscape }`, `table-layout: fixed`, small font for 31 day columns + 6 total columns
-- [ ] Header: institución, curso/materia, mes/año, "Días hábiles: {{diasHabiles}}"
-- [ ] Table: rows = alumnos (pre-sorted by repo), columns = day codes `1..daysInMonth` + 6 total columns (Tardes Just / Tardes Inj / Total Tardes / Aus Just / Aus Inj / Aus Total)
-- [ ] Register any helpers needed (e.g. `lookup` for per-day code) following `generate-boletin.use-case.ts` pattern
+- [x] Create `api/src/infrastructure/reporting/html-templates/asistencia-mensual.hbs`
+- [x] `@page { size: A4 landscape }`, `table-layout: fixed`, small font for 31 day columns + 6 total columns
+- [x] Header: institución, curso/materia, mes/año, "Días hábiles: {{diasHabiles}}"
+- [x] Table: rows = alumnos (pre-sorted by repo), columns = day codes `1..daysInMonth` + 6 total columns (Tardes Just / Tardes Inj / Total Tardes / Aus Just / Aus Inj / Aus Total)
+- [x] Register any helpers needed (e.g. `lookup` for per-day code) following `generate-boletin.use-case.ts` pattern
 
 ### API application — use-case + error
 
