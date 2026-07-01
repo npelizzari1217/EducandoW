@@ -197,7 +197,7 @@ describe('AttendanceTypeController.getOne', () => {
       getUC: { execute: vi.fn().mockResolvedValue(ok(entity)) },
     });
 
-    const result = await ctrl.getOne('found-1');
+    const result = await ctrl.getOne(rootUser, 'found-1');
     expect(result.data.id).toBe('found-1');
   });
 
@@ -208,7 +208,26 @@ describe('AttendanceTypeController.getOne', () => {
       },
     });
 
-    await expect(ctrl.getOne('missing-id')).rejects.toThrow(AttendanceTypeNotFoundError);
+    await expect(ctrl.getOne(rootUser, 'missing-id')).rejects.toThrow(AttendanceTypeNotFoundError);
+  });
+
+  // ── PR3 — T18 (RED): @CurrentUser pasado al use case + 403 fuera de scope ──
+
+  it('passes @CurrentUser() to getUC.execute', async () => {
+    const mockExecute = vi.fn().mockResolvedValue(ok(makeEntity()));
+    const ctrl = makeController({ getUC: { execute: mockExecute } });
+
+    await ctrl.getOne(teacherLevel2, 'uuid-1');
+
+    expect(mockExecute).toHaveBeenCalledWith('uuid-1', teacherLevel2);
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by getUC (mapped to 403 by the global filter)', async () => {
+    const ctrl = makeController({
+      getUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+
+    await expect(ctrl.getOne(teacherLevel2, 'uuid-3')).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 });
 
@@ -223,7 +242,7 @@ describe('AttendanceTypeController.update', () => {
       updateUC: { execute: vi.fn().mockResolvedValue(ok(updated)) },
     });
 
-    const result = await ctrl.update('uuid-1', { description: 'Updated' });
+    const result = await ctrl.update(rootUser, 'uuid-1', { description: 'Updated' });
     expect(result.data).toBeDefined();
   });
 
@@ -234,7 +253,7 @@ describe('AttendanceTypeController.update', () => {
       },
     });
 
-    await expect(ctrl.update('sys-id', { description: 'Changed' })).rejects.toThrow(SystemAttendanceTypeError);
+    await expect(ctrl.update(rootUser, 'sys-id', { description: 'Changed' })).rejects.toThrow(SystemAttendanceTypeError);
   });
 
   it('throws when update returns err(AttendanceTypeNotFoundError)', async () => {
@@ -244,7 +263,28 @@ describe('AttendanceTypeController.update', () => {
       },
     });
 
-    await expect(ctrl.update('no-id', {})).rejects.toThrow(AttendanceTypeNotFoundError);
+    await expect(ctrl.update(rootUser, 'no-id', {})).rejects.toThrow(AttendanceTypeNotFoundError);
+  });
+
+  // ── PR3 — T18 (RED): @CurrentUser pasado al use case + 403 fuera de scope ──
+
+  it('passes @CurrentUser() to updateUC.execute', async () => {
+    const mockExecute = vi.fn().mockResolvedValue(ok(makeEntity()));
+    const ctrl = makeController({ updateUC: { execute: mockExecute } });
+
+    await ctrl.update(teacherLevel2, 'uuid-1', { description: 'Updated' });
+
+    expect(mockExecute).toHaveBeenCalledWith('uuid-1', { description: 'Updated' }, teacherLevel2);
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by updateUC (mapped to 403 by the global filter)', async () => {
+    const ctrl = makeController({
+      updateUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+
+    await expect(
+      ctrl.update(teacherLevel2, 'uuid-3', { description: 'X' }),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 });
 
@@ -258,7 +298,7 @@ describe('AttendanceTypeController.remove', () => {
       deleteUC: { execute: vi.fn().mockResolvedValue(ok(undefined)) },
     });
 
-    const result = await ctrl.remove('uuid-1');
+    const result = await ctrl.remove(rootUser, 'uuid-1');
     expect(result).toBeUndefined();
   });
 
@@ -269,7 +309,7 @@ describe('AttendanceTypeController.remove', () => {
       },
     });
 
-    await expect(ctrl.remove('sys-id')).rejects.toThrow(SystemAttendanceTypeError);
+    await expect(ctrl.remove(rootUser, 'sys-id')).rejects.toThrow(SystemAttendanceTypeError);
   });
 
   it('throws when delete returns err(AttendanceTypeNotFoundError)', async () => {
@@ -279,7 +319,26 @@ describe('AttendanceTypeController.remove', () => {
       },
     });
 
-    await expect(ctrl.remove('no-id')).rejects.toThrow(AttendanceTypeNotFoundError);
+    await expect(ctrl.remove(rootUser, 'no-id')).rejects.toThrow(AttendanceTypeNotFoundError);
+  });
+
+  // ── PR3 — T18 (RED): @CurrentUser pasado al use case + 403 fuera de scope ──
+
+  it('passes @CurrentUser() to deleteUC.execute', async () => {
+    const mockExecute = vi.fn().mockResolvedValue(ok(undefined));
+    const ctrl = makeController({ deleteUC: { execute: mockExecute } });
+
+    await ctrl.remove(teacherLevel2, 'uuid-1');
+
+    expect(mockExecute).toHaveBeenCalledWith('uuid-1', teacherLevel2);
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by deleteUC (mapped to 403 by the global filter)', async () => {
+    const ctrl = makeController({
+      deleteUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+
+    await expect(ctrl.remove(teacherLevel2, 'uuid-3')).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 });
 
@@ -290,7 +349,7 @@ describe('AttendanceTypeController.remove', () => {
 describe('AttendanceTypeController — HTTP status codes', () => {
   it('delete method returns undefined (NestJS sends 204 via @HttpCode decorator)', async () => {
     const ctrl = makeController();
-    const result = await ctrl.remove('some-id');
+    const result = await ctrl.remove(rootUser, 'some-id');
     expect(result).toBeUndefined();
   });
 
@@ -308,7 +367,7 @@ describe('AttendanceTypeController — HTTP status codes', () => {
     const ctrl = makeController({
       getUC: { execute: vi.fn().mockResolvedValue(ok(entity)) },
     });
-    const result = await ctrl.getOne('resp-1');
+    const result = await ctrl.getOne(rootUser, 'resp-1');
     expect(result.data).toMatchObject({
       id: 'resp-1',
       code: 'SAB',

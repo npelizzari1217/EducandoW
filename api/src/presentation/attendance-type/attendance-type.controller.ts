@@ -81,8 +81,8 @@ export class AttendanceTypeController {
 
   @Get(':id')
   @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'READ' })
-  async getOne(@Param('id') id: string) {
-    const result = await this.getUC.execute(id);
+  async getOne(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const result = await this.getUC.execute(id, user);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toResponse(result.unwrap()) };
   }
@@ -90,10 +90,11 @@ export class AttendanceTypeController {
   @Patch(':id')
   @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'UPDATE' })
   async update(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateAttendanceTypeSchema)) body: UpdateAttendanceTypeDTO,
   ) {
-    const result = await this.updateUC.execute(id, body);
+    const result = await this.updateUC.execute(id, body, user);
     if (result.isErr()) throw result.unwrapErr();
     return { data: toResponse(result.unwrap()) };
   }
@@ -101,8 +102,8 @@ export class AttendanceTypeController {
   @Delete(':id')
   @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string) {
-    const result = await this.deleteUC.execute(id);
+  async remove(@CurrentUser() user: AuthenticatedUser, @Param('id') id: string) {
+    const result = await this.deleteUC.execute(id, user);
     if (result.isErr()) throw result.unwrapErr();
     return;
   }
