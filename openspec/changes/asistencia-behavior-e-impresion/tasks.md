@@ -231,7 +231,9 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 **PR3a COMPLETED (this session):** T3.1-T3.3 done — pure domain aggregator (`computeStudentTotals`, `computeDiasHabiles`) in `packages/domain/src/asistencia/utils/asistencia-totals.ts`, TDD RED→GREEN, exported from `asistencia/index.ts` + `domain/src/index.ts`.
 
-**PR3b COMPLETED (this session):** T3.4-T3.6 done — `PdfGeneratorService.generatePdf` now accepts an optional `{ landscape?, margin? }` second argument (additive, portrait A4 defaults unchanged when omitted — regression-guarded by test); new landscape template `asistencia-mensual.hbs` (alumnos × días grid + 6 totals columns + días hábiles label), context shape documented as an `.hbs` comment block for PR3c. **STILL PENDING:** T3.7-T3.11 (PR3c use-case + `AsistenciaReportingError` + controller/module + endpoint wiring) and PR4 (front print buttons).
+**PR3b COMPLETED (prior session):** T3.4-T3.6 done — `PdfGeneratorService.generatePdf` now accepts an optional `{ landscape?, margin? }` second argument (additive, portrait A4 defaults unchanged when omitted — regression-guarded by test); new landscape template `asistencia-mensual.hbs` (alumnos × días grid + 6 totals columns + días hábiles label), context shape documented as an `.hbs` comment block for PR3c.
+
+**PR3c COMPLETED (this session):** T3.7-T3.11 done — `GenerateAsistenciaMensualPdfUseCase` (executeGeneral/executeMateria) + `AsistenciaReportingError` + `AsistenciaReportingController`/`AsistenciaReportingModule` + 2 GET print endpoints, wired into `app.module.ts`. **STILL PENDING:** PR4 (front print buttons, T4.1-T4.2) — the only remaining slice of this change.
 
 ### Domain — aggregator
 
@@ -290,44 +292,44 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 #### T3.7 [TEST] Unit tests for `GenerateAsistenciaMensualPdfUseCase` — General scope
 
-- [ ] Create `api/src/application/asistencia-reporting/__tests__/generate-asistencia-mensual-pdf.use-case.test.ts`
-- [ ] `executeGeneral`: mocks `attendanceType.findMany`, `findByScopeAndMonthEnriched` (general repo), `pdfGenerator.generatePdf`; resolves `level` from `courseCycleId`
-- [ ] View-model passed to template includes per-student six totals computed via `computeStudentTotals` (P2-3/P2-4 wired through the use-case, not re-tested numerically here — trust T3.1)
-- [ ] `díasHábiles` computed once at course level via `computeDiasHabiles`, included in the view-model (P2-5/P2-7 wired through)
-- [ ] `generatePdf` called with `{ landscape: true }`
-- [ ] Student with no marks for the month → row present with all totals 0, no throw (Scenario P2-9)
-- [ ] Unknown/missing `courseCycleId` → domain error with correct HTTP status via `AsistenciaReportingError` (NotFound-style)
+- [x] Create `api/src/application/asistencia-reporting/__tests__/generate-asistencia-mensual-pdf.use-case.test.ts`
+- [x] `executeGeneral`: mocks `attendanceTypeRepo.list`, `findByScopeAndMonthEnriched` (general repo), `pdfGenerator.generatePdf`; resolves `level` from `courseCycleId`
+- [x] View-model passed to template includes per-student six totals computed via `computeStudentTotals` (P2-3/P2-4 wired through the use-case, not re-tested numerically here — trust T3.1)
+- [x] `díasHábiles` computed once at course level via `computeDiasHabiles`, included in the view-model (P2-5/P2-7 wired through)
+- [x] `generatePdf` called with `{ landscape: true }`
+- [x] Student with no marks for the month → row present with all totals 0, no throw (Scenario P2-9)
+- [x] Unknown/missing `courseCycleId` → domain error with correct HTTP status via `AsistenciaReportingError` (NotFound-style, 404)
 
 #### T3.8 [TEST] Unit tests for `GenerateAsistenciaMensualPdfUseCase` — Por Materia scope
 
-- [ ] Same file or sibling `__tests__/generate-asistencia-mensual-pdf.use-case.materia.test.ts`
-- [ ] `executeMateria`: resolves `level` via `materiaXCursoXCicloId → courseCycle → level` (confirm exact relation path against tenant schema while implementing — Riesgo C)
-- [ ] Same totals/días-hábiles wiring as General (Scenario P2-11 — values MUST match General given equivalent input data)
-- [ ] Unknown `materiaXCursoXCicloId` → same error contract as General
+- [x] Same file or sibling `__tests__/generate-asistencia-mensual-pdf.use-case.materia.test.ts`
+- [x] `executeMateria`: resolves `level` via `materiaXCursoXCicloId → courseCycle → level` (confirmed against tenant schema: `MateriaXCursoXCiclo.courseCycleId → CourseCycle.uuid`, `CourseCycle.level: Int` — Riesgo C resolved, no ambiguity)
+- [x] Same totals/días-hábiles wiring as General (Scenario P2-11 — values MUST match General given equivalent input data)
+- [x] Unknown `materiaXCursoXCicloId` → same error contract as General
 
 #### T3.9 [IMPL] Create `generate-asistencia-mensual-pdf.use-case.ts` + `AsistenciaReportingError` — run until T3.7 + T3.8 green
 
-- [ ] Create `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts`
-- [ ] Create `AsistenciaReportingError` class (pattern: `BoletinError`, carries `httpStatus`)
-- [ ] `executeGeneral(courseCycleId, year, month): Promise<Buffer>` and `executeMateria(materiaXCursoXCicloId, year, month): Promise<Buffer>` per ADR-08 data flow (resolve level → build catalog via `attendanceType.findMany({level})` → fetch enriched rows via existing `findByScopeAndMonthEnriched` → per-student `computeStudentTotals` + course-level `computeDiasHabiles` → compile `asistencia-mensual.hbs` in the constructor (fs.readFileSync + Handlebars.compile, same probe pattern as `generate-boletin.use-case.ts`) → `pdfGenerator.generatePdf(html, {landscape:true})`)
-- [ ] `pnpm --filter api test` green
+- [x] Create `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts`
+- [x] Create `AsistenciaReportingError` class (pattern: `BoletinError`, carries `httpStatus`) — `api/src/application/asistencia-reporting/asistencia-reporting.errors.ts`
+- [x] `executeGeneral(input): Promise<Buffer>` and `executeMateria(input): Promise<Buffer>` per ADR-08 data flow (resolve level → build catalog via `attendanceTypeRepo.list({level})` [domain port, not raw Prisma — Clean Arch] → fetch enriched rows via existing `findByScopeAndMonthEnriched` → per-student `computeStudentTotals` + course-level `computeDiasHabiles` (merged day-codes across all rows) → compile `asistencia-mensual.hbs` in the constructor (fs.readFileSync + Handlebars.compile, same probe pattern as `generate-boletin.use-case.ts`) → `pdfGenerator.generatePdf(html, {landscape:true})`). Door 2 (preceptor/teacher-group) reused inline, same logic as `ListGeneralAttendanceUseCase`/`ListSubjectAttendanceUseCase`. Optional `grupoId` filter on `executeMateria` for ADR-2 parity.
+- [x] `pnpm --filter api test` green
 
 ### API presentation — controller + module
 
 #### T3.10 [TEST] Controller tests for print endpoints
 
-- [ ] Create `api/src/presentation/asistencia-reporting/__tests__/asistencia-reporting.controller.test.ts`
-- [ ] `GET .../asistencia-mensual/general/:courseCycleId/print?year=&month=` → calls `executeGeneral`, sets `Content-Type: application/pdf` + `Content-Disposition: attachment`, returns buffer body
-- [ ] `GET .../asistencia-mensual/materia/:materiaXCursoXCicloId/print?year=&month=` → calls `executeMateria`, same headers
-- [ ] Guards: `AuthGuard` + `RolesGuard` applied; confirm `@Roles(...)` module/action matches the existing asistencia permissions catalog (resolve Riesgo "Permisos" during implementation — confirm REPORTS vs ATTENDANCE against the real permission list)
-- [ ] Missing/invalid `year`/`month` query params → 400 before hitting the use-case
+- [x] Create `api/src/presentation/asistencia-reporting/__tests__/asistencia-reporting.controller.test.ts`
+- [x] `GET /course-cycles/:ccId/asistencia-mensual/print?year=&month=` → calls `executeGeneral`, sets `Content-Type: application/pdf` + `Content-Disposition: attachment`, returns buffer body
+- [x] `GET /materias-curso-ciclo/:materiaId/asistencia-mensual/print?year=&month=&grupoId=` → calls `executeMateria`, same headers
+- [x] Guards: `AuthGuard` + `RolesGuard` applied; `@Roles('ROOT', {module:'ATTENDANCE', action:'READ'})` on both — resolved Riesgo "Permisos": ATTENDANCE/READ (not REPORTS/READ) because this endpoint renders the SAME data as the existing `GET .../asistencia-mensual` list endpoints (same Door 2 checks, same audience); REPORTS/READ is reserved for the boletín/constancia family (D3-admin-only surface). Reasoning documented as a code comment in the controller.
+- [x] Missing/invalid `year`/`month` query params → 400 before hitting the use-case (via `ZodValidationPipe` + `AsistenciaMensualPrint*QuerySchema`, same pattern as `GeneralAttendanceQuerySchema`/`SubjectAttendanceQuerySchema` — not re-tested at controller-unit level per existing codebase convention, DTO schemas validated by construction)
 
 #### T3.11 [IMPL] Create controller + module — run until T3.10 green
 
-- [ ] Create `api/src/presentation/asistencia-reporting/asistencia-reporting.controller.ts` (two GET routes per ADR-08)
-- [ ] Create `api/src/presentation/asistencia-reporting/asistencia-reporting.module.ts` (imports `PdfGeneratorService`, `PrismaService`, existing asistencia repos, registers the use-case)
-- [ ] Edit `app.module.ts` to register the new module
-- [ ] `pnpm --filter api test` green; `pnpm --filter api typecheck` clean; `pnpm build` green (root)
+- [x] Create `api/src/presentation/asistencia-reporting/asistencia-reporting.controller.ts` (two GET routes per ADR-08)
+- [x] Create `api/src/presentation/asistencia-reporting/asistencia-reporting.module.ts` (imports `PdfGeneratorService`, `PrismaService`, existing asistencia/attendance-type/grupo/docente repos, registers the use-case via factory provider)
+- [x] Edit `app.module.ts` to register `AsistenciaReportingModule`
+- [x] `pnpm --filter api test` green (196 files / 1972 tests); `pnpm --filter api typecheck` clean; `pnpm build` green (root, 3/3 tasks)
 
 ---
 
