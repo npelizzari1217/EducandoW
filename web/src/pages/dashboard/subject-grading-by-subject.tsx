@@ -22,6 +22,12 @@ import { TeacherFilteredSelector } from './components/TeacherFilteredSelector';
 import type { TeacherFilteredSelectionContext } from './components/TeacherFilteredSelector';
 import { CompetencyGradingGrid } from './components/CompetencyGradingGrid';
 import { useGradingGrid } from './components/use-grading-grid';
+import {
+  isPeriodGradeEditable,
+  isFinalGradeEditable,
+  gradingPhaseStatusLabel,
+  type GradingPhaseValue,
+} from './components/grading-phase-utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +121,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
     ? grid.students
     : grid.students.filter(s => allowedStudentIds.has(s.studentId));
 
+  const phase = grid.gradingPhase as GradingPhaseValue;
+
   if (grid.loading) {
     return (
       <Card className="mt-lg">
@@ -148,7 +156,15 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
       {/* ── Period grades + PA/PPI/PP ────────────────────────────────────────── */}
       <Card className="mt-lg">
         <div data-testid="subject-period-grades-section">
-          <p style={sectionTitleStyle}>Notas por Período</p>
+          <p style={sectionTitleStyle}>
+            Notas por Período{' '}
+            <span
+              data-testid="grading-phase-indicator"
+              style={{ fontWeight: 400, fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}
+            >
+              — Fase activa: {gradingPhaseStatusLabel(phase)}
+            </span>
+          </p>
           <div style={{ overflowX: 'auto' }}>
             <table style={tableStyle} role="grid" aria-label="Notas por período">
               <thead>
@@ -172,6 +188,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                     {grid.subjectGradePeriods.flatMap(p => {
                       const key = `${student.studentId}:${p.periodOrdinal}`;
                       const cell = grid.subjectPeriodGradeCells.get(key);
+                      const editable = isPeriodGradeEditable(phase, p.periodOrdinal);
+                      const lockedTitle = editable ? undefined : 'Fuera de la fase de calificación activa';
                       return [
                         // Grade dropdown
                         <td key={`nota-${key}`} style={tdStyle}>
@@ -179,6 +197,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                             style={selectStyle}
                             aria-label={`Nota período ${p.periodOrdinal} - ${student.studentId}`}
                             value={cell?.gradeScaleValueId ?? ''}
+                            disabled={!editable}
+                            title={lockedTitle}
                             onChange={e =>
                               grid.updateSubjectPeriodGrade(key, {
                                 gradeScaleValueId: e.target.value || null,
@@ -199,6 +219,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                             type="checkbox"
                             aria-label="PA"
                             checked={cell?.pa ?? false}
+                            disabled={!editable}
+                            title={lockedTitle}
                             onChange={e =>
                               grid.updateSubjectPeriodGrade(key, { pa: e.target.checked })
                             }
@@ -210,6 +232,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                             type="checkbox"
                             aria-label="PPI"
                             checked={cell?.ppi ?? false}
+                            disabled={!editable}
+                            title={lockedTitle}
                             onChange={e =>
                               grid.updateSubjectPeriodGrade(key, { ppi: e.target.checked })
                             }
@@ -221,6 +245,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                             type="checkbox"
                             aria-label="PP"
                             checked={cell?.pp ?? false}
+                            disabled={!editable}
+                            title={lockedTitle}
                             onChange={e =>
                               grid.updateSubjectPeriodGrade(key, { pp: e.target.checked })
                             }
@@ -259,12 +285,16 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                     {FINAL_TYPES.map(type => {
                       const key = `${student.studentId}:${type}`;
                       const cell = grid.subjectFinalGradeCells.get(key);
+                      const finalEditable = isFinalGradeEditable(phase);
+                      const finalLockedTitle = finalEditable ? undefined : 'Solo habilitado durante el Cierre';
                       return (
                         <td key={type} style={tdStyle}>
                           <select
                             style={selectStyle}
                             aria-label={`Nota final ${type} - ${student.studentId}`}
                             value={cell?.gradeScaleValueId ?? ''}
+                            disabled={!finalEditable}
+                            title={finalLockedTitle}
                             onChange={e =>
                               grid.updateSubjectFinalGrade(key, {
                                 gradeScaleValueId: e.target.value || undefined,
@@ -284,6 +314,8 @@ function SubjectGradingGrid({ context, allowedStudentIds }: SubjectGradingGridPr
                               style={{ ...selectStyle, marginTop: '0.25rem' }}
                               aria-label="Condición"
                               value={cell?.condicion ?? ''}
+                              disabled={!finalEditable}
+                              title={finalLockedTitle}
                               onChange={e =>
                                 grid.updateSubjectFinalGrade(key, {
                                   condicion: e.target.value || undefined,
