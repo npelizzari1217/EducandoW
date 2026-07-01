@@ -15,10 +15,25 @@ import {
   AttendanceTypeCode,
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
+  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   AttendanceBehavior,
   AttendanceBehaviorValue,
 } from '@educandow/domain';
+
+// ── Current-user fixtures (PR2 — scope de nivel base) ──────────
+
+/** ROOT: allLevels=true, sin restricción de nivel. Preserva el comportamiento previo a PR2. */
+const rootUser = { roles: ['ROOT'] };
+
+/** Docente con un solo nivel base (2), modalidad 0 → compositeLevel 20. */
+const teacherLevel2 = { roles: ['TEACHER'], levels: [20] };
+
+/** Docente con dos niveles base (2 y 3), colapsando modalidades. */
+const teacherLevels2And3 = { roles: ['TEACHER'], levels: [20, 21, 30] };
+
+/** Docente sin ningún nivel asignado. */
+const teacherNoLevels = { roles: ['TEACHER'], levels: [] };
 
 // ── Mock repo ────────────────────────────────────────────────
 
@@ -79,7 +94,7 @@ describe('CreateAttendanceTypeUseCase', () => {
       absenceValue: 0.5,
       level: 2,
       behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
-    });
+    }, rootUser);
 
     expect(result.isOk()).toBe(true);
     expect(repo.existsByLevelCode).toHaveBeenCalledWith(2, 'T');
@@ -98,7 +113,7 @@ describe('CreateAttendanceTypeUseCase', () => {
       absenceValue: 0,
       level: 2,
       behavior: AttendanceBehaviorValue.NO_COMPUTA,
-    });
+    }, rootUser);
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
@@ -115,7 +130,7 @@ describe('CreateAttendanceTypeUseCase', () => {
       absenceValue: 0.25,
       level: 2,
       behavior: AttendanceBehaviorValue.TARDE_INJUSTIFICADA,
-    });
+    }, rootUser);
 
     expect(result.isOk()).toBe(true);
     const entity = result.unwrap();
@@ -132,7 +147,7 @@ describe('CreateAttendanceTypeUseCase', () => {
         absenceValue: 0,
         level: 2,
         behavior: 'INVALID' as AttendanceBehaviorValue,
-      }),
+      }, rootUser),
     ).rejects.toThrow();
     expect(repo.save).not.toHaveBeenCalled();
   });
@@ -147,11 +162,53 @@ describe('CreateAttendanceTypeUseCase', () => {
         absenceValue: 0.5,
         level: 2,
         behavior,
-      });
+      }, rootUser);
       expect(result.isOk()).toBe(true);
       expect(result.unwrap().behavior.get()).toBe(behavior);
     }
     expect(repo.save).toHaveBeenCalledTimes(values.length);
+  });
+
+  // ── PR2 — T7 (RED): scope de nivel en creación (REQ-18 MODIFIED / Escenarios 3.3-3.5) ──
+
+  it('creates when input.level belongs to the caller baseLevels (in-scope)', async () => {
+    const result = await useCase.execute({
+      code: 'Z',
+      description: 'Zeta',
+      absenceValue: 0,
+      level: 2,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA,
+    }, teacherLevel2);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('throws AttendanceTypeLevelOutOfScopeError when input.level is outside the caller baseLevels, repo.save is never called', async () => {
+    await expect(
+      useCase.execute({
+        code: 'Z',
+        description: 'Zeta',
+        absenceValue: 0,
+        level: 3,
+        behavior: AttendanceBehaviorValue.NO_COMPUTA,
+      }, teacherLevel2),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    expect(repo.existsByLevelCode).not.toHaveBeenCalled();
+    expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('allows ROOT/ADMIN to create at any level, unrestricted', async () => {
+    const result = await useCase.execute({
+      code: 'Z',
+      description: 'Zeta',
+      absenceValue: 0,
+      level: 4,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA,
+    }, rootUser);
+
+    expect(result.isOk()).toBe(true);
+    expect(repo.save).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -336,23 +393,63 @@ describe('ListAttendanceTypesUseCase', () => {
     useCase = new ListAttendanceTypesUseCase(repo as any);
   });
 
-  it('delegates to repo.list without filters when called without args', async () => {
+  it('delegates to repo.list without filters when called without args (ROOT/ADMIN, allLevels)', async () => {
     repo.list.mockResolvedValue([]);
-    await useCase.execute();
+    await useCase.execute(undefined, rootUser);
     expect(repo.list).toHaveBeenCalledWith(undefined);
   });
 
-  it('delegates to repo.list with level filter', async () => {
+  it('delegates to repo.list with level filter (ROOT/ADMIN, allLevels)', async () => {
     repo.list.mockResolvedValue([]);
-    await useCase.execute({ level: 2 });
+    await useCase.execute({ level: 2 }, rootUser);
     expect(repo.list).toHaveBeenCalledWith({ level: 2 });
   });
 
   it('returns the array from the repo', async () => {
     const entities = [makeEntity({ level: 2 }), makeEntity({ level: 3, code: 'X' })];
     repo.list.mockResolvedValue(entities);
-    const result = await useCase.execute();
+    const result = await useCase.execute(undefined, rootUser);
     expect(result).toBe(entities);
+  });
+
+  // ── PR2 — T5 (RED): scope de nivel en listado (REQ-17 MODIFIED / Escenarios 8.5-8.9) ──
+
+  it('docente con 1 nivel base: repo.list se llama con allowedLevels=[base], sin ?level', async () => {
+    repo.list.mockResolvedValue([]);
+    await useCase.execute(undefined, teacherLevel2);
+    expect(repo.list).toHaveBeenCalledWith({ allowedLevels: [2] });
+  });
+
+  it('docente con multi-nivel: allowedLevels = union de niveles base', async () => {
+    repo.list.mockResolvedValue([]);
+    await useCase.execute(undefined, teacherLevels2And3);
+    expect(repo.list).toHaveBeenCalledWith({ allowedLevels: [2, 3] });
+  });
+
+  it('ROOT/ADMIN: repo.list se llama SIN allowedLevels (sin restricción)', async () => {
+    repo.list.mockResolvedValue([]);
+    await useCase.execute({ active: true }, rootUser);
+    expect(repo.list).toHaveBeenCalledWith({ active: true });
+  });
+
+  it('filters.level explícito fuera de baseLevels: lanza AttendanceTypeLevelOutOfScopeError, repo.list nunca invocado', async () => {
+    await expect(
+      useCase.execute({ level: 3 }, teacherLevel2),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    expect(repo.list).not.toHaveBeenCalled();
+  });
+
+  it('filters.level explícito dentro de baseLevels: repo.list se llama con level + allowedLevels', async () => {
+    repo.list.mockResolvedValue([]);
+    await useCase.execute({ level: 3 }, teacherLevels2And3);
+    expect(repo.list).toHaveBeenCalledWith({ level: 3, allowedLevels: [2, 3] });
+  });
+
+  it('0 niveles base (no-ROOT/no-ADMIN) sin ?level: repo.list se llama con allowedLevels=[] (200 con data:[], nunca 403 — Escenario 8.9/ADD-2.4)', async () => {
+    repo.list.mockResolvedValue([]);
+    const result = await useCase.execute(undefined, teacherNoLevels);
+    expect(repo.list).toHaveBeenCalledWith({ allowedLevels: [] });
+    expect(result).toEqual([]);
   });
 });
 

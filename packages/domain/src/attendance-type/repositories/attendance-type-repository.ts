@@ -3,6 +3,14 @@ import type { AttendanceType } from '../entities/attendance-type';
 export interface AttendanceTypeFilters {
   level?: number;
   active?: boolean;
+  /**
+   * Base pedagogical levels (1-4) the caller is scoped to, set by the use-case from
+   * `AccessScope.baseLevels` when the caller is `!allLevels`. `undefined` = sin
+   * restricción de nivel (ROOT/ADMIN). El repo aplica `WHERE level IN (allowedLevels)`.
+   * Ver design.md Q4/ADR-07 — filtro en lenguaje de dominio del repo, sin filtrar en
+   * memoria en application.
+   */
+  allowedLevels?: number[];
 }
 
 /**

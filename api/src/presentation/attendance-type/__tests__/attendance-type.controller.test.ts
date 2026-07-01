@@ -2,11 +2,17 @@ import { describe, it, expect, vi, beforeAll } from 'vitest';
 import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
+  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   ok,
   err,
 } from '@educandow/domain';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
+
+// ── Current-user fixtures (PR2 — @CurrentUser) ──────────────────
+
+const rootUser = { userId: 'u-root', roles: ['ROOT'] } as any;
+const teacherLevel2 = { userId: 'u-teacher', roles: ['TEACHER'], levels: [20] } as any;
 
 // Dynamically imported to run after mocks are wired (TDD pattern).
 let AttendanceTypeController: any;
@@ -72,7 +78,7 @@ describe('AttendanceTypeController.create', () => {
       createUC: { execute: vi.fn().mockResolvedValue(ok(entity)) },
     });
 
-    const result = await ctrl.create({
+    const result = await ctrl.create(rootUser, {
       code: 'P',
       description: 'Presente',
       absenceValue: 0,
@@ -92,8 +98,34 @@ describe('AttendanceTypeController.create', () => {
     });
 
     await expect(
-      ctrl.create({ code: 'P', description: 'Presente', absenceValue: 0, level: 2, behavior: AttendanceBehaviorValue.NO_COMPUTA }),
+      ctrl.create(rootUser, { code: 'P', description: 'Presente', absenceValue: 0, level: 2, behavior: AttendanceBehaviorValue.NO_COMPUTA }),
     ).rejects.toThrow(AttendanceTypeCodeDuplicateError);
+  });
+
+  // ── PR2 — T9 (RED): @CurrentUser pasado al use case + 403 fuera de scope (ADD-4.1) ──
+
+  it('passes @CurrentUser() to createUC.execute', async () => {
+    const mockExecute = vi.fn().mockResolvedValue(ok(makeEntity()));
+    const ctrl = makeController({ createUC: { execute: mockExecute } });
+
+    await ctrl.create(teacherLevel2, {
+      code: 'P', description: 'Presente', absenceValue: 0, level: 2, behavior: AttendanceBehaviorValue.NO_COMPUTA,
+    });
+
+    expect(mockExecute).toHaveBeenCalledWith(
+      expect.objectContaining({ code: 'P', level: 2 }),
+      teacherLevel2,
+    );
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by createUC (mapped to 403 by the global filter)', async () => {
+    const ctrl = makeController({
+      createUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+
+    await expect(
+      ctrl.create(teacherLevel2, { code: 'X', description: 'X', absenceValue: 0, level: 3, behavior: AttendanceBehaviorValue.NO_COMPUTA }),
+    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 });
 
@@ -108,7 +140,7 @@ describe('AttendanceTypeController.list', () => {
       listUC: { execute: vi.fn().mockResolvedValue(entities) },
     });
 
-    const result = await ctrl.list(undefined, undefined);
+    const result = await ctrl.list(rootUser, undefined, undefined);
 
     expect(result.data).toHaveLength(2);
     expect(result.data[0].id).toBe('e1');
@@ -118,7 +150,7 @@ describe('AttendanceTypeController.list', () => {
     const mockExecute = vi.fn().mockResolvedValue([]);
     const ctrl = makeController({ listUC: { execute: mockExecute } });
 
-    await ctrl.list('2', undefined);
+    await ctrl.list(rootUser, '2', undefined);
 
     const callArg = mockExecute.mock.calls[0][0];
     expect(callArg?.level).toBe(2);
@@ -128,10 +160,29 @@ describe('AttendanceTypeController.list', () => {
     const mockExecute = vi.fn().mockResolvedValue([]);
     const ctrl = makeController({ listUC: { execute: mockExecute } });
 
-    await ctrl.list(undefined, 'true');
+    await ctrl.list(rootUser, undefined, 'true');
 
     const callArg = mockExecute.mock.calls[0][0];
     expect(callArg?.active).toBe(true);
+  });
+
+  // ── PR2 — T9 (RED): @CurrentUser pasado al use case + 403 fuera de scope (ADD-4.1) ──
+
+  it('passes @CurrentUser() to listUC.execute', async () => {
+    const mockExecute = vi.fn().mockResolvedValue([]);
+    const ctrl = makeController({ listUC: { execute: mockExecute } });
+
+    await ctrl.list(teacherLevel2, undefined, undefined);
+
+    expect(mockExecute).toHaveBeenCalledWith(undefined, teacherLevel2);
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by listUC (mapped to 403 by the global filter, NEVER 200 with data:[])', async () => {
+    const ctrl = makeController({
+      listUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+
+    await expect(ctrl.list(teacherLevel2, '3', undefined)).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 });
 

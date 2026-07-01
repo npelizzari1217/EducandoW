@@ -42,37 +42,55 @@ patrón de scope que PR2; PR5 consume el contrato ya estabilizado por PR2-4).
 
 *Depende de: PR1 (usa `AccessScope.baseLevels`).*
 
-- [ ] **T4** `packages/domain/src/attendance-type/repositories/attendance-type-repository.ts` —
+- [x] **T4** `packages/domain/src/attendance-type/repositories/attendance-type-repository.ts` —
   agregar `allowedLevels?: number[]` a `AttendanceTypeFilters` (cambio de tipo, sin lógica;
   documentar en el JSDoc que `undefined` = sin restricción, usado por ROOT/ADMIN). Cubre Q4/ADR-07.
-- [ ] **T5 (RED)** `api/src/application/attendance-type/__tests__/attendance-type.use-cases.test.ts`
+  Incluye además (fuera del wording literal del task pero necesario para Q4/ADR-07 y explícito en
+  el pedido de ejecución de PR2): `PrismaAttendanceTypeRepository.list()` aplica
+  `WHERE level IN (allowedLevels)` (RED/GREEN en `prisma-attendance-type.repository.test.ts`).
+- [x] **T5 (RED)** `api/src/application/attendance-type/__tests__/attendance-type.use-cases.test.ts`
   — casos para `ListAttendanceTypesUseCase.execute(filters, currentUser)`:
   docente 1 nivel base → `repo.list` llamado con `allowedLevels=[base]`; docente multi-nivel →
   `allowedLevels` = union de niveles base; ROOT/ADMIN → `repo.list` llamado SIN `allowedLevels`;
   `filters.level` explícito fuera de `baseLevels` → lanza `ForbiddenError`, `repo.list` NUNCA
   invocado. Cubre REQ-17 (MODIFIED) / Escenarios 8.5–8.9.
-- [ ] **T6 (GREEN)** `api/src/application/attendance-type/use-cases/attendance-type.use-cases.ts`
+- [x] **T6 (GREEN)** `api/src/application/attendance-type/use-cases/attendance-type.use-cases.ts`
   — `ListAttendanceTypesUseCase.execute(filters, currentUser)`: llama `resolveAccessScope`;
   si `!scope.allLevels`, valida `filters?.level` ∈ `scope.baseLevels` (si no, `throw ForbiddenError`)
   y setea `filters.allowedLevels = scope.baseLevels`.
-- [ ] **T7 (RED)** mismo archivo de test — casos para `CreateAttendanceTypeUseCase.execute(input, currentUser)`:
+- [x] **T7 (RED)** mismo archivo de test — casos para `CreateAttendanceTypeUseCase.execute(input, currentUser)`:
   `input.level` ∈ scope → crea (sin cambios de comportamiento); fuera de scope → `ForbiddenError`,
   `repo.save` NUNCA invocado; ROOT/ADMIN → cualquier nivel. Cubre REQ-18 (MODIFIED) / Escenarios 3.3–3.5.
-- [ ] **T8 (GREEN)** mismo archivo de producción — `CreateAttendanceTypeUseCase.execute(input, currentUser)`:
+- [x] **T8 (GREEN)** mismo archivo de producción — `CreateAttendanceTypeUseCase.execute(input, currentUser)`:
   agrega validación de scope ANTES del chequeo de duplicado
   (`if (!scope.allLevels && !scope.baseLevels.includes(input.level)) throw new ForbiddenError(...)`).
-- [ ] **T9 (RED)** `api/src/presentation/attendance-type/__tests__/attendance-type.controller.test.ts`
+- [x] **T9 (RED)** `api/src/presentation/attendance-type/__tests__/attendance-type.controller.test.ts`
   — `list()` y `create()` reciben `@CurrentUser()` y lo pasan al use case; `ForbiddenError` mapeado
   a HTTP 403 con envelope `{ error: { code: 'ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE', message } }`,
-  NUNCA HTTP 200 con `{ data: [] }` como sustituto. Cubre ADD-4.1.
-- [ ] **T10 (GREEN)** `api/src/presentation/attendance-type/attendance-type.controller.ts` —
+  NUNCA HTTP 200 con `{ data: [] }` como sustituto. Cubre ADD-4.1. Además:
+  `attendance-type.controller.e2e.test.ts` (nuevo) verifica el mapeo REAL vía supertest contra el
+  pipeline HTTP completo (guards stub + controller real + `AppExceptionFilter` real): 403 real con
+  `error.code === 'ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE'` para `?level=` fuera de scope, 200 con
+  `data:[]` para nivel en scope.
+- [x] **T10 (GREEN)** `api/src/presentation/attendance-type/attendance-type.controller.ts` —
   inyectar `@CurrentUser() user: AuthenticatedUser` en `list()` y `create()`, pasarlo a los use
-  cases; agregar mapeo `ForbiddenError → 403` (patrón `asistencia-reporting.controller.ts:124-126`,
-  registrar código `ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE` con status 403). Controller sigue THIN
-  (0 lógica de negocio, solo delega).
-- [ ] **T11** Correr `pnpm --filter api test -- attendance-type` — confirmar T5/T7/T9 en verde,
-  cobertura ≥80%. Verificar que `ensure-attendance-types-for-level.use-case.ts` (usa Prisma
-  directo, NO estos use cases) sigue sin romperse.
+  cases. **Desviación de diseño (documentada):** en vez del `try/catch handleError` manual
+  (patrón `asistencia-reporting.controller.ts:124-126`, pensado para controllers `@Res()`), se creó
+  `AttendanceTypeLevelOutOfScopeError extends DomainError` (código
+  `ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE`) registrado en `exception.filter.ts` → 403, siguiendo el
+  patrón YA usado por `AttendanceTypeNotFoundError`/`AttendanceTypeCodeDuplicateError` en este mismo
+  controller (que no usa `@Res()`, así que el filtro global ya intercepta cualquier throw). Mismo
+  contrato HTTP observable, controller más THIN, cero código nuevo de manejo de errores por endpoint.
+- [x] **T11** Corrido `pnpm --filter api test -- attendance-type` (103/103 verde) y
+  `pnpm --filter api test` completo (197 archivos / 1993 tests verde, sin regresiones) +
+  `pnpm --filter @educandow/domain test` (110/110, 1275 tests verde) + `pnpm --filter api typecheck`
+  (verde). Cobertura confirmada ≥80% (100% en `attendance-type.use-cases.ts`, 97.43% en
+  `attendance-type.controller.ts`, 90.32% en `prisma-attendance-type.repository.ts`).
+  `ensure-attendance-types-for-level.use-case.ts` (usa Prisma directo, NO estos use cases) sigue sin
+  romperse (confirmado en la corrida completa). **Fix no planeado pero necesario:** `pnpm typecheck`
+  reveló una regresión preexistente de PR1 — 4 mocks de `AccessScope` en
+  `list-grupos-global.use-case.test.ts` no tenían el nuevo campo `baseLevels` (requerido desde PR1).
+  Corregido en un commit `fix:` separado de los commits de feature de PR2.
 
 *Bloquea: PR3 (mismos archivos), PR4 (reusa el mismo patrón de scope), PR5.*
 

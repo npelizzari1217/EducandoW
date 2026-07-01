@@ -95,6 +95,37 @@ describe('PrismaAttendanceTypeRepository — list', () => {
       orderBy: [{ level: 'asc' }, { code: 'asc' }],
     });
   });
+
+  // PR2 — T4/Q4: allowedLevels (scope de nivel base, WHERE level IN (...))
+  it('filters by allowedLevels (WHERE level IN (...)) when provided', async () => {
+    mockClient.attendanceType.findMany.mockResolvedValue([]);
+    await repo.list({ allowedLevels: [2, 3] });
+
+    expect(mockClient.attendanceType.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, level: { in: [2, 3] } },
+      orderBy: [{ level: 'asc' }, { code: 'asc' }],
+    });
+  });
+
+  it('an explicit level filter takes precedence over allowedLevels', async () => {
+    mockClient.attendanceType.findMany.mockResolvedValue([]);
+    await repo.list({ level: 2, allowedLevels: [2, 3] });
+
+    expect(mockClient.attendanceType.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, level: 2 },
+      orderBy: [{ level: 'asc' }, { code: 'asc' }],
+    });
+  });
+
+  it('produces an empty IN clause when allowedLevels is [] (0 base levels — no data leak)', async () => {
+    mockClient.attendanceType.findMany.mockResolvedValue([]);
+    await repo.list({ allowedLevels: [] });
+
+    expect(mockClient.attendanceType.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, level: { in: [] } },
+      orderBy: [{ level: 'asc' }, { code: 'asc' }],
+    });
+  });
 });
 
 // ── findById ──────────────────────────────────────────────────
