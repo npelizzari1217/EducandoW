@@ -87,10 +87,16 @@ export class UpdateAttendanceTypeUseCase {
   async execute(
     id: string,
     input: UpdateAttendanceTypeInput,
+    currentUser: AttendanceTypeCurrentUser,
   ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError | SystemAttendanceTypeError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
+    }
+
+    const scope = resolveAccessScope(currentUser);
+    if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
+      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
     }
 
     try {
@@ -129,10 +135,16 @@ export class DeleteAttendanceTypeUseCase {
 
   async execute(
     id: string,
+    currentUser: AttendanceTypeCurrentUser,
   ): Promise<Result<void, AttendanceTypeNotFoundError | SystemAttendanceTypeError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
+    }
+
+    const scope = resolveAccessScope(currentUser);
+    if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
+      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
     }
 
     try {
@@ -182,11 +194,18 @@ export class GetAttendanceTypeUseCase {
 
   async execute(
     id: string,
+    currentUser: AttendanceTypeCurrentUser,
   ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
     }
+
+    const scope = resolveAccessScope(currentUser);
+    if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
+      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
+    }
+
     return ok(entity);
   }
 }

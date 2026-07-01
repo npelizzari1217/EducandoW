@@ -103,31 +103,36 @@ patrón de scope que PR2; PR5 consume el contrato ya estabilizado por PR2-4).
 
 *Depende de: PR2 (reedita `attendance-type.use-cases.ts` y `attendance-type.controller.ts`).*
 
-- [ ] **T12 (RED)** `attendance-type.use-cases.test.ts` — `UpdateAttendanceTypeUseCase.execute(id, input, currentUser)`:
+- [x] **T12 (RED)** `attendance-type.use-cases.test.ts` — `UpdateAttendanceTypeUseCase.execute(id, input, currentUser)`:
   `entity.level` ∈ scope → actualiza (comportamiento REQ-4 original sin cambios); fuera de scope →
   `ForbiddenError`, `repo.save` NUNCA invocado, registro sin cambios; ROOT/ADMIN → cualquier nivel.
   Cubre REQ "Editar tipo no-sistema" (MODIFIED) / Escenarios 4.3–4.5.
-- [ ] **T13 (GREEN)** `attendance-type.use-cases.ts` — `UpdateAttendanceTypeUseCase.execute(id, input, currentUser)`:
+- [x] **T13 (GREEN)** `attendance-type.use-cases.ts` — `UpdateAttendanceTypeUseCase.execute(id, input, currentUser)`:
   después de `findById` y ANTES de `assertMutable`, valida
   `scope.allLevels || scope.baseLevels.includes(entity.level)`, sino `throw ForbiddenError`.
-- [ ] **T14 (RED)** mismo test file — `DeleteAttendanceTypeUseCase.execute(id, currentUser)` (nueva
+- [x] **T14 (RED)** mismo test file — `DeleteAttendanceTypeUseCase.execute(id, currentUser)` (nueva
   firma): `entity.level` ∈ scope → elimina; fuera de scope → `ForbiddenError`, `repo.delete` NUNCA
   invocado; ROOT/ADMIN → cualquier nivel. Cierra el riesgo "Delete NO scopeado" del design §9.
-- [ ] **T15 (GREEN)** `attendance-type.use-cases.ts` — `DeleteAttendanceTypeUseCase.execute(id, currentUser)`:
+- [x] **T15 (GREEN)** `attendance-type.use-cases.ts` — `DeleteAttendanceTypeUseCase.execute(id, currentUser)`:
   mismo patrón de validación de scope que T13, antes de `repo.delete`.
-- [ ] **T16 (RED)** mismo test file — `GetAttendanceTypeUseCase.execute(id, currentUser)` (nueva
+- [x] **T16 (RED)** mismo test file — `GetAttendanceTypeUseCase.execute(id, currentUser)` (nueva
   firma): `entity.level` ∈ scope → retorna la entidad; fuera de scope → `ForbiddenError`. Cierra el
   riesgo "Get by id NO scopeado" del design §9.
-- [ ] **T17 (GREEN)** `attendance-type.use-cases.ts` — `GetAttendanceTypeUseCase.execute(id, currentUser)`:
+- [x] **T17 (GREEN)** `attendance-type.use-cases.ts` — `GetAttendanceTypeUseCase.execute(id, currentUser)`:
   mismo patrón de validación de scope que T13, después de `findById`.
-- [ ] **T18 (RED)** `attendance-type.controller.test.ts` — `update()`, `remove()`, `getOne()` reciben
+- [x] **T18 (RED)** `attendance-type.controller.test.ts` — `update()`, `remove()`, `getOne()` reciben
   `@CurrentUser()` y lo pasan al use case; `ForbiddenError → 403` para los tres handlers, mismo
-  envelope de error que T9.
-- [ ] **T19 (GREEN)** `attendance-type.controller.ts` — inyectar `@CurrentUser() user` en `update()`,
+  envelope de error que T9. Además `attendance-type.controller.e2e.test.ts` extendido con 6 casos
+  reales (PATCH/DELETE/GET :id) contra el pipeline HTTP completo (guards stub + controller real +
+  `AppExceptionFilter` real): 403 real con `error.code === 'ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE'`
+  para nivel fuera de scope, 200/204 para nivel en scope.
+- [x] **T19 (GREEN)** `attendance-type.controller.ts` — inyectar `@CurrentUser() user` en `update()`,
   `remove()` y `getOne()`, pasarlo a `updateUC`/`deleteUC`/`getUC`. Controller sigue THIN.
-- [ ] **T20** Correr `pnpm --filter api test -- attendance-type` — confirmar T12/T14/T16/T18 en
-  verde, cobertura ≥80%. Regresión: correr suite completa de `api` para descartar breakage en
-  otros consumidores (ya confirmado que no hay otros callers de estos 5 use cases).
+- [x] **T20** Corrido `pnpm --filter api test -- attendance-type` (124/124 verde, +21 tests vs PR2) y
+  `pnpm --filter api test` completo (197 archivos / 2014 tests verde, sin regresiones) +
+  `pnpm --filter api typecheck` (verde). Cobertura confirmada ≥80% (100% en
+  `attendance-type.use-cases.ts`, 97.43% en `attendance-type.controller.ts`). Sin otros callers de
+  estos 3 use cases fuera del controller (confirmado en la corrida completa).
 
 *Bloquea: PR5 (el front asume que el backend YA cierra el agujero de scope en las 5 operaciones).*
 
