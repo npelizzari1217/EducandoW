@@ -236,3 +236,32 @@ with GRADES:CREATE access bypass this group-assignment check (Door 2 is scope, n
 - GIVEN user U has SECRETARIO role and GRADES:CREATE module access
 - WHEN U submits an upsert for any period grade in their institution and level scope
 - THEN the system accepts the write (management scope overrides the group-assignment gate)
+
+---
+
+### SPG-R13 — Grading phase guard on period-grade writes
+
+> Declared by: `fase-bimestre-cierre-asistencia/specs/spec.md` (AC-A-8, AC-A-9, AC-A-10)
+> Change: fase-bimestre-cierre-asistencia (archived 2026-07-01)
+> Cross-reference: `course-cycle/spec.md` — Requirement: Grading Phase
+
+`upsert-subject-period-grades` MUST additionally verify, AFTER the group-assignment guard
+(SPG-R12), that the parent `CourseCycle.gradingPhase` authorizes writing to the requested
+`periodOrdinal` (via `GradingPhaseAuthorizerPort.canGradeBimester(periodOrdinal)`). When
+`gradingPhase = BIM_n`, ONLY period `n` MUST be accepted; any other period MUST be rejected.
+When `gradingPhase = NULL` or `CIERRE`, ALL periods MUST be rejected. `CourseCycle` records of
+a level this capability does not apply to (INICIAL, TERCIARIO) MUST NOT be gated by this check.
+
+#### SPG-S18 — BIM_n accepts a write for the matching period only
+
+- GIVEN a `CourseCycle` with `gradingPhase = BIM_2`
+- WHEN an authorized teacher submits a period grade for period 2
+- THEN the system accepts the write
+- WHEN the same teacher submits a period grade for period 1 or period 3
+- THEN the system rejects both with a grading-phase violation error
+
+#### SPG-S19 — NULL and CIERRE reject all period-grade writes
+
+- GIVEN a `CourseCycle` with `gradingPhase = NULL` (cutover duro) or `gradingPhase = CIERRE`
+- WHEN an authorized teacher submits a period grade for any period
+- THEN the system rejects the write in both cases

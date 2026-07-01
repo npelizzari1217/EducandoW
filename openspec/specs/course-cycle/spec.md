@@ -948,3 +948,69 @@ Schema: `z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato esperado YYYY-MM-DD').
 - THEN `fecha_de_pase TIMESTAMPTZ(6)` column is added to `students` table with `DEFAULT NULL`
 - AND all pre-existing rows have `fecha_de_pase = NULL` (no data loss)
 - AND the master schema is NOT modified by this change
+
+---
+
+### Requirement: Grading Phase — cierre de bimestre (fase-bimestre-cierre-asistencia, 2026-07-01)
+
+> Added: fase-bimestre-cierre-asistencia (2026-07-01). Archive: `openspec/changes/archive/2026-07-01-fase-bimestre-cierre-asistencia/`.
+> Guard wiring on grade writes: `subject-period-grades/spec.md` — Requirement SPG-R13; `subject-final-grades/spec.md` — Requirement SFG-R14.
+> Cross-reference (orthogonal capacity, same change): `attendance-recording/spec.md` — Requirement ATR-R10 (monthly attendance closure). Neither capacity MUST read the other's state (see ATR-S70).
+> This requirement is unrelated to, and MUST NOT replace, the legacy `activeGradingPeriod` field documented in `grading-periods/spec.md` — that field and its resolution logic remain untouched; no new guard MUST read it.
+
+**What**: A new nullable enum field `gradingPhase` (`GradingPhase { BIM_1, BIM_2, BIM_3, BIM_4, CIERRE }`, `NULL` = no active phase / hard cutover) is added to `CourseCycle` (tenant schema). It applies ONLY to `CourseCycle` records of pedagogical level PRIMARIO or SECUNDARIO (`requiresGradingPhase()`, backed by `Level.belongsToLevel(2|3)`); INICIAL and TERCIARIO MUST NOT expose the control and MUST NOT be gated by it.
+
+- Only one phase MAY be active per course at any time — activating a new phase atomically replaces the previous one, never a transient dual-active state.
+- Only Secretario+ (rank >= 40) MAY activate any phase (`BIM_1..BIM_4`, `CIERRE`). Roles below rank 40 (PRECEPTOR, TEACHER) MUST be rejected, both by the backend guard and by hiding the control in the front-end.
+- `CIERRE` MUST be reversible back to any `BIM_n` by Secretario+.
+- `gradingPhase` MUST gate ONLY grading writes (`SubjectPeriodGrade`, `SubjectFinalGrade` — see SPG-R13/SFG-R14). It MUST NOT be read by any attendance guard.
+- Attempting to set a phase on a `CourseCycle` of an unsupported level (INICIAL/TERCIARIO), or a non-existent `CourseCycle`, MUST return a validation error (`GRADING_PHASE_NOT_APPLICABLE`, 422 / not-found), never a silently-ignored no-op.
+- DIRECTOR (rank 50) and ADMIN (rank 60) MUST have identical access to SECRETARIO (rank 40) — no guard MUST special-case them beyond the shared rank threshold. ROOT (rank 99) MUST also be able to activate any phase (management access), consistent with rank >= 40.
+
+#### Scenario GPH-E1 — Activate phase: permitted to Secretario+
+
+- GIVEN a `CourseCycle` of level SECUNDARIO with `gradingPhase = NULL`, and a user with role SECRETARIO
+- WHEN the user activates phase `BIM_1`
+- THEN the system persists `gradingPhase = BIM_1` and responds success
+
+#### Scenario GPH-E2 — Activate phase: rejected for PRECEPTOR and TEACHER
+
+- GIVEN a `CourseCycle` with any `gradingPhase`, and a user with role PRECEPTOR (rank 30) or TEACHER (rank 20)
+- WHEN the user attempts to activate any phase (directly against the backend, even if the control is hidden in the front-end)
+- THEN the system rejects the operation with an authorization error and `gradingPhase` is left unchanged
+
+#### Scenario GPH-E3 — No access for INICIAL or TERCIARIO levels
+
+- GIVEN a `CourseCycle` of level INICIAL or TERCIARIO, and a user with role SECRETARIO or DIRECTOR
+- WHEN the user attempts to activate any phase on that course
+- THEN the system rejects the operation with `GRADING_PHASE_NOT_APPLICABLE` (422) because the capability does not apply to that level
+
+#### Scenario GPH-E4 — Only one phase active — activating another replaces the previous one
+
+- GIVEN a `CourseCycle` with `gradingPhase = BIM_2`
+- WHEN Secretaría activates `BIM_3`
+- THEN the system leaves `gradingPhase = BIM_3` as the sole active phase, with no transient dual-active state
+
+#### Scenario GPH-E5 — CIERRE is reversible back to a bimester
+
+- GIVEN a `CourseCycle` with `gradingPhase = CIERRE`
+- WHEN Secretaría activates `BIM_4`
+- THEN the system permits the transition and leaves `gradingPhase = BIM_4`
+
+#### Scenario GPH-E6 — Invalid or non-existent CourseCycle returns a validation error
+
+- GIVEN a `CourseCycle` id that does not exist, or one whose level is unsupported
+- WHEN a phase activation is attempted against it
+- THEN the system responds with a validation error, never a silent no-op guard
+
+#### Scenario GPH-E7 — DIRECTOR/ADMIN/ROOT share access with SECRETARIO by rank threshold
+
+- GIVEN a `CourseCycle` eligible for this capability, and users with role DIRECTOR (50), ADMIN (60), or ROOT (99)
+- WHEN each attempts to activate a phase
+- THEN the system accepts the operation for all three, identically to SECRETARIO — no guard treats them differently beyond the rank >= 40 threshold
+
+#### Scenario GPH-E8 — Orthogonality: `gradingPhase` never gates attendance
+
+- GIVEN a `CourseCycle` with `gradingPhase = NULL` (grading blocked)
+- WHEN a preceptor records attendance for a day of that course, with its attendance month OPEN
+- THEN the system accepts the attendance record regardless of `gradingPhase` (see `attendance-recording/spec.md` ATR-S70)

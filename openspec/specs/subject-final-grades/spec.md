@@ -252,3 +252,29 @@ with GRADES:CREATE access bypass this group-assignment check.
 - GIVEN user U has SECRETARIO role and GRADES:CREATE module access
 - WHEN U submits an upsert for any final grade in their institution and level scope
 - THEN the system accepts the write (management scope overrides the group-assignment gate)
+
+---
+
+### SFG-R14 — Grading phase guard — CIERRE-only writes
+
+> Declared by: `fase-bimestre-cierre-asistencia/specs/spec.md` (AC-A-11, AC-A-12, AC-A-13)
+> Change: fase-bimestre-cierre-asistencia (archived 2026-07-01)
+> Cross-reference: `course-cycle/spec.md` — Requirement: Grading Phase
+
+`upsert-subject-final-grades` MUST additionally verify, after existing authorization (SFG-R13),
+that the parent `CourseCycle.gradingPhase = CIERRE` (via `GradingPhaseAuthorizerPort.canGradeFinal()`)
+before accepting a write. When `gradingPhase` is `NULL` or any `BIM_n`, ALL final-grade writes
+(FINAL, DICIEMBRE, MARZO, DEFINITIVA) MUST be rejected — final grades are editable ONLY during
+`CIERRE`.
+
+#### SFG-S20 — CIERRE permits all four final grade types
+
+- GIVEN a `CourseCycle` with `gradingPhase = CIERRE`
+- WHEN an authorized user submits a final grade of type FINAL, DICIEMBRE, MARZO, or DEFINITIVA
+- THEN the system accepts the write for all four types
+
+#### SFG-S21 — BIM_n and NULL reject final grade writes
+
+- GIVEN a `CourseCycle` with `gradingPhase = BIM_1` or `gradingPhase = NULL`
+- WHEN an authorized user submits a final grade of any type
+- THEN the system rejects the write because final grades are only editable in `CIERRE`

@@ -5,6 +5,7 @@
 >   docente-ciclo-grupos · Fase 6 (archived 2026-06-16) — ATR-R1, ATR-R2, ATR-R3
 >   asistencia-desde-alumnos-curso (archived 2026-06-23) — ATR-R4, ATR-R5
 >   asistencia-dias-bloqueados (archived 2026-06-23) — ATR-R6, ATR-R7, ATR-R8, ATR-R9
+>   fase-bimestre-cierre-asistencia (archived 2026-07-01) — ATR-R10
 > IDs: ATR-R* / ATR-S*
 > Cross-references:
 >   ACC-R1 (`asignacion-curso-ciclo/spec.md`) — preceptor assignment basis for daily attendance
@@ -567,6 +568,76 @@ The decision to render a cell as blocked MUST be based on the `assignable` field
 - WHEN the user clicks on the blocked cell
 - THEN no API call MUST be triggered
 - AND the cell MUST remain in its read-only state
+
+---
+
+### ATR-R10 — Monthly attendance closure — read-only lock with no bypass (fase-bimestre-cierre-asistencia, 2026-07-01)
+
+> Added: fase-bimestre-cierre-asistencia (2026-07-01). Archive: `openspec/changes/archive/2026-07-01-fase-bimestre-cierre-asistencia/`.
+> Cross-reference: `course-cycle/spec.md` — Requirement: Grading Phase (Capacidad A of the same change; the two capacities are explicitly orthogonal — see ATR-S70).
+
+**What**: A new tenant entity `AttendanceMonthStatus`, scoped by `(courseCycleId, year, month)` (`@@unique`), MUST gate whether a given month accepts attendance writes, independent of `GradingPhase` (course-cycle) and applying to ALL pedagogical levels (INICIAL, PRIMARIO, SECUNDARIO, TERCIARIO).
+
+- Absence of a row for `(courseCycleId, year, month)` MUST be interpreted as **OPEN** (no migration/backfill required).
+- Only Secretario+ (rank >= 40 — SECRETARIO, DIRECTOR, ADMIN, ROOT) MAY open, close, or reopen a month. Roles below rank 40 (PRECEPTOR, TEACHER) MUST be rejected.
+- When a month is CLOSED, the system MUST reject attendance recording — both general (day-level, `record-general-attendance-day`) and per-subject (`record-subject-attendance-day`) — for **every** role, including ADMIN and ROOT, with NO bypass. The guard MUST run unconditionally, not nested inside any administrative-scope branch. Only read/print operations remain permitted.
+- Reopening a CLOSED month MUST remain a pure management operation (Secretario+, no extra guard), independent of whether a later month has already been generated.
+- Generating a new month MUST be rejected with `PREVIOUS_MONTH_OPEN` (409) when the latest **previously generated** month for that `courseCycle` (found via `findLatestBefore`, i.e. the greatest month-ordinal strictly before the target, NOT necessarily the calendar predecessor) is not closed. The very first month generated for a `courseCycle` (no prior generated month) MUST be exempt from this check.
+- This closure state MUST NOT be derived from, nor influence, `GradingPhase` (Capacidad A of the same change) — the two guards MUST remain structurally independent (no cross-imports/reads).
+
+#### ATR-S63 — Secretario+ closes an open month
+
+- GIVEN month (courseCycle CC1, 2026, 6) is OPEN and a user with role SECRETARIO
+- WHEN the user closes the month
+- THEN the system persists the month as CLOSED and responds success
+
+#### ATR-S64 — Close/reopen rejected below rank 40 (PRECEPTOR, TEACHER)
+
+- GIVEN an open (or closed) month for CC1, and a user with role PRECEPTOR (rank 30) or TEACHER (rank 20)
+- WHEN the user attempts to close, open, or reopen that month
+- THEN the system rejects the operation with an authorization error (403) for both roles
+
+#### ATR-S65 — Closed month rejects general attendance recording for ALL roles, including ADMIN and ROOT
+
+- GIVEN a CLOSED month for CC1
+- WHEN a user with role ADMIN (rank 60) or ROOT (rank 99) attempts to record general (day-level) attendance for that month
+- THEN the system rejects the operation with `MONTH_CLOSED` (409) for both roles — the guard MUST NOT be nested inside an administrative-scope bypass branch
+
+#### ATR-S66 — Closed month rejects subject-level attendance recording
+
+- GIVEN a CLOSED month for CC1
+- WHEN an assigned teacher or preceptor attempts to record subject-level attendance for a day in that month
+- THEN the system rejects the operation with `MONTH_CLOSED` (409)
+
+#### ATR-S67 — Closed month allows read and print only
+
+- GIVEN a CLOSED month for CC1
+- WHEN any role with read access requests the attendance grid or a print/report for that month
+- THEN the system serves the read/print request successfully (read-only)
+
+#### ATR-S68 — Generate rejected unless the previously generated month is closed; first month exempt
+
+- GIVEN CC1 has a previously generated month (2026, 5) that is still OPEN
+- WHEN Secretaría attempts to generate month (2026, 6)
+- THEN the system rejects with `PREVIOUS_MONTH_OPEN` (409)
+- GIVEN CC1 has NO previously generated month
+- WHEN Secretaría generates the first month (e.g. 2026, 3)
+- THEN the system accepts the generation without requiring any prior closure
+
+#### ATR-S69 — Reopen allowed even with a later month already generated
+
+- GIVEN CC1 has month (2026, 5) CLOSED and month (2026, 6) already generated (OPEN)
+- WHEN Secretaría reopens month (2026, 5)
+- THEN the system accepts the reopen, leaves (2026, 5) OPEN, and (2026, 6) is left unaffected
+
+#### ATR-S70 — Orthogonality: `GradingPhase` (Capacidad A) never gates attendance, and month-closure never gates grading
+
+- GIVEN a course-cycle with `gradingPhase = CIERRE` (grading blocked) and its attendance month OPEN
+- WHEN a preceptor records attendance for that month
+- THEN the system accepts the record — the attendance guard MUST NOT read `gradingPhase`
+- GIVEN the same course-cycle with its attendance month CLOSED and `gradingPhase = BIM_2` (grading open for period 2)
+- WHEN a teacher submits a period grade for period 2
+- THEN the system accepts the grade — the grading-phase guard MUST NOT read `AttendanceMonthStatus`
 
 ---
 
