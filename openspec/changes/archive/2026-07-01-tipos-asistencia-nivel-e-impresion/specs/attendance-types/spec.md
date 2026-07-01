@@ -308,10 +308,10 @@ observable y forma parte del contrato de API.
 
 ## Criterios de aceptación transversales (adición)
 
-- [ ] Ningún test verifica un HTTP 200 con datos vacíos como sustituto de un 403 fuera de scope
-- [ ] `resolveAccessScope` (domain) es la única fuente de verdad para "está dentro de mi scope" —
+- [x] Ningún test verifica un HTTP 200 con datos vacíos como sustituto de un 403 fuera de scope
+- [x] `resolveAccessScope` (domain) es la única fuente de verdad para "está dentro de mi scope" —
       ningún use case reimplementa la lógica de colapso de modalidad por su cuenta
-- [ ] El front nunca es la única barrera: un intento directo a la API fuera de scope (bypaseando el
+- [x] El front nunca es la única barrera: un intento directo a la API fuera de scope (bypaseando el
       front) DEBE seguir devolviendo 403
-- [ ] La impresión usa exactamente el mismo cálculo de scope/filtro que el listado (mismo resultado
+- [x] La impresión usa exactamente el mismo cálculo de scope/filtro que el listado (mismo resultado
       de conjunto de datos para los mismos query params y el mismo usuario)

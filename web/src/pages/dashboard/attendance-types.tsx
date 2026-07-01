@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useCan } from '../../hooks/use-can';
+import { useAuth } from '../../context/auth-context';
 import { useInstitution } from '../../context/institution-context';
 import { useApiList, useApiDelete, extractErrorMessage } from '../../hooks/use-api';
 import PremiumHeader from '../../components/ui/premium-header';
@@ -9,15 +10,37 @@ import { Table } from '../../components/ui/table';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { ATTENDANCE_BEHAVIOR_OPTIONS, attendanceBehaviorLabel } from '../../constants/attendance-behavior';
+import { LEVEL_CATALOG } from '../../constants/levels';
 
 // ── Constants ──
 
-const LEVEL_OPTIONS = [
-  { value: 1, label: 'Inicial' },
-  { value: 2, label: 'Primario' },
-  { value: 3, label: 'Secundario' },
-  { value: 4, label: 'Terciario' },
-];
+/** Base-level option (levels 1-4) — one entry per pedagogical base level (modality 0 = canonical label). */
+export interface BaseLevelOption { value: number; label: string; }
+
+/** Catálogo de niveles base (pedagógicos), fuente de verdad de labels — NO hardcodeado por página (Q1/ADR-02). */
+const BASE_LEVEL_OPTIONS: BaseLevelOption[] = LEVEL_CATALOG
+  .filter((e) => e.pedagogical && e.modalityCode === 0)
+  .map((e) => ({ value: e.levelCode, label: e.label }));
+
+/**
+ * Colapsa `user.userLevels` (códigos compuestos level+modality) a niveles base distintos, ordenados.
+ * Réplica trivial de `AccessScope.baseLevels` (domain) — el front no importa runtime de domain
+ * (levels.ts:10-11, restricción CJS/ESM). Exportada para test unitario directo (T31).
+ */
+export function collapseToBaseLevels(userLevels: { level: number; modality: number }[] | undefined): number[] {
+  return [...new Set((userLevels ?? []).map((ul) => ul.level))].sort((a, b) => a - b);
+}
+
+/**
+ * Deriva los niveles base disponibles para el usuario actual: ROOT/ADMIN ven el catálogo pedagógico
+ * completo (allLevels); el resto ve únicamente sus niveles base colapsados (REQ-19/ADD-2).
+ * Exportada para test unitario directo (T31).
+ */
+export function deriveAvailableLevels(isRootOrAdmin: boolean, baseLevels: number[]): BaseLevelOption[] {
+  return isRootOrAdmin
+    ? BASE_LEVEL_OPTIONS
+    : BASE_LEVEL_OPTIONS.filter((opt) => baseLevels.includes(opt.value));
+}
 
 // ── Types ──
 
@@ -46,14 +69,17 @@ interface AttendanceTypeForm {
 
 type FieldErrors = Partial<Record<keyof AttendanceTypeForm, string>>;
 
-const EMPTY_FORM: AttendanceTypeForm = {
-  code: '',
-  description: '',
-  absenceValue: '0',
-  level: 2,
-  behavior: ATTENDANCE_BEHAVIOR_OPTIONS[0].value,
-  active: true,
-};
+/** Level is filled dynamically per user scope (buildEmptyForm) — no hardcoded default (T34). */
+function buildEmptyForm(level: number): AttendanceTypeForm {
+  return {
+    code: '',
+    description: '',
+    absenceValue: '0',
+    level,
+    behavior: ATTENDANCE_BEHAVIOR_OPTIONS[0].value,
+    active: true,
+  };
+}
 
 const LEVEL_LABELS: Record<number, string> = {
   1: 'Inicial',
@@ -66,7 +92,18 @@ const LEVEL_LABELS: Record<number, string> = {
 
 export default function AttendanceTypesPage() {
   const { can: hasModuleAction, isRoot } = useCan();
+  const { user } = useAuth();
   const { config } = useInstitution();
+
+  // Level scope (REQ-19/ADD-2, tipos-asistencia-nivel-e-impresion).
+  // NOTE: useCan().isRoot only checks role === 'ROOT' (use-can.ts:10), it MISSES ADMIN.
+  // This feature requires ADMIN = allLevels too, so isRootOrAdmin is derived independently.
+  const roles: string[] = user?.roles ?? [];
+  const isRootOrAdmin = roles.includes('ROOT') || roles.includes('ADMIN');
+  const userLevelBases = collapseToBaseLevels(user?.userLevels);
+  const availableLevels = deriveAvailableLevels(isRootOrAdmin, userLevelBases);
+  const hasNoLevelAccess = !isRootOrAdmin && availableLevels.length === 0;
+  const defaultLevel = availableLevels[0]?.value ?? 0;
 
   // ROOT institution selector
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -83,14 +120,15 @@ export default function AttendanceTypesPage() {
   // API query params: ROOT passes institutionId when selected; non-ROOT passes nothing
   const rootQueryParams = (isRoot && institutionId) ? { institutionId } : undefined;
 
-  // List URL: skip fetch when ROOT has not yet selected an institution
-  const listUrl = (isRoot && !institutionId) ? '' : '/attendance-types';
+  // List URL: skip fetch when ROOT has not yet selected an institution, or when the
+  // user has zero base levels assigned (empty state, ADD-2.4) — no point fetching.
+  const listUrl = ((isRoot && !institutionId) || hasNoLevelAccess) ? '' : '/attendance-types';
 
   const { data, loading, reload } = useApiList<AttendanceTypeRow>(listUrl, rootQueryParams);
   const { deleting, del } = useApiDelete('/attendance-types', rootQueryParams);
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<AttendanceTypeForm>(EMPTY_FORM);
+  const [form, setForm] = useState<AttendanceTypeForm>(buildEmptyForm(defaultLevel));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -100,6 +138,15 @@ export default function AttendanceTypesPage() {
   // Filter state
   const [filterLevel, setFilterLevel] = useState<string>('');
   const [filterActive, setFilterActive] = useState<string>('');
+  const [printLoading, setPrintLoading] = useState(false);
+
+  // With exactly 1 available base level, the level filter is fixed to that level (ADD-2.1).
+  const singleAvailableLevel = availableLevels.length === 1 ? availableLevels[0].value : null;
+  useEffect(() => {
+    if (singleAvailableLevel === null) return;
+    const fixed = String(singleAvailableLevel);
+    setFilterLevel((current) => (current === fixed ? current : fixed));
+  }, [singleAvailableLevel]);
 
   const update = (field: keyof AttendanceTypeForm, value: string | boolean | number) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -132,7 +179,7 @@ export default function AttendanceTypesPage() {
     try {
       await apiClient.post('/attendance-types', buildPayload(), { params: rootQueryParams });
       setShowForm(false);
-      setForm(EMPTY_FORM);
+      setForm(buildEmptyForm(defaultLevel));
       setFieldErrors({});
       reload();
     } catch (e: unknown) {
@@ -169,7 +216,7 @@ export default function AttendanceTypesPage() {
         active: form.active,
       }, { params: rootQueryParams });
       setShowForm(false);
-      setForm(EMPTY_FORM);
+      setForm(buildEmptyForm(defaultLevel));
       setEditingId(null);
       setFieldErrors({});
       reload();
@@ -193,7 +240,7 @@ export default function AttendanceTypesPage() {
 
   const clearForm = () => {
     setShowForm(false);
-    setForm(EMPTY_FORM);
+    setForm(buildEmptyForm(defaultLevel));
     setEditingId(null);
     setSaveError('');
     setFieldErrors({});
@@ -207,7 +254,39 @@ export default function AttendanceTypesPage() {
     return true;
   });
 
-  const canCreate = hasModuleAction('ATTENDANCE_TYPES', 'CREATE') && (!isRoot || !!institutionId);
+  const canCreate = hasModuleAction('ATTENDANCE_TYPES', 'CREATE') && (!isRoot || !!institutionId) && !hasNoLevelAccess;
+
+  // ── Imprimir (tipos-asistencia-nivel-e-impresion PR5) — server-side PDF, blob download ──
+  // Reusa el idiom de asistencia-mensual.tsx: sin html2pdf, todo generado server-side.
+  const triggerPdfDownload = (blob: Blob, filename: string) => {
+    const blobUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = blobUrl;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  };
+
+  const handlePrint = async () => {
+    setPrintLoading(true);
+    try {
+      const res = await apiClient.get<Blob>('/attendance-types/print', {
+        params: {
+          ...(rootQueryParams ?? {}),
+          level: filterLevel || undefined,
+          active: filterActive || undefined,
+        },
+        responseType: 'blob',
+      });
+      triggerPdfDownload(res.data, `tipos-asistencia-${filterLevel || 'todos'}.pdf`);
+    } catch {
+      alert('Error al imprimir los tipos de asistencia. Intentá de nuevo.');
+    } finally {
+      setPrintLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -222,7 +301,7 @@ export default function AttendanceTypesPage() {
             variant={showForm ? 'danger-soft' : 'success-soft'}
             onClick={() => {
               if (showForm) clearForm();
-              else { setShowForm(true); setForm(EMPTY_FORM); setEditingId(null); setSaveError(''); setFieldErrors({}); }
+              else { setShowForm(true); setForm(buildEmptyForm(defaultLevel)); setEditingId(null); setSaveError(''); setFieldErrors({}); }
             }}
           >
             {showForm ? 'Cancelar' : 'Nuevo tipo'}
@@ -268,6 +347,14 @@ export default function AttendanceTypesPage() {
         <Card className="mt-md">
           <p style={{ color: 'var(--color-text-muted)', padding: 'var(--space-md)', textAlign: 'center' }}>
             Seleccioná una institución para ver los tipos de asistencia.
+          </p>
+        </Card>
+      ) : hasNoLevelAccess ? (
+        /* Guard: usuario no-ROOT/no-ADMIN sin ningún nivel base asignado (ADD-2.4) — estado vacío
+           explícito, nunca una tabla vacía sin contexto ni un selector con opciones fantasma. */
+        <Card className="mt-md">
+          <p style={{ color: 'var(--color-text-muted)', padding: 'var(--space-md)', textAlign: 'center' }}>
+            Sin acceso a ningún nivel. No tenés niveles educativos asignados para ver o gestionar tipos de asistencia.
           </p>
         </Card>
       ) : (
@@ -328,10 +415,11 @@ export default function AttendanceTypesPage() {
                       className="input"
                       value={form.level}
                       onChange={(e) => update('level', Number(e.target.value))}
+                      disabled={availableLevels.length === 1}
                       style={{ width: '100%' }}
                       aria-label="Nivel educativo"
                     >
-                      {LEVEL_OPTIONS.map((opt) => (
+                      {availableLevels.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
@@ -388,11 +476,12 @@ export default function AttendanceTypesPage() {
                   className="input"
                   value={filterLevel}
                   onChange={(e) => setFilterLevel(e.target.value)}
+                  disabled={availableLevels.length === 1}
                   style={{ width: '100%' }}
                   aria-label="Filtrar por nivel"
                 >
-                  <option value="">Todos</option>
-                  {LEVEL_OPTIONS.map((opt) => (
+                  {availableLevels.length > 1 && <option value="">Todos</option>}
+                  {availableLevels.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
@@ -410,6 +499,16 @@ export default function AttendanceTypesPage() {
                   <option value="true">Activos</option>
                   <option value="false">Inactivos</option>
                 </select>
+              </div>
+              <div className="field" style={{ alignSelf: 'flex-end' }}>
+                <Button
+                  variant="ghost"
+                  data-testid="btn-imprimir-tipos-asistencia"
+                  onClick={handlePrint}
+                  disabled={printLoading}
+                >
+                  {printLoading ? 'Generando PDF…' : 'Imprimir'}
+                </Button>
               </div>
             </div>
 

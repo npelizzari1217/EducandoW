@@ -93,9 +93,15 @@ Y existen dos registros con `code = "P"`, cada uno para su nivel respectivo
 
 ---
 
-### REQ-3 — Crear tipo no-sistema
+### REQ-3 — Crear tipo no-sistema (MODIFIED — tipos-asistencia-nivel-e-impresion, 2026-07-01)
 
-Un AttendanceType con `isSystem = false` puede ser creado por un usuario con permisos.
+> Modificado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. Agrega scope de nivel
+> base (REQ-16) a la creación. Comportamiento previo (Escenarios 3.1, 3.2) permanece sin cambios.
+
+Un AttendanceType con `isSystem = false` puede ser creado por un usuario con permisos, y el `level`
+provisto en el payload DEBE pertenecer al conjunto de niveles base del usuario (REQ-16), salvo que
+el usuario tenga `allLevels = true` (ROOT/ADMIN).
 
 #### Escenario 3.1 — creación exitosa de tipo custom
 
@@ -111,11 +117,38 @@ Y el body contiene `{ data: { id, code: "T", description: "Tardanza", absenceVal
 **Cuando** POST `/attendance-types`  
 **Entonces** HTTP 401
 
+#### Escenario 3.3 — creación con level fuera de scope es rechazada
+
+**Dado** un docente con niveles base `{2}` y permisos de creación  
+**Cuando** POST `/attendance-types` con `{ ..., level: 3 }`  
+**Entonces** HTTP 403  
+Y no se crea ningún registro
+
+#### Escenario 3.4 — creación con level dentro de scope es aceptada
+
+**Dado** un docente con niveles base `{2}` y permisos de creación  
+**Cuando** POST `/attendance-types` con `{ ..., level: 2 }`  
+**Entonces** HTTP 201 (comportamiento de REQ-3 original, sin cambios adicionales)
+
+#### Escenario 3.5 — ROOT/ADMIN puede crear en cualquier nivel de la institución activa
+
+**Dado** un usuario con rol ROOT  
+**Cuando** POST `/attendance-types` con `{ ..., level: 4 }`  
+**Entonces** HTTP 201, sin restricción de scope (comportamiento de REQ-3 original)
+
 ---
 
-### REQ-4 — Editar tipo no-sistema
+### REQ-4 — Editar tipo no-sistema (MODIFIED — tipos-asistencia-nivel-e-impresion, 2026-07-01)
 
-Un AttendanceType con `isSystem = false` puede ser actualizado (PATCH). Los campos editables son: `description`, `absenceValue`, `active`, `assignable`.
+> Modificado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. Agrega scope de nivel
+> base (REQ-16) a la edición. Comportamiento previo (Escenarios 4.1, 4.2) permanece sin cambios.
+
+Un AttendanceType con `isSystem = false` puede ser actualizado (PATCH). El `level` del registro
+existente (invariante, no editable — ver nota de diseño abajo) DEBE pertenecer al conjunto de
+niveles base del usuario (REQ-16) para que la edición sea permitida, salvo `allLevels = true`
+(ROOT/ADMIN). Los campos editables siguen siendo: `description`, `absenceValue`, `active`,
+`assignable`.
 
 #### Escenario 4.1 — edición exitosa de tipo custom
 
@@ -133,6 +166,32 @@ Y el body contiene los datos actualizados con `description = "Tardanza leve"` y 
 Y el `code` permanece `"T"` sin cambios
 
 > **Nota de diseño:** `code` y `level` son invariantes de la entidad; no se exponen en el DTO de actualización.
+
+#### Escenario 4.3 — edición de un tipo cuyo level está fuera de scope es rechazada
+
+**Dado** un docente con niveles base `{2}` y permisos de edición  
+**Y** existe un AttendanceType custom `{ id: "X1", level: 3, isSystem: false }`  
+**Cuando** PATCH `/attendance-types/X1` con `{ description: "..." }`  
+**Entonces** HTTP 403  
+Y el registro permanece sin cambios
+
+#### Escenario 4.4 — edición de un tipo cuyo level está dentro de scope es aceptada
+
+**Dado** un docente con niveles base `{2}` y permisos de edición  
+**Y** existe un AttendanceType custom `{ id: "X2", level: 2, isSystem: false }`  
+**Cuando** PATCH `/attendance-types/X2` con `{ description: "Tardanza leve" }`  
+**Entonces** HTTP 200 (comportamiento de REQ-4 original, sin cambios adicionales)
+
+#### Escenario 4.5 — ROOT/ADMIN puede editar cualquier nivel de la institución activa
+
+**Dado** un usuario con rol ROOT  
+**Y** existe un AttendanceType custom `{ id: "X3", level: 1, isSystem: false }`  
+**Cuando** PATCH `/attendance-types/X3` con `{ active: false }`  
+**Entonces** HTTP 200, sin restricción de scope (comportamiento de REQ-4 original)
+
+> **Nota de alcance (cerrada):** DELETE (REQ-6/REQ-7) y GET por id quedaron pendientes de decisión
+> en el delta original de este requisito; la decisión se cerró durante `apply` (PR3, ver
+> `tasks.md` de este change archivado) — ambas operaciones también quedan level-scoped. Ver REQ-20.
 
 ---
 
@@ -186,9 +245,24 @@ Y el registro persiste en la DB sin cambios
 
 ---
 
-### REQ-8 — Listar y filtrar
+### REQ-8 — Listar y filtrar (MODIFIED — tipos-asistencia-nivel-e-impresion, 2026-07-01)
 
-El endpoint de listado devuelve AttendanceTypes del tenant con filtros opcionales.
+> Modificado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. Agrega scope de nivel
+> base (REQ-16) al listado. Comportamiento previo para ROOT/ADMIN (Escenarios 8.1–8.4) permanece
+> sin cambios.
+
+El endpoint de listado devuelve `AttendanceType` del tenant con filtros opcionales, ahora scopeados
+por el nivel base del usuario autenticado (REQ-16):
+
+- Si el usuario tiene `allLevels = true` (ROOT/ADMIN): el comportamiento es el original — sin
+  restricción de nivel, `?level` puede ser cualquier nivel válido de la institución activa.
+- Si el usuario NO tiene `allLevels` y pasa `?level=` con un valor que NO pertenece a su conjunto de
+  niveles base (REQ-16): la operación DEBE rechazarse con HTTP 403 (ver REQ-19). NUNCA HTTP 200.
+- Si el usuario NO tiene `allLevels` y NO pasa `?level=`: el listado DEBE devolver únicamente los
+  tipos cuyo `level` pertenece al conjunto de niveles base del usuario (puede ser más de un nivel si
+  el usuario tiene más de un nivel base asignado).
+- El filtro `?active` (original) se sigue aplicando igual, en conjunto con el scope de nivel.
 
 #### Escenario 8.1 — listar todos los tipos del tenant
 
@@ -216,6 +290,44 @@ Y todos los items tienen `active = true`
 
 **Cuando** GET `/attendance-types?level=3&active=false`  
 **Entonces** sólo retorna registros con `level = 3` Y `active = false`
+
+#### Escenario 8.5 — sin `?level`, usuario con un nivel base ve solo el suyo
+
+**Dado** un docente con niveles base `{2}`  
+**Y** existen AttendanceTypes de `level = 1`, `level = 2` y `level = 3`  
+**Cuando** GET `/attendance-types` (sin `?level`)  
+**Entonces** HTTP 200  
+Y el body solo contiene tipos con `level = 2`
+
+#### Escenario 8.6 — `?level` fuera de scope es 403
+
+**Dado** un docente con niveles base `{2}`  
+**Cuando** GET `/attendance-types?level=1`  
+**Entonces** HTTP 403  
+Y no se filtra ni se expone ningún dato de `level = 1`
+
+#### Escenario 8.7 — `?level` dentro de scope es aceptado
+
+**Dado** un docente con niveles base `{2, 3}`  
+**Cuando** GET `/attendance-types?level=3`  
+**Entonces** HTTP 200  
+Y el body contiene solo tipos con `level = 3`
+
+#### Escenario 8.8 — ROOT/ADMIN sin restricción de nivel
+
+**Dado** un usuario con rol ROOT  
+**Cuando** GET `/attendance-types` (sin `?level`)  
+**Entonces** HTTP 200  
+Y el body contiene tipos de todos los niveles de la institución activa (comportamiento original,
+sin cambios)
+
+#### Escenario 8.9 — usuario con 0 niveles base ve listado vacío (sin `?level`)
+
+**Dado** un usuario no-ROOT/no-ADMIN con niveles base `{}`  
+**Cuando** GET `/attendance-types` (sin `?level`)  
+**Entonces** HTTP 200  
+Y el body es `{ data: [] }` (lista vacía es correcta acá — no hay `?level` explícito fuera de
+scope; el estado vacío se comunica en el front vía Escenario ADD-2.4 / REQ-17)
 
 ---
 
@@ -499,6 +611,212 @@ Y la validación de `behavior` DEBE ser independiente del `absenceValue` elegido
 
 ---
 
+### REQ-16 — Nivel base — colapso de modalidad (tipos-asistencia-nivel-e-impresion, 2026-07-01)
+
+> Agregado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. Gobierna el scope de
+> nivel usado por REQ-3 (MODIFIED), REQ-4 (MODIFIED), REQ-8 (MODIFIED), REQ-17, REQ-18, REQ-19 y
+> REQ-20 de esta sección.
+
+El sistema DEBE derivar, para cada usuario autenticado, el conjunto de **niveles base** a partir de
+`user.levels` (códigos compuestos `level * 10 + modality`, ver `access-scope.ts`), colapsando la
+modalidad: dos códigos compuestos con el mismo `level` (distinta `modality`) DEBEN contar como UN
+solo nivel base. El cardinal de este conjunto (0, 1, o >1 niveles base) es la entrada que gobierna
+el scope de listado (REQ-8), alta/edición (REQ-3/REQ-4), impresión (REQ-18) y el selector del front
+(REQ-17). Para usuarios con `allLevels = true` (ROOT o ADMIN), este colapso NO aplica — su scope es
+"todos los niveles pedagógicos de la institución activa" independientemente de su propio
+`user.levels`.
+
+#### Escenario 16.1 — dos modalidades del mismo nivel colapsan a un nivel base
+
+**Dado** un usuario con `user.levels = [21, 22]` (nivel 2, modalidades 1 y 2)  
+**Cuando** se resuelve su conjunto de niveles base  
+**Entonces** el conjunto resultante es `{2}` (un solo nivel base)
+
+#### Escenario 16.2 — niveles base distintos no colapsan
+
+**Dado** un usuario con `user.levels = [20, 31]` (nivel 2 modalidad 0, nivel 3 modalidad 1)  
+**Cuando** se resuelve su conjunto de niveles base  
+**Entonces** el conjunto resultante es `{2, 3}` (dos niveles base)
+
+#### Escenario 16.3 — usuario sin niveles asignados
+
+**Dado** un usuario no-ROOT/no-ADMIN con `user.levels = []`  
+**Cuando** se resuelve su conjunto de niveles base  
+**Entonces** el conjunto resultante es `{}` (cero niveles base)
+
+---
+
+### REQ-17 — Selector de nivel en el front adaptado al scope del usuario (tipos-asistencia-nivel-e-impresion, 2026-07-01)
+
+> Agregado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`.
+
+La pantalla "Tipos de asistencia" DEBE reemplazar el `LEVEL_OPTIONS` hardcodeado por los niveles
+base derivados del usuario (REQ-16), aplicados tanto al listado como al form de alta. El front DEBE
+tratarse como mejora de UX — el rechazo real de operaciones fuera de scope ocurre en backend
+(REQ-8, REQ-3, REQ-4); el front NUNCA es la única barrera.
+
+- Con exactamente 1 nivel base: el selector de nivel DEBE mostrarse VISIBLE pero DESHABILITADO, con
+  el valor fijado a ese único nivel; el listado DEBE mostrarse filtrado a ese nivel; el form de alta
+  DEBE iniciar con el nivel pre-seteado y el campo bloqueado (no editable).
+- Con más de 1 nivel base: el selector DEBE ofrecer únicamente esos niveles base (ni más ni menos),
+  habilitado.
+- Para usuarios con `allLevels = true` (ROOT/ADMIN): el selector DEBE ofrecer todos los niveles
+  pedagógicos de la institución activa.
+- Con 0 niveles base (usuario no-ROOT/no-ADMIN sin ningún nivel asignado): la pantalla DEBE mostrar
+  un estado vacío explícito indicando ausencia de acceso a cualquier nivel — NUNCA una tabla vacía
+  sin explicación ni un selector con opciones fantasma.
+
+#### Escenario 17.1 — un solo nivel base: selector visible y deshabilitado
+
+**Dado** un docente con niveles base `{2}` (colapsados de REQ-16)  
+**Cuando** carga la pantalla "Tipos de asistencia"  
+**Entonces** el selector de nivel se muestra visible, deshabilitado, con valor fijo `2`  
+Y el listado muestra solo tipos con `level = 2`  
+Y el form de alta abre con `level = 2` pre-seteado y no editable
+
+#### Escenario 17.2 — más de un nivel base: selector limitado a esos niveles
+
+**Dado** un docente con niveles base `{2, 3}`  
+**Cuando** carga la pantalla "Tipos de asistencia"  
+**Entonces** el selector de nivel ofrece únicamente las opciones `2` y `3`  
+Y no ofrece `1` ni `4`
+
+#### Escenario 17.3 — ROOT/ADMIN: todos los niveles de la institución activa
+
+**Dado** un usuario con rol ROOT (o ADMIN)  
+**Y** la institución activa tiene niveles `{1, 2, 3}`  
+**Cuando** carga la pantalla "Tipos de asistencia"  
+**Entonces** el selector ofrece los niveles `1`, `2` y `3`
+
+#### Escenario 17.4 — cero niveles base: estado vacío explícito
+
+**Dado** un usuario no-ROOT/no-ADMIN con niveles base `{}`  
+**Cuando** carga la pantalla "Tipos de asistencia"  
+**Entonces** la pantalla muestra un estado vacío explícito de "sin acceso a ningún nivel"  
+Y NO se renderiza un selector con opciones ni una tabla vacía sin contexto
+
+---
+
+### REQ-18 — Impresión de tipos de asistencia respetando el scope (tipos-asistencia-nivel-e-impresion, 2026-07-01)
+
+> Agregado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. Cross-reference:
+> `asistencia-reporting/spec.md` ASR-R1 (generación server-side, nunca client-side).
+
+El sistema DEBE exponer un endpoint de impresión de tipos de asistencia (`GET
+/attendance-types/print`) que genere el documento server-side y devuelva un archivo
+`application/pdf` como adjunto (`Content-Disposition: attachment`). El resultado impreso DEBE
+respetar EXACTAMENTE el mismo scope de nivel y los mismos filtros (`?level`, `?active`) que el
+listado (REQ-8): mismo conjunto de niveles visibles, misma regla de 403 ante un `?level` fuera de
+scope.
+
+#### Escenario 18.1 — impresión exitosa respeta scope de un solo nivel
+
+**Dado** un docente con niveles base `{2}`  
+**Cuando** solicita la impresión de tipos de asistencia sin `?level`  
+**Entonces** HTTP 200 con `Content-Type: application/pdf` y `Content-Disposition: attachment`  
+Y el PDF contiene únicamente tipos con `level = 2`
+
+#### Escenario 18.2 — impresión con nivel fuera de scope es rechazada
+
+**Dado** un docente con niveles base `{2}`  
+**Cuando** solicita la impresión con `?level=3`  
+**Entonces** HTTP 403  
+Y no se genera ningún PDF
+
+#### Escenario 18.3 — impresión para ROOT/ADMIN sin filtro incluye todos los niveles
+
+**Dado** un usuario con rol ROOT  
+**Cuando** solicita la impresión sin `?level`  
+**Entonces** HTTP 200 con un PDF que incluye tipos de todos los niveles de la institución activa
+
+#### Escenario 18.4 — impresión combina filtro de nivel y activo igual que el listado
+
+**Dado** un usuario ROOT  
+**Cuando** solicita la impresión con `?level=3&active=false`  
+**Entonces** el PDF contiene únicamente tipos con `level = 3` Y `active = false`, consistente con
+el Escenario 8.4
+
+---
+
+### REQ-19 — Rechazo HTTP 403 fuera de scope, nunca 200 con datos vacíos o error en el body (tipos-asistencia-nivel-e-impresion, 2026-07-01)
+
+> Agregado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`.
+
+Toda operación (listar, crear, editar, eliminar, obtener por id, imprimir) sobre `AttendanceType`
+que involucre un `level` fuera del scope resuelto del usuario (REQ-16, `resolveAccessScope`) DEBE
+responder HTTP 403 con el envelope de error estándar `{ error: { code, message } }`. El sistema
+NUNCA DEBE responder HTTP 200 con una lista vacía, un dato parcial, o un error embebido en el body
+como sustituto de un 403 real. El código de error `ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE` DEBE
+registrarse con status 403 (ver tabla de errores de dominio).
+
+#### Escenario 19.1 — 403 real, no 200 con lista vacía
+
+**Dado** un docente con niveles base `{2}`  
+**Cuando** GET `/attendance-types?level=3`  
+**Entonces** HTTP 403 (NUNCA HTTP 200 con `{ data: [] }`)  
+Y el body es `{ error: { code: "ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE", message: "..." } }`
+
+#### Escenario 19.2 — validación de transporte previa al scope
+
+**Dado** cualquier request a `/attendance-types` (GET, POST, PATCH) o su endpoint de impresión  
+**Cuando** el body o los query params no pasan la validación Zod del DTO  
+**Entonces** HTTP 400, independientemente del scope del usuario (la validación de transporte ocurre
+antes de evaluar el scope)
+
+---
+
+### REQ-20 — Scope de nivel extendido a Eliminar y Obtener por id (tipos-asistencia-nivel-e-impresion, 2026-07-01)
+
+> Agregado por: `tipos-asistencia-nivel-e-impresion` (2026-07-01). Archivo:
+> `openspec/changes/archive/2026-07-01-tipos-asistencia-nivel-e-impresion/`. **Nota de mérge:** el
+> delta original de este change dejaba DELETE (REQ-6/REQ-7) y GET por id explícitamente FUERA de
+> alcance como "riesgo abierto pendiente de decisión" (ver design.md §9 de este change archivado).
+> Esa decisión se cerró durante `apply` (PR3, `tasks.md` T12–T19 de este change archivado):
+> Update/Delete/Get-by-id quedaron level-scoped igual que Listar/Crear, verificado con tests e2e
+> reales (ver `verify-report.md` de este change archivado, filas "Delete scopeado" / "Get-by-id
+> scopeado"). Este requisito documenta esa extensión, formalmente no cubierta por las secciones
+> MODIFIED del delta original pero sí implementada y verificada.
+
+El `level` del registro objetivo (invariante de la entidad) DEBE pertenecer al conjunto de niveles
+base del usuario (REQ-16) para que DELETE (REQ-6) o GET por id (`/attendance-types/:id`, REQ-12)
+sean permitidos, salvo `allLevels = true` (ROOT/ADMIN). El comportamiento de REQ-6/REQ-7 (protección
+de tipos `isSystem`) permanece sin cambios y se evalúa independientemente del scope de nivel.
+
+#### Escenario 20.1 — DELETE de un tipo cuyo level está fuera de scope es rechazado
+
+**Dado** un docente con niveles base `{2}` y permisos de borrado  
+**Y** existe un AttendanceType custom `{ id: "X4", level: 3, isSystem: false }`  
+**Cuando** DELETE `/attendance-types/X4`  
+**Entonces** HTTP 403  
+Y el registro persiste en la DB sin cambios
+
+#### Escenario 20.2 — DELETE de un tipo cuyo level está dentro de scope es aceptado
+
+**Dado** un docente con niveles base `{2}` y permisos de borrado  
+**Y** existe un AttendanceType custom `{ id: "X5", level: 2, isSystem: false }`  
+**Cuando** DELETE `/attendance-types/X5`  
+**Entonces** HTTP 204 (comportamiento de REQ-6 original, sin cambios adicionales)
+
+#### Escenario 20.3 — GET por id de un tipo cuyo level está fuera de scope es rechazado
+
+**Dado** un docente con niveles base `{2}`  
+**Y** existe un AttendanceType `{ id: "X6", level: 3 }`  
+**Cuando** GET `/attendance-types/X6`  
+**Entonces** HTTP 403
+
+#### Escenario 20.4 — ROOT/ADMIN sin restricción de nivel en DELETE/GET por id
+
+**Dado** un usuario con rol ROOT  
+**Y** existe un AttendanceType `{ id: "X7", level: 1 }`  
+**Cuando** DELETE o GET `/attendance-types/X7`  
+**Entonces** la operación procede sin restricción de scope (comportamiento original)
+
+---
+
 ## Invariantes de dominio (resumen)
 
 1. `code.length ≤ 4` — validado en entidad antes de persistir
@@ -519,8 +837,13 @@ Y la validación de `behavior` DEBE ser independiente del `absenceValue` elegido
 | `ATTENDANCE_TYPE_SYSTEM_PROTECTED`    | 409  | Intento de editar o borrar un tipo con `isSystem = true`                |
 | `ATTENDANCE_TYPE_NOT_FOUND`           | 404  | GET/PATCH/DELETE por id inexistente                                      |
 | `ATTENDANCE_TYPE_INVALID_LEVEL`       | 400  | `level` no pertenece al enum pedagógico válido (1-4)                    |
+| `ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE`  | 403  | GET/POST/PATCH/DELETE/impresión con `level` fuera del scope de nivel del usuario (REQ-16/REQ-19/REQ-20, agregado por `tipos-asistencia-nivel-e-impresion`, 2026-07-01) |
 
-Los dos primeros DEBEN registrarse en `DOMAIN_STATUS` del `AppExceptionFilter`.
+Los dos primeros DEBEN registrarse en `DOMAIN_STATUS` del `AppExceptionFilter`. El código
+`ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE` NO es un error de dominio en el sentido de invariantes de
+entidad — es un rechazo de autorización resuelto en el use case de application usando el scope de
+domain (`resolveAccessScope`); se documenta acá porque el HTTP mapping (403, envelope `{error}`) es
+observable y forma parte del contrato de API.
 
 ---
 
@@ -532,3 +855,13 @@ Los dos primeros DEBEN registrarse en `DOMAIN_STATUS` del `AppExceptionFilter`.
 - [ ] Un fresh `pnpm seed` produce los 4 tipos de sistema por cada nivel de las instituciones seed
 - [ ] La página front carga sin errores en modo producción
 - [ ] Acceso con usuario sin permisos retorna 403 (no 500)
+
+### Adición — tipos-asistencia-nivel-e-impresion (2026-07-01)
+
+- [x] Ningún test verifica un HTTP 200 con datos vacíos como sustituto de un 403 fuera de scope
+- [x] `resolveAccessScope` (domain) es la única fuente de verdad para "está dentro de mi scope" —
+      ningún use case reimplementa la lógica de colapso de modalidad por su cuenta
+- [x] El front nunca es la única barrera: un intento directo a la API fuera de scope (bypaseando el
+      front) DEBE seguir devolviendo 403
+- [x] La impresión usa exactamente el mismo cálculo de scope/filtro que el listado (mismo resultado
+      de conjunto de datos para los mismos query params y el mismo usuario)

@@ -23,6 +23,7 @@ vi.mock('../../../api/client', () => ({
 // ── Configurable auth mock (ROOT vs non-ROOT) ──
 
 let mockUserRoles: string[] = ['ROOT'];
+let mockUserLevels: { level: number; modality: number }[] = [];
 
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
@@ -36,6 +37,7 @@ vi.mock('../../../context/auth-context', () => ({
         { moduleCode: 'ATTENDANCE_TYPES', actions: ['READ', 'CREATE', 'UPDATE', 'DELETE'] },
       ],
       levels: [],
+      get userLevels() { return mockUserLevels; },
     },
     logout: vi.fn().mockResolvedValue(undefined),
     isLoading: false,
@@ -543,6 +545,7 @@ describe('AttendanceTypesPage — ROOT user', () => {
 describe('AttendanceTypesPage — non-ROOT user', () => {
   beforeEach(() => {
     mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }];
     mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
     setupApiMock();
   });
@@ -589,6 +592,242 @@ describe('AttendanceTypesPage — non-ROOT user', () => {
     attendanceCalls.forEach((args: any[]) => {
       const config = args[1] as { params?: Record<string, string> } | undefined;
       expect(config?.params?.institutionId).toBeUndefined();
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// PR5 — level-scoped selector (T31/T33/T37) — tipos-asistencia-nivel-e-impresion
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypesPage — level-scoped selector (non-ROOT)', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('1 base level: filter selector is visible, disabled and fixed to that level', async () => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    const filterSelect = screen.getByLabelText('Filtrar por nivel') as HTMLSelectElement;
+    expect(filterSelect).toBeDisabled();
+    expect(filterSelect.value).toBe('2');
+  });
+
+  it('1 base level (two modalities, e.g. 20 y 21): still collapses to a single base level', async () => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }, { level: 2, modality: 1 }];
+    setupApiMock();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    const filterSelect = screen.getByLabelText('Filtrar por nivel') as HTMLSelectElement;
+    expect(filterSelect).toBeDisabled();
+    expect(filterSelect.options.length).toBe(1);
+  });
+
+  it('1 base level: create form level select is pre-set and disabled', async () => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }];
+    setupApiMock();
+    const user = userEvent.setup();
+    renderPage();
+
+    const newBtn = await screen.findByText(/Nuevo tipo/i);
+    await user.click(newBtn);
+
+    const levelSelect = await screen.findByLabelText(/Nivel educativo/i) as HTMLSelectElement;
+    expect(levelSelect).toBeDisabled();
+    expect(levelSelect.value).toBe('2');
+  });
+
+  it('N base levels (2 y 3): filter selector offers only those two, enabled', async () => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }, { level: 3, modality: 1 }];
+    setupApiMock();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    const filterSelect = screen.getByLabelText('Filtrar por nivel') as HTMLSelectElement;
+    expect(filterSelect).not.toBeDisabled();
+    const labels = Array.from(filterSelect.options).map((o) => o.textContent);
+    expect(labels).toContain('Primario');
+    expect(labels).toContain('Secundario');
+    expect(labels).not.toContain('Inicial');
+    expect(labels).not.toContain('Terciario');
+  });
+
+  it('0 base levels: renders an explicit empty state, no selector, no table, no "Nuevo tipo"', async () => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [];
+    setupApiMock();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/sin acceso a ning[uú]n nivel/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByLabelText('Filtrar por nivel')).toBeNull();
+    expect(screen.queryByText(/Nuevo tipo/i)).toBeNull();
+    expect(screen.queryByRole('table')).toBeNull();
+  });
+
+  it('ADMIN (not ROOT): gets allLevels scope too — filter selector offers all 4 pedagogical levels', async () => {
+    // Regression guard for the documented bug: useCan().isRoot only checks ROOT,
+    // NOT ADMIN — this feature must derive isRootOrAdmin independently.
+    mockUserRoles = ['ADMIN'];
+    mockUserLevels = [];
+    setupApiMock();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('P')).toBeInTheDocument();
+    });
+
+    const filterSelect = screen.getByLabelText('Filtrar por nivel') as HTMLSelectElement;
+    expect(filterSelect).not.toBeDisabled();
+    const labels = Array.from(filterSelect.options).map((o) => o.textContent);
+    expect(labels).toEqual(expect.arrayContaining(['Inicial', 'Primario', 'Secundario', 'Terciario']));
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// PR5 — Imprimir button (T35/T36) — tipos-asistencia-nivel-e-impresion
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypesPage — Imprimir', () => {
+  const FAKE_BLOB_URL = 'blob:http://localhost/fake-attendance-types-pdf';
+  let mockAnchor: { href: string; download: string; click: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    mockUserRoles = ['TEACHER'];
+    mockUserLevels = [{ level: 2, modality: 0 }];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+
+    URL.createObjectURL = vi.fn(() => FAKE_BLOB_URL);
+    URL.revokeObjectURL = vi.fn();
+    mockAnchor = { href: '', download: '', click: vi.fn() };
+    const realCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tagName: string, options?: ElementCreationOptions) => {
+      if (tagName === 'a') return mockAnchor as unknown as HTMLAnchorElement;
+      return realCreateElement(tagName, options);
+    });
+    const realAppendChild = document.body.appendChild.bind(document.body);
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node: Node) => {
+      if (node === (mockAnchor as unknown as Node)) return mockAnchor as unknown as Node;
+      return realAppendChild(node);
+    });
+    const realRemoveChild = document.body.removeChild.bind(document.body);
+    vi.spyOn(document.body, 'removeChild').mockImplementation((node: Node) => {
+      if (node === (mockAnchor as unknown as Node)) return mockAnchor as unknown as Node;
+      return realRemoveChild(node);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it('renders an "Imprimir" button', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-imprimir-tipos-asistencia')).toBeInTheDocument();
+    });
+  });
+
+  it('click downloads the PDF passing the current level+active filter as blob', async () => {
+    const user = userEvent.setup();
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/attendance-types/print') {
+        return Promise.resolve({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+      }
+      return Promise.resolve({ data: { data: [SYSTEM_TYPE, CUSTOM_TYPE] } });
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('P')).toBeInTheDocument());
+
+    const activeSelect = screen.getByLabelText('Filtrar por estado') as HTMLSelectElement;
+    await user.selectOptions(activeSelect, 'true');
+
+    await user.click(screen.getByTestId('btn-imprimir-tipos-asistencia'));
+
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/attendance-types/print', {
+        params: { level: '2', active: 'true' },
+        responseType: 'blob',
+      });
+    });
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    expect(mockAnchor.click).toHaveBeenCalled();
+  });
+
+  it('is disabled while printLoading', async () => {
+    const user = userEvent.setup();
+    let resolvePrint: (v: unknown) => void = () => {};
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/attendance-types/print') {
+        return new Promise((resolve) => { resolvePrint = resolve; });
+      }
+      return Promise.resolve({ data: { data: [SYSTEM_TYPE, CUSTOM_TYPE] } });
+    });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText('P')).toBeInTheDocument());
+
+    const printBtn = screen.getByTestId('btn-imprimir-tipos-asistencia');
+    await user.click(printBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-imprimir-tipos-asistencia')).toBeDisabled();
+    });
+
+    resolvePrint({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-imprimir-tipos-asistencia')).not.toBeDisabled();
+    });
+  });
+
+  it('for ROOT with an institution selected, includes institutionId in the print params', async () => {
+    mockUserRoles = ['ROOT'];
+    mockUserLevels = [];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+    mockApiGet.mockImplementation((url: string) => {
+      if (url === '/institutions') return Promise.resolve({ data: { data: INSTITUTIONS } });
+      if (url === '/attendance-types/print') {
+        return Promise.resolve({ data: new Blob(['%PDF-1.4'], { type: 'application/pdf' }) });
+      }
+      return Promise.resolve({ data: { data: [SYSTEM_TYPE, CUSTOM_TYPE] } });
+    });
+
+    const user = userEvent.setup();
+    renderPage();
+    await waitFor(() => expect(screen.getByText('TAR')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('btn-imprimir-tipos-asistencia'));
+
+    await waitFor(() => {
+      expect(mockApiGet).toHaveBeenCalledWith('/attendance-types/print', {
+        params: { institutionId: 'inst-1', level: undefined, active: undefined },
+        responseType: 'blob',
+      });
     });
   });
 });

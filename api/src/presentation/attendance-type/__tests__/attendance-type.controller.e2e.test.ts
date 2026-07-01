@@ -66,6 +66,7 @@ const allowAllGuard: CanActivate = { canActivate: () => true };
 
 describe('AttendanceTypeController (controller e2e — GET /attendance-types)', () => {
   let app: INestApplication;
+  const createExecute = vi.fn();
   const listExecute = vi.fn();
   const getExecute = vi.fn();
   const updateExecute = vi.fn();
@@ -76,7 +77,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       controllers: [AttendanceTypeController],
       providers: [
-        { provide: CreateAttendanceTypeUseCase, useValue: { execute: vi.fn() } },
+        { provide: CreateAttendanceTypeUseCase, useValue: { execute: createExecute } },
         { provide: ListAttendanceTypesUseCase, useValue: { execute: listExecute } },
         { provide: GetAttendanceTypeUseCase, useValue: { execute: getExecute } },
         { provide: UpdateAttendanceTypeUseCase, useValue: { execute: updateExecute } },
@@ -116,6 +117,41 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
 
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual([]);
+  });
+
+  it('POST /attendance-types returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope when the target level is out of scope', async () => {
+    createExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+
+    const res = await request(app.getHttpServer())
+      .post('/attendance-types')
+      .send({
+        code: 'X1',
+        description: 'Fuera de scope',
+        absenceValue: 0,
+        level: 3,
+        behavior: AttendanceBehaviorValue.NO_COMPUTA,
+      });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE');
+    expect(res.body.data).toBeUndefined();
+  });
+
+  it('POST /attendance-types returns HTTP 201 with { data } when the target level is in scope', async () => {
+    createExecute.mockResolvedValueOnce(ok(makeEntity()));
+
+    const res = await request(app.getHttpServer())
+      .post('/attendance-types')
+      .send({
+        code: 'P',
+        description: 'Presente',
+        absenceValue: 0,
+        level: 2,
+        behavior: AttendanceBehaviorValue.NO_COMPUTA,
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.data).toBeDefined();
   });
 
   // ── PR3 — T18/T20: closes the UUID security hole for PATCH/DELETE/GET :id ──
