@@ -33,6 +33,13 @@ export interface CourseCycle {
   lastModifiedAt: string;
   /** Number of students enrolled in this CourseCycle. Optional for back-compat. */
   studentCount?: number;
+  /**
+   * Active grading phase (Capacidad A — fase de calificación bimestral).
+   * NULL = no phase activated yet / cutover (blocks all grading).
+   * Only meaningful for Primario (20-22) / Secundario (30-32); Inicial/Terciario
+   * never populate this field.
+   */
+  gradingPhase?: 'BIM_1' | 'BIM_2' | 'BIM_3' | 'BIM_4' | 'CIERRE' | null;
 }
 
 /** Uses domain's paginated result shape */
