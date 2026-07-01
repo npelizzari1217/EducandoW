@@ -8,14 +8,24 @@ import {
   ListAttendanceTypesUseCase,
   GetAttendanceTypeUseCase,
 } from '../../application/attendance-type/use-cases/attendance-type.use-cases';
+import { GenerateAttendanceTypesPdfUseCase } from '../../application/attendance-type/use-cases/generate-attendance-types-pdf.use-case';
 import { PrismaAttendanceTypeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
+import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 
 @Module({
   imports: [AuthModule],
   controllers: [AttendanceTypeController],
   providers: [
     PrismaService,
+    // PdfGeneratorService: NO shared ReportingModule exists in this codebase to import
+    // from (verified — asistencia-reporting.module.ts and reportes.module.ts each list
+    // it directly in their own `providers` array too, so 2 separate Puppeteer browser
+    // singletons already coexist today). Following that SAME established precedent here
+    // (a 3rd module-scoped instance) instead of introducing a new shared module out of
+    // scope for this PR. See design.md §9 ("aceptable, o mover a un ReportingModule
+    // compartido") — documented tradeoff, not a regression.
+    PdfGeneratorService,
     {
       provide: PrismaAttendanceTypeRepository,
       useClass: PrismaAttendanceTypeRepository,
@@ -45,6 +55,15 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
       provide: GetAttendanceTypeUseCase,
       useFactory: (repo: PrismaAttendanceTypeRepository) => new GetAttendanceTypeUseCase(repo),
       inject: ['AttendanceTypeRepository'],
+    },
+    {
+      provide: GenerateAttendanceTypesPdfUseCase,
+      useFactory: (
+        pdfGen: PdfGeneratorService,
+        prisma: PrismaService,
+        repo: PrismaAttendanceTypeRepository,
+      ) => new GenerateAttendanceTypesPdfUseCase(pdfGen, prisma, repo),
+      inject: [PdfGeneratorService, PrismaService, 'AttendanceTypeRepository'],
     },
   ],
 })
