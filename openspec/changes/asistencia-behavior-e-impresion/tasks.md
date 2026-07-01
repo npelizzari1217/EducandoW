@@ -79,54 +79,54 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 #### T1.5 [IMPL] Schema: add enum + column
 
-- [ ] Edit `api/prisma_tenant/schema.prisma`
-- [ ] Add `enum AttendanceBehavior { AUSENTE_INJUSTIFICADO AUSENTE_JUSTIFICADO NO_ELEGIBLE NO_COMPUTA TARDE_INJUSTIFICADA TARDE_JUSTIFICADA DIA_NO_HABIL }`
-- [ ] Add `behavior AttendanceBehavior` (non-null in the final schema state) to `AttendanceType` model
-- [ ] `pnpm --filter api prisma:generate` regenerates tenant client types
+- [x] Edit `api/prisma_tenant/schema.prisma`
+- [x] Add `enum AttendanceBehavior { AUSENTE_INJUSTIFICADO AUSENTE_JUSTIFICADO NO_ELEGIBLE NO_COMPUTA TARDE_INJUSTIFICADA TARDE_JUSTIFICADA DIA_NO_HABIL }`
+- [x] Add `behavior AttendanceBehavior` (non-null in the final schema state) to `AttendanceType` model
+- [x] `pnpm --filter api prisma:generate` regenerates tenant client types
 
 #### T1.6 [IMPL] Migration: create type → nullable column → backfill → NOT NULL
 
-- [ ] Create tenant migration (per ADR-02, single migration file with staged SQL):
+- [x] Create tenant migration (per ADR-02, single migration file with staged SQL):
   1. `CREATE TYPE "AttendanceBehavior" AS ENUM (...)`
   2. `ALTER TABLE attendance_types ADD COLUMN behavior "AttendanceBehavior" NULL;`
   3. Backfill system types: `P` → `NO_COMPUTA`; `SAB`,`DOM`,`X` → `NO_ELEGIBLE`
   4. Backfill custom types by `(assignable, absenceValue)` heuristic: `assignable=false`→`NO_ELEGIBLE`; `assignable=true AND absenceValue=0`→`NO_COMPUTA`; `assignable=true AND 0<absenceValue<1`→`AUSENTE_JUSTIFICADO`; `assignable=true AND absenceValue>=1`→`AUSENTE_INJUSTIFICADO`; fallback→`NO_COMPUTA`
   5. `ALTER TABLE attendance_types ALTER COLUMN behavior SET NOT NULL;`
-- [ ] Down migration: drop column + drop enum type; do NOT touch `assignable` or delete rows (rollback path)
-- [ ] `pnpm --filter api prisma:migrate:tenant` (dev) applies cleanly on a fresh tenant DB
-- [ ] **Manual verification note for apply**: dry-run the backfill SQL against a tenant DB dump/snapshot before merging (Riesgo A — no automated test covers real prod data shape)
+- [x] Down migration: drop column + drop enum type; do NOT touch `assignable` or delete rows (rollback path) — documented as a comment header in migration.sql (Prisma migrate has no down.sql, forward-only convention already used by every other migration in this repo)
+- [ ] `pnpm --filter api prisma:migrate:tenant` (dev) applies cleanly on a fresh tenant DB — **NOT RUN**: no DB available in this WSL sandbox; schema+client regenerated offline via `prisma generate` only. Must run `prisma migrate deploy` (or `migrate dev` locally) before/during actual deploy.
+- [x] **Manual verification note for apply**: dry-run the backfill SQL against a tenant DB dump/snapshot before merging (Riesgo A — no automated test covers real prod data shape) — **documented as pending manual step, not executed by this agent** (no DB access)
 
 ### API infrastructure — repository
 
 #### T1.7 [TEST] Repo tests for `behavior` persistence
 
-- [ ] Edit/extend `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-attendance-type.repository.test.ts` (locate existing file for this repo; create if absent alongside the repo file)
-- [ ] `save()` on create: persists `behavior` from the entity and computes `assignable = entity.behavior.isEligible()` (does NOT read an input `assignable`)
-- [ ] `save()` preserves existing `isPresent` derivation formula unchanged (`absenceValue===0 && assignable`) — regression guard for `buildAsistencia` (out of scope, must not break)
-- [ ] `toDomain()` reads `behavior` from the row and reconstructs the VO correctly for all 7 values
+- [x] Edit/extend `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-attendance-type.repository.test.ts` (locate existing file for this repo; create if absent alongside the repo file)
+- [x] `save()` on create: persists `behavior` from the entity and computes `assignable = entity.behavior.isEligible()` (does NOT read an input `assignable`)
+- [x] `save()` preserves existing `isPresent` derivation formula unchanged (`absenceValue===0 && assignable`) — regression guard for `buildAsistencia` (out of scope, must not break)
+- [x] `toDomain()` reads `behavior` from the row and reconstructs the VO correctly for all 7 values
 
 #### T1.8 [IMPL] Update `prisma-attendance-type.repository.ts` — run until T1.7 green
 
-- [ ] Edit `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository.ts`
-- [ ] `save()`: compute `assignable` from `entity.behavior.isEligible()`; persist `behavior` column; keep `isPresent` formula as-is
-- [ ] `toDomain()`: read `behavior` from row, pass into `AttendanceType.reconstruct(...)`
-- [ ] `pnpm --filter api test` green (this file's suite)
+- [x] Edit `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository.ts`
+- [x] `save()`: compute `assignable` from `entity.behavior.isEligible()`; persist `behavior` column; keep `isPresent` formula as-is
+- [x] `toDomain()`: read `behavior` from row, pass into `AttendanceType.reconstruct(...)`
+- [x] `pnpm --filter api test` green (this file's suite)
 
 ### API application — seed
 
 #### T1.9 [TEST] Seed tests for system type `behavior`
 
-- [ ] Edit `api/src/application/attendance-type/__tests__/ensure-attendance-types.use-case.test.ts`
-- [ ] `P` seeded/ensured with `behavior = NO_COMPUTA` (P1-3)
-- [ ] `SAB`, `DOM`, `X` seeded/ensured with `behavior = NO_ELEGIBLE` (P1-4)
-- [ ] Idempotency: re-running `ensure` on already-seeded level does not change `behavior` of existing system rows
+- [x] Edit `api/src/application/attendance-type/__tests__/ensure-attendance-types.use-case.test.ts`
+- [x] `P` seeded/ensured with `behavior = NO_COMPUTA` (P1-3)
+- [x] `SAB`, `DOM`, `X` seeded/ensured with `behavior = NO_ELEGIBLE` (P1-4)
+- [x] Idempotency: re-running `ensure` on already-seeded level does not change `behavior` of existing system rows (covered by pre-existing `update: {}` idempotency test, unchanged by this PR)
 
 #### T1.10 [IMPL] Update `ensure-attendance-types-for-level.use-case.ts` — run until T1.9 green
 
-- [ ] Edit `api/src/application/attendance-type/use-cases/ensure-attendance-types-for-level.use-case.ts`
-- [ ] Set `behavior` per system code per the fixed map (ADR-02 step 3 / REQ-P1-3)
-- [ ] **REVISAR** `api/scripts/backfill-system-attendance-types.ts` — if it sets `assignable` directly, add `behavior` to match (per design §5 "Scripts / seed")
-- [ ] `pnpm --filter api test` green; `pnpm build` green (root)
+- [x] Edit `api/src/application/attendance-type/use-cases/ensure-attendance-types-for-level.use-case.ts`
+- [x] Set `behavior` per system code per the fixed map (ADR-02 step 3 / REQ-P1-3)
+- [x] **REVISAR** `api/scripts/backfill-system-attendance-types.ts` — reuses `seedSystemAttendanceTypes()` from `api/prisma/seed.ts` (a second, independent `SYSTEM_ATTENDANCE_TYPES` array from the one in the use-case above) — updated that array + its `upsert.create` call with the same `behavior` map so the script stays consistent
+- [x] `pnpm --filter api test` green; `pnpm build` green (root)
 
 ---
 
@@ -134,6 +134,13 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 **Satisfies:** REQ-P1-4, REQ-P1-5, REQ-P1-6, REQ-P1-7 / Scenarios P1-2, P1-5, P1-6, P1-7, P1-8, P1-9, P1-10, P1-11 / AC-P1-4, AC-P1-5, AC-P1-6, AC-P1-7, AC-P1-8, AC-P1-9, AC-P1-11
 **Depends on:** PR1 (needs `AttendanceBehavior` VO + entity prop + migrated column in place)
+
+**PARTIAL PLUMBING PULLED FORWARD INTO PR1b (not full PR2 completion):** PR1a's domain change made `assignable` a non-input, derived-only prop, which broke `api` typecheck/tests (Create/UpdateAttendanceTypeUseCase, both DTOs, controller, and 3 test files were all still constructing/calling with `assignable` as input). To get `pnpm build`/`pnpm test` green at the PR1 boundary (required gate), the minimum was brought forward:
+- `CreateAttendanceTypeInput`/`UpdateAttendanceTypeInput` (`attendance-type.use-cases.ts`): `assignable` replaced by `behavior: AttendanceBehaviorValue` (create, required) / `behavior?: AttendanceBehaviorValue` (update, optional, falls back to `entity.behavior`).
+- `CreateAttendanceTypeSchema`/`UpdateAttendanceTypeSchema` (DTOs): `assignable` replaced by `behavior: z.nativeEnum(AttendanceBehaviorValue)` (create, required) / optional (update). This is T2.5's DTO half, done.
+- `attendance-type.controller.ts`: `toResponse` now also returns `behavior: entity.behavior.get()` (keeps `assignable` derived, for compat) — this is T2.4/T2.5's controller half, done. `create()` forwards `body.behavior` instead of `body.assignable`.
+- Existing tests (`attendance-type.use-cases.test.ts`, `dto-validation.test.ts`, `attendance-type.controller.test.ts`) updated to the new shape, plus a handful of behavior-validation assertions added (rejects invalid/missing behavior, accepts all 7 values) — a subset of T2.1/T2.3/T2.4, NOT the full scenario coverage below.
+- **STILL PENDING for PR2** (not done by this agent): T2.1's full scenario list (system-type lock re-verified specifically against `behavior` input attempts, 7-distinct-custom-types-no-uniqueness-conflict test, "behavior optional on update keeps unchanged" explicit test), all of T2.6-T2.9 (web UI selector + grid filter/lock — `asistencia-mensual.tsx` and `attendance-types.tsx` untouched, still read/write nothing about `behavior`).
 
 ### API application — use-cases
 
