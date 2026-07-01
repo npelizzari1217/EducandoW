@@ -208,12 +208,16 @@ testing del proyecto (`sdd-init` cache) si `attendance-types.tsx` tiene cobertur
 componente; si el harness no soporta tests de React en este momento, marcar T31/T33/T35 como
 `SKIP (sin harness)` y dejarlo documentado — no inventar un test runner nuevo fuera de alcance.*
 
-- [ ] **T31 (RED)** test de `availableLevels` (ubicación según harness — junto a
-  `attendance-types.tsx` o `__tests__/attendance-types.test.tsx`): 1 nivel base → selector de
-  filtro visible+disabled+valor fijo; N niveles → selector ofrece solo esos; 0 niveles
-  (no-ROOT/no-ADMIN) → estado vacío explícito, sin selector ni tabla; ROOT/ADMIN → todos los
-  niveles pedagógicos de `LEVEL_CATALOG`. Cubre REQ Selector / Escenarios ADD-2.1–ADD-2.4.
-- [ ] **T32 (GREEN)** `web/src/pages/dashboard/attendance-types.tsx` —
+- [x] **T31 (RED)** test de `availableLevels`. Harness de componentes CONFIRMADO en `web`
+  (`@testing-library/react` + jsdom + vitest, ya usado por `attendance-types.test.tsx`
+  preexistente) — NO SKIP. Agregados: `__tests__/attendance-types.test.tsx` (describe
+  "level-scoped selector (non-ROOT)": 1 nivel → filtro visible+disabled+valor fijo (incluye caso
+  de colapso 2 modalidades del mismo nivel); N niveles → solo esos; 0 niveles → estado vacío
+  explícito sin selector/tabla/"Nuevo tipo"; ADMIN → allLevels, regression guard del bug
+  documentado) + nuevo `__tests__/attendance-types-level-scope.test.ts` (unit puro de
+  `collapseToBaseLevels`/`deriveAvailableLevels`, ADD-1.1–1.3 y ADD-2.1–2.4 aislados de React).
+  Cubre REQ Selector / Escenarios ADD-2.1–ADD-2.4.
+- [x] **T32 (GREEN)** `web/src/pages/dashboard/attendance-types.tsx` —
   - importar `useAuth` de `../../context/auth-context` (además del `useCan` existente).
   - derivar `isRootOrAdmin = (user?.roles ?? []).some(r => r === 'ROOT' || r === 'ADMIN')`.
     **Nota de corrección explícita:** NO usar `useCan().isRoot` para esto — ese hook solo chequea
@@ -227,31 +231,58 @@ componente; si el harness no soporta tests de React en este momento, marcar T31/
     (ajustar al shape real de `LEVEL_CATALOG` importado de `../../constants/levels`).
   - eliminar el `LEVEL_OPTIONS` hardcodeado (líneas 15-20) y reemplazar sus dos usos (combo de
     filtro y combo del form de alta) por `availableLevels`.
-- [ ] **T33 (RED)** `[parallel-ok]` test — filtro de nivel: `disabled` + valor fijo cuando
+
+  **Implementado tal cual descripto**, con una desviación menor documentada: `availableLevels` se
+  deriva vía helpers puros exportados `collapseToBaseLevels(user?.userLevels)` +
+  `deriveAvailableLevels(isRootOrAdmin, baseLevels)` (en vez de un `.filter()` inline) para poder
+  testearlos aislados de React (T31) y evitar recomputar `BASE_LEVEL_OPTIONS` en cada render;
+  `BASE_LEVEL_OPTIONS` usa `LEVEL_CATALOG.filter(pedagogical && modalityCode === 0)` (la entrada
+  canónica por nivel base, ej. código 20/PRIMARIO) en vez de las 3 variantes de modalidad por
+  nivel, preservando el shape `{value,label}` 1-a-1 con el `LEVEL_OPTIONS` reemplazado.
+- [x] **T33 (RED)** `[parallel-ok]` test — filtro de nivel: `disabled` + valor fijo cuando
   `availableLevels.length === 1`; habilitado con solo esas opciones cuando `length > 1`; form de
   alta: `level` pre-seteado y `disabled` cuando `length === 1`, `EMPTY_FORM.level` inicializado al
   único nivel disponible (no hardcodeado a `2`).
-- [ ] **T34 (GREEN)** `attendance-types.tsx` — conectar el `<select>` de filtro y el `<select>` del
-  form de alta (líneas ~325-337 y ~387-398) a `availableLevels`/branch 1-N; agregar prop
-  `disabled={availableLevels.length === 1}`; ajustar `EMPTY_FORM.level` (hoy hardcodeado a `2`,
-  línea 53) para setearse dinámicamente al único nivel cuando corresponda (via `useEffect` o al
-  abrir el form).
-- [ ] **T35 (RED)** `[parallel-ok]` test — botón "Imprimir": `onClick` llama
-  `apiClient.get('/attendance-types/print', { params: { level: filterLevel || undefined, active: filterActive || undefined }, responseType: 'blob' })`
-  y dispara `triggerPdfDownload(blob, filename)`; deshabilitado mientras `printLoading`.
-- [ ] **T36 (GREEN)** `attendance-types.tsx` — agregar helper `triggerPdfDownload` (reusar patrón
+- [x] **T34 (GREEN)** `attendance-types.tsx` — conectado el `<select>` de filtro y el `<select>` del
+  form de alta a `availableLevels`/branch 1-N con `disabled={availableLevels.length === 1}`;
+  `EMPTY_FORM` reemplazado por `buildEmptyForm(level)` (ya no hardcodea `2`) + `defaultLevel =
+  availableLevels[0]?.value ?? 0`; `filterLevel` se fija al único nivel vía `useEffect` sobre
+  `singleAvailableLevel` (variable extraída para evitar warning `react-hooks/exhaustive-deps` de
+  expresión compleja en deps).
+- [x] **T35 (RED)** `[parallel-ok]` test — botón "Imprimir": `onClick` llama
+  `apiClient.get('/attendance-types/print', { params: {...}, responseType: 'blob' })` y dispara
+  `triggerPdfDownload(blob, filename)`; deshabilitado mientras `printLoading`. **Desviación
+  documentada:** los `params` incluyen `...(rootQueryParams ?? {})` ANTES de `level`/`active` (no
+  solo `{level, active}` como el wording literal del task) — necesario para que ROOT pase
+  `institutionId`, igual que list/create/update/delete ya lo hacen (`tenant.middleware.ts:64`
+  exige `institutionId` en query para el bypass ROOT; sin este fix el botón Imprimir de ROOT
+  devolvería 401/403 por falta de tenant). Verificado con test dedicado ("for ROOT with an
+  institution selected, includes institutionId in the print params").
+- [x] **T36 (GREEN)** `attendance-types.tsx` — agregado helper `triggerPdfDownload` (patrón
   literal de `asistencia-mensual.tsx:389-397`), estado `printLoading`, handler `handlePrint` y
-  botón "Imprimir" junto a los filtros existentes, pasando el filtro actual (`filterLevel`,
-  `filterActive`) como query params.
-- [ ] **T37 (RED)** test — 0 niveles base (no-ROOT/no-ADMIN): la página renderiza un estado vacío
-  explícito ("No tenés acceso a ningún nivel" o similar) y NO renderiza selector con opciones ni
-  tabla vacía sin contexto, NI el botón "Nuevo tipo". Cubre Escenario ADD-2.4.
-- [ ] **T38 (GREEN)** `attendance-types.tsx` — agregar branch de estado vacío ANTES del render
-  principal, cuando `!isRootOrAdmin && availableLevels.length === 0` (patrón similar al guard
-  existente de ROOT sin institución seleccionada, líneas 266-273).
-- [ ] **T39** Correr `pnpm --filter web test` (si aplica) + `pnpm --filter web build` — confirmar
-  T31/T33/T35/T37 en verde (o documentar SKIP si no hay harness), sin romper
-  `asistencia-mensual.tsx` (no tocado) ni `gestion-grupos.tsx` (no tocado).
+  botón "Imprimir" (`data-testid="btn-imprimir-tipos-asistencia"`, agregado porque el label del
+  botón cambia a "Generando PDF…" durante `printLoading` y un lookup por `getByRole('button',
+  {name})` se rompe con el label cambiante) junto a los filtros existentes, pasando el filtro
+  actual (`filterLevel`, `filterActive`) + `rootQueryParams` como query params.
+- [x] **T37 (RED)** test — 0 niveles base (no-ROOT/no-ADMIN): la página renderiza un estado vacío
+  explícito ("Sin acceso a ningún nivel...") y NO renderiza selector con opciones ni tabla vacía
+  sin contexto, NI el botón "Nuevo tipo". Cubre Escenario ADD-2.4.
+- [x] **T38 (GREEN)** `attendance-types.tsx` — agregado branch de estado vacío (`hasNoLevelAccess
+  = !isRootOrAdmin && availableLevels.length === 0`) como rama adicional del guard ternario
+  existente (junto al guard de ROOT sin institución seleccionada); además `canCreate` y `listUrl`
+  respetan `hasNoLevelAccess` (no se pide "Nuevo tipo" ni se hace fetch a `/attendance-types`
+  cuando el usuario no tiene ningún nivel — optimización, no requerida literalmente por el task
+  pero consistente con "estados explícitos" de ui-patterns).
+- [x] **T39** Corrido `pnpm --filter web test -- attendance-types` (38/38 verde: 31 tests de
+  componente + 7 tests unitarios puros nuevos) y `pnpm --filter web test` completo (50 archivos /
+  612 tests verde, sin regresiones — `asistencia-mensual.tsx` y `gestion-grupos.tsx` no tocados,
+  sus tests siguen verdes). `pnpm --filter web build` (`tsc -b && vite build`) verde. `pnpm
+  --filter web lint` (`tsc --noEmit && eslint .`): 0 errores/warnings nuevos en
+  `attendance-types.tsx` (se corrigió un warning `react-hooks/exhaustive-deps` propio durante el
+  desarrollo); quedan 9 errores/15 warnings PRE-EXISTENTES en `materia-grupos.tsx` y
+  `gestion-grupos.test.tsx` (no tocados por este PR, confirmado con `git status --short`) — fuera
+  de alcance, no introducidos por PR5. Cobertura scoped en `attendance-types.tsx`: 83.51%
+  statements / 80.41% branches / 82.35% funcs / 90.06% lines (≥80% en las 4 métricas).
 
 ---
 
