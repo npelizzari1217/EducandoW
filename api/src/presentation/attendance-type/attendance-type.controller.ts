@@ -1,7 +1,8 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query,
+  Controller, Get, Post, Patch, Delete, Body, Param, Query, Res,
   HttpCode, HttpStatus, UseGuards, Inject,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import type { AuthenticatedUser } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
@@ -10,6 +11,7 @@ import { CurrentUser } from '../../infrastructure/auth/decorators/current-user.d
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { CreateAttendanceTypeSchema, CreateAttendanceTypeDTO } from './dto/create-attendance-type.dto';
 import { UpdateAttendanceTypeSchema, UpdateAttendanceTypeDTO } from './dto/update-attendance-type.dto';
+import { PrintAttendanceTypesQuerySchema, PrintAttendanceTypesDTO } from './dto/print-attendance-types.dto';
 import {
   CreateAttendanceTypeUseCase,
   UpdateAttendanceTypeUseCase,
@@ -17,6 +19,7 @@ import {
   ListAttendanceTypesUseCase,
   GetAttendanceTypeUseCase,
 } from '../../application/attendance-type/use-cases/attendance-type.use-cases';
+import { GenerateAttendanceTypesPdfUseCase } from '../../application/attendance-type/use-cases/generate-attendance-types-pdf.use-case';
 import type { AttendanceType } from '@educandow/domain';
 
 function toResponse(entity: AttendanceType) {
@@ -42,6 +45,7 @@ export class AttendanceTypeController {
     @Inject(GetAttendanceTypeUseCase) private readonly getUC: GetAttendanceTypeUseCase,
     @Inject(UpdateAttendanceTypeUseCase) private readonly updateUC: UpdateAttendanceTypeUseCase,
     @Inject(DeleteAttendanceTypeUseCase) private readonly deleteUC: DeleteAttendanceTypeUseCase,
+    @Inject(GenerateAttendanceTypesPdfUseCase) private readonly generatePdfUC: GenerateAttendanceTypesPdfUseCase,
   ) {}
 
   @Post()
@@ -77,6 +81,29 @@ export class AttendanceTypeController {
 
     const entities = await this.listUC.execute(Object.keys(filters).length ? filters : undefined, user);
     return { data: entities.map(toResponse) };
+  }
+
+  // NOTE: this route MUST be declared BEFORE `GET :id` — Nest matches routes in
+  // declaration order for the same HTTP method/prefix, so `/print` would otherwise
+  // be swallowed by `:id` (id='print'). See design.md §3.4 / tasks.md T28 (PR4).
+  @Get('print')
+  @Roles('ROOT', { module: 'ATTENDANCE_TYPES', action: 'READ' })
+  async printList(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(PrintAttendanceTypesQuerySchema)) query: PrintAttendanceTypesDTO,
+    @Res() res: Response,
+  ): Promise<void> {
+    const pdfBuffer = await this.generatePdfUC.execute({
+      level: query.level,
+      active: query.active,
+      currentUser: user,
+    });
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="tipos-asistencia.pdf"',
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.send(pdfBuffer);
   }
 
   @Get(':id')

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { Reflector } from '@nestjs/core';
 import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
@@ -7,6 +8,7 @@ import {
   ok,
   err,
 } from '@educandow/domain';
+import { ROLES_KEY } from '../../../infrastructure/auth/decorators/roles.decorator';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 
 // ── Current-user fixtures (PR2 — @CurrentUser) ──────────────────
@@ -55,6 +57,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
   const mockGet = overrides.getUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockUpdate = overrides.updateUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockDelete = overrides.deleteUC ?? { execute: vi.fn().mockResolvedValue(ok(undefined)) };
+  const mockGeneratePdf = overrides.generatePdfUC ?? { execute: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
 
   Object.assign(ctrl, {
     createUC: mockCreate,
@@ -62,9 +65,17 @@ function makeController(overrides: Record<string, unknown> = {}) {
     getUC: mockGet,
     updateUC: mockUpdate,
     deleteUC: mockDelete,
+    generatePdfUC: mockGeneratePdf,
   });
 
   return ctrl;
+}
+
+function makeRes() {
+  return {
+    set: vi.fn(),
+    send: vi.fn(),
+  };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -339,6 +350,45 @@ describe('AttendanceTypeController.remove', () => {
     });
 
     await expect(ctrl.remove(teacherLevel2, 'uuid-3')).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
+// GET /print — printList (PR4, T27 RED)
+// ═══════════════════════════════════════════════════════════
+
+describe('AttendanceTypeController.printList', () => {
+  it('calls generatePdfUC.execute with @CurrentUser + query and returns the PDF with attachment headers', async () => {
+    const mockExecute = vi.fn().mockResolvedValue(Buffer.from('PDF-BYTES'));
+    const ctrl = makeController({ generatePdfUC: { execute: mockExecute } });
+    const res = makeRes();
+
+    await ctrl.printList(teacherLevel2, { level: 2, active: undefined }, res);
+
+    expect(mockExecute).toHaveBeenCalledWith({ level: 2, active: undefined, currentUser: teacherLevel2 });
+    expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': expect.stringContaining('attachment'),
+    }));
+    expect(res.send).toHaveBeenCalledWith(Buffer.from('PDF-BYTES'));
+  });
+
+  it('propagates AttendanceTypeLevelOutOfScopeError thrown by generatePdfUC (mapped to 403 by the global filter, no PDF ever sent)', async () => {
+    const ctrl = makeController({
+      generatePdfUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+    });
+    const res = makeRes();
+
+    await expect(ctrl.printList(teacherLevel2, { level: 3 }, res)).rejects.toBeInstanceOf(
+      AttendanceTypeLevelOutOfScopeError,
+    );
+    expect(res.send).not.toHaveBeenCalled();
+  });
+
+  it('exposes @Roles module/action metadata consistent with list()/getOne() (ATTENDANCE_TYPES/READ)', () => {
+    const reflector = new Reflector();
+    const roles = reflector.get(ROLES_KEY, AttendanceTypeController.prototype.printList);
+    expect(roles).toContainEqual({ module: 'ATTENDANCE_TYPES', action: 'READ' });
   });
 });
 

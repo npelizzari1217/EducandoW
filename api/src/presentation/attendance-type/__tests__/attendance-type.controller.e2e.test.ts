@@ -29,6 +29,7 @@ import {
   ListAttendanceTypesUseCase,
   GetAttendanceTypeUseCase,
 } from '../../../application/attendance-type/use-cases/attendance-type.use-cases';
+import { GenerateAttendanceTypesPdfUseCase } from '../../../application/attendance-type/use-cases/generate-attendance-types-pdf.use-case';
 
 const teacherLevel2 = { userId: 'u-teacher', roles: ['TEACHER'], levels: [20] };
 
@@ -69,6 +70,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   const getExecute = vi.fn();
   const updateExecute = vi.fn();
   const deleteExecute = vi.fn();
+  const generatePdfExecute = vi.fn();
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -79,6 +81,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
         { provide: GetAttendanceTypeUseCase, useValue: { execute: getExecute } },
         { provide: UpdateAttendanceTypeUseCase, useValue: { execute: updateExecute } },
         { provide: DeleteAttendanceTypeUseCase, useValue: { execute: deleteExecute } },
+        { provide: GenerateAttendanceTypesPdfUseCase, useValue: { execute: generatePdfExecute } },
       ],
     })
       .overrideGuard(AuthGuard)
@@ -175,5 +178,51 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
 
     expect(res.status).toBe(200);
     expect(res.body.data).toBeDefined();
+  });
+
+  // ── PR4 — T27/T28/T30: GET /attendance-types/print (impresión PDF scopeada) ──
+
+  it('GET /attendance-types/print returns REAL HTTP 200 with application/pdf + Content-Disposition attachment for a level in scope', async () => {
+    generatePdfExecute.mockResolvedValueOnce(Buffer.from('%PDF-1.4 FAKE'));
+
+    const res = await request(app.getHttpServer()).get('/attendance-types/print');
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('application/pdf');
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(generatePdfExecute).toHaveBeenCalledWith({
+      level: undefined,
+      active: undefined,
+      currentUser: teacherLevel2,
+    });
+  });
+
+  it('GET /attendance-types/print?level=<out-of-scope> returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope and NO PDF body', async () => {
+    generatePdfExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+
+    const res = await request(app.getHttpServer()).get('/attendance-types/print?level=3');
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE');
+    expect(res.headers['content-type']).not.toContain('application/pdf');
+  });
+
+  it('GET /attendance-types/print?level=<invalid> returns HTTP 400 (transport validation before scope, ADD-4.2)', async () => {
+    generatePdfExecute.mockClear();
+
+    const res = await request(app.getHttpServer()).get('/attendance-types/print?level=9');
+
+    expect(res.status).toBe(400);
+    expect(generatePdfExecute).not.toHaveBeenCalled();
+  });
+
+  it('route order hazard: GET /attendance-types/print does NOT get swallowed by GET /:id (getUC never invoked)', async () => {
+    generatePdfExecute.mockResolvedValueOnce(Buffer.from('%PDF-1.4 FAKE'));
+    getExecute.mockClear();
+
+    await request(app.getHttpServer()).get('/attendance-types/print');
+
+    expect(getExecute).not.toHaveBeenCalled();
+    expect(generatePdfExecute).toHaveBeenCalled();
   });
 });

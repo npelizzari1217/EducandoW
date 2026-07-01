@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Tipos de Asistencia — {{institucionNombre}}</title>
+  {{!--
+    Expected context (built by GenerateAttendanceTypesPdfUseCase, PR4):
+      institucionNombre: string
+      logoDataUri?: string
+      rows: Array<{
+        code: string
+        description: string
+        levelLabel: string     — e.g. "Primario" (EducationalLevel.label)
+        absenceValue: number
+        behavior: string       — AttendanceBehaviorValue raw value
+        active: boolean
+      }>                       — sorted by level then code (T22)
+  --}}
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; padding: 18px 20px; color: #1a1a1a; }
+
+    /* ── Header ─── */
+    .header { display: flex; align-items: center; gap: 16px; margin-bottom: 14px;
+              border-bottom: 2px solid #1a1a1a; padding-bottom: 10px; }
+    .header-logo { flex: 0 0 auto; }
+    .header-logo img { max-height: 48px; max-width: 90px; object-fit: contain; }
+    .header-text { flex: 1; }
+    .header-text h1 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .header-text h2 { font-size: 11px; font-weight: normal; color: #444; margin-top: 2px; }
+
+    /* ── Table ─── */
+    table.types-table { width: 100%; border-collapse: collapse; }
+    table.types-table th,
+    table.types-table td { border: 1px solid #ccc; text-align: left; padding: 4px 6px; }
+    table.types-table th { background: #1a1a1a; color: #fff; font-size: 9px; font-weight: normal; }
+    table.types-table td.code-col { width: 60px; font-weight: bold; }
+    table.types-table td.level-col { width: 90px; }
+    table.types-table td.absence-col,
+    table.types-table th.absence-col { text-align: center; width: 90px; }
+    table.types-table td.active-col,
+    table.types-table th.active-col { text-align: center; width: 70px; }
+    table.types-table tbody tr:nth-child(even) td { background: #fafafa; }
+
+    .empty-state { margin-top: 20px; text-align: center; color: #666; font-size: 11px; }
+
+    /* ── Print ─── */
+    @media print {
+      body { padding: 0; }
+      @page { size: A4 portrait; margin: 15mm 12mm; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    {{#if logoDataUri}}
+    <div class="header-logo">
+      <img src="{{logoDataUri}}" alt="Logo institucional">
+    </div>
+    {{/if}}
+    <div class="header-text">
+      <h1>{{institucionNombre}}</h1>
+      <h2>Catálogo de Tipos de Asistencia</h2>
+    </div>
+  </div>
+
+  {{#if rows.length}}
+  <table class="types-table">
+    <thead>
+      <tr>
+        <th class="code-col">Código</th>
+        <th>Descripción</th>
+        <th class="level-col">Nivel</th>
+        <th class="absence-col">Valor ausencia</th>
+        <th>Comportamiento</th>
+        <th class="active-col">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr>
+        <td class="code-col">{{code}}</td>
+        <td>{{description}}</td>
+        <td class="level-col">{{levelLabel}}</td>
+        <td class="absence-col">{{absenceValue}}</td>
+        <td>{{behavior}}</td>
+        <td class="active-col">{{#if active}}Activo{{else}}Inactivo{{/if}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty-state">No hay tipos de asistencia para el filtro solicitado.</div>
+  {{/if}}
+
+</body>
+</html>
