@@ -41,70 +41,85 @@ Cubre AC-A-1..14 (spec #1645), secciones A1–A6 (design #1646).
 
 ### 1.2 Application
 
-- [ ] 1.2.1 Test: `GradingPhaseAuthorizerService.canGradeBimester/canGradeFinal` — delega en
+- [x] 1.2.1 Test: `GradingPhaseAuthorizerService.canGradeBimester/canGradeFinal` — delega en
       entidad vía `findByUuid`; nivel no Prim/Sec → `{allowed:true, reason:'NOT_APPLICABLE'}`;
       CC inexistente → deja pasar (404 lo resuelve el use-case llamador).
-      `api/src/application/grading/grading-phase-authorizer.service.test.ts`
-- [ ] 1.2.2 Impl: `GradingPhaseAuthorizerService`.
+      `api/src/application/grading/__tests__/grading-phase-authorizer.service.test.ts`
+      (ruta real: `__tests__/`, no co-localizado — convención del repo, igual que PR-1a)
+- [x] 1.2.2 Impl: `GradingPhaseAuthorizerService`.
       `api/src/application/grading/grading-phase-authorizer.service.ts`
-- [ ] 1.2.3 [P] Test: `GetGradingPhaseUseCase` / `SetGradingPhaseUseCase` — Get devuelve
+- [x] 1.2.3 [P] Test: `GetGradingPhaseUseCase` / `SetGradingPhaseUseCase` — Get devuelve
       `gradingPhase|null`; Set rechaza nivel no Prim/Sec con `GradingPhaseNotApplicableError`
       (422), setea reversible, persiste vía `save`.
-      `api/src/application/course-cycle/use-cases/grading-phase.use-cases.test.ts`
-- [ ] 1.2.4 [P] Impl: `GetGradingPhaseUseCase`, `SetGradingPhaseUseCase`.
+      `api/src/application/course-cycle/__tests__/grading-phase.use-cases.test.ts`
+- [x] 1.2.4 [P] Impl: `GetGradingPhaseUseCase`, `SetGradingPhaseUseCase`.
       `api/src/application/course-cycle/use-cases/grading-phase.use-cases.ts`
-- [ ] 1.2.5 Test: `UpsertSubjectPeriodGradesUseCase` — por cada `(courseCycleId, periodOrdinal)`
+- [x] 1.2.5 Test: `UpsertSubjectPeriodGradesUseCase` — por cada `(courseCycleId, periodOrdinal)`
       único invoca `canGradeBimester`; rechaza con `GradingPhaseViolationError` si `!allowed`
       (AC-A: NULL rechaza todo, BIM_n rechaza otros períodos); dedupe de queries.
-      `api/src/application/grading/upsert-subject-period-grades.use-case.test.ts` (ampliar)
-- [ ] 1.2.6 Impl: inyectar `GradingPhaseAuthorizerPort` en
-      `UpsertSubjectPeriodGradesUseCase`, guard tras auth de asignación.
+      `api/src/application/grading/upsert-subject-period-grades.use-case.spec.ts` (ampliado;
+      convención real del archivo es `.spec.ts`, no `.test.ts`)
+- [x] 1.2.6 Impl: inyectar `GradingPhaseAuthorizerPort` en
+      `UpsertSubjectPeriodGradesUseCase`, guard tras auth de asignación (dedupe por
+      `(courseCycleId, periodOrdinal)` dentro del loop de validación por-ítem).
       `api/src/application/grading/upsert-subject-period-grades.use-case.ts`
-- [ ] 1.2.7 Test: `UpsertSubjectFinalGradesUseCase` — por cada `courseCycleId` único invoca
+- [x] 1.2.7 Test: `UpsertSubjectFinalGradesUseCase` — por cada `courseCycleId` único invoca
       `canGradeFinal`; rechaza con `GradingPhaseViolationError` fuera de CIERRE (AC-A: notas
       especiales rechazadas fuera de CIERRE).
-      `api/src/application/grading/upsert-subject-final-grades.use-case.test.ts` (ampliar)
-- [ ] 1.2.8 Impl: inyectar `GradingPhaseAuthorizerPort` en `UpsertSubjectFinalGradesUseCase`.
+      `api/src/application/grading/upsert-subject-final-grades.use-case.spec.ts` (ampliado)
+- [x] 1.2.8 Impl: inyectar `GradingPhaseAuthorizerPort` en `UpsertSubjectFinalGradesUseCase`
+      (guard tras resolución de `ccContexts`, dedupe por `courseCycleId`).
       `api/src/application/grading/upsert-subject-final-grades.use-case.ts`
 
 ### 1.3 Infrastructure
 
-- [ ] 1.3.1 Impl: schema tenant — enum `GradingPhase` + columna `gradingPhase GradingPhase?`
+- [x] 1.3.1 Impl: schema tenant — enum `GradingPhase` + columna `gradingPhase GradingPhase?`
       en `CourseCycle` (legacy `activeGradingPeriod` intacto).
       `api/prisma_tenant/schema.prisma`
-- [ ] 1.3.2 Impl: generar y aplicar migración tenant (`pnpm --filter api prisma:migrate:tenant`).
-      `api/prisma_tenant/migrations/<timestamp>_grading_phase/`
-- [ ] 1.3.3 Test: `PrismaCourseCycleRepository` — `toDomain` mapea enum Prisma → VO
+- [x] 1.3.2 Impl: migración tenant escrita a mano (`api/prisma_tenant/migrations/20260701120000_add_grading_phase_to_course_cycle/migration.sql`);
+      `pnpm --filter api prisma:generate:tenant` corrido y verde (no requiere DB). El
+      `migrate deploy` real queda pendiente para el entorno de deploy (no hay Postgres/Docker
+      disponible en este WSL) — ver Learned en apply-progress.
+      `api/prisma_tenant/migrations/20260701120000_add_grading_phase_to_course_cycle/`
+- [x] 1.3.3 Test: `PrismaCourseCycleRepository` — `toDomain` mapea enum Prisma → VO
       `GradingPhase|null`; `save` mapea VO → enum Prisma (incluye `null`).
-      `api/src/infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository.test.ts` (ampliar)
-- [ ] 1.3.4 Impl: mapeo `gradingPhase` en `toDomain`/`save` del repo Prisma.
+      `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-course-cycle.repository.test.ts` (ampliado)
+- [x] 1.3.4 Impl: mapeo `gradingPhase` en `toDomain`/`save` del repo Prisma.
       `api/src/infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository.ts`
 
 ### 1.4 Presentation
 
-- [ ] 1.4.1 Impl: registrar `GRADING_PHASE_VIOLATION: 409` y `GRADING_PHASE_NOT_APPLICABLE: 422`
+- [x] 1.4.1 Impl: registrar `GRADING_PHASE_VIOLATION: 409` y `GRADING_PHASE_NOT_APPLICABLE: 422`
       en `DOMAIN_STATUS` (cubierto por los tests e2e/integración del filtro existentes; no
       requiere test nuevo si el filtro ya es genérico por code→status).
       `api/src/presentation/shared/filters/exception.filter.ts`
-- [ ] 1.4.2 [P] Impl: DTO Zod `SetGradingPhaseSchema` (`z.enum([...]).nullable()`).
-      `api/src/presentation/course-cycle/dto/grading-phase.dto.ts`
-- [ ] 1.4.3 Test: `CourseCycleController` — `GET .../grading-phase` accesible con rol READ
-      amplio; `PATCH .../grading-phase` responde 403/401 si rank < 40 (AC-A-1/2: rechazo
-      explícito a PRECEPTOR/TEACHER), 200 + valor nuevo si Secretario+, 422 si nivel no
-      Prim/Sec.
-      `api/src/presentation/course-cycle/course-cycle.controller.test.ts` (ampliar)
-- [ ] 1.4.4 Impl: endpoints GET/PATCH `grading-phase`, agregar `RankGuard` a
+- [x] 1.4.2 [P] Impl: DTO Zod `SetGradingPhaseSchema` (`z.enum([...]).nullable()`) + test.
+      `api/src/presentation/course-cycle/dto/grading-phase.dto.ts`,
+      `api/src/presentation/course-cycle/__tests__/grading-phase.dto.test.ts`
+- [x] 1.4.3 Test: `CourseCycleController` — `GET .../grading-phase` delega en el use-case;
+      `@Rank(40)` metadata verificada en el handler PATCH (AC-A-1/2: rechazo explícito a
+      PRECEPTOR/TEACHER — el comportamiento genérico de rank ya está cubierto por
+      `rank.guard.test.ts`); 200 + valor nuevo; 422 (`GradingPhaseNotApplicableError`)
+      propagado como throw.
+      `api/src/presentation/course-cycle/__tests__/grading-phase.controller.spec.ts`
+- [x] 1.4.4 Impl: endpoints GET/PATCH `grading-phase`, agregar `RankGuard` a
       `@UseGuards(AuthGuard, RolesGuard, RankGuard)` del controller, `@Rank(40)` en PATCH,
       agregar `gradingPhase` a `toResponse`.
       `api/src/presentation/course-cycle/course-cycle.controller.ts`
-- [ ] 1.4.5 Impl: wiring de use-cases/repo/puerto nuevos.
-      `api/src/presentation/course-cycle/course-cycle.module.ts`
-- [ ] 1.4.6 [P] Test: `subject-grades` responses incluyen `gradingPhase` (para que el front
+- [x] 1.4.5 Impl: wiring de use-cases/repo/puerto nuevos.
+      `api/src/presentation/course-cycle/course-cycle.module.ts`,
+      `api/src/presentation/grading/grading.module.ts`
+- [x] 1.4.6 [P] Test: `subject-grades` responses incluyen `gradingPhase` (para que el front
       deshabilite columnas sin round-trip extra).
-      `api/src/application/grading/*get-subject-grades*use-case.test.ts` (ampliar según exista)
-- [ ] 1.4.7 [P] Impl: agregar `gradingPhase` a `subject-grades.dto.ts` y wiring del puerto en
-      `grading.module.ts` para los dos upsert use-cases.
-      `api/src/presentation/grading/dto/subject-grades.dto.ts`,
+      `api/src/application/grading/get-subject-grades-by-subject.use-case.spec.ts`,
+      `api/src/application/grading/get-subject-grades-by-student.use-case.spec.ts` (ambos
+      ampliados)
+- [x] 1.4.7 [P] Impl: agregar `gradingPhase` a las respuestas de
+      `GetSubjectGradesBySubjectUseCase` / `GetSubjectGradesByStudentUseCase` (vía
+      `ccRepo.findByUuid` / query raw respectivamente) y wiring de
+      `GradingPhaseAuthorizerService` en `grading.module.ts` para los dos upsert use-cases.
+      `api/src/application/grading/get-subject-grades-by-subject.use-case.ts`,
+      `api/src/application/grading/get-subject-grades-by-student.use-case.ts`,
       `api/src/presentation/grading/grading.module.ts`
 
 ---
