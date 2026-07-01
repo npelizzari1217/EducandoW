@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaAttendanceTypeRepository } from '../prisma-attendance-type.repository';
 import { TenantContext } from '../../../../auth/tenant.context';
-import { AttendanceType } from '@educandow/domain';
+import { AttendanceType, AttendanceBehaviorValue } from '@educandow/domain';
 import { Decimal } from '@prisma/tenant-client/runtime/library';
 
 // ── Mock TenantContext ────────────────────────────────────────
@@ -27,6 +27,7 @@ function makePrismaRow(overrides: Record<string, unknown> = {}) {
     absenceValue: new Decimal('0.00'),
     isPresent: true,
     assignable: true,
+    behavior: AttendanceBehaviorValue.NO_COMPUTA,
     isSystem: false,
     active: true,
     deletedAt: null,
@@ -117,6 +118,7 @@ describe('PrismaAttendanceTypeRepository — findById', () => {
     expect(result!.level).toBe(2);
     expect(result!.code.get()).toBe('P');
     expect(result!.absenceValue).toBe(0); // Decimal → number
+    expect(result!.behavior.get()).toBe(AttendanceBehaviorValue.NO_COMPUTA);
   });
 
   it('returns null when record does not exist', async () => {
@@ -124,6 +126,15 @@ describe('PrismaAttendanceTypeRepository — findById', () => {
     const result = await repo.findById('nonexistent');
     expect(result).toBeNull();
   });
+
+  it.each(Object.values(AttendanceBehaviorValue))(
+    'reconstructs the VO correctly for behavior=%s',
+    async (behavior) => {
+      mockClient.attendanceType.findUnique.mockResolvedValue(makePrismaRow({ behavior }));
+      const result = await repo.findById('at-uuid-1');
+      expect(result!.behavior.get()).toBe(behavior);
+    },
+  );
 });
 
 // ── existsByLevelCode ─────────────────────────────────────────
@@ -169,14 +180,14 @@ describe('PrismaAttendanceTypeRepository — save', () => {
     repo = new PrismaAttendanceTypeRepository();
   });
 
-  it('calls upsert with correct data', async () => {
+  it('calls upsert with correct data, deriving assignable from behavior.isEligible()', async () => {
     mockClient.attendanceType.upsert.mockResolvedValue({});
     const entity = AttendanceType.create({
       code: 'T',
       description: 'Tardanza',
       absenceValue: 0.5,
       level: 2,
-      assignable: true,
+      behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
     });
 
     await repo.save(entity);
@@ -190,10 +201,52 @@ describe('PrismaAttendanceTypeRepository — save', () => {
           code: 'T',
           description: 'Tardanza',
           absenceValue: 0.5,
-          assignable: true,
+          assignable: true, // derived: TARDE_JUSTIFICADA.isEligible() === true
+          behavior: AttendanceBehaviorValue.TARDE_JUSTIFICADA,
           isSystem: false,
           active: true,
         }),
+      }),
+    );
+  });
+
+  it('derives assignable=false for behavior=NO_ELEGIBLE (does not read an input assignable)', async () => {
+    mockClient.attendanceType.upsert.mockResolvedValue({});
+    const entity = AttendanceType.create({
+      code: 'SAB2',
+      description: 'Sábado custom',
+      absenceValue: 0,
+      level: 2,
+      behavior: AttendanceBehaviorValue.NO_ELEGIBLE,
+    });
+
+    await repo.save(entity);
+
+    expect(mockClient.attendanceType.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          assignable: false,
+          behavior: AttendanceBehaviorValue.NO_ELEGIBLE,
+        }),
+      }),
+    );
+  });
+
+  it('preserves the isPresent derivation formula unchanged (absenceValue===0 && assignable)', async () => {
+    mockClient.attendanceType.upsert.mockResolvedValue({});
+    const entity = AttendanceType.create({
+      code: 'P2',
+      description: 'Presente custom',
+      absenceValue: 0,
+      level: 2,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA, // isEligible()===true, absenceValue===0 → isPresent=true
+    });
+
+    await repo.save(entity);
+
+    expect(mockClient.attendanceType.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ isPresent: true }),
       }),
     );
   });
