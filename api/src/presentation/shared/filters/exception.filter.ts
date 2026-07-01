@@ -48,6 +48,12 @@ const DOMAIN_STATUS: Record<string, number> = {
   // pase-alumno-egreso
   PASE_FECHA_INVALIDA: 400,
   STUDENT_HAS_PASE: 409,
+  // Grading phase — fase-bimestre-cierre-asistencia (PR-1)
+  GRADING_PHASE_VIOLATION: 409,
+  GRADING_PHASE_NOT_APPLICABLE: 422,
+  // Cierre mensual de asistencia — fase-bimestre-cierre-asistencia (PR-3b, Capacidad B)
+  MONTH_CLOSED: 409,
+  PREVIOUS_MONTH_OPEN: 409,
 };
 
 @Catch()

@@ -73,6 +73,8 @@ function makeRepos(overrides: Partial<{
     },
     ccRepo: {
       findEnrolledStudents: vi.fn().mockResolvedValue(students),
+      // PR-1b: resolves gradingPhase for the response — defaults to "no CC" (null phase).
+      findByUuid: vi.fn().mockResolvedValue(null),
     },
   };
 }
@@ -614,6 +616,32 @@ describe('GetSubjectGradesBySubjectUseCase', () => {
       expect(getCondicion('student-2')).toBe('PREVIA');
       expect(getCondicion('student-3')).toBe('LIBRE');
       expect(getCondicion('student-4')).toBeNull();
+    });
+  });
+
+  // ── PR-1b: expose gradingPhase so the front can disable columns without a round-trip ──
+
+  describe('gradingPhase exposure', () => {
+    it('includes gradingPhase:null when the CourseCycle has no active phase', async () => {
+      repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
+      repos.ccRepo.findByUuid.mockResolvedValue({ gradingPhase: null });
+      useCase = makeUseCase();
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      expect(res.gradingPhase).toBeNull();
+    });
+
+    it('includes the active phase code', async () => {
+      repos = makeRepos({ sgpRepoResult: [], enrolledStudents: [] });
+      repos.ccRepo.findByUuid.mockResolvedValue({ gradingPhase: { code: 'BIM_2' } });
+      useCase = makeUseCase();
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', subjectId: 'subj-uuid-1', ...AUTH });
+
+      const res = result as any;
+      expect(res.gradingPhase).toBe('BIM_2');
     });
   });
 });

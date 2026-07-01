@@ -73,3 +73,19 @@ export type { AssignmentAuthorizerPort, StudentScope } from './ports/assignment-
 // Ports (Fase D — Terciario Door 3)
 export { TERCIARIO_AUTHORIZER } from './ports/terciario-authorizer.port';
 export type { TerciarioAuthorizerPort } from './ports/terciario-authorizer.port';
+
+// ── Grading Phase (fase-bimestre-cierre-asistencia, PR-1) ──────
+
+// Errors
+export {
+  GradingPhaseViolationError,
+  GradingPhaseNotApplicableError,
+} from './errors/grading-phase.errors';
+
+// Ports
+export { GRADING_PHASE_AUTHORIZER } from './ports/grading-phase-authorizer.port';
+export type {
+  GradingPhaseAuthorizerPort,
+  PhaseDecision,
+  PhaseDecisionReason,
+} from './ports/grading-phase-authorizer.port';

@@ -38,11 +38,12 @@ export { Ingresante, IngresanteStatus, VALID_INGRESANTE_STATUSES } from './ingre
 export type { IngresanteProps, IngresanteStatusValue, IngresanteRepository } from './ingresante';
 
 // CourseCycle
-export { CourseCycle, CourseName, PassingGrade, BimonthPeriod } from './course-cycle';
+export { CourseCycle, CourseName, PassingGrade, BimonthPeriod, GradingPhase } from './course-cycle';
 export type { CourseCycleProps, CreateCourseCycleInput, UpdateCourseCycleInput } from './course-cycle';
 export type { CourseCycleRepository, CourseCycleFilters, PaginatedResult, CreateManyResult, EnrolledStudent } from './course-cycle';
 export { GradingPeriodCalculator } from './course-cycle';
 export type { DateRange } from './course-cycle';
+export type { GradingPhaseCode } from './course-cycle';
 export { CourseCycleClosedError, CourseCycleAlreadyExistsError, CourseCycleNotFoundError, BimonthPeriodInvalidError, AcademicCycleClosedError } from './course-cycle';
 
 // AlumnosXCursoXCiclo (SDD-1)
@@ -175,6 +176,11 @@ export type { AssignmentAuthorizerPort, StudentScope } from './grading';
 export { TERCIARIO_AUTHORIZER } from './grading';
 export type { TerciarioAuthorizerPort } from './grading';
 
+// Grading Phase (fase-bimestre-cierre-asistencia, PR-1)
+export { GradingPhaseViolationError, GradingPhaseNotApplicableError } from './grading';
+export { GRADING_PHASE_AUTHORIZER } from './grading';
+export type { GradingPhaseAuthorizerPort, PhaseDecision, PhaseDecisionReason } from './grading';
+
 // Grading — Periods
 export { PeriodSortOrder } from './grading';
 export {
@@ -274,6 +280,16 @@ export type {
 } from './asistencia';
 export type { AsistenciaGeneralRepository, GenerateGeneralInput, EnrichedGeneralAttendance } from './asistencia';
 export type { AsistenciaMateriaRepository, GenerateMateriaInput, EnrichedMateriaAttendance } from './asistencia';
+
+// ── Cierre mensual de asistencia (fase-bimestre-cierre-asistencia, PR-3a — Capacidad B) ─────
+// Ortogonal a Capacidad A (fase de calificación) — no depende de GradingPhase.
+export { AttendanceMonthStatus } from './asistencia';
+export type {
+  AttendanceMonthStatusProps,
+  CreateAttendanceMonthStatusInput,
+} from './asistencia';
+export { MonthClosedError, PreviousMonthOpenError } from './asistencia';
+export type { AttendanceMonthStatusRepository } from './asistencia';
 
 // PlanificacionCurso (Fase 7)
 export { PlanificacionCurso } from './planificacion-curso';

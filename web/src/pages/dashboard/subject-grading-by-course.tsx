@@ -22,6 +22,12 @@ import type { CourseCycleContext } from './components/TeacherFilteredSelector';
 import { useStudentGrades } from './components/use-student-grades';
 import { StudentLegajo } from './components/StudentLegajo';
 import { StudentObservationsPanel } from './components/StudentObservationsPanel';
+import {
+  isPeriodGradeEditable,
+  isFinalGradeEditable,
+  gradingPhaseStatusLabel,
+  type GradingPhaseValue,
+} from './components/grading-phase-utils';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -110,8 +116,9 @@ interface StudentGradingGridProps {
 }
 
 function StudentGradingGrid({ courseCycleId, studentId, level, modality, institutionId }: StudentGradingGridProps) {
-  const { loading, error, subjects, scaleValues, updatePeriodGrade, updateFinalGrade, updateCompetencyGrade } =
+  const { loading, error, subjects, scaleValues, gradingPhase, updatePeriodGrade, updateFinalGrade, updateCompetencyGrade } =
     useStudentGrades({ courseCycleId, studentId, level, modality, institutionId });
+  const phase = gradingPhase as GradingPhaseValue;
 
   // Which subject's competencies are shown below (defaults to the first subject)
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
@@ -154,7 +161,15 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
   return (
     <Card className="mt-lg">
       {/* ── Table 1: Materias ──────────────────────────────────────────────── */}
-      <p style={sectionTitleStyle}>Materias</p>
+      <p style={sectionTitleStyle}>
+        Materias{' '}
+        <span
+          data-testid="grading-phase-indicator"
+          style={{ fontWeight: 400, fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}
+        >
+          — Fase activa: {gradingPhaseStatusLabel(phase)}
+        </span>
+      </p>
       <div data-testid="materias-table" style={{ overflowX: 'auto' }}>
         <table style={tableStyle} role="grid" aria-label="Calificaciones por materia">
           <thead>
@@ -181,12 +196,15 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                 <td style={{ ...tdStyle, fontWeight: 500 }}>{subject.subjectName}</td>
                 {periodColumns.map((p) => {
                   const grade = subject.periodGrades.find((g) => g.periodOrdinal === p.periodOrdinal);
+                  const editable = isPeriodGradeEditable(phase, p.periodOrdinal);
                   return (
                     <td key={p.periodOrdinal} style={tdStyle}>
                       <select
                         style={selectStyle}
                         aria-label={`Nota período ${p.periodOrdinal} - ${subject.subjectId}`}
                         value={grade?.gradeScaleValueId ?? ''}
+                        disabled={!editable}
+                        title={editable ? undefined : 'Fuera de la fase de calificación activa'}
                         onChange={(e) =>
                           updatePeriodGrade(subject.subjectId, p.periodOrdinal, {
                             gradeScaleValueId: e.target.value || null,
@@ -203,12 +221,15 @@ function StudentGradingGrid({ courseCycleId, studentId, level, modality, institu
                 })}
                 {FINAL_TYPES.map((type) => {
                   const fg = subject.finalGrades.find((f) => f.type === type);
+                  const editable = isFinalGradeEditable(phase);
                   return (
                     <td key={type} style={tdStyle}>
                       <select
                         style={selectStyle}
                         aria-label={`${FINAL_TYPE_LABELS[type]} - ${subject.subjectId}`}
                         value={fg?.gradeScaleValueId ?? ''}
+                        disabled={!editable}
+                        title={editable ? undefined : 'Solo habilitado durante el Cierre'}
                         onChange={(e) =>
                           updateFinalGrade(subject.subjectId, type, {
                             gradeScaleValueId: e.target.value || undefined,

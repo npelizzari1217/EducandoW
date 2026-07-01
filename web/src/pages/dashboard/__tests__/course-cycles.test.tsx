@@ -5,6 +5,9 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
 
 // ── Mock apiClient ──
+// Mutable slot read by the '/course-cycles/:uuid/grading-phase' GET branch below —
+// tests reassign it to exercise different active-phase states.
+let mockGradingPhaseValue: string | null = null;
 const mockPost = vi.fn(() => Promise.resolve({ data: { data: { created: 3, updated: 2, total: 5 } } }));
 const mockGet = vi.fn((url: string) => {
   if (url === '/academic-cycles') {
@@ -19,13 +22,23 @@ const mockGet = vi.fn((url: string) => {
   if (url === '/course-cycles') {
     return Promise.resolve({ data: { data: [], page: 1, pageSize: 20, total: 0 } });
   }
+  if (url.match(/\/course-cycles\/.+\/grading-phase$/)) {
+    return Promise.resolve({ data: { data: { gradingPhase: mockGradingPhaseValue } } });
+  }
   return Promise.resolve({ data: { data: [] } });
+});
+const mockPatch = vi.fn((url: string, body: { gradingPhase: string | null }) => {
+  if (url.match(/\/course-cycles\/.+\/grading-phase$/)) {
+    mockGradingPhaseValue = body.gradingPhase;
+    return Promise.resolve({ data: { data: { gradingPhase: body.gradingPhase } } });
+  }
+  return Promise.resolve({ data: {} });
 });
 vi.mock('../../../api/client', () => ({
   default: {
     get: mockGet,
     post: mockPost,
-    patch: vi.fn(() => Promise.resolve({ data: {} })),
+    patch: mockPatch,
     delete: vi.fn(() => Promise.resolve({})),
   },
 }));
@@ -37,13 +50,14 @@ vi.mock('../../../hooks/useBoletin', () => ({
   downloadBoletin: vi.fn(),
 }));
 
-// ── Mock useAuth ──
+// ── Mock useAuth ── (mutable — tests reassign mockUser.roles to check gating)
+let mockUser: { id: string; email: string; name: string; roles: string[]; userLevels: { level: number }[] } = {
+  id: 'user-1', email: 'admin@test.com', name: 'Admin',
+  roles: ['ROOT'], userLevels: [{ level: 2 }],
+};
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
-    user: {
-      id: 'user-1', email: 'admin@test.com', name: 'Admin',
-      roles: ['ROOT'], userLevels: [{ level: 2 }],
-    },
+    user: mockUser,
     logout: vi.fn(),
     isLoading: false,
     login: vi.fn(),
@@ -103,6 +117,8 @@ describe('CourseCyclesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPost.mockResolvedValue({ data: { data: { created: 3, updated: 2, total: 5 } } });
+    mockGradingPhaseValue = null;
+    mockUser = { id: 'user-1', email: 'admin@test.com', name: 'Admin', roles: ['ROOT'], userLevels: [{ level: 2 }] };
   });
 
   afterEach(() => {
@@ -506,6 +522,101 @@ describe('CourseCyclesPage', () => {
       await user.click(screen.getByTestId('btn-confirm-bulk-cascade'));
       await waitFor(() => {
         expect(screen.getByText(/Error al asignar materias y competencias/i)).toBeInTheDocument();
+      });
+    });
+  });
+
+  // ── Grading phase button + modal (Capacidad A — PR-2) ──────────────────────
+  describe('Grading phase button + modal', () => {
+    function mockWithRows(rows: Array<{ uuid: string; level: number; courseName: string }>) {
+      (mockGet as ReturnType<typeof vi.fn>).mockImplementation((url: string) => {
+        if (url === '/academic-cycles') return Promise.resolve({ data: { data: [{ uuid: 'cycle-1', name: '2026' }] } });
+        if (url === '/study-plans') return Promise.resolve({ data: { data: [{ id: 'plan-1', name: 'Plan 2026' }] } });
+        if (url === '/institutions') return Promise.resolve({ data: { data: [] } });
+        if (url === '/course-cycles') {
+          return Promise.resolve({
+            data: {
+              data: rows.map((r) => ({ ...r, cycleId: 'cycle-1', studyPlanId: 'plan-1', active: true, passingGrade: 7 })),
+              page: 1, pageSize: 20, total: rows.length,
+            },
+          });
+        }
+        if (url.match(/\/course-cycles\/.+\/grading-phase$/)) {
+          return Promise.resolve({ data: { data: { gradingPhase: mockGradingPhaseValue } } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      });
+    }
+
+    const primarioRow = { uuid: 'cc-prim', level: 20, courseName: '1ro A' };
+    const secundarioRow = { uuid: 'cc-sec', level: 30, courseName: '1ro Sec' };
+    const inicialRow = { uuid: 'cc-inicial', level: 10, courseName: 'Sala 3' };
+    const terciarioRow = { uuid: 'cc-terc', level: 40, courseName: 'Profesorado' };
+
+    it('GP-BTN-1: shows the button only for Primario/Secundario rows (hidden for Inicial/Terciario)', async () => {
+      mockWithRows([primarioRow, secundarioRow, inicialRow, terciarioRow]);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-grading-phase-cc-prim')).toBeInTheDocument());
+      expect(screen.getByTestId('btn-grading-phase-cc-sec')).toBeInTheDocument();
+      expect(screen.queryByTestId('btn-grading-phase-cc-inicial')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('btn-grading-phase-cc-terc')).not.toBeInTheDocument();
+    });
+
+    it('GP-BTN-2: hides the button for non-management roles (TEACHER)', async () => {
+      mockUser = { ...mockUser, roles: ['TEACHER'] };
+      mockWithRows([primarioRow]);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByText('1ro A')).toBeInTheDocument());
+      expect(screen.queryByTestId('btn-grading-phase-cc-prim')).not.toBeInTheDocument();
+    });
+
+    it('GP-BTN-3: SECRETARIO sees the button (rank>=40, not just ROOT/ADMIN)', async () => {
+      mockUser = { ...mockUser, roles: ['SECRETARIO'] };
+      mockWithRows([primarioRow]);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-grading-phase-cc-prim')).toBeInTheDocument());
+    });
+
+    it('GP-BTN-4: opens a popup with the 5 phase options, marking the active one', async () => {
+      mockGradingPhaseValue = 'BIM_2';
+      mockWithRows([primarioRow]);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-grading-phase-cc-prim')).toBeInTheDocument());
+      await userEvent.click(screen.getByTestId('btn-grading-phase-cc-prim'));
+
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+      expect(screen.getByRole('button', { name: /1er Bimestre/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /2do Bimestre/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /3er Bimestre/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /4to Bimestre/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /^Cierre$/i })).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /2do Bimestre/i })).toHaveAttribute('aria-pressed', 'true');
+      });
+      expect(screen.getByRole('button', { name: /1er Bimestre/i })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('GP-BTN-5: clicking an option PATCHes the new phase and reflects it as active', async () => {
+      mockGradingPhaseValue = 'BIM_1';
+      mockWithRows([primarioRow]);
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-grading-phase-cc-prim')).toBeInTheDocument());
+      await userEvent.click(screen.getByTestId('btn-grading-phase-cc-prim'));
+      await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument());
+
+      await userEvent.click(screen.getByRole('button', { name: /^Cierre$/i }));
+
+      await waitFor(() => {
+        expect(mockPatch).toHaveBeenCalledWith('/course-cycles/cc-prim/grading-phase', { gradingPhase: 'CIERRE' });
+      });
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /^Cierre$/i })).toHaveAttribute('aria-pressed', 'true');
       });
     });
   });

@@ -9,6 +9,8 @@ export type { AlumnosXCursoXCicloProps, CreateAlumnosXCursoXCicloInput } from '.
 export { CourseName } from './value-objects/course-name';
 export { PassingGrade } from './value-objects/passing-grade';
 export { BimonthPeriod } from './value-objects/bimonth-period';
+export { GradingPhase } from './value-objects/grading-phase';
+export type { GradingPhaseCode } from './value-objects/grading-phase';
 
 // Services
 export { GradingPeriodCalculator } from './services/grading-period-calculator';

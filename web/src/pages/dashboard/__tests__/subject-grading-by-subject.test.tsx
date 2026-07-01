@@ -128,7 +128,9 @@ const mockValuations = [
 ];
 
 // REAL API shape — no top-level competencies[], imprimible on periodValuations[]
+// gradingPhase (PR-1b/PR-2, Capacidad A) — BIM_1 keeps existing period-1 mutation tests editable.
 const mockSubjectGradesResponse = {
+  gradingPhase: 'BIM_1',
   periods: [
     { periodOrdinal: 1, periodName: '1er Trimestre' },
     { periodOrdinal: 2, periodName: '2do Trimestre' },
@@ -472,7 +474,9 @@ describe('SubjectGradingBySubjectPage — Secundario + condicion', () => {
           return Promise.resolve({ data: { data: mockValuations } });
         }
         if (url === '/grading/subject-grades') {
-          return Promise.resolve({ data: { data: mockSubjectGradesResponse } });
+          // CIERRE — SEC-2/SEC-3 exercise the FINAL row's condición select, which is
+          // gated to CIERRE only (Capacidad A, PR-2).
+          return Promise.resolve({ data: { data: { ...mockSubjectGradesResponse, gradingPhase: 'CIERRE' } } });
         }
         return Promise.resolve({ data: { data: [] } });
       },
@@ -559,5 +563,115 @@ describe('SubjectGradingBySubjectPage — Secundario + condicion', () => {
         expect.objectContaining({ params: expect.anything() }),
       );
     });
+  });
+});
+
+// ── Grading phase gating (Capacidad A — PR-2) ──────────────────────────────────
+
+function mockGetWithGradingPhase(gradingPhase: string | null) {
+  (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+    (url: string, config?: { params?: Record<string, string> }) => {
+      const params = config?.params ?? {};
+      if (url === '/course-cycles') {
+        if (params.teacherUserId === 'teacher-1' && params.role === 'subject') {
+          return Promise.resolve({ data: { data: mockCourseCycles } });
+        }
+        return Promise.resolve({ data: { data: [] } });
+      }
+      if (url === '/course-cycles/cc-prim-1/subjects') return Promise.resolve({ data: { data: mockSubjects } });
+      if (url === '/course-cycles/cc-prim-1/students') return Promise.resolve({ data: { data: mockStudents } });
+      if (url === '/subject-competencies') return Promise.resolve({ data: { data: mockCompetencies } });
+      if (url === '/grading/period-templates') return Promise.resolve({ data: { data: mockTemplates } });
+      if (url === '/grading/scales') return Promise.resolve({ data: { data: mockScales } });
+      if (url === '/competency-valuations') return Promise.resolve({ data: { data: mockValuations } });
+      if (url === '/grading/subject-grades') {
+        return Promise.resolve({ data: { data: { ...mockSubjectGradesResponse, gradingPhase } } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    },
+  );
+}
+
+describe('SubjectGradingBySubjectPage — grading phase gating', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (apiClient.put as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { data: null } });
+  });
+
+  // GP-1: active phase period column enabled (select + PA/PPI/PP); other periods disabled
+  it('GP-1: only the active phase period column is enabled (select + PA/PPI/PP checkboxes)', async () => {
+    mockGetWithGradingPhase('BIM_1');
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-period-grades-section')).toBeInTheDocument());
+
+    const period1Select = screen.getByRole('combobox', { name: /nota período 1/i });
+    const period2Select = screen.getByRole('combobox', { name: /nota período 2/i });
+    expect(period1Select).not.toBeDisabled();
+    expect(period2Select).toBeDisabled();
+
+    // PA/PPI/PP for period 2 must also be locked (single upsert item covers the whole period row)
+    const paCheckboxes = screen.getAllByRole('checkbox', { name: /\bPA\b/i });
+    expect(paCheckboxes[1]).toBeDisabled();
+    expect(paCheckboxes[0]).not.toBeDisabled();
+  });
+
+  // GP-2: gradingPhase NULL blocks every period column
+  it('GP-2: gradingPhase NULL disables every period column', async () => {
+    mockGetWithGradingPhase(null);
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-period-grades-section')).toBeInTheDocument());
+
+    expect(screen.getByRole('combobox', { name: /nota período 1/i })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /nota período 2/i })).toBeDisabled();
+  });
+
+  // GP-3: special/final grades disabled outside CIERRE
+  it('GP-3: final grade selects are disabled when the phase is a bimester (not CIERRE)', async () => {
+    mockGetWithGradingPhase('BIM_1');
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-final-grades-section')).toBeInTheDocument());
+
+    const finalSection = screen.getByTestId('subject-final-grades-section');
+    expect(within(finalSection).getByRole('combobox', { name: /Nota final FINAL/i })).toBeDisabled();
+  });
+
+  // GP-4: special/final grades enabled ONLY during CIERRE
+  it('GP-4: final grade selects are enabled during CIERRE', async () => {
+    mockGetWithGradingPhase('CIERRE');
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-final-grades-section')).toBeInTheDocument());
+
+    const finalSection = screen.getByTestId('subject-final-grades-section');
+    expect(within(finalSection).getByRole('combobox', { name: /Nota final FINAL/i })).not.toBeDisabled();
+    // Bimester periods stay locked during CIERRE
+    expect(screen.getByRole('combobox', { name: /nota período 1/i })).toBeDisabled();
+  });
+
+  // GP-5: visible indicator of the active phase
+  it('GP-5: shows a visible indicator of the active grading phase', async () => {
+    mockGetWithGradingPhase('BIM_2');
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-period-grades-section')).toBeInTheDocument());
+    expect(screen.getByTestId('grading-phase-indicator')).toHaveTextContent(/2do Bimestre/i);
+  });
+
+  // GP-6: indicator shows "Sin fase activada" when null
+  it('GP-6: indicator shows "Sin fase activada" when gradingPhase is null', async () => {
+    mockGetWithGradingPhase(null);
+    renderPage();
+    await selectCCAndSubject();
+
+    await waitFor(() => expect(screen.getByTestId('subject-period-grades-section')).toBeInTheDocument());
+    expect(screen.getByTestId('grading-phase-indicator')).toHaveTextContent(/sin fase activada/i);
   });
 });

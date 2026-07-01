@@ -39,6 +39,8 @@ const ALL_FINAL_TYPES = [
 export interface SubjectGradesBySubjectResult {
   courseCycleId: string;
   subjectId: string;
+  /** Active grading phase code (BIM_1..BIM_4|CIERRE), or null (no active phase). PR-1b. */
+  gradingPhase: string | null;
   periods: Array<{ periodOrdinal: number; periodName: string }>;
   students: Array<{
     studentId: string;
@@ -94,11 +96,15 @@ export class GetSubjectGradesBySubjectUseCase {
     const scope = await this.authorizer.getAllowedStudentIds(userId, userRoles, courseCycleId, subjectId);
     if (scope === null) return { forbidden: true };
 
+    // ── PR-1b: resolve gradingPhase so the front can disable columns without a round-trip ──
+    const cc = await this.ccRepo.findByUuid(courseCycleId);
+    const gradingPhase = cc?.gradingPhase?.code ?? null;
+
     // ── 1. Ensure snapshot (AD-5) — idempotent period-structure snapshot ──────
     const periods = await this.sgpRepo.ensureSnapshot(courseCycleId, subjectId);
 
     if (periods.length === 0) {
-      return { courseCycleId, subjectId, periods: [], students: [] };
+      return { courseCycleId, subjectId, gradingPhase, periods: [], students: [] };
     }
 
     // ── 2. Get enrolled students (scoped by group assignment for teachers) ─────
@@ -111,6 +117,7 @@ export class GetSubjectGradesBySubjectUseCase {
       return {
         courseCycleId,
         subjectId,
+        gradingPhase,
         periods: periods.map((p) => ({ periodOrdinal: p.periodOrdinal, periodName: p.periodName })),
         students: [],
       };
@@ -200,6 +207,7 @@ export class GetSubjectGradesBySubjectUseCase {
     return {
       courseCycleId,
       subjectId,
+      gradingPhase,
       periods: periods.map((p) => ({ periodOrdinal: p.periodOrdinal, periodName: p.periodName })),
       students: studentRows,
     };

@@ -1,8 +1,10 @@
 import { Id } from '../../shared/value-objects/id';
 import { Level } from '../../institution/value-objects/level';
+import { EducationalLevelCode } from '../../shared/value-objects/educational-level';
 import { CourseName } from '../value-objects/course-name';
 import { PassingGrade } from '../value-objects/passing-grade';
 import { BimonthPeriod } from '../value-objects/bimonth-period';
+import { GradingPhase } from '../value-objects/grading-phase';
 import { CourseCycleClosedError } from '../errors';
 import { GradingPeriodCalculator } from '../services/grading-period-calculator';
 import type { DateRange } from '../services/grading-period-calculator';
@@ -23,6 +25,12 @@ export interface CourseCycleProps {
   thirdBimonth: BimonthPeriod | null;
   fourthBimonth: BimonthPeriod | null;
   activeGradingPeriod: number | null;
+  /**
+   * Optional for backward compatibility with existing construction sites
+   * (Prisma repository, fixtures) predating this field. Normalized to
+   * `null` internally when absent — getter never returns `undefined`.
+   */
+  gradingPhase?: GradingPhase | null;
   createdAt: Date;
   lastModifiedAt: Date;
   deletedAt?: Date | null;
@@ -54,7 +62,11 @@ export interface UpdateCourseCycleInput {
 }
 
 export class CourseCycle {
-  private constructor(private props: CourseCycleProps) {}
+  private constructor(private props: CourseCycleProps) {
+    if (this.props.gradingPhase === undefined) {
+      this.props.gradingPhase = null;
+    }
+  }
 
   static create(input: CreateCourseCycleInput): CourseCycle {
     const now = new Date();
@@ -74,6 +86,7 @@ export class CourseCycle {
       thirdBimonth: input.thirdBimonth ?? null,
       fourthBimonth: input.fourthBimonth ?? null,
       activeGradingPeriod: null,
+      gradingPhase: null,
       createdAt: now,
       lastModifiedAt: now,
     });
@@ -141,6 +154,10 @@ export class CourseCycle {
 
   get activeGradingPeriod(): number | null {
     return this.props.activeGradingPeriod;
+  }
+
+  get gradingPhase(): GradingPhase | null {
+    return this.props.gradingPhase ?? null;
   }
 
   get createdAt(): Date {
@@ -223,5 +240,37 @@ export class CourseCycle {
   setActiveGradingPeriod(value: number | null): void {
     this.props.activeGradingPeriod = value;
     this.props.lastModifiedAt = new Date();
+  }
+
+  /** Solo Primario (20-22) y Secundario (30-32) están sujetos a fase de calificación. */
+  requiresGradingPhase(): boolean {
+    return (
+      this.props.level.belongsToLevel(EducationalLevelCode.PRIMARIO) ||
+      this.props.level.belongsToLevel(EducationalLevelCode.SECUNDARIO)
+    );
+  }
+
+  /** Reversible (CIERRE puede volver a un bimestre). Toca lastModifiedAt. */
+  setGradingPhase(phase: GradingPhase | null): void {
+    this.props.gradingPhase = phase;
+    this.props.lastModifiedAt = new Date();
+  }
+
+  /**
+   * ¿Se puede calificar el bimestre `ordinal` (1..4) ahora mismo?
+   * false para fase NULL (cutover duro), para cualquier otro bimestre, y para CIERRE.
+   */
+  canGradeBimester(ordinal: number): boolean {
+    const phase = this.gradingPhase;
+    if (!phase || !phase.isBimester()) {
+      return false;
+    }
+    return phase.bimesterOrdinal() === ordinal;
+  }
+
+  /** ¿Se pueden editar notas especiales (SubjectFinalGrade) ahora? Solo durante CIERRE. */
+  canGradeFinal(): boolean {
+    const phase = this.gradingPhase;
+    return phase !== null && phase.isCierre();
   }
 }

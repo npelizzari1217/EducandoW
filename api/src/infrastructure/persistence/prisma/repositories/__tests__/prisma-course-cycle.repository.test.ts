@@ -9,6 +9,7 @@ import {
   BimonthPeriod,
   Level,
   LevelType,
+  GradingPhase,
 } from '@educandow/domain';
 
 // ── Mock TenantContext ────────────────────────────────────────
@@ -111,6 +112,33 @@ describe('PrismaCourseCycleRepository — toDomain', () => {
 
     expect(cc.promotionText).toBeNull();
   });
+
+  // ── PR-1b: gradingPhase mapping ────────────────────────────
+
+  it('maps a null gradingPhase column to gradingPhase=null (no active phase)', () => {
+    const row = makePrismaRow({ gradingPhase: null });
+    const toDomain = (repo as any).toDomain.bind(repo);
+    const cc: CourseCycle = toDomain(row);
+
+    expect(cc.gradingPhase).toBeNull();
+  });
+
+  it('maps a Prisma GradingPhase enum value to the GradingPhase VO', () => {
+    const row = makePrismaRow({ gradingPhase: 'BIM_2' });
+    const toDomain = (repo as any).toDomain.bind(repo);
+    const cc: CourseCycle = toDomain(row);
+
+    expect(cc.gradingPhase).not.toBeNull();
+    expect(cc.gradingPhase?.code).toBe('BIM_2');
+  });
+
+  it('maps CIERRE correctly', () => {
+    const row = makePrismaRow({ gradingPhase: 'CIERRE' });
+    const toDomain = (repo as any).toDomain.bind(repo);
+    const cc: CourseCycle = toDomain(row);
+
+    expect(cc.gradingPhase?.code).toBe('CIERRE');
+  });
 });
 
 // ── save ──────────────────────────────────────────────────────
@@ -138,6 +166,33 @@ describe('PrismaCourseCycleRepository — save', () => {
     expect(args.create.level).toBe(20);
     expect(args.create.active).toBe(true);
     expect(args.create.passingGrade).toBe(6);
+  });
+
+  // ── PR-1b: gradingPhase mapping ────────────────────────────
+
+  it('maps gradingPhase=null (no active phase) to a null column on save', async () => {
+    const mockUpsert = vi.fn().mockResolvedValue(makePrismaRow());
+    vi.mocked(TenantContext.getClient).mockReturnValue({ courseCycle: { upsert: mockUpsert } } as any);
+
+    const repo = new PrismaCourseCycleRepository();
+    const cc = makeDomainCC();
+    await repo.save(cc);
+
+    const args = mockUpsert.mock.calls[0][0];
+    expect(args.create.gradingPhase).toBeNull();
+  });
+
+  it('maps an active GradingPhase VO to its enum code on save', async () => {
+    const mockUpsert = vi.fn().mockResolvedValue(makePrismaRow());
+    vi.mocked(TenantContext.getClient).mockReturnValue({ courseCycle: { upsert: mockUpsert } } as any);
+
+    const repo = new PrismaCourseCycleRepository();
+    const cc = makeDomainCC();
+    cc.setGradingPhase(GradingPhase.create('BIM_3').unwrap());
+    await repo.save(cc);
+
+    const args = mockUpsert.mock.calls[0][0];
+    expect(args.create.gradingPhase).toBe('BIM_3');
   });
 });
 

@@ -205,7 +205,10 @@ describe('useGradingGrid', () => {
 
 // REAL API shape: SubjectGradesBySubjectResult from get-subject-grades-by-subject.use-case.ts
 // No top-level competencies[]. imprimible lives in students[].competencyValuations[].periodValuations[].
+// gradingPhase (PR-1b/PR-2, Capacidad A) — top-level field surfaced so the front can gate columns
+// without a round-trip. BIM_1 keeps existing period-1 mutation tests (SGC-8) editable.
 const mockSubjectGradesResponse = {
+  gradingPhase: 'BIM_1',
   periods: [
     { periodOrdinal: 1, periodName: '1er Trimestre' },
     { periodOrdinal: 2, periodName: '2do Trimestre' },
@@ -441,6 +444,22 @@ describe('useGradingGrid - subject-grade channels', () => {
     expect(result.current.subjectPeriodGradeCells.size).toBe(0);
     expect(result.current.subjectFinalGradeCells.size).toBe(0);
     expect(result.current.subjectGradePeriods).toHaveLength(0);
+  });
+
+  // SGC-13 [PR-2 RED]: gradingPhase surfaced from the subject-grades response (Capacidad A)
+  it('SGC-13: gradingPhase is exposed from the /grading/subject-grades response', async () => {
+    const { result } = renderHook(() => useGradingGrid(optionsWithSubjectId));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.gradingPhase).toBe('BIM_1');
+  });
+
+  // SGC-14: gradingPhase defaults to null when subjectId is absent (no subject-grades channel)
+  it('SGC-14: gradingPhase is null when subjectId is absent', async () => {
+    const { result } = renderHook(() => useGradingGrid(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.gradingPhase).toBeNull();
   });
 
   // SGC-8: updateSubjectPeriodGrade optimistically updates cell and calls PUT

@@ -327,4 +327,26 @@ describe('GetSubjectGradesByStudentUseCase', () => {
       expect(finalEntry.condicion).toBe('LIBRE');
     });
   });
+
+  // ── PR-1b: expose gradingPhase so the front can disable columns without a round-trip ──
+
+  describe('gradingPhase exposure', () => {
+    it('includes gradingPhase:null when the CourseCycle has no active phase', async () => {
+      mockClient.courseCycle.findUnique.mockResolvedValue({ studyPlanId: 'sp-1', courseId: 'cs-A', gradingPhase: null });
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      expect(res.gradingPhase).toBeNull();
+    });
+
+    it('includes the active phase code', async () => {
+      mockClient.courseCycle.findUnique.mockResolvedValue({ studyPlanId: 'sp-1', courseId: 'cs-A', gradingPhase: 'BIM_3' });
+
+      const result = await useCase.execute({ courseCycleId: 'cc-uuid-1', studentId: 'student-1', ...AUTH });
+
+      const res = result as any;
+      expect(res.gradingPhase).toBe('BIM_3');
+    });
+  });
 });

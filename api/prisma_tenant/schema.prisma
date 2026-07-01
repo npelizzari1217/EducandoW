@@ -306,6 +306,17 @@ model AcademicCycle {
 
 // ── Course Cycle ────────────────────────────────────────────
 
+// Grading phase for the current bimester cycle (Primario/Secundario only).
+// fase-bimestre-cierre-asistencia, PR-1. Absence (column NULL) means no active
+// phase / hard cutover — modeled as `null` in the domain, never as an enum value.
+enum GradingPhase {
+  BIM_1
+  BIM_2
+  BIM_3
+  BIM_4
+  CIERRE
+}
+
 model CourseCycle {
   id             Int       @id @default(autoincrement())
   uuid           String    @unique @default(uuid())
@@ -326,6 +337,9 @@ model CourseCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  /// Fase de calificación activa (Primario/Secundario). NULL = sin activar / cutover duro.
+  /// fase-bimestre-cierre-asistencia, PR-1.
+  gradingPhase   GradingPhase? @map("grading_phase")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
@@ -342,6 +356,7 @@ model CourseCycle {
   alumnosXCursoXCiclo   AlumnosXCursoXCiclo[]
   asignacionesCurso     AsignacionCursoXCiclo[]
   asistenciaMensual     asistenciaXAlumnoXCursoXCiclo[]
+  attendanceMonthStatuses AttendanceMonthStatus[]
 
   @@unique([courseId, cycleId])
   @@index([cycleId])
@@ -1381,6 +1396,34 @@ model asistenciaXMateriaXAlumnoXCursoXCiclo {
   @@unique([materiaXCursoXCicloId, studentId, year, month], map: "asistencia_materia_alumno_year_month_key")
   @@index([materiaXCursoXCicloId, year, month], map: "asistencia_x_materia_x_alumno_x_curso_x_ciclo_materia_year_mont")
   @@map("asistencia_x_materia_x_alumno_x_curso_x_ciclo")
+}
+
+// Cierre mensual de asistencia (Capacidad B, fase-bimestre-cierre-asistencia PR-3b).
+// ORTOGONAL a GradingPhase (Capacidad A) — nunca se lee junto a esa columna.
+// One row per (CourseCycle, Year, Month). Absence of a row = OPEN (default-open,
+// no cutover — design §B1). Applies to ALL pedagogical levels (AC-B-14).
+enum AttendanceMonthState {
+  OPEN
+  CLOSED
+}
+
+model AttendanceMonthStatus {
+  id            String               @id @default(uuid())
+  courseCycleId String               @map("course_cycle_id")  // → CourseCycle.uuid
+  year          Int
+  month         Int                                            // 1..12
+  status        AttendanceMonthState @default(OPEN)
+  closedAt      DateTime?            @map("closed_at")
+  closedBy      String?              @map("closed_by")         // userId; cleared on reopen
+
+  courseCycle CourseCycle @relation(fields: [courseCycleId], references: [uuid], onDelete: Restrict)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt      @map("updated_at")
+
+  @@unique([courseCycleId, year, month], map: "attendance_month_status_cc_year_month_key")
+  @@index([courseCycleId, year, month], map: "attendance_month_status_course_cycle_id_year_month_idx")
+  @@map("attendance_month_status")
 }
 
 // ── Planificaciones de Curso ───────────────────────────────

@@ -62,6 +62,8 @@ export interface SubjectEntry {
 export interface SubjectGradesByStudentResult {
   courseCycleId: string;
   studentId: string;
+  /** Active grading phase code (BIM_1..BIM_4|CIERRE), or null (no active phase). PR-1b. */
+  gradingPhase: string | null;
   subjects: SubjectEntry[];
 }
 
@@ -91,10 +93,13 @@ export class GetSubjectGradesByStudentUseCase {
     const canAccess = await this.authorizer.canAccessCourseCycle(userId, userRoles, courseCycleId);
     if (!canAccess) return { forbidden: true };
 
+    // ── PR-1b: resolve gradingPhase so the front can disable columns without a round-trip ──
+    const gradingPhase = await this.resolveGradingPhase(courseCycleId);
+
     // ── 1. Get subjects for this CC via study plan ────────────────────────────
     const subjectEntries = await this.resolveSubjects(courseCycleId);
     if (subjectEntries.length === 0) {
-      return { courseCycleId, studentId, subjects: [] };
+      return { courseCycleId, studentId, gradingPhase, subjects: [] };
     }
 
     // ── 2. Fetch all period grades + finals for this student × CC ─────────────
@@ -175,7 +180,22 @@ export class GetSubjectGradesByStudentUseCase {
       });
     }
 
-    return { courseCycleId, studentId, subjects };
+    return { courseCycleId, studentId, gradingPhase, subjects };
+  }
+
+  /**
+   * Resolves the active gradingPhase code for a CourseCycle (PR-1b).
+   * Returns null when the CC is missing or has no active phase.
+   */
+  private async resolveGradingPhase(courseCycleId: string): Promise<string | null> {
+    const client = TenantContext.getClient();
+    if (!client) return null;
+
+    const cc = await client.courseCycle.findUnique({
+      where: { uuid: courseCycleId },
+      select: { gradingPhase: true },
+    });
+    return cc?.gradingPhase ?? null;
   }
 
   /**

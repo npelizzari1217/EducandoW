@@ -13,13 +13,14 @@
  * Specs: SPG-R3..R9, PPF-R4, AD-3
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectPeriodGrade } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectPeriodGrade, GradingPhaseViolationError } from '@educandow/domain';
 import type {
   SubjectPeriodGradeRepository,
   SubjectGradingPeriodRepository,
   CourseCycleRepository,
   GradeScaleRepository,
   AssignmentAuthorizerPort,
+  GradingPhaseAuthorizerPort,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -59,11 +60,12 @@ export class UpsertSubjectPeriodGradesUseCase {
     private readonly ccRepo: CourseCycleRepository,
     private readonly gradeScaleRepo: GradeScaleRepository,
     private readonly authorizer: AssignmentAuthorizerPort,
+    private readonly phaseAuthorizer: GradingPhaseAuthorizerPort,
   ) {}
 
   async execute(
     input: UpsertSubjectPeriodGradesInput,
-  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError>> {
+  ): Promise<Result<void, NotFoundError | ValidationError | ForbiddenError | GradingPhaseViolationError>> {
     if (input.items.length === 0) return ok(undefined);
 
     // ── 1. Group items by (courseCycleId, subjectId) for bulk validation ──────
@@ -95,6 +97,8 @@ export class UpsertSubjectPeriodGradesUseCase {
 
     // ── 2. Per-group validation ───────────────────────────────────────────────
     const validOrdinalSets = new Map<string, Set<number>>();
+    // Memoizes the grading-phase gate per unique (courseCycleId, periodOrdinal) — PR-1b.
+    const phaseGateCache = new Map<string, boolean>();
 
     for (const [groupKey, items] of groupMap) {
       const { courseCycleId, subjectId } = items[0];
@@ -121,6 +125,21 @@ export class UpsertSubjectPeriodGradesUseCase {
           return err(
             new ValidationError(
               `periodOrdinal ${item.periodOrdinal} is outside the snapshotted range for subject "${subjectId}"`,
+            ),
+          );
+        }
+
+        // Grading-phase gate (PR-1b) — dedupe per (courseCycleId, periodOrdinal).
+        const phaseCacheKey = `${courseCycleId}::${item.periodOrdinal}`;
+        if (!phaseGateCache.has(phaseCacheKey)) {
+          const decision = await this.phaseAuthorizer.canGradeBimester(courseCycleId, item.periodOrdinal);
+          phaseGateCache.set(phaseCacheKey, decision.allowed);
+        }
+        if (!phaseGateCache.get(phaseCacheKey)) {
+          return err(
+            new GradingPhaseViolationError(
+              courseCycleId,
+              `bimester period ${item.periodOrdinal} is not currently gradable`,
             ),
           );
         }

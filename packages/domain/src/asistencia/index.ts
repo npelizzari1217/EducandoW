@@ -23,3 +23,12 @@ export type {
 
 export type { AsistenciaGeneralRepository, GenerateGeneralInput, EnrichedGeneralAttendance } from './repositories/asistencia-general-repository';
 export type { AsistenciaMateriaRepository, GenerateMateriaInput, EnrichedMateriaAttendance } from './repositories/asistencia-materia-repository';
+
+// ── Cierre mensual de asistencia (fase-bimestre-cierre-asistencia, PR-3a — Capacidad B) ─────
+export { AttendanceMonthStatus } from './entities/attendance-month-status';
+export type {
+  AttendanceMonthStatusProps,
+  CreateAttendanceMonthStatusInput,
+} from './entities/attendance-month-status';
+export { MonthClosedError, PreviousMonthOpenError } from './errors/attendance-month-status.errors';
+export type { AttendanceMonthStatusRepository } from './repositories/attendance-month-status.repository';

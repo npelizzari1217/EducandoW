@@ -8,11 +8,13 @@
  *   GEN-T04: zero enrolled students → all-zero counts, no error (R-13)
  *   GEN-T05: idempotent re-run → all-zero created, non-zero skipped
  *   GEN-T06: generateMany never updates/deletes existing rows (structural assertion, ADR-3)
+ *   GEN-T07: previous generated month still open → PreviousMonthOpenError (first month exempt)
+ *   GEN-T08: after materializing, upserts an OPEN status row iff none exists yet (idempotent)
  *
  * Pattern: mocked repos + mocked TenantContext; no NestJS bootstrap, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, NotFoundError, buildLockedDayMap } from '@educandow/domain';
+import { ForbiddenError, NotFoundError, buildLockedDayMap, AttendanceMonthStatus, PreviousMonthOpenError } from '@educandow/domain';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: { getClient: vi.fn() },
@@ -61,6 +63,8 @@ function makeUC({
   alumnosXMateriaFn = alumnosXMateriaForId,
   generalResult = { created: 2, skipped: 0 },
   materiaResult = { created: 3, skipped: 0 },
+  previousMonthStatus = null,
+  existingMonthStatus = null,
 }: {
   ccExists?: boolean;
   alumnos?: typeof enrolled;
@@ -68,6 +72,8 @@ function makeUC({
   alumnosXMateriaFn?: (id: string) => { materiaXCursoXCicloId: string; studentId: string }[];
   generalResult?: { created: number; skipped: number };
   materiaResult?: { created: number; skipped: number };
+  previousMonthStatus?: AttendanceMonthStatus | null;
+  existingMonthStatus?: AttendanceMonthStatus | null;
 } = {}) {
   const mockClient = {
     courseCycle: {
@@ -93,6 +99,11 @@ function makeUC({
   const materiaAsistRepo = {
     generateMany: vi.fn().mockResolvedValue(materiaResult),
   };
+  const monthStatusRepo = {
+    findOne: vi.fn().mockResolvedValue(existingMonthStatus),
+    findLatestBefore: vi.fn().mockResolvedValue(previousMonthStatus),
+    upsert: vi.fn().mockResolvedValue(undefined),
+  };
 
   const uc = Object.create(GenerateMonthlyAttendanceUseCase.prototype);
   uc.alumnosCCRepo = alumnosCCRepo;
@@ -100,8 +111,21 @@ function makeUC({
   uc.alumnosXMateriaRepo = alumnosXMateriaRepo;
   uc.generalRepo = generalRepo;
   uc.materiaAsistRepo = materiaAsistRepo;
+  uc.monthStatusRepo = monthStatusRepo;
 
-  return { uc, mockClient, alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo };
+  return {
+    uc, mockClient, alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo, monthStatusRepo,
+  };
+}
+
+function makeClosedPreviousStatus(): AttendanceMonthStatus {
+  const status = AttendanceMonthStatus.create({ courseCycleId: CC_ID, year: YEAR, month: MONTH - 1 });
+  status.close('secretario-1');
+  return status;
+}
+
+function makeOpenPreviousStatus(): AttendanceMonthStatus {
+  return AttendanceMonthStatus.create({ courseCycleId: CC_ID, year: YEAR, month: MONTH - 1 });
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -245,6 +269,68 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const materiaCalled = Object.keys(materiaAsistRepo).filter((k) => (materiaAsistRepo as any)[k]?.mock?.calls?.length > 0);
       expect(materiaCalled).toEqual(['generateMany']);
+    });
+  });
+
+  describe('GEN-T07: previous generated month still open → PreviousMonthOpenError', () => {
+    it('throws PreviousMonthOpenError when the latest generated month is open', async () => {
+      const { uc } = makeUC({ previousMonthStatus: makeOpenPreviousStatus() });
+      await expect(
+        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] }),
+      ).rejects.toBeInstanceOf(PreviousMonthOpenError);
+    });
+
+    it('does not call generateMany when previous month is open', async () => {
+      const { uc, generalRepo, materiaAsistRepo } = makeUC({ previousMonthStatus: makeOpenPreviousStatus() });
+      try {
+        await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+      } catch { /* expected */ }
+      expect(generalRepo.generateMany).not.toHaveBeenCalled();
+      expect(materiaAsistRepo.generateMany).not.toHaveBeenCalled();
+    });
+
+    it('allows generation when previous generated month is closed', async () => {
+      const { uc } = makeUC({ previousMonthStatus: makeClosedPreviousStatus() });
+      await expect(
+        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] }),
+      ).resolves.toBeDefined();
+    });
+
+    it('first-ever month (no previous generated) is exempt — no previous row', async () => {
+      const { uc } = makeUC({ previousMonthStatus: null });
+      await expect(
+        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] }),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe('GEN-T08: upserts an OPEN status row iff none exists yet', () => {
+    it('creates a new OPEN status row when none exists for this CC+month', async () => {
+      const { uc, monthStatusRepo } = makeUC({ existingMonthStatus: null });
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+
+      expect(monthStatusRepo.upsert).toHaveBeenCalledTimes(1);
+      const upserted = monthStatusRepo.upsert.mock.calls[0][0] as AttendanceMonthStatus;
+      expect(upserted.isClosed()).toBe(false);
+      expect(upserted.courseCycleId).toBe(CC_ID);
+      expect(upserted.year).toBe(YEAR);
+      expect(upserted.month).toBe(MONTH);
+    });
+
+    it('does NOT touch an existing status row (idempotent regeneration never reopens/recloses)', async () => {
+      const { uc, monthStatusRepo } = makeUC({ existingMonthStatus: makeClosedPreviousStatus() });
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+
+      expect(monthStatusRepo.upsert).not.toHaveBeenCalled();
+    });
+
+    it('creates the status row even with zero enrollment (month is still "generated")', async () => {
+      const { uc, monthStatusRepo } = makeUC({
+        alumnos: [], mxccs: [], alumnosXMateriaFn: () => [], existingMonthStatus: null,
+      });
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+
+      expect(monthStatusRepo.upsert).toHaveBeenCalledTimes(1);
     });
   });
 

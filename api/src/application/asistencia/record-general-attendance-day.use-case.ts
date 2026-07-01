@@ -14,6 +14,11 @@
  *   - day must be in 1..daysInMonth(year, month) (ValidationError if out of range)
  *   - statusCode must exist in AttendanceType catalog (ValidationError if unknown)
  *
+ * Month-closed guard (fase-bimestre-cierre-asistencia, PR-3b — Capacidad B):
+ *   UNCONDITIONAL — rejects ALL roles, including ROOT/ADMIN, when the CC+year+month
+ *   is closed. Never nested inside the isAdministrative bypass (AC-B-4/5/6). Read-only
+ *   total: no role can bypass a closed month via this endpoint.
+ *
  * Spec: R-16, R-18, R-19, R-20.
  */
 import { Injectable } from '@nestjs/common';
@@ -26,6 +31,7 @@ import {
   dayOfWeek,
   DayNotAssignableError,
   StatusNotAssignableError,
+  MonthClosedError,
 } from '@educandow/domain';
 import type {
   AsistenciaGeneralRepository,
@@ -33,6 +39,7 @@ import type {
   DocenteXCicloRepository,
   AsignacionCursoXCicloRepository,
   AsistenciaXAlumnoXCursoXCiclo,
+  AttendanceMonthStatusRepository,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -54,6 +61,7 @@ export class RecordGeneralAttendanceDayUseCase {
     private readonly attendanceTypeRepo: AttendanceTypeRepository,
     private readonly docenteRepo: DocenteXCicloRepository,
     private readonly asignacionRepo: AsignacionCursoXCicloRepository,
+    private readonly monthStatusRepo: AttendanceMonthStatusRepository,
   ) {}
 
   async execute(input: RecordGeneralAttendanceDayInput): Promise<AsistenciaXAlumnoXCursoXCiclo> {
@@ -63,6 +71,13 @@ export class RecordGeneralAttendanceDayUseCase {
     const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
       await this.checkDoor2(courseCycleId, userId);
+    }
+
+    // Month-closed guard — UNCONDITIONAL, applies to every role including ROOT/ADMIN
+    // (AC-B-4/5/6). Never placed behind scope.isAdministrative — no bypass exists.
+    const monthStatus = await this.monthStatusRepo.findOne(courseCycleId, year, month);
+    if (monthStatus && monthStatus.isClosed()) {
+      throw new MonthClosedError(courseCycleId, year, month);
     }
 
     // Find existing row (ADR-4: row must be pre-generated)

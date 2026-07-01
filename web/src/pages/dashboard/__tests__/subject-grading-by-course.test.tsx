@@ -99,6 +99,8 @@ const mockScales = [
 const mockByStudentResponse = {
   courseCycleId: 'cc-hm-1',
   studentId: 'stu-ana',
+  // gradingPhase (PR-1b/PR-2, Capacidad A) — BIM_1 keeps period-1 mutation tests (SBC-12) editable.
+  gradingPhase: 'BIM_1',
   subjects: [
     {
       subjectId: 'sub-math',
@@ -589,5 +591,103 @@ describe('SubjectGradingByCoursePage', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     // Student list still visible
     expect(screen.getByTestId('student-list')).toBeInTheDocument();
+  });
+});
+
+// ── Grading phase gating (Capacidad A — PR-2) ──────────────────────────────────
+
+function mockGetWithGradingPhase(gradingPhase: string | null) {
+  (apiClient.get as ReturnType<typeof vi.fn>).mockImplementation(
+    (url: string) => {
+      if (url === '/course-cycles') {
+        return Promise.resolve({ data: { data: mockHomeroomCCs } });
+      }
+      if (url === '/course-cycles/cc-hm-1/students') {
+        return Promise.resolve({ data: { data: mockStudents } });
+      }
+      if (url === '/grading/subject-grades/by-student') {
+        return Promise.resolve({ data: { data: { ...mockByStudentResponse, gradingPhase } } });
+      }
+      if (url === '/grading/scales') {
+        return Promise.resolve({ data: { data: mockScales } });
+      }
+      return Promise.resolve({ data: { data: [] } });
+    },
+  );
+}
+
+describe('SubjectGradingByCoursePage — grading phase gating', () => {
+  beforeEach(() => {
+    setupDefaultMocks();
+  });
+
+  // GP-1: period 1 (active phase) editable, period 2 disabled
+  it('GP-1: only the active phase period column is enabled; other periods are disabled', async () => {
+    mockGetWithGradingPhase('BIM_1');
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+
+    const period1Select = screen.getByRole('combobox', { name: /nota período 1/i });
+    const period2Select = screen.getByRole('combobox', { name: /nota período 2/i });
+    expect(period1Select).not.toBeDisabled();
+    expect(period2Select).toBeDisabled();
+  });
+
+  // GP-2: gradingPhase NULL blocks every period (cutover duro)
+  it('GP-2: gradingPhase NULL disables every period column', async () => {
+    mockGetWithGradingPhase(null);
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+
+    expect(screen.getByRole('combobox', { name: /nota período 1/i })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /nota período 2/i })).toBeDisabled();
+  });
+
+  // GP-3: special/final grades disabled outside CIERRE
+  it('GP-3: final grade selects are disabled when the phase is a bimester (not CIERRE)', async () => {
+    mockGetWithGradingPhase('BIM_1');
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+
+    expect(screen.getByRole('combobox', { name: /nota final/i })).toBeDisabled();
+  });
+
+  // GP-4: special/final grades enabled ONLY during CIERRE
+  it('GP-4: final grade selects are enabled during CIERRE', async () => {
+    mockGetWithGradingPhase('CIERRE');
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+
+    expect(screen.getByRole('combobox', { name: /nota final/i })).not.toBeDisabled();
+    // Bimester periods stay locked during CIERRE
+    expect(screen.getByRole('combobox', { name: /nota período 1/i })).toBeDisabled();
+  });
+
+  // GP-5: visible indicator of the active phase
+  it('GP-5: shows a visible indicator of the active grading phase', async () => {
+    mockGetWithGradingPhase('BIM_2');
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+    expect(screen.getByTestId('grading-phase-indicator')).toHaveTextContent(/2do Bimestre/i);
+  });
+
+  // GP-6: indicator reflects "Sin fase activada" when null
+  it('GP-6: indicator shows "Sin fase activada" when gradingPhase is null', async () => {
+    mockGetWithGradingPhase(null);
+    renderPage();
+    await openGradesModal('Ana');
+
+    await waitFor(() => expect(screen.getByTestId('materias-table')).toBeInTheDocument());
+    expect(screen.getByTestId('grading-phase-indicator')).toHaveTextContent(/sin fase activada/i);
   });
 });

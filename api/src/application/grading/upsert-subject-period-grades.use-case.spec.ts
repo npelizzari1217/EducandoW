@@ -81,6 +81,9 @@ function makeRepos(overrides: Partial<{
     authorizer: {
       canWriteGrades: vi.fn().mockResolvedValue(authorized),
     },
+    phaseAuthorizer: {
+      canGradeBimester: vi.fn().mockResolvedValue({ allowed: true, reason: 'ALLOWED' }),
+    },
   };
 }
 
@@ -91,6 +94,7 @@ function makeUseCase(repos: ReturnType<typeof makeRepos>) {
     repos.ccRepo as any,
     repos.gradeScaleRepo as any,
     repos.authorizer as any,
+    repos.phaseAuthorizer as any,
   );
 }
 
@@ -436,5 +440,61 @@ describe('UpsertSubjectPeriodGradesUseCase', () => {
 
     // Called once for the single (cc, subject) group
     expect(repos.authorizer.canWriteGrades).toHaveBeenCalledTimes(1);
+  });
+
+  // ── PR-1b: grading-phase guard ──────────────────────────────────────────────
+
+  it('PR-1b: phase gate rejected (e.g. NULL cutover) → err(GradingPhaseViolationError), no saveMany', async () => {
+    repos = makeRepos();
+    repos.phaseAuthorizer.canGradeBimester.mockResolvedValue({ allowed: false, reason: 'NO_PHASE' });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        periodOrdinal: 1,
+      }],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(repos.periodGradeRepo.saveMany).not.toHaveBeenCalled();
+    expect(repos.phaseAuthorizer.canGradeBimester).toHaveBeenCalledWith('cc-uuid-1', 1);
+  });
+
+  it('PR-1b: phase gate allowed → proceeds to save', async () => {
+    repos = makeRepos();
+    repos.phaseAuthorizer.canGradeBimester.mockResolvedValue({ allowed: true, reason: 'ALLOWED' });
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    const result = await uc.execute({
+      items: [{
+        studentId: 'student-1',
+        courseCycleId: 'cc-uuid-1',
+        subjectId: 'subj-1',
+        periodOrdinal: 1,
+      }],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(repos.periodGradeRepo.saveMany).toHaveBeenCalled();
+  });
+
+  it('PR-1b: dedupes phase-gate queries per unique (courseCycleId, periodOrdinal)', async () => {
+    repos = makeRepos();
+    vi.mocked(TenantContext.getClient).mockReturnValue(repos.mockClient as any);
+    const uc = makeUseCase(repos);
+
+    await uc.execute({
+      items: [
+        { studentId: 'student-1', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 },
+        { studentId: 'student-2', courseCycleId: 'cc-uuid-1', subjectId: 'subj-1', periodOrdinal: 1 },
+      ],
+    });
+
+    expect(repos.phaseAuthorizer.canGradeBimester).toHaveBeenCalledTimes(1);
   });
 });

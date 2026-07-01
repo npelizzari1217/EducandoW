@@ -39,6 +39,7 @@ import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/
 import { PrismaGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
 import { PrismaAlumnosXGrupoRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-alumnos-x-grupo.repository';
 import { AssignmentAuthorizer } from '../../application/grading/assignment-authorizer.service';
+import { GradingPhaseAuthorizerService } from '../../application/grading/grading-phase-authorizer.service';
 import { GetSubjectGradesBySubjectUseCase } from '../../application/grading/get-subject-grades-by-subject.use-case';
 import { GetSubjectGradesByStudentUseCase } from '../../application/grading/get-subject-grades-by-student.use-case';
 import { UpsertSubjectPeriodGradesUseCase } from '../../application/grading/upsert-subject-period-grades.use-case';
@@ -188,6 +189,12 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
       ) => new AssignmentAuthorizer(docenteRepo, grupoRepo, alumnosXGrupoRepo),
       inject: [PrismaDocenteXCicloRepository, PrismaGrupoRepository, PrismaAlumnosXGrupoRepository],
     },
+    // ── fase-bimestre-cierre-asistencia PR-1b: grading-phase gate (WHEN, distinct from WHO) ─
+    {
+      provide: GradingPhaseAuthorizerService,
+      useFactory: (ccRepo: PrismaCourseCycleRepository) => new GradingPhaseAuthorizerService(ccRepo),
+      inject: [PrismaCourseCycleRepository],
+    },
     {
       provide: GetSubjectGradesBySubjectUseCase,
       useFactory: (
@@ -234,13 +241,15 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
         ccRepo: PrismaCourseCycleRepository,
         scaleRepo: PrismaGradeScaleRepository,
         authorizer: AssignmentAuthorizer,
-      ) => new UpsertSubjectPeriodGradesUseCase(pgRepo, sgpRepo, ccRepo, scaleRepo, authorizer),
+        phaseAuthorizer: GradingPhaseAuthorizerService,
+      ) => new UpsertSubjectPeriodGradesUseCase(pgRepo, sgpRepo, ccRepo, scaleRepo, authorizer, phaseAuthorizer),
       inject: [
         PrismaSubjectPeriodGradeRepository,
         PrismaSubjectGradingPeriodRepository,
         PrismaCourseCycleRepository,
         PrismaGradeScaleRepository,
         AssignmentAuthorizer,
+        GradingPhaseAuthorizerService,
       ],
     },
     {
@@ -250,12 +259,14 @@ import { UpsertSubjectFinalGradesUseCase } from '../../application/grading/upser
         ccRepo: PrismaCourseCycleRepository,
         scaleRepo: PrismaGradeScaleRepository,
         authorizer: AssignmentAuthorizer,
-      ) => new UpsertSubjectFinalGradesUseCase(fgRepo, ccRepo, scaleRepo, authorizer),
+        phaseAuthorizer: GradingPhaseAuthorizerService,
+      ) => new UpsertSubjectFinalGradesUseCase(fgRepo, ccRepo, scaleRepo, authorizer, phaseAuthorizer),
       inject: [
         PrismaSubjectFinalGradeRepository,
         PrismaCourseCycleRepository,
         PrismaGradeScaleRepository,
         AssignmentAuthorizer,
+        GradingPhaseAuthorizerService,
       ],
     },
   ],

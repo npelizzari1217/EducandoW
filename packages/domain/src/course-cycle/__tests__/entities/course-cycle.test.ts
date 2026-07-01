@@ -3,6 +3,7 @@ import { CourseCycle } from '../../entities/course-cycle';
 import { CourseName } from '../../value-objects/course-name';
 import { PassingGrade } from '../../value-objects/passing-grade';
 import { BimonthPeriod } from '../../value-objects/bimonth-period';
+import { GradingPhase } from '../../value-objects/grading-phase';
 import { Level, LevelType } from '../../../institution/value-objects/level';
 import { CourseCycleClosedError } from '../../errors';
 import type { DateRange } from '../../services/grading-period-calculator';
@@ -324,6 +325,128 @@ describe('CourseCycle', () => {
       expect(cc.courseName.equals(courseName)).toBe(true);
       expect(cc.passingGrade.equals(passingGrade)).toBe(true);
       expect(cc.firstBimonth!.equals(firstBim)).toBe(true);
+    });
+  });
+
+  describe('gradingPhase', () => {
+    function makeCC(lvl: LevelType) {
+      return CourseCycle.create({
+        courseId, studyPlanId, cycleId, courseName,
+        level: Level.reconstruct(lvl),
+        passingGrade,
+        firstBimonth: firstBim, secondBimonth: secondBim,
+        thirdBimonth: thirdBim, fourthBimonth: fourthBim,
+      });
+    }
+
+    describe('create() defaults', () => {
+      it('starts with gradingPhase = null', () => {
+        const cc = makeCC(LevelType.PRIMARIO);
+        expect(cc.gradingPhase).toBeNull();
+      });
+    });
+
+    describe('requiresGradingPhase()', () => {
+      it.each([LevelType.PRIMARIO, LevelType.TALLERES_PRIMARIO, LevelType.BILINGÜISMO_PRIMARIO])(
+        'is true for Primario level %s',
+        (lvl) => {
+          expect(makeCC(lvl).requiresGradingPhase()).toBe(true);
+        },
+      );
+
+      it.each([LevelType.SECUNDARIO, LevelType.TALLERES_SECUNDARIO, LevelType.BILINGÜISMO_SECUNDARIO])(
+        'is true for Secundario level %s',
+        (lvl) => {
+          expect(makeCC(lvl).requiresGradingPhase()).toBe(true);
+        },
+      );
+
+      it('is false for Inicial', () => {
+        expect(makeCC(LevelType.INICIAL).requiresGradingPhase()).toBe(false);
+      });
+
+      it('is false for Terciario', () => {
+        expect(makeCC(LevelType.TERCIARIO).requiresGradingPhase()).toBe(false);
+      });
+    });
+
+    describe('setGradingPhase()', () => {
+      it('sets the phase and touches lastModifiedAt', () => {
+        const cc = makeCC(LevelType.PRIMARIO);
+        const before = cc.lastModifiedAt;
+        const phase = GradingPhase.create('BIM_2').unwrap();
+
+        cc.setGradingPhase(phase);
+
+        expect(cc.gradingPhase!.equals(phase)).toBe(true);
+        expect(cc.lastModifiedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      });
+
+      it('is reversible: CIERRE back to a bimester', () => {
+        const cc = makeCC(LevelType.SECUNDARIO);
+        cc.setGradingPhase(GradingPhase.create('CIERRE').unwrap());
+
+        cc.setGradingPhase(GradingPhase.create('BIM_3').unwrap());
+
+        expect(cc.gradingPhase!.code).toBe('BIM_3');
+      });
+
+      it('clears the phase back to null', () => {
+        const cc = makeCC(LevelType.PRIMARIO);
+        cc.setGradingPhase(GradingPhase.create('BIM_1').unwrap());
+
+        cc.setGradingPhase(null);
+
+        expect(cc.gradingPhase).toBeNull();
+      });
+    });
+
+    describe('canGradeBimester()', () => {
+      it('rejects all bimesters when phase is null (hard cutover)', () => {
+        const cc = makeCC(LevelType.PRIMARIO);
+        expect(cc.canGradeBimester(1)).toBe(false);
+        expect(cc.canGradeBimester(2)).toBe(false);
+        expect(cc.canGradeBimester(3)).toBe(false);
+        expect(cc.canGradeBimester(4)).toBe(false);
+      });
+
+      it('allows only the matching ordinal for BIM_n', () => {
+        const cc = makeCC(LevelType.PRIMARIO);
+        cc.setGradingPhase(GradingPhase.create('BIM_2').unwrap());
+
+        expect(cc.canGradeBimester(1)).toBe(false);
+        expect(cc.canGradeBimester(2)).toBe(true);
+        expect(cc.canGradeBimester(3)).toBe(false);
+        expect(cc.canGradeBimester(4)).toBe(false);
+      });
+
+      it('rejects all bimesters during CIERRE', () => {
+        const cc = makeCC(LevelType.SECUNDARIO);
+        cc.setGradingPhase(GradingPhase.create('CIERRE').unwrap());
+
+        expect(cc.canGradeBimester(1)).toBe(false);
+        expect(cc.canGradeBimester(2)).toBe(false);
+        expect(cc.canGradeBimester(3)).toBe(false);
+        expect(cc.canGradeBimester(4)).toBe(false);
+      });
+    });
+
+    describe('canGradeFinal()', () => {
+      it('is false when phase is null', () => {
+        expect(makeCC(LevelType.SECUNDARIO).canGradeFinal()).toBe(false);
+      });
+
+      it('is false during any bimester', () => {
+        const cc = makeCC(LevelType.SECUNDARIO);
+        cc.setGradingPhase(GradingPhase.create('BIM_4').unwrap());
+        expect(cc.canGradeFinal()).toBe(false);
+      });
+
+      it('is true only during CIERRE', () => {
+        const cc = makeCC(LevelType.SECUNDARIO);
+        cc.setGradingPhase(GradingPhase.create('CIERRE').unwrap());
+        expect(cc.canGradeFinal()).toBe(true);
+      });
     });
   });
 });

@@ -18,6 +18,10 @@ import {
   GetActivePeriodUseCase,
   SetActivePeriodUseCase,
 } from '../../application/course-cycle/use-cases/grading-period.use-cases';
+import {
+  GetGradingPhaseUseCase,
+  SetGradingPhaseUseCase,
+} from '../../application/course-cycle/use-cases/grading-phase.use-cases';
 import { AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC } from '../../application/pedagogy/use-cases/competency.use-cases';
 import { PrismaCourseCycleRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-course-cycle.repository';
 import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asignacion-curso-x-ciclo.repository';
@@ -96,6 +100,16 @@ const StudyPlanRepo = 'StudyPlanRepository';
     {
       provide: SetActivePeriodUseCase,
       useFactory: (cc: PrismaCourseCycleRepository) => new SetActivePeriodUseCase(cc),
+      inject: [PrismaCourseCycleRepository],
+    },
+    {
+      provide: GetGradingPhaseUseCase,
+      useFactory: (cc: PrismaCourseCycleRepository) => new GetGradingPhaseUseCase(cc),
+      inject: [PrismaCourseCycleRepository],
+    },
+    {
+      provide: SetGradingPhaseUseCase,
+      useFactory: (cc: PrismaCourseCycleRepository) => new SetGradingPhaseUseCase(cc),
       inject: [PrismaCourseCycleRepository],
     },
     {

@@ -100,3 +100,31 @@ export interface AsistenciaMateriaResponse {
   month: number;
   days: Record<string, string>;
 }
+
+// ── Attendance month status — Capacidad B (fase-bimestre-cierre-asistencia, PR-3b) ──
+
+/** GET .../asistencia-mensual/estado?year=&month= */
+export const AttendanceMonthStatusQuerySchema = z.object({
+  year: z.coerce.number().int().min(2020).max(2100),
+  month: z.coerce.number().int().min(1).max(12),
+});
+
+export type AttendanceMonthStatusQueryDto = z.infer<typeof AttendanceMonthStatusQuerySchema>;
+
+/** PATCH .../asistencia-mensual/estado — opens or closes the month (Secretario+, @Rank(40)). */
+export const SetAttendanceMonthStatusSchema = z.object({
+  year: z.number().int().min(2020).max(2100),
+  month: z.number().int().min(1).max(12),
+  status: z.enum(['OPEN', 'CLOSED']),
+});
+
+export type SetAttendanceMonthStatusDto = z.infer<typeof SetAttendanceMonthStatusSchema>;
+
+export interface AttendanceMonthStatusResponse {
+  courseCycleId: string;
+  year: number;
+  month: number;
+  status: 'OPEN' | 'CLOSED';
+  closedAt: string | null;
+  closedBy: string | null;
+}

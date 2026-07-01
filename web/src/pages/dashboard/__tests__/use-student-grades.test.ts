@@ -30,6 +30,8 @@ const mockScales = [
 const mockByStudentResponse = {
   courseCycleId: 'cc-1',
   studentId: 'stu-1',
+  // gradingPhase (PR-1b/PR-2, Capacidad A) — top-level field surfaced by the by-student use-case.
+  gradingPhase: 'BIM_1',
   subjects: [
     {
       subjectId: 'sub-1',
@@ -149,6 +151,14 @@ describe('useStudentGrades', () => {
   it('SGS-4: starts loading=true on mount', () => {
     const { result } = renderHook(() => useStudentGrades(defaultOptions));
     expect(result.current.loading).toBe(true);
+  });
+
+  // SGS-4b [PR-2 RED]: gradingPhase surfaced from the by-student response (Capacidad A)
+  it('SGS-4b: gradingPhase is exposed from the /grading/subject-grades/by-student response', async () => {
+    const { result } = renderHook(() => useStudentGrades(defaultOptions));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.gradingPhase).toBe('BIM_1');
   });
 
   it('SGS-5: updatePeriodGrade calls PUT /grading/subject-grades with { items } wrapper', async () => {

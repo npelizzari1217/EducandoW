@@ -11,7 +11,9 @@ import {
   Level,
   LevelType,
   Id,
+  GradingPhase,
 } from '@educandow/domain';
+import type { GradingPhaseCode } from '@educandow/domain';
 import type { EnrolledStudent } from '@educandow/domain';
 import type { Prisma, PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../auth/tenant.context';
@@ -265,6 +267,9 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       thirdBimonth,
       fourthBimonth,
       activeGradingPeriod: record.activeGradingPeriod ?? null,
+      gradingPhase: record.gradingPhase
+        ? GradingPhase.reconstruct(record.gradingPhase as GradingPhaseCode)
+        : null,
       createdAt: record.lastModifiedAt, // using lastModifiedAt as createdAt for now; Prisma manages both
       lastModifiedAt: record.lastModifiedAt,
       deletedAt: record.deletedAt ?? null,
@@ -290,6 +295,7 @@ export class PrismaCourseCycleRepository implements CourseCycleRepository {
       fourthBimStart: courseCycle.fourthBimonth?.start ?? null,
       fourthBimEnd: courseCycle.fourthBimonth?.end ?? null,
       activeGradingPeriod: courseCycle.activeGradingPeriod,
+      gradingPhase: courseCycle.gradingPhase?.code ?? null,
     };
   }
 }
