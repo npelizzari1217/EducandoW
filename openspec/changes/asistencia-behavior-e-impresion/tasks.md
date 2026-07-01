@@ -421,3 +421,13 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 | PR4 | Front buttons (T4.1-T4.2) | ~120 | Standalone, no further split needed |
 
 Each internal split remains within a single PR branch (not separate GitHub PRs) unless the implementer judges a physical PR split adds review value — `auto-chain` means the top-level PR1→PR2→PR3→PR4 sequence proceeds without pausing for a chained/stacked-PR decision; the internal split above is a code-organization recommendation for `sdd-apply`, not an additional approval gate.
+
+---
+
+## Post-verify coverage follow-up (closes verify WARNING)
+
+`sdd-verify` (obs #1661) flagged `generate-asistencia-mensual-pdf.use-case.ts` branch coverage at 76.08% (<80% threshold), root-caused to the Door-2 authorization fallback branches (`checkDoor2General`/`checkDoor2Materia`) only being exercised via the admin bypass. Test-only follow-up added 3 unit tests covering the not-found/fails-closed branches for both General and Por Materia. Branch coverage now **82.6%**. No production code changed. Commit `e0932c5`.
+
+- [x] Door-2 General: non-admin + courseCycle-not-found → ForbiddenError, fails closed
+- [x] Door-2 Materia: non-admin + materiaXCursoXCiclo-not-found → ForbiddenError, fails closed
+- [x] Door-2 Materia: non-admin + courseCycle-not-found → ForbiddenError, fails closed
