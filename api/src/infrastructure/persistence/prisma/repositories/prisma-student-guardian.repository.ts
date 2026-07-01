@@ -56,8 +56,12 @@ export class PrismaStudentGuardianRepository implements StudentGuardianRepositor
       // allowDuplicate to truly work); there is no longer a DB constraint for study-tutor names.
       if (
         e instanceof Error &&
-        (e as Record<string, unknown>)['code'] === 'P2002' &&
-        String((e as Record<string, unknown>)['meta']?.['target'] ?? '').includes('userId')
+        (e as unknown as Record<string, unknown>)['code'] === 'P2002' &&
+        String(
+          ((e as unknown as Record<string, unknown>)['meta'] as Record<string, unknown> | undefined)?.[
+            'target'
+          ] ?? '',
+        ).includes('userId')
       ) {
         throw new ValidationError('GUARDIAN_ALREADY_ASSIGNED');
       }
