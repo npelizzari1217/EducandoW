@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { EducationalLevelCode } from '@educandow/domain';
+import { EducationalLevelCode, AttendanceBehaviorValue } from '@educandow/domain';
 import type { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
 
-/** The 4 system attendance type codes generated per pedagogical level. REQ-9. */
+/**
+ * The 4 system attendance type codes generated per pedagogical level. REQ-9.
+ * `behavior` fixed per code (REQ-P1-3/REQ-P1-4, ADR-02 step 3); `assignable`
+ * kept for backward compat in the create payload but derives from behavior
+ * at the repository layer (ADR-03) — repeated here only for readability.
+ */
 const SYSTEM_ATTENDANCE_TYPES = [
-  { code: 'SAB', description: 'Sábado',         assignable: false, absenceValue: 0, isPresent: false },
-  { code: 'DOM', description: 'Domingo',         assignable: false, absenceValue: 0, isPresent: false },
-  { code: 'P',   description: 'Presente',        assignable: true,  absenceValue: 0, isPresent: true  },
-  { code: 'X',   description: 'Día no utilizado', assignable: false, absenceValue: 0, isPresent: false },
+  { code: 'SAB', description: 'Sábado',         assignable: false, absenceValue: 0, isPresent: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
+  { code: 'DOM', description: 'Domingo',         assignable: false, absenceValue: 0, isPresent: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
+  { code: 'P',   description: 'Presente',        assignable: true,  absenceValue: 0, isPresent: true,  behavior: AttendanceBehaviorValue.NO_COMPUTA },
+  { code: 'X',   description: 'Día no utilizado', assignable: false, absenceValue: 0, isPresent: false, behavior: AttendanceBehaviorValue.NO_ELEGIBLE },
 ] as const;
 
 /** Pedagogical levels that receive system types (ADMINISTRACION=9 is excluded). */
@@ -56,6 +61,7 @@ export class EnsureAttendanceTypesForLevelUseCase {
             absenceValue: sysType.absenceValue,
             isPresent: sysType.isPresent,
             assignable: sysType.assignable,
+            behavior: sysType.behavior,
             isSystem: true,
             active: true,
           },
