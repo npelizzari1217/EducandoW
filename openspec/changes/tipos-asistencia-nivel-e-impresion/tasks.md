@@ -144,7 +144,7 @@ patrón de scope que PR2; PR5 consume el contrato ya estabilizado por PR2-4).
 independiente de PR3 — podría desarrollarse en paralelo a PR3 si dos personas trabajan el
 change, aunque se lista después por orden de complejidad creciente.*
 
-- [ ] **T21 (RED)** `[parallel-ok]` nuevo archivo
+- [x] **T21 (RED)** `[parallel-ok]` nuevo archivo
   `api/src/application/attendance-type/__tests__/generate-attendance-types-pdf.use-case.test.ts`
   — `GenerateAttendanceTypesPdfUseCase.execute({ level?, active?, currentUser })`: aplica
   EXACTAMENTE el mismo scope que `ListAttendanceTypesUseCase` (docente 1 nivel/multi-nivel/ROOT-ADMIN/
@@ -152,7 +152,7 @@ change, aunque se lista después por orden de complejidad creciente.*
   invocado); arma el view-model esperado (filas ordenadas, mapeo de campos); llama
   `PdfGeneratorService.generatePdf(html)` exactamente una vez (stub/mock, sin Puppeteer real —
   ADR-06). Cubre REQ Impresión / Escenarios ADD-3.1–ADD-3.4.
-- [ ] **T22 (GREEN)** nuevo archivo
+- [x] **T22 (GREEN)** nuevo archivo
   `api/src/application/attendance-type/use-cases/generate-attendance-types-pdf.use-case.ts` —
   `GenerateAttendanceTypesPdfUseCase.execute({ level?, active?, currentUser }): Promise<Buffer>`:
   reusa `resolveAccessScope` + `repo.list({ ...filters, allowedLevels })` idéntico a
@@ -161,39 +161,39 @@ change, aunque se lista después por orden de complejidad creciente.*
   `resolveInstitution` privado de `generate-asistencia-mensual-pdf.use-case.ts:287-300`); renderiza
   la plantilla `.hbs` (T24) con Handlebars; llama `PdfGeneratorService.generatePdf(html)` SIN
   `landscape` (portrait A4, default del servicio).
-- [ ] **T23** Definir interface `AttendanceTypesReportData` / `AttendanceTypesTemplateContext` en
+- [x] **T23** Definir interface `AttendanceTypesReportData` / `AttendanceTypesTemplateContext` en
   el mismo archivo del use-case (ADR-05: interface en application, no en domain, paridad con
   `AsistenciaMensualTemplateContext`).
-- [ ] **T24** `[parallel-ok]` nuevo archivo
+- [x] **T24** `[parallel-ok]` nuevo archivo
   `api/src/infrastructure/reporting/html-templates/attendance-types.hbs` — tabla portrait
   (código, descripción, nivel, valor de ausencia, comportamiento, estado); header con nombre de
   institución + logo, reusando el patrón de `asistencia-mensual.hbs`. Verificado manualmente contra
   T22 (el use-case referencia el nombre del archivo).
-- [ ] **T25 (RED)** `[parallel-ok]` nuevo archivo
+- [x] **T25 (RED)** `[parallel-ok]` nuevo archivo
   `api/src/presentation/attendance-type/dto/__tests__/print-attendance-types.dto.test.ts` (o
   agregar casos a `dto-validation.test.ts` existente) — `PrintAttendanceTypesQuerySchema` (Zod):
   `level` opcional ∈ `{1,2,3,4}`, `active` opcional boolean-like; valores inválidos → falla de
   parseo (400 en el pipe). Cubre ADD-4.2.
-- [ ] **T26 (GREEN)** nuevo archivo
+- [x] **T26 (GREEN)** nuevo archivo
   `api/src/presentation/attendance-type/dto/print-attendance-types.dto.ts` — Zod schema +
   tipo inferido `PrintAttendanceTypesDTO`.
-- [ ] **T27 (RED)** `attendance-type.controller.test.ts` (o nuevo archivo e2e) — `GET
+- [x] **T27 (RED)** `attendance-type.controller.test.ts` (o nuevo archivo e2e) — `GET
   /attendance-types/print`: 200 `application/pdf` + `Content-Disposition: attachment` para nivel
   en scope; 403 (sin generar PDF) para nivel fuera de scope; 400 para query DTO inválido ANTES de
   evaluar scope (orden: transporte → scope, ADD-4.2). Cubre ADD-3.1, ADD-3.2, ADD-4.2.
-- [ ] **T28 (GREEN)** `attendance-type.controller.ts` — agregar handler
+- [x] **T28 (GREEN)** `attendance-type.controller.ts` — agregar handler
   `printList(@CurrentUser() user, @Query(new ZodValidationPipe(PrintAttendanceTypesQuerySchema)) query, @Res() res)`
   en `GET /attendance-types/print`, espejando `asistencia-reporting.controller.ts:53-78` (headers
   `Content-Type`/`Content-Disposition`/`Content-Length`, `handleError` mapeando `ForbiddenError →
   ForbiddenException`). Registrar la ruta ANTES de `@Get(':id')` en el archivo si Nest resuelve por
   orden de declaración (evitar que `/print` matchee como `:id`) — verificar y reordenar si hace falta.
-- [ ] **T29 (GREEN)** `api/src/presentation/attendance-type/attendance-type.module.ts` — registrar
+- [x] **T29 (GREEN)** `api/src/presentation/attendance-type/attendance-type.module.ts` — registrar
   `PdfGeneratorService` como provider (hoy solo vive en el módulo de reporting) y wirear
   `GenerateAttendanceTypesPdfUseCase` vía `useFactory(repo, pdfGenerator)`. Antes de duplicar el
   provider, revisar si existe un `ReportingModule` compartido exportando `PdfGeneratorService`
   para importarlo en vez de instanciar un segundo Puppeteer singleton (design §9, riesgo de doble
   instancia de browser) — documentar la decisión tomada en el commit.
-- [ ] **T30** Correr `pnpm --filter api test -- attendance-type` — confirmar T21/T25/T27 en verde,
+- [x] **T30** Correr `pnpm --filter api test -- attendance-type` — confirmar T21/T25/T27 en verde,
   cobertura ≥80% en los archivos nuevos.
 
 *Bloquea: PR5 (el botón "Imprimir" del front pega contra este endpoint).*
