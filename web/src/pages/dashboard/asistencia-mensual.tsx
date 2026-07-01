@@ -34,6 +34,9 @@ import { daysInMonth } from '@educandow/domain/asistencia/utils/calendar-utils';
 import apiClient from '../../api/client';
 import { Button } from '../../components/ui/button';
 import { AlertModal } from '../../components/ui/alert-modal';
+import { useAuth } from '../../context/auth-context';
+import { isManagementUser } from '../../types/materia-grupo';
+import { useAttendanceMonthStatus } from '../../hooks/useAttendanceMonthStatus';
 
 // ── Local types ───────────────────────────────────────────────────────────────
 
@@ -133,6 +136,23 @@ const cellSelectStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+const monthClosedBannerStyle: React.CSSProperties = {
+  marginBottom: '1rem',
+  padding: '0.5rem 0.75rem',
+  borderRadius: 'var(--radius-sm, 4px)',
+  background: 'var(--color-warning-soft, #fef3c7)',
+  color: 'var(--color-warning-text, #92400e)',
+  fontSize: 'var(--text-sm, 13px)',
+  fontWeight: 600,
+};
+
+const monthStatusLabelStyle: React.CSSProperties = {
+  fontSize: 'var(--text-xs, 11px)',
+  fontWeight: 600,
+  padding: '0.25rem 0.5rem',
+  borderRadius: 'var(--radius-sm, 4px)',
+};
+
 const cellLockedStyle: React.CSSProperties = {
   display: 'block',
   width: '100%',
@@ -150,6 +170,9 @@ const cellLockedStyle: React.CSSProperties = {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function AsistenciaMensualPage() {
+  const { user } = useAuth();
+  const canManageMonth = isManagementUser(user?.roles);
+
   const today = new Date();
   const [mode, setMode] = useState<PlanillaMode>('general');
   const [year, setYear] = useState(today.getFullYear());
@@ -179,6 +202,12 @@ export default function AsistenciaMensualPage() {
   const [generateLoading, setGenerateLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [noCourseModal, setNoCourseModal] = useState(false);
+
+  // ── Cierre mensual (Capacidad B, PR-4) ──────────────────────────────────
+  // Status is keyed by CourseCycle+year+month regardless of general/materia mode
+  // (both grids belong to the same courseCycleId — see selectedMateriaId loading above).
+  const monthStatus = useAttendanceMonthStatus(selectedCCId || null, year, month);
+  const isMonthClosed = monthStatus.status === 'CLOSED';
 
   // ── Initial data ─────────────────────────────────────────────────────────
 
@@ -332,10 +361,27 @@ export default function AsistenciaMensualPage() {
       } else {
         await loadSubjectRows();
       }
-    } catch {
-      setToast({ message: 'Error al generar la asistencia', type: 'error' });
+    } catch (err: unknown) {
+      const code = (err as { response?: { data?: { error?: { code?: string } } } })?.response?.data?.error?.code;
+      const msg = code === 'PREVIOUS_MONTH_OPEN'
+        ? 'No se puede generar: el mes anterior generado todavía está abierto. Cerralo primero.'
+        : 'Error al generar la asistencia';
+      setToast({ message: msg, type: 'error' });
     } finally {
       setGenerateLoading(false);
+    }
+  };
+
+  const handleToggleMonthStatus = async () => {
+    const next = isMonthClosed ? 'OPEN' : 'CLOSED';
+    const ok = await monthStatus.setStatus(next);
+    if (ok) {
+      setToast({
+        message: next === 'CLOSED' ? 'Mes cerrado correctamente' : 'Mes reabierto correctamente',
+        type: 'success',
+      });
+    } else {
+      setToast({ message: monthStatus.error || 'Error al actualizar el estado del mes', type: 'error' });
     }
   };
 
@@ -524,7 +570,39 @@ export default function AsistenciaMensualPage() {
         >
           {generateLoading ? 'Generando…' : 'Generar asistencia del mes'}
         </Button>
+
+        {/* Cierre mensual toggle — visible/operable solo Secretario+ (rank>=40) */}
+        {canManageMonth && selectedCCId && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span
+              data-testid="mes-status-label"
+              style={{
+                ...monthStatusLabelStyle,
+                background: isMonthClosed ? 'var(--color-danger-soft, #fee2e2)' : 'var(--color-success-soft, #dcfce7)',
+                color: isMonthClosed ? 'var(--color-danger, #dc2626)' : 'var(--color-success, #16a34a)',
+              }}
+            >
+              {isMonthClosed ? 'Mes cerrado' : 'Mes abierto'}
+            </span>
+            <Button
+              variant={isMonthClosed ? 'action' : 'danger-soft'}
+              size="sm"
+              data-testid="btn-toggle-mes"
+              onClick={handleToggleMonthStatus}
+              disabled={monthStatus.loading || monthStatus.saving}
+            >
+              {monthStatus.saving ? 'Guardando…' : isMonthClosed ? 'Reabrir mes' : 'Cerrar mes'}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {/* Banner: mes cerrado — read-only total para TODOS los roles */}
+      {isMonthClosed && (
+        <div data-testid="mes-cerrado-banner" style={monthClosedBannerStyle}>
+          Mes cerrado — solo lectura/impresión.
+        </div>
+      )}
 
       {/* Grid */}
       {loading ? (
@@ -598,7 +676,8 @@ export default function AsistenciaMensualPage() {
                         : undefined;
                       const isLockedByCode = at?.assignable === false;
                       const isNonExistent = d > numDays;
-                      const locked = isLockedByCode || isNonExistent;
+                      // AC-B-4/5/6: mes cerrado → read-only total para TODOS los roles, sin excepción.
+                      const locked = isLockedByCode || isNonExistent || isMonthClosed;
 
                       return (
                         <td
