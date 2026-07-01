@@ -310,19 +310,24 @@ sesión como PR-3b, no como PR-3a+PR-3b según el split original del Review Work
 
 ### 4.1 Presentational / Container (web)
 
-- [ ] 4.1.1 Test: hook `useAttendanceMonthStatus` — GET trae `isClosed`, PATCH cierra/reabre y
+- [x] 4.1.1 Test: hook `useAttendanceMonthStatus` — GET trae `isClosed`, PATCH cierra/reabre y
       actualiza estado local, surface del 409 `PREVIOUS_MONTH_OPEN` al generar.
-      `web/src/hooks/useAttendanceMonthStatus.test.ts`
-- [ ] 4.1.2 Impl: hook `useAttendanceMonthStatus` (GET/PATCH
+      `web/src/hooks/__tests__/useAttendanceMonthStatus.test.ts` (ruta real: `__tests__/`, no
+      sufijo plano `.test.ts` junto al hook — sigue convención de `useGradingPhase`)
+- [x] 4.1.2 Impl: hook `useAttendanceMonthStatus` (GET/PATCH
       `course-cycles/:ccId/asistencia-mensual/estado`).
       `web/src/hooks/useAttendanceMonthStatus.ts`
-- [ ] 4.1.3 Test: `asistencia-mensual.tsx` — con mes cerrado: banner visible, celdas de día
-      read-only (texto plano, no `<select>`), botón "Generar" deshabilitado; botón
-      "Cerrar"/"Reabrir" visible solo Secretario+; toast al recibir 409
-      `PREVIOUS_MONTH_OPEN` en generar.
-      `web/src/pages/dashboard/asistencia-mensual.test.tsx` (ampliar)
-- [ ] 4.1.4 Impl: estado de mes (GET al seleccionar CC/mes), botón abrir/cerrar, read-only
-      total + banner cuando cerrado, deshabilitar "Generar", toast de 409.
+- [x] 4.1.3 Test: `asistencia-mensual.tsx` — con mes cerrado: banner visible, celdas de día
+      read-only (texto plano, no `<select>`) en general Y por materia, botón "Generar"
+      deshabilitado; botón "Cerrar"/"Reabrir" visible solo Secretario+ (`isManagementUser`,
+      rank≥40 — MANAGEMENT_ROLES); toast con mensaje claro en español al recibir 409
+      `PREVIOUS_MONTH_OPEN` en generar (no expone el mensaje técnico en inglés del dominio).
+      `web/src/pages/dashboard/__tests__/asistencia-mensual.test.tsx` (ampliado, +11 tests
+      AM-1..AM-11)
+- [x] 4.1.4 Impl: estado de mes (GET al seleccionar CC/mes vía `useAttendanceMonthStatus`),
+      botón abrir/cerrar (Secretario+), read-only total + banner cuando cerrado (para TODOS
+      los roles, sin excepción — AC-B-4/5/6), deshabilitar "Generar" cuando el mes
+      seleccionado ya está cerrado, toast de 409 `PREVIOUS_MONTH_OPEN` mapeado a mensaje claro.
       `web/src/pages/dashboard/asistencia-mensual.tsx`
 
 ---
