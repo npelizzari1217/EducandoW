@@ -306,6 +306,17 @@ model AcademicCycle {
 
 // ── Course Cycle ────────────────────────────────────────────
 
+// Grading phase for the current bimester cycle (Primario/Secundario only).
+// fase-bimestre-cierre-asistencia, PR-1. Absence (column NULL) means no active
+// phase / hard cutover — modeled as `null` in the domain, never as an enum value.
+enum GradingPhase {
+  BIM_1
+  BIM_2
+  BIM_3
+  BIM_4
+  CIERRE
+}
+
 model CourseCycle {
   id             Int       @id @default(autoincrement())
   uuid           String    @unique @default(uuid())
@@ -326,6 +337,9 @@ model CourseCycle {
   fourthBimStart DateTime? @map("fourth_bim_start")  // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   fourthBimEnd   DateTime? @map("fourth_bim_end")    // @deprecated grading-foundations: reemplazado por GradingPeriodDate
   activeGradingPeriod Int? @map("active_grading_period") // @deprecated grading-foundations: reemplazado por GradingPeriodDate
+  /// Fase de calificación activa (Primario/Secundario). NULL = sin activar / cutover duro.
+  /// fase-bimestre-cierre-asistencia, PR-1.
+  gradingPhase   GradingPhase? @map("grading_phase")
   lastModifiedAt DateTime  @updatedAt @map("last_modified_at")
   deletedAt      DateTime?
 
