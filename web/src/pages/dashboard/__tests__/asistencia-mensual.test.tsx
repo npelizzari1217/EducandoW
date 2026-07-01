@@ -37,16 +37,19 @@ vi.mock('../../../api/client', () => ({
 }));
 
 // ── Mock auth ─────────────────────────────────────────────────────────────────
+// Mutable — PR-4 tests reassign mockAuthUser.roles to check Secretario+ gating.
+
+let mockAuthUser: { id: string; email: string; name: string; roles: string[]; institutionId: string } = {
+  id: 'admin-1',
+  email: 'admin@test.com',
+  name: 'Admin',
+  roles: ['ADMIN'],
+  institutionId: 'inst-1',
+};
 
 vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
-    user: {
-      id: 'admin-1',
-      email: 'admin@test.com',
-      name: 'Admin',
-      roles: ['ADMIN'],
-      institutionId: 'inst-1',
-    },
+    user: mockAuthUser,
     logout: vi.fn(),
     isLoading: false,
     login: vi.fn(),
@@ -72,6 +75,13 @@ vi.mock('../../../context/institution-context', () => ({
 }));
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
+
+/** Mutable — PR-4 tests set this to 'CLOSED' before rendering to check read-only gating. */
+let mockMonthStatus: { status: 'OPEN' | 'CLOSED'; closedAt: string | null; closedBy: string | null } = {
+  status: 'OPEN',
+  closedAt: null,
+  closedBy: null,
+};
 
 const courseCycles = [
   { uuid: 'cc-1', name: 'Primer Año A - 2026', level: 3 },
@@ -106,6 +116,10 @@ let AsistenciaMensualPage: React.ComponentType<object>;
 
 beforeEach(async () => {
   vi.clearAllMocks();
+  mockAuthUser = {
+    id: 'admin-1', email: 'admin@test.com', name: 'Admin', roles: ['ADMIN'], institutionId: 'inst-1',
+  };
+  mockMonthStatus = { status: 'OPEN', closedAt: null, closedBy: null };
 
   // Default mock: course-cycles + attendance-types on mount
   mockGet.mockImplementation((url: string) => {
@@ -115,11 +129,30 @@ beforeEach(async () => {
     if (url === '/attendance-types') {
       return Promise.resolve({ data: { data: attendanceTypes } });
     }
+    // Estado endpoint MUST be checked before the generic '/asistencia-mensual' branch below
+    // (both share the '/asistencia-mensual' substring).
+    if (url.includes('/asistencia-mensual/estado')) {
+      return Promise.resolve({
+        data: {
+          data: {
+            courseCycleId: 'cc-1',
+            year: 2026,
+            month: 6,
+            status: mockMonthStatus.status,
+            closedAt: mockMonthStatus.closedAt,
+            closedBy: mockMonthStatus.closedBy,
+          },
+        },
+      });
+    }
     if (url.includes('/asistencia-mensual') && !url.includes('materia')) {
       return Promise.resolve({ data: { data: generalRows } });
     }
     if (url.includes('/materias-curso-ciclo') && url.includes('/asistencia-mensual')) {
       return Promise.resolve({ data: { data: subjectRows } });
+    }
+    if (url.endsWith('/materias')) {
+      return Promise.resolve({ data: { data: materias } });
     }
     if (url.includes('/materias-curso-ciclo') && !url.includes('/asistencia-mensual')) {
       return Promise.resolve({ data: { data: materias } });
@@ -133,8 +166,22 @@ beforeEach(async () => {
   mockPost.mockResolvedValue({
     data: { data: { generalCreated: 2, generalSkipped: 0, materiaCreated: 2, materiaSkipped: 0 } },
   });
-  mockPatch.mockResolvedValue({
-    data: { data: { ...generalRows[0], days: { '5': 'P' } } },
+  mockPatch.mockImplementation((url: string, body: { year?: number; month?: number; status?: 'OPEN' | 'CLOSED' }) => {
+    if (url.includes('/asistencia-mensual/estado')) {
+      return Promise.resolve({
+        data: {
+          data: {
+            courseCycleId: 'cc-1',
+            year: body.year,
+            month: body.month,
+            status: body.status,
+            closedAt: body.status === 'CLOSED' ? '2026-06-15T00:00:00.000Z' : null,
+            closedBy: body.status === 'CLOSED' ? 'admin-1' : null,
+          },
+        },
+      });
+    }
+    return Promise.resolve({ data: { data: { ...generalRows[0], days: { '5': 'P' } } } });
   });
 
   const mod = await import('../asistencia-mensual');
@@ -576,6 +623,137 @@ describe('AsistenciaMensualPage', () => {
       // No PATCH should have been called; cell stays read-only
       expect(mockPatch).not.toHaveBeenCalled();
       expect(lockedCell.tagName.toLowerCase()).toBe('span');
+    });
+  });
+
+  // ── PR-4 — cierre mensual (Capacidad B, front) ────────────────────────────
+
+  describe('Cierre mensual — PR-4', () => {
+    it('AM-1: shows the abrir/cerrar toggle button for a Secretario+ user (ADMIN, default fixture)', async () => {
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-toggle-mes')).toBeInTheDocument();
+      });
+    });
+
+    it('AM-2: hides the abrir/cerrar toggle button for TEACHER (below Secretario rank)', async () => {
+      mockAuthUser = { ...mockAuthUser, roles: ['TEACHER'] };
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('cc-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('btn-toggle-mes')).not.toBeInTheDocument();
+    });
+
+    it('AM-3: hides the abrir/cerrar toggle button for PRECEPTOR (below Secretario rank)', async () => {
+      mockAuthUser = { ...mockAuthUser, roles: ['PRECEPTOR'] };
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('cc-selector')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('btn-toggle-mes')).not.toBeInTheDocument();
+    });
+
+    it('AM-4: shows the toggle button for SECRETARIO', async () => {
+      mockAuthUser = { ...mockAuthUser, roles: ['SECRETARIO'] };
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-toggle-mes')).toBeInTheDocument();
+      });
+    });
+
+    it('AM-5: clicking the toggle button PATCHes the estado endpoint to CLOSED and flips the label', async () => {
+      const user = userEvent.setup();
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-toggle-mes')).toBeInTheDocument());
+      expect(screen.getByTestId('btn-toggle-mes')).toHaveTextContent(/cerrar mes/i);
+
+      await user.click(screen.getByTestId('btn-toggle-mes'));
+
+      await waitFor(() => {
+        expect(mockPatch).toHaveBeenCalledWith(
+          expect.stringContaining('/asistencia-mensual/estado'),
+          expect.objectContaining({ status: 'CLOSED' }),
+        );
+      });
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-toggle-mes')).toHaveTextContent(/reabrir mes/i);
+      });
+    });
+
+    it('AM-6: month closed → general grid cells are locked read-only for ALL roles (incl. non-management)', async () => {
+      mockAuthUser = { ...mockAuthUser, roles: ['TEACHER'] };
+      mockMonthStatus = { status: 'CLOSED', closedAt: '2026-06-15T00:00:00.000Z', closedBy: 'admin-1' };
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('grid-container')).toBeInTheDocument());
+      await waitFor(() => {
+        expect(screen.getByTestId('cell-locked-stu-1-3')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('cell-stu-1-3')).not.toBeInTheDocument();
+      expect(screen.getByTestId('mes-cerrado-banner')).toBeInTheDocument();
+    });
+
+    it('AM-7: month closed → materia grid cells are also locked read-only', async () => {
+      const user = userEvent.setup();
+      mockMonthStatus = { status: 'CLOSED', closedAt: '2026-06-15T00:00:00.000Z', closedBy: 'admin-1' };
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('tab-materia')).toBeInTheDocument());
+      await user.click(screen.getByTestId('tab-materia'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('cell-locked-stu-1-1')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('cell-stu-1-1')).not.toBeInTheDocument();
+    });
+
+    it('AM-8: month open → no read-only banner and cells stay editable', async () => {
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('grid-container')).toBeInTheDocument());
+      await waitFor(() => {
+        expect(screen.getByTestId('cell-stu-1-3')).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId('mes-cerrado-banner')).not.toBeInTheDocument();
+    });
+
+    it('AM-9: "Generar" surfaces a clear message when the backend rejects with PREVIOUS_MONTH_OPEN (409)', async () => {
+      const user = userEvent.setup();
+      mockPost.mockRejectedValueOnce({
+        response: { data: { error: { code: 'PREVIOUS_MONTH_OPEN', message: 'previous month is still open' } } },
+      });
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-generar')).toBeInTheDocument());
+      await user.click(screen.getByTestId('btn-generar'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('asistencia-toast')).toBeInTheDocument();
+      });
+      expect(screen.getByTestId('asistencia-toast')).toHaveTextContent(/mes anterior/i);
+      expect(screen.getByTestId('asistencia-toast')).not.toHaveTextContent(/previous month/i);
+    });
+
+    it('AM-11: "Generar" is disabled when the selected month is already closed', async () => {
+      mockMonthStatus = { status: 'CLOSED', closedAt: '2026-06-15T00:00:00.000Z', closedBy: 'admin-1' };
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId('btn-generar')).toBeInTheDocument());
+      await waitFor(() => {
+        expect(screen.getByTestId('btn-generar')).toBeDisabled();
+      });
+    });
+
+    it('AM-10: "Generar" shows a generic error message for other failures', async () => {
+      const user = userEvent.setup();
+      mockPost.mockRejectedValueOnce({ response: { data: { error: { message: 'boom' } } } });
+      renderPage();
+
+      await waitFor(() => expect(screen.getByTestId('btn-generar')).toBeInTheDocument());
+      await user.click(screen.getByTestId('btn-generar'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('asistencia-toast')).toHaveTextContent(/error al generar/i);
+      });
     });
   });
 });
