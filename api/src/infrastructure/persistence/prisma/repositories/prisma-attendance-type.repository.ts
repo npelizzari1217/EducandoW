@@ -32,7 +32,8 @@ export class PrismaAttendanceTypeRepository implements AttendanceTypeRepository 
 
   async list(filters?: AttendanceTypeFilters): Promise<AttendanceType[]> {
     const where: Record<string, unknown> = { deletedAt: null };
-    if (filters?.level !== undefined) where.level = filters.level;
+    if (filters?.allowedLevels !== undefined) where.level = { in: filters.allowedLevels };
+    if (filters?.level !== undefined) where.level = filters.level; // explícito gana sobre el scope
     if (filters?.active !== undefined) where.active = filters.active;
 
     const rows = await this.client.attendanceType.findMany({
