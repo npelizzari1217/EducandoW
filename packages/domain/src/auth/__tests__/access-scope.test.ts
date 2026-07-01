@@ -74,4 +74,37 @@ describe('resolveAccessScope', () => {
     const scope = resolveAccessScope({ roles: ['DIRECTOR'] });
     expect(scope.compositeLevels).toEqual([]);
   });
+
+  describe('baseLevels', () => {
+    it('single level: [20] → baseLevels=[2]', () => {
+      const scope = resolveAccessScope({ roles: ['TEACHER'], levels: [20] });
+      expect(scope.baseLevels).toEqual([2]);
+    });
+
+    it('multiple modalities of same base collapse to one entry: [10,20,21] → baseLevels=[1,2]', () => {
+      const scope = resolveAccessScope({ roles: ['TEACHER'], levels: [10, 20, 21] });
+      expect(scope.baseLevels).toEqual([1, 2]);
+    });
+
+    it('multiple distinct bases, sorted asc: [41,10,30] → baseLevels=[1,3,4]', () => {
+      const scope = resolveAccessScope({ roles: ['DIRECTOR'], levels: [41, 10, 30] });
+      expect(scope.baseLevels).toEqual([1, 3, 4]);
+    });
+
+    it('ROOT/ADMIN: allLevels=true independent of levels, baseLevels still collapses when levels present', () => {
+      const scope = resolveAccessScope({ roles: ['ROOT'], levels: [10, 20, 21] });
+      expect(scope.allLevels).toBe(true);
+      expect(scope.baseLevels).toEqual([1, 2]);
+    });
+
+    it('empty levels (non-ROOT/ADMIN): baseLevels=[]', () => {
+      const scope = resolveAccessScope({ roles: ['TEACHER'], levels: [] });
+      expect(scope.baseLevels).toEqual([]);
+    });
+
+    it('levels undefined: baseLevels=[]', () => {
+      const scope = resolveAccessScope({ roles: ['TEACHER'] });
+      expect(scope.baseLevels).toEqual([]);
+    });
+  });
 });
