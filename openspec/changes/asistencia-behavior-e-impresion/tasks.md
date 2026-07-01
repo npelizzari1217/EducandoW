@@ -38,42 +38,42 @@ PR1 (behavior base: schema+migration+domain VO+repo+seed)
 
 #### T1.1 [TEST] Unit tests for `AttendanceBehavior` VO
 
-- [ ] Create `packages/domain/src/attendance-type/__tests__/value-objects/attendance-behavior.test.ts`
-- [ ] `AttendanceBehavior.create('AUSENTE_INJUSTIFICADO')` → ok, `.get()` returns the value (P1-1 base)
-- [ ] `AttendanceBehavior.create('INVALID')` → `Result` failure / `ValidationError` (mirrors P1-2 rejection)
-- [ ] Predicates: `isEligible()` false only for `NO_ELEGIBLE`; true for the other 6
-- [ ] `isDiaHabil()` false for `NO_ELEGIBLE` and `DIA_NO_HABIL`; true for the other 5
-- [ ] `isTardeJustificada()` / `isTardeInjustificada()` / `isAusenteJustificado()` / `isAusenteInjustificado()` / `isNoComputa()` each true only for their own member, false for the other 6
-- [ ] All 7 members constructible without cross-validation/uniqueness error (mirrors P1-11 at VO level)
+- [x] Create `packages/domain/src/attendance-type/__tests__/value-objects/attendance-behavior.test.ts`
+- [x] `AttendanceBehavior.create('AUSENTE_INJUSTIFICADO')` → ok, `.get()` returns the value (P1-1 base)
+- [x] `AttendanceBehavior.create('INVALID')` → `Result` failure / `ValidationError` (mirrors P1-2 rejection)
+- [x] Predicates: `isEligible()` false only for `NO_ELEGIBLE`; true for the other 6
+- [x] `isDiaHabil()` false for `NO_ELEGIBLE` and `DIA_NO_HABIL`; true for the other 5
+- [x] `isTardeJustificada()` / `isTardeInjustificada()` / `isAusenteJustificado()` / `isAusenteInjustificado()` / `isNoComputa()` each true only for their own member, false for the other 6
+- [x] All 7 members constructible without cross-validation/uniqueness error (mirrors P1-11 at VO level)
 
 #### T1.2 [IMPL] Create `attendance-behavior.ts` — run until T1.1 green
 
-- [ ] Create `packages/domain/src/attendance-type/value-objects/attendance-behavior.ts`
-- [ ] Export `AttendanceBehaviorValue` enum: `AUSENTE_INJUSTIFICADO`, `AUSENTE_JUSTIFICADO`, `NO_ELEGIBLE`, `NO_COMPUTA`, `TARDE_INJUSTIFICADA`, `TARDE_JUSTIFICADA`, `DIA_NO_HABIL` (matches Prisma enum member names 1:1)
-- [ ] `AttendanceBehavior.create(value: string): Result<AttendanceBehavior, ValidationError>` validates membership
-- [ ] Predicates per T1.1 (`isEligible`, `isDiaHabil`, `isTardeJustificada`, `isTardeInjustificada`, `isAusenteJustificado`, `isAusenteInjustificado`, `isNoComputa`), `get(): AttendanceBehaviorValue`
-- [ ] Add export to `packages/domain/src/attendance-type/value-objects/index.ts` and `packages/domain/src/attendance-type/index.ts`
-- [ ] `pnpm --filter @educandow/domain test` green
+- [x] Create `packages/domain/src/attendance-type/value-objects/attendance-behavior.ts`
+- [x] Export `AttendanceBehaviorValue` enum: `AUSENTE_INJUSTIFICADO`, `AUSENTE_JUSTIFICADO`, `NO_ELEGIBLE`, `NO_COMPUTA`, `TARDE_INJUSTIFICADA`, `TARDE_JUSTIFICADA`, `DIA_NO_HABIL` (matches Prisma enum member names 1:1)
+- [x] `AttendanceBehavior.create(value: string): Result<AttendanceBehavior, ValidationError>` validates membership
+- [x] Predicates per T1.1 (`isEligible`, `isDiaHabil`, `isTardeJustificada`, `isTardeInjustificada`, `isAusenteJustificado`, `isAusenteInjustificado`, `isNoComputa`), `get(): AttendanceBehaviorValue`
+- [x] Add export to `packages/domain/src/attendance-type/value-objects/index.ts` and `packages/domain/src/attendance-type/index.ts`
+- [x] `pnpm --filter @educandow/domain test` green
 
 ### Domain — entity `AttendanceType`
 
 #### T1.3 [TEST] Update entity tests for `behavior`
 
-- [ ] Edit `packages/domain/src/attendance-type/__tests__/entities/attendance-type.test.ts`
-- [ ] `AttendanceType.create({..., behavior: AttendanceBehaviorValue.AUSENTE_JUSTIFICADO})` succeeds, `.behavior` exposes the VO (P1-1)
-- [ ] `CreateAttendanceTypeInput` no longer accepts/requires `assignable`; entity derives it: `.assignable === entity.behavior.isEligible()` for every behavior value (ADR-03)
-- [ ] `Reconstruct` path accepts `behavior` from persistence and rebuilds the VO (repo round-trip contract)
-- [ ] `assertMutable()` on an `isSystem = true` entity still throws `SystemAttendanceTypeError` regardless of what `behavior` is passed on the attempted update (P1-5/P1-6 — existing lock, verify it still covers `behavior`)
-- [ ] Fractional `absenceValue` (0.25, 0.75) persists independent of chosen `behavior` (P1-12)
+- [x] Edit `packages/domain/src/attendance-type/__tests__/entities/attendance-type.test.ts`
+- [x] `AttendanceType.create({..., behavior: AttendanceBehaviorValue.AUSENTE_JUSTIFICADO})` succeeds, `.behavior` exposes the VO (P1-1)
+- [x] `CreateAttendanceTypeInput` no longer accepts/requires `assignable`; entity derives it: `.assignable === entity.behavior.isEligible()` for every behavior value (ADR-03)
+- [x] `Reconstruct` path accepts `behavior` from persistence and rebuilds the VO (repo round-trip contract)
+- [x] `assertMutable()` on an `isSystem = true` entity still throws `SystemAttendanceTypeError` regardless of what `behavior` is passed on the attempted update (P1-5/P1-6 — existing lock, verify it still covers `behavior`)
+- [x] Fractional `absenceValue` (0.25, 0.75) persists independent of chosen `behavior` (P1-12)
 
 #### T1.4 [IMPL] Update `attendance-type.ts` entity — run until T1.3 green
 
-- [ ] Edit `packages/domain/src/attendance-type/entities/attendance-type.ts`
-- [ ] Add `behavior: AttendanceBehavior` to `AttendanceTypeProps`, `CreateAttendanceTypeInput`, `ReconstructAttendanceTypeProps`
-- [ ] Remove `assignable` from `CreateAttendanceTypeInput` (kept only as a derived getter: `get assignable() { return this.props.behavior.isEligible(); }`)
-- [ ] Add `get behavior(): AttendanceBehavior`
-- [ ] No change to `assertMutable()` logic (lock already exists — ADR-04)
-- [ ] `pnpm --filter @educandow/domain test` green; `pnpm build` green in `packages/domain`
+- [x] Edit `packages/domain/src/attendance-type/entities/attendance-type.ts`
+- [x] Add `behavior: AttendanceBehavior` to `AttendanceTypeProps`, `CreateAttendanceTypeInput`, `ReconstructAttendanceTypeProps`
+- [x] Remove `assignable` from `CreateAttendanceTypeInput` (kept only as a derived getter: `get assignable() { return this.props.behavior.isEligible(); }`)
+- [x] Add `get behavior(): AttendanceBehavior`
+- [x] No change to `assertMutable()` logic (lock already exists — ADR-04)
+- [x] `pnpm --filter @educandow/domain test` green; `pnpm build` green in `packages/domain`
 
 ### Prisma tenant — schema + migration
 

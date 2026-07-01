@@ -7,6 +7,10 @@ import { describe, it, expect, vi } from 'vitest';
 import type { AttendanceTypeRepository } from '../../repositories/attendance-type-repository';
 import { AttendanceType } from '../../entities/attendance-type';
 import { AttendanceTypeCode } from '../../value-objects/attendance-type-code';
+import {
+  AttendanceBehavior,
+  AttendanceBehaviorValue,
+} from '../../value-objects/attendance-behavior';
 
 function makeEntity(): AttendanceType {
   return AttendanceType.reconstruct({
@@ -15,7 +19,7 @@ function makeEntity(): AttendanceType {
     description: 'Presente',
     absenceValue: 0,
     level: 2,
-    assignable: true,
+    behavior: AttendanceBehavior.create(AttendanceBehaviorValue.NO_COMPUTA).unwrap(),
     isSystem: true,
     active: true,
   });
