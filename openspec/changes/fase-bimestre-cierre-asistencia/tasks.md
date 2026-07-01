@@ -131,33 +131,51 @@ ortogonal). *Bloquea conceptualmente el orden de review:* precede a PR-3 en la c
 
 ### 2.1 Types
 
-- [ ] 2.1.1 Impl: agregar `gradingPhase: 'BIM_1'|'BIM_2'|'BIM_3'|'BIM_4'|'CIERRE'|null` al tipo
+- [x] 2.1.1 Impl: agregar `gradingPhase: 'BIM_1'|'BIM_2'|'BIM_3'|'BIM_4'|'CIERRE'|null` al tipo
       `CourseCycle`.
       `web/src/types/course-cycle.ts`
 
 ### 2.2 Presentational / Container (web)
 
-- [ ] 2.2.1 Test: hook `useGradingPhase` — GET trae el valor actual, PATCH persiste y
+- [x] 2.2.1 Test: hook `useGradingPhase` — GET trae el valor actual, PATCH persiste y
       actualiza estado local, maneja error 409/422 con mensaje.
-      `web/src/hooks/useGradingPhase.test.ts`
-- [ ] 2.2.2 Impl: hook `useGradingPhase` (GET/PATCH `course-cycles/:uuid/grading-phase`).
+      `web/src/hooks/__tests__/useGradingPhase.test.ts` (ruta real: `__tests__/`, no
+      co-localizado — misma convención de PR-1)
+- [x] 2.2.2 Impl: hook `useGradingPhase` (GET/PATCH `course-cycles/:uuid/grading-phase`).
       `web/src/hooks/useGradingPhase.ts`
-- [ ] 2.2.3 Test: `course-cycles.tsx` — botón "Fase de calificación" visible solo si
-      `MANAGEMENT_ROLES` (Secretario+) y `level` ∈ {20,21,22,30,31,32}; oculto en
-      Inicial/Terciario; popup guarda y refleja el nuevo valor.
-      `web/src/pages/dashboard/course-cycles.test.tsx` (ampliar)
-- [ ] 2.2.4 Impl: botón + popup (`useState<string|null>` + `Modal`, selector
-      NULL|BIM_1..4|CIERRE).
+- [x] 2.2.2b [P] Test+Impl (no listado originalmente, prerequisito real de 2.2.5/2.2.7):
+      helper compartido `grading-phase-utils` (`isPeriodGradeEditable`, `isFinalGradeEditable`,
+      `GRADING_PHASE_OPTIONS`, `GRADING_PHASE_LABELS`, `gradingPhaseStatusLabel`) — evita
+      duplicar la lógica de gating entre las 2 grillas.
+      `web/src/pages/dashboard/components/grading-phase-utils.ts`,
+      `web/src/pages/dashboard/components/__tests__/grading-phase-utils.test.ts`
+- [x] 2.2.2c [P] Test+Impl (no listado originalmente, prerequisito real de 2.2.5/2.2.7):
+      exponer `gradingPhase: string|null` en `useGradingGrid`/`useStudentGrades` (leen el
+      campo top-level que PR-1b ya agregó a las respuestas de subject-grades).
+      `web/src/pages/dashboard/components/use-grading-grid.ts` (+2 tests ampliados),
+      `web/src/pages/dashboard/components/use-student-grades.ts` (+1 test ampliado)
+- [x] 2.2.3 Test: `course-cycles.tsx` — botón "Fase de Calificación" visible solo si
+      `isManagementUser` (Secretario+, reusa `MANAGEMENT_ROLES` de `types/materia-grupo.ts`) y
+      `level` ∈ {20,21,22,30,31,32}; oculto en Inicial/Terciario y para roles no-management;
+      popup guarda y refleja el nuevo valor.
+      `web/src/pages/dashboard/__tests__/course-cycles.test.tsx` (ampliar — ruta real
+      `__tests__/`, no co-localizado)
+- [x] 2.2.4 Impl: botón + popup (`useState<string|null>` + `Modal`, 5 opciones activables
+      BIM_1..4|CIERRE con la activa marcada vía `aria-pressed`; NULL es un estado — "Sin fase
+      activada" — no una opción seleccionable, según instrucción explícita de esta sesión).
       `web/src/pages/dashboard/course-cycles.tsx`
-- [ ] 2.2.5 [P] Test: `subject-grading-by-course.tsx` — columnas de bimestre distinto al activo
+- [x] 2.2.5 [P] Test: `subject-grading-by-course.tsx` — columnas de bimestre distinto al activo
       deshabilitadas; todas deshabilitadas si `gradingPhase` es NULL o CIERRE; notas especiales
-      deshabilitadas salvo CIERRE.
-      `web/src/pages/dashboard/subject-grading-by-course.test.tsx` (ampliar)
-- [ ] 2.2.6 [P] Impl: deshabilitar columnas según `gradingPhase` (readonly + tooltip).
+      deshabilitadas salvo CIERRE; indicador visible de la fase activa.
+      `web/src/pages/dashboard/__tests__/subject-grading-by-course.test.tsx` (ampliar)
+- [x] 2.2.6 [P] Impl: deshabilitar columnas según `gradingPhase` (readonly + tooltip) +
+      indicador `data-testid="grading-phase-indicator"`.
       `web/src/pages/dashboard/subject-grading-by-course.tsx`
-- [ ] 2.2.7 [P] Test: `subject-grading-by-subject.tsx` — mismo comportamiento que 2.2.5.
-      `web/src/pages/dashboard/subject-grading-by-subject.test.tsx` (ampliar)
-- [ ] 2.2.8 [P] Impl: mismo que 2.2.6 para la vista por materia.
+- [x] 2.2.7 [P] Test: `subject-grading-by-subject.tsx` — mismo comportamiento que 2.2.5,
+      incluye además PA/PPI/PP (bloqueados junto con la nota del mismo período — un solo ítem
+      de upsert cubre toda la fila) y el select de Condición (gated igual que FINAL).
+      `web/src/pages/dashboard/__tests__/subject-grading-by-subject.test.tsx` (ampliar)
+- [x] 2.2.8 [P] Impl: mismo que 2.2.6 para la vista por materia (incluye PA/PPI/PP + Condición).
       `web/src/pages/dashboard/subject-grading-by-subject.tsx`
 
 ---
