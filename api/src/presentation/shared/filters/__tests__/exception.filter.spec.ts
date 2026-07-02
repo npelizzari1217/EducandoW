@@ -8,6 +8,7 @@
  *   FILTER-4: Non-domain HttpException → error.code is absent/undefined (no regression)
  *   FILTER-5: Existing domain error (e.g., NOT_FOUND) → code appears in error.code
  *   FILTER-6: MonthClosedError / PreviousMonthOpenError → HTTP 409 (PR-3b)
+ *   FILTER-7: PresenteTypeNotFoundError → HTTP 422 (asistencia-autollenado-p PR-4)
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException, HttpStatus, Logger } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   NotFoundError,
   MonthClosedError,
   PreviousMonthOpenError,
+  PresenteTypeNotFoundError,
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
 
@@ -166,6 +168,21 @@ describe('AppExceptionFilter', () => {
       const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
       expect(body.error.code).toBe('PREVIOUS_MONTH_OPEN');
       expect(body.error.status).toBe(409);
+    });
+  });
+
+  describe('FILTER-7: PresenteTypeNotFoundError → HTTP 422', () => {
+    it('maps PresenteTypeNotFoundError to 422 with code "PRESENTE_TYPE_NOT_FOUND"', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new PresenteTypeNotFoundError(1, 'cc-1');
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(422);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('PRESENTE_TYPE_NOT_FOUND');
+      expect(body.error.status).toBe(422);
     });
   });
 });
