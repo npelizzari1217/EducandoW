@@ -283,6 +283,65 @@ describe('PrismaAttendanceTypeRepository — save', () => {
   });
 });
 
+// ── findPresenteByLevel ──────────────────────────────────────────
+
+describe('PrismaAttendanceTypeRepository — findPresenteByLevel', () => {
+  let repo: PrismaAttendanceTypeRepository;
+  let mockClient: { attendanceType: { findFirst: ReturnType<typeof vi.fn> } };
+
+  beforeEach(() => {
+    mockClient = { attendanceType: { findFirst: vi.fn() } };
+    vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as any);
+    repo = new PrismaAttendanceTypeRepository();
+  });
+
+  it('queries with isPresent:true, isSystem:true, active:true, deletedAt:null for the given level', async () => {
+    mockClient.attendanceType.findFirst.mockResolvedValue(
+      makePrismaRow({ code: 'P', isPresent: true, isSystem: true }),
+    );
+
+    await repo.findPresenteByLevel(2);
+
+    expect(mockClient.attendanceType.findFirst).toHaveBeenCalledWith({
+      where: { level: 2, isPresent: true, isSystem: true, active: true, deletedAt: null },
+      orderBy: { code: 'asc' },
+    });
+  });
+
+  it('returns the mapped AttendanceType entity (isSystem "P") when found', async () => {
+    mockClient.attendanceType.findFirst.mockResolvedValue(
+      makePrismaRow({ code: 'P', isPresent: true, isSystem: true }),
+    );
+
+    const result = await repo.findPresenteByLevel(2);
+
+    expect(result).toBeInstanceOf(AttendanceType);
+    expect(result!.code.get()).toBe('P');
+  });
+
+  it('returns null when the level has no Presente type (deactivated/soft-deleted)', async () => {
+    mockClient.attendanceType.findFirst.mockResolvedValue(null);
+
+    const result = await repo.findPresenteByLevel(9);
+
+    expect(result).toBeNull();
+  });
+
+  it('the query filter (isPresent && isSystem) excludes custom types with isPresent derived true', async () => {
+    // A custom type (isSystem:false) can also end up with isPresent:true via save()'s
+    // derivation (absenceValue===0 && assignable) — the WHERE clause must never match it,
+    // proven here by asserting isSystem:true is part of the query itself, not filtered
+    // client-side (see prisma-attendance-type.repository.ts).
+    mockClient.attendanceType.findFirst.mockResolvedValue(null);
+
+    await repo.findPresenteByLevel(2);
+
+    expect(mockClient.attendanceType.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ isSystem: true }) }),
+    );
+  });
+});
+
 // ── delete ────────────────────────────────────────────────────
 
 describe('PrismaAttendanceTypeRepository — delete', () => {

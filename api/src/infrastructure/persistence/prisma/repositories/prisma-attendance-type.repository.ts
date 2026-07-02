@@ -77,6 +77,14 @@ export class PrismaAttendanceTypeRepository implements AttendanceTypeRepository 
     return count > 0;
   }
 
+  async findPresenteByLevel(level: number): Promise<AttendanceType | null> {
+    const r = await this.client.attendanceType.findFirst({
+      where: { level, isPresent: true, isSystem: true, active: true, deletedAt: null },
+      orderBy: { code: 'asc' },
+    });
+    return r ? this.toDomain(r) : null;
+  }
+
   // ── Private helpers ─────────────────────────────────────────
 
   private toDomain(r: PrismaAttendanceType): AttendanceType {

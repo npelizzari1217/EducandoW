@@ -176,10 +176,13 @@ describe('PrismaAsistenciaMateriaRepository — generateMany read-merge-write (T
       expect(createManyData['30']).toBe('X');
       expect(createManyData['31']).toBe('X');
 
-      // stu-A (existing) gets update with merged days (preserving "2":"P")
+      // stu-A (existing) gets update with merged days, fill-only (ADR-1): "2":"P" (docente,
+      // ya cargado) sobrevive aunque feb2025Map también tenga key "2" (2 feb 2025 = domingo,
+      // "2":"DOM") — existing SIEMPRE gana, incluso sobre una key locked. Spread order in
+      // this literal matters: existing goes LAST to express "existing wins".
       expect(txClient.asistenciaXMateriaXAlumnoXCursoXCiclo.update).toHaveBeenCalledWith({
         where: { id: 'row-A' },
-        data: { days: { '2': 'P', ...feb2025Map }, updatedAt: expect.any(Date) },
+        data: { days: { ...feb2025Map, '2': 'P' }, updatedAt: expect.any(Date) },
       });
     });
   });
@@ -219,6 +222,20 @@ describe('PrismaAsistenciaMateriaRepository — generateMany read-merge-write (T
     it('daysChanged works correctly in materia repo', () => {
       expect(daysChangedMateria({ '1': 'P' }, { '1': 'P' })).toBe(false);
       expect(daysChangedMateria({ '1': 'P' }, { '1': 'A' })).toBe(true);
+    });
+
+    // ADR-1 (design.md, mirror of general repo): fill-only — existing SIEMPRE gana.
+    // Ver el mismo ajuste en prisma-asistencia-general.repository.spec.ts para el
+    // razonamiento completo (auto-corrección de locked-key era dead-code).
+    it('mergeLocked is fill-only: existing wins even on an overlapping locked key', () => {
+      const result = mergeLockedMateria({ '6': 'P' }, { '6': 'SAB' });
+      expect(result['6']).toBe('P');
+    });
+
+    it('mergeLocked fills a key absent in existing from incoming (hábil autofill, ADR-1)', () => {
+      const result = mergeLockedMateria({ '3': 'A' }, { '3': 'P', '4': 'SAB' });
+      expect(result['3']).toBe('A'); // docente gana
+      expect(result['4']).toBe('SAB'); // ausente en existing → se rellena
     });
   });
 });
