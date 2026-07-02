@@ -230,7 +230,10 @@ export function createEnrollment(
  * Composite: AcademicCycle + CourseSection + StudyPlan + CourseCycle.
  * Returns all four so tests can reference uuids/ids downstream.
  */
-export async function seedCourseCycle(tenant: TenantPrismaClient) {
+export async function seedCourseCycle(
+  tenant: TenantPrismaClient,
+  opts?: { level?: number },
+) {
   const cycle = await createAcademicCycle(tenant);
   const courseSection = await createCourseSection(tenant);
   const studyPlan = await createStudyPlan(tenant);
@@ -238,6 +241,7 @@ export async function seedCourseCycle(tenant: TenantPrismaClient) {
     cycleId: cycle.uuid,
     courseId: courseSection.id,
     studyPlanId: studyPlan.id,
+    level: opts?.level,
   });
   return { cycle, courseSection, studyPlan, courseCycle };
 }

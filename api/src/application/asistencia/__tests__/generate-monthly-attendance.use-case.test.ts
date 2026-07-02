@@ -72,7 +72,7 @@ function makePresente(code = 'P'): any {
 
 function makeUC({
   ccExists = true,
-  level = 1,
+  level = 30, // código COMPUESTO (Secundario común); nivel base = 3
   alumnos = enrolled,
   mxccs = materias,
   alumnosXMateriaFn = alumnosXMateriaForId,
@@ -499,12 +499,25 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       expect(materiaAsistRepo.generateMany).not.toHaveBeenCalled();
     });
 
-    it('resolves findPresenteByLevel with the CourseCycle level', async () => {
-      const { uc, attendanceTypeRepo } = makeUC({ presente: null, level: 3 });
+    // Regresión: CourseCycle.level es el código COMPUESTO (nivel×10+modalidad);
+    // los AttendanceType se indexan por el nivel BASE (1-4). El use-case DEBE
+    // convertir antes de resolver el Presente, si no findPresenteByLevel(30)
+    // nunca matchea los tipos (level 3) y Generar tira un 422 espurio en prod.
+    it('resolves findPresenteByLevel with the BASE educational level (1-4), not the composite CourseCycle level', async () => {
+      // 30 = Secundario común → base 3
+      const sec = makeUC({ presente: null, level: 30 });
+      await sec.uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+      expect(sec.attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledWith(3);
 
-      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+      // 40 = Terciario → base 4
+      const ter = makeUC({ presente: null, level: 40 });
+      await ter.uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+      expect(ter.attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledWith(4);
 
-      expect(attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledWith(3);
+      // 11 = Talleres de Inicial (modalidad ≠ 0) → base 1
+      const tall = makeUC({ presente: null, level: 11 });
+      await tall.uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+      expect(tall.attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledWith(1);
     });
   });
 

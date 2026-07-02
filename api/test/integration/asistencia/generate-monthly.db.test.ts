@@ -66,11 +66,13 @@ const YEAR = 2026;
 const MONTH = 6; // June 2026: day 1 = Monday. Hábiles: 1-5,8-12,15-19,22-26,29,30. SAB: 6,13,20,27. DOM: 7,14,21,28.
 const ADMIN_INPUT = { userId: 'admin-1', userRoles: ['ADMIN'] };
 
-/** Seeds the system "P" AttendanceType for a level (isPresent+isSystem, mirrors EnsureAttendanceTypesForLevelUseCase). */
-function seedPresenteType(i1: ReturnType<typeof tenantI1Client>, level = 1) {
+/** Seeds the system "P" AttendanceType at the BASE educational level (1-4) derived
+ *  from the composite course level (nivel×10+modalidad; ej. 30→3). Los AttendanceType
+ *  se indexan por nivel base, igual que EnsureAttendanceTypesForLevelUseCase. */
+function seedPresenteType(i1: ReturnType<typeof tenantI1Client>, compositeLevel = 30) {
   return i1.attendanceType.create({
     data: {
-      level,
+      level: Math.floor(compositeLevel / 10),
       code: 'P',
       description: 'Presente',
       absenceValue: 0,
@@ -84,10 +86,10 @@ function seedPresenteType(i1: ReturnType<typeof tenantI1Client>, level = 1) {
 }
 
 /** Seeds a custom "Feriado" type — behavior DIA_NO_HABIL, assignable (loaded manually post-generación, ATR-S76). */
-function seedFeriadoType(i1: ReturnType<typeof tenantI1Client>, level = 1) {
+function seedFeriadoType(i1: ReturnType<typeof tenantI1Client>, compositeLevel = 30) {
   return i1.attendanceType.create({
     data: {
-      level,
+      level: Math.floor(compositeLevel / 10),
       code: 'FERIADO',
       description: 'Feriado',
       absenceValue: 0,
@@ -114,7 +116,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
       const i1 = tenantI1Client();
 
       // Seed: CC + 2 students + 2 materias
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student1 = await createStudent(i1);
       const student2 = await createStudent(i1);
@@ -163,7 +165,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
     it('re-run creates 0 new rows and leaves recorded days unchanged', async () => {
       const i1 = tenantI1Client();
 
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student1 = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student1.id });
@@ -206,7 +208,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-03: zero enrolled students', () => {
     it('succeeds with all-zero counts when CC has no enrolled students', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       // No AttendanceType seeded on purpose: zero-enrollment early-return happens
       // BEFORE Presente resolution, so this must succeed with no PresenteTypeNotFoundError.
 
@@ -232,7 +234,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-04 (ATR-S71/S73): grilla nueva General — hábiles reciben "P", SAB/DOM nunca', () => {
     it('fills every hábil day with "P" and never writes "P" on SAB/DOM keys', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
@@ -261,7 +263,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-05 (ATR-S82): idempotencia — 2da corrida no altera nada', () => {
     it('running generate twice in a row produces the exact same days map', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
@@ -290,7 +292,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-06 (ATR-S74, invariante CRÍTICO de no-sobrescritura): día cargado a mano', () => {
     it('a day recorded by hand before regeneration is never overwritten by autofill', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
@@ -322,7 +324,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-07 (ATR-S72/S75): eje Materia — mismo comportamiento que General', () => {
     it('subject register autofills hábiles and preserves a manually-loaded day identically to general', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
@@ -355,7 +357,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-08 (ATR-S76): "Feriado" cargado a mano nunca es pisado por el autollenado', () => {
     it('a manually-loaded FERIADO day is preserved across regeneration', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       await seedFeriadoType(i1, courseCycle.level);
       const student = await createStudent(i1);
@@ -383,7 +385,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-09 (ATR-S80): nivel sin AttendanceType Presente → 422, sin escritura parcial', () => {
     it('returns Result.err(PresenteTypeNotFoundError) and writes zero rows in both axes', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       // No "P" AttendanceType seeded for this level on purpose (ATR-S80).
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
@@ -413,7 +415,7 @@ describe('GenerateMonthlyAttendanceUseCase — DB integration (T-23 + asistencia
   describe('GEN-DB-10 (ATR-S81): mes CERRADO — Generar no autollena ninguna celda nueva', () => {
     it('a row created while the month is CLOSED is never autofilled with "P"', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
       await seedPresenteType(i1, courseCycle.level);
       const student1 = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student1.id });

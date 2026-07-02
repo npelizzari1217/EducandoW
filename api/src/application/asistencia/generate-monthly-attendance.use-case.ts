@@ -44,6 +44,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
+  EducationalLevel,
   ForbiddenError,
   NotFoundError,
   buildLockedDayMap,
@@ -153,10 +154,16 @@ export class GenerateMonthlyAttendanceUseCase {
     const isClosed = existingStatus ? existingStatus.isClosed() : false;
     let targetDays: Record<string, string> = lockedMap;
     if (!isClosed) {
-      const presente = await this.attendanceTypeRepo.findPresenteByLevel(cc.level);
+      // `cc.level` es el código COMPUESTO (nivel base × 10 + modalidad; ej. 30 =
+      // Secundario común). Los AttendanceType se indexan por el nivel BASE (1-4),
+      // así que hay que convertir antes de resolver el Presente. Sin esto,
+      // findPresenteByLevel(30) nunca matchea los tipos (level 3) → 422 espurio
+      // al Generar en cualquier curso real (fix regresión asistencia-autollenado-p).
+      const baseLevel = EducationalLevel.fromLevelCode(cc.level).code;
+      const presente = await this.attendanceTypeRepo.findPresenteByLevel(baseLevel);
       if (!presente) {
         // Corte ANTES de cualquier escritura de asistencia (sin escritura parcial).
-        return err(new PresenteTypeNotFoundError(cc.level, courseCycleId));
+        return err(new PresenteTypeNotFoundError(baseLevel, courseCycleId));
       }
       targetDays = fillHabilVacios(lockedMap, presente.code.get(), year, month);
     }
