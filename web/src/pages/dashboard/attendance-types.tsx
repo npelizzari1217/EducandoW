@@ -359,6 +359,18 @@ export default function AttendanceTypesPage() {
         </Card>
       ) : (
         <>
+          {/* ── Barra de acciones: Imprimir (debajo de "Nuevo tipo") ── */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-md)' }}>
+            <Button
+              variant="primary"
+              data-testid="btn-imprimir-tipos-asistencia"
+              onClick={handlePrint}
+              disabled={printLoading}
+            >
+              {printLoading ? 'Generando PDF…' : 'Imprimir'}
+            </Button>
+          </div>
+
           {showForm && (
             <Card title={editingId ? 'Editar tipo de asistencia' : 'Nuevo tipo de asistencia'} className="mt-md">
               {saveError && (
@@ -499,16 +511,6 @@ export default function AttendanceTypesPage() {
                   <option value="true">Activos</option>
                   <option value="false">Inactivos</option>
                 </select>
-              </div>
-              <div className="field" style={{ alignSelf: 'flex-end' }}>
-                <Button
-                  variant="ghost"
-                  data-testid="btn-imprimir-tipos-asistencia"
-                  onClick={handlePrint}
-                  disabled={printLoading}
-                >
-                  {printLoading ? 'Generando PDF…' : 'Imprimir'}
-                </Button>
               </div>
             </div>
 
