@@ -9,6 +9,8 @@
  * ADR-1: days stored as Json (JSONB) day-map.
  * ADR-3 (revised): generateMany uses read-merge-write transactional semantics.
  *   Natural key uses materiaXCursoXCicloId (not courseCycleId).
+ * ADR-1 (asistencia-autollenado-p, SDD change): merge is FILL-ONLY — existing
+ *   always wins over incoming (mirror of the general repo, same rationale).
  */
 import { Injectable } from '@nestjs/common';
 import type {
@@ -23,15 +25,17 @@ import { TenantContext } from '../../../auth/tenant.context';
 // ── Module-local pure helpers (exported for testability, @internal) ───────────
 
 /**
- * Merge existing days JSONB with a locked-day map.
- * lockedMap contains ONLY weekend and non-existent day keys (SAB/DOM/X) — never hábil days.
+ * Merge existing days JSONB with an incoming day-map, FILL-ONLY (ADR-1): existing
+ * ALWAYS wins. A key already present in `existing` — hábil (teacher-loaded) or
+ * locked (SAB/DOM/X) — is never overwritten by `incoming`. Only keys ABSENT in
+ * `existing` are filled from `incoming`.
  * @internal exported for testability only
  */
 export function mergeLocked(
   existing: Record<string, string>,
   locked?: Record<string, string>,
 ): Record<string, string> {
-  return { ...existing, ...(locked ?? {}) };
+  return { ...(locked ?? {}), ...existing };
 }
 
 /**
@@ -79,7 +83,9 @@ export class PrismaAsistenciaMateriaRepository implements AsistenciaMateriaRepos
    *     - createMany(toCreate, skipDuplicates:true) — new students get full locked map
    *     - for each toUpdate: mergeLocked(existing.days, r.days), update only if changed
    *
-   * `days` in each input row is the locked-day map built by the use case (buildLockedDayMap).
+   * `days` in each input row is the target day-map built by the use case (buildLockedDayMap,
+   * and — after the autollenado change — fillHabilVacios). mergeLocked is fill-only (ADR-1):
+   * every key already present in the existing row is preserved; only absent keys are filled.
    * Returns { created, skipped } where skipped = rows that already existed.
    */
   async generateMany(rows: GenerateMateriaInput[]): Promise<{ created: number; skipped: number }> {
