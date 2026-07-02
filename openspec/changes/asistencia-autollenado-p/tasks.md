@@ -116,7 +116,7 @@ Cubre ATR-R11.1, R11.2, R11.4, R11.5 (resolución + error), R11.6 (mes CERRADO),
 
 ### 3.1 Application
 
-- [ ] 3.1.1 Test: `GenerateMonthlyAttendanceUseCase.execute` devuelve
+- [x] 3.1.1 Test: `GenerateMonthlyAttendanceUseCase.execute` devuelve
       `Result<GenerationResult, PresenteTypeNotFoundError>` (ya no throwea para este caso
       nuevo). Casos:
       - resuelve `findPresenteByLevel(level)` una sola vez por invocación (no N+1);
@@ -134,7 +134,7 @@ Cubre ATR-R11.1, R11.2, R11.4, R11.5 (resolución + error), R11.6 (mes CERRADO),
         siguen siendo `throw`, no `Result` (ADR-3 — no uniformizar todo el use-case, solo el
         camino nuevo).
       `api/src/application/asistencia/__tests__/generate-monthly-attendance.use-case.test.ts`
-- [ ] 3.1.2 Impl: inyectar `AttendanceTypeRepository` (puerto) en el use-case; resolver
+- [x] 3.1.2 Impl: inyectar `AttendanceTypeRepository` (puerto) en el use-case; resolver
       `findPresenteByLevel(courseCycle.level)` (requiere leer `level` del `CourseCycle` —
       ampliar el `select` del paso 2 si no lo trae hoy); si `null` →
       `return err(new PresenteTypeNotFoundError(level, courseCycleId))` antes de cualquier
