@@ -70,18 +70,18 @@ design (flip `mergeLocked` → fill-only).
 
 ### 2.1 Infra — PrismaAttendanceTypeRepository
 
-- [ ] 2.1.1 [P] Test: `findPresenteByLevel(level)` — devuelve el `AttendanceType` con
+- [x] 2.1.1 [P] Test: `findPresenteByLevel(level)` — devuelve el `AttendanceType` con
       `isPresent:true && isSystem:true` del nivel; `null` si el nivel no tiene ninguno (tipo
       "P" desactivado/soft-deleted); ignora tipos `isSystem:false` con `isPresent` derivado
       true (custom con `absenceValue===0 && assignable`) — nunca los devuelve.
       `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-attendance-type.repository.test.ts`
-- [ ] 2.1.2 Impl: `findPresenteByLevel` — `findFirst({ where: { level, isPresent: true,
+- [x] 2.1.2 Impl: `findPresenteByLevel` — `findFirst({ where: { level, isPresent: true,
       isSystem: true, active: true, deletedAt: null } })` → `toDomain` o `null`.
       `api/src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository.ts`
 
 ### 2.2 Infra — merge fill-only (eje general)
 
-- [ ] 2.2.1 Test: actualizar `mergeLocked` (o renombrar a `mergeFillOnly` si se prefiere
+- [x] 2.2.1 Test: actualizar `mergeLocked` (o renombrar a `mergeFillOnly` si se prefiere
       claridad — decisión de apply, mantener nombre exportado consistente en ambos repos) para
       invertir precedencia: `{ ...incoming, ...existing }` en vez de `{ ...existing,
       ...incoming }`. **Actualizar el test existente `'corrects legacy P to SAB because locked
@@ -91,7 +91,7 @@ design (flip `mergeLocked` → fill-only).
       presente en `incoming` (con `presenteCode` ya resuelto por el use-case vía
       `fillHabilVacios`) → `incoming` gana SOLO ahí.
       `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-asistencia-general.repository.spec.ts`
-- [ ] 2.2.2 Impl: invertir el merge en `generateMany` (fill-only, ADR-1). El `days` que llega
+- [x] 2.2.2 Impl: invertir el merge en `generateMany` (fill-only, ADR-1). El `days` que llega
       desde el use-case ya es `fillHabilVacios(lockedMap, presenteCode, year, month)` (no solo
       el locked map), así que las filas nuevas (`createMany`) siguen recibiendo el JSON
       completo tal cual, y las filas existentes solo reciben las keys ausentes.
@@ -99,11 +99,11 @@ design (flip `mergeLocked` → fill-only).
 
 ### 2.3 Infra — merge fill-only (eje materia) [P respecto a 2.2, mismo patrón]
 
-- [ ] 2.3.1 [P] Test: mismo ajuste que 2.2.1 mirror en el repo de materia — verificar
+- [x] 2.3.1 [P] Test: mismo ajuste que 2.2.1 mirror en el repo de materia — verificar
       `mergeLocked`/símbolo espejo invertido a fill-only; actualizar cualquier test que asuma
       "locked wins" para reflejar "existing wins".
       `api/src/infrastructure/persistence/prisma/repositories/__tests__/prisma-asistencia-materia.repository.spec.ts`
-- [ ] 2.3.2 [P] Impl: mismo cambio que 2.2.2 en el repo de materia.
+- [x] 2.3.2 [P] Impl: mismo cambio que 2.2.2 en el repo de materia.
       `api/src/infrastructure/persistence/prisma/repositories/prisma-asistencia-materia.repository.ts`
 
 ---
