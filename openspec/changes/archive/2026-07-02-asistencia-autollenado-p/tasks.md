@@ -154,34 +154,34 @@ contra DB real.
 
 ### 4.1 Presentation — controller + exception filter
 
-- [ ] 4.1.1 [P] Test: `AsistenciaController.generateMonthly` — cuando el use-case devuelve
+- [x] 4.1.1 [P] Test: `AsistenciaController.generateMonthly` — cuando el use-case devuelve
       `Result`, el controller desenvuelve: `isOk()` → `{ data: result.value }` (sin cambio de
       shape); `isErr()` → `throw result.error` (deja que `AppExceptionFilter` lo mapee a 422),
       igual patrón que los throws legacy ya manejados en el `catch` del método.
       `api/src/presentation/asistencia/__tests__/asistencia.controller.test.ts` (crear si no
       existe co-localizado, o el archivo de test real del controller si ya existe)
-- [ ] 4.1.2 Impl: en `generateMonthly`, tras `await this.generateMonthlyUC.execute(...)`
+- [x] 4.1.2 Impl: en `generateMonthly`, tras `await this.generateMonthlyUC.execute(...)`
       (ahora `Result<GenerationResult, PresenteTypeNotFoundError>`), desenvolver con
       `result.unwrap()` dentro del mismo `try` (así el `catch` existente sigue cubriendo
       `ForbiddenError`; `PresenteTypeNotFoundError` cae al `throw err;` final del catch, que
       el filtro global mapea por `code`).
       `api/src/presentation/asistencia/asistencia.controller.ts`
-- [ ] 4.1.3 [P] Test: `AppExceptionFilter` — `PresenteTypeNotFoundError` (code
+- [x] 4.1.3 [P] Test: `AppExceptionFilter` — `PresenteTypeNotFoundError` (code
       `PRESENTE_TYPE_NOT_FOUND`) mapea a HTTP 422.
       `api/src/presentation/shared/filters/__tests__/exception.filter.spec.ts`
-- [ ] 4.1.4 Impl: agregar entrada `PRESENTE_TYPE_NOT_FOUND: 422` a `DOMAIN_STATUS`.
+- [x] 4.1.4 Impl: agregar entrada `PRESENTE_TYPE_NOT_FOUND: 422` a `DOMAIN_STATUS`.
       `api/src/presentation/shared/filters/exception.filter.ts`
 
 ### 4.2 Wiring
 
-- [ ] 4.2.1 Impl: agregar `PrismaAttendanceTypeRepository` al `inject`/`useFactory` del
+- [x] 4.2.1 Impl: agregar `PrismaAttendanceTypeRepository` al `inject`/`useFactory` del
       provider `GenerateMonthlyAttendanceUseCase` (el repo ya está registrado como provider
       en el módulo — solo falta inyectarlo en este use-case).
       `api/src/presentation/asistencia/asistencia.module.ts`
 
 ### 4.3 Frontend — verificación (sin cambios de lógica esperados)
 
-- [ ] 4.3.1 Verificar `asistencia-mensual.tsx`: `handleGenerate` no requiere cambios de lógica
+- [x] 4.3.1 Verificar `asistencia-mensual.tsx`: `handleGenerate` no requiere cambios de lógica
       — la respuesta mantiene el mismo shape (`{ data: GenerationResult }` en éxito) y ya
       recarga la grilla; el único cambio observable es que la grilla recargada viene con
       Presente autollenado. **Fuera de alcance / opcional:** toast específico para
@@ -192,7 +192,7 @@ contra DB real.
 
 ### 4.4 Integration tests (DB real) — ATR-S71..S82
 
-- [ ] 4.4.1 [P] Ampliar/arreglar `generate-monthly.db.test.ts`: **nota pre-existente** — el
+- [x] 4.4.1 [P] Ampliar/arreglar `generate-monthly.db.test.ts`: **nota pre-existente** — el
       archivo instancia `new GenerateMonthlyAttendanceUseCase(...)` con 5 args, pero el
       use-case actual (previo a este change) ya requiere 6 (`monthStatusRepo`); este drift es
       anterior a este SDD change y debe corregirse igual (agregar `monthStatusRepo` +, para

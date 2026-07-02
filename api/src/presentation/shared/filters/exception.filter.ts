@@ -55,6 +55,8 @@ const DOMAIN_STATUS: Record<string, number> = {
   // Cierre mensual de asistencia — fase-bimestre-cierre-asistencia (PR-3b, Capacidad B)
   MONTH_CLOSED: 409,
   PREVIOUS_MONTH_OPEN: 409,
+  // Autollenado de Presente al Generar — asistencia-autollenado-p (PR-4, ATR-R11.5)
+  PRESENTE_TYPE_NOT_FOUND: 422,
 };
 
 @Catch()

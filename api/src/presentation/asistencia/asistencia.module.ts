@@ -99,8 +99,10 @@ import {
         generalRepo: PrismaAsistenciaGeneralRepository,
         materiaAsistRepo: PrismaAsistenciaMateriaRepository,
         monthStatusRepo: PrismaAttendanceMonthStatusRepository,
+        attendanceTypeRepo: PrismaAttendanceTypeRepository,
       ) => new GenerateMonthlyAttendanceUseCase(
         alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo, monthStatusRepo,
+        attendanceTypeRepo,
       ),
       inject: [
         PrismaAlumnosXCursoXCicloRepository,
@@ -109,6 +111,7 @@ import {
         PrismaAsistenciaGeneralRepository,
         PrismaAsistenciaMateriaRepository,
         PrismaAttendanceMonthStatusRepository,
+        PrismaAttendanceTypeRepository,
       ],
     },
 
