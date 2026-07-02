@@ -14,7 +14,15 @@
  * Pattern: mocked repos + mocked TenantContext; no NestJS bootstrap, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, NotFoundError, buildLockedDayMap, AttendanceMonthStatus, PreviousMonthOpenError } from '@educandow/domain';
+import {
+  ForbiddenError,
+  NotFoundError,
+  buildLockedDayMap,
+  fillHabilVacios,
+  AttendanceMonthStatus,
+  PreviousMonthOpenError,
+  PresenteTypeNotFoundError,
+} from '@educandow/domain';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: { getClient: vi.fn() },
@@ -56,8 +64,15 @@ function alumnosXMateriaForId(id: string) {
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
+/** Default mock AttendanceType-shaped "Presente" (only `.code.get()` is used by the use-case). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makePresente(code = 'P'): any {
+  return { code: { get: () => code } };
+}
+
 function makeUC({
   ccExists = true,
+  level = 1,
   alumnos = enrolled,
   mxccs = materias,
   alumnosXMateriaFn = alumnosXMateriaForId,
@@ -65,8 +80,10 @@ function makeUC({
   materiaResult = { created: 3, skipped: 0 },
   previousMonthStatus = null,
   existingMonthStatus = null,
+  presente = makePresente(),
 }: {
   ccExists?: boolean;
+  level?: number;
   alumnos?: typeof enrolled;
   mxccs?: typeof materias;
   alumnosXMateriaFn?: (id: string) => { materiaXCursoXCicloId: string; studentId: string }[];
@@ -74,10 +91,12 @@ function makeUC({
   materiaResult?: { created: number; skipped: number };
   previousMonthStatus?: AttendanceMonthStatus | null;
   existingMonthStatus?: AttendanceMonthStatus | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  presente?: any;
 } = {}) {
   const mockClient = {
     courseCycle: {
-      findUnique: vi.fn().mockResolvedValue(ccExists ? { uuid: CC_ID } : null),
+      findUnique: vi.fn().mockResolvedValue(ccExists ? { uuid: CC_ID, level } : null),
     },
   };
   vi.mocked(TenantContext.getClient).mockReturnValue(mockClient as never);
@@ -104,6 +123,9 @@ function makeUC({
     findLatestBefore: vi.fn().mockResolvedValue(previousMonthStatus),
     upsert: vi.fn().mockResolvedValue(undefined),
   };
+  const attendanceTypeRepo = {
+    findPresenteByLevel: vi.fn().mockResolvedValue(presente),
+  };
 
   const uc = Object.create(GenerateMonthlyAttendanceUseCase.prototype);
   uc.alumnosCCRepo = alumnosCCRepo;
@@ -112,9 +134,11 @@ function makeUC({
   uc.generalRepo = generalRepo;
   uc.materiaAsistRepo = materiaAsistRepo;
   uc.monthStatusRepo = monthStatusRepo;
+  uc.attendanceTypeRepo = attendanceTypeRepo;
 
   return {
     uc, mockClient, alumnosCCRepo, mxccRepo, alumnosXMateriaRepo, generalRepo, materiaAsistRepo, monthStatusRepo,
+    attendanceTypeRepo,
   };
 }
 
@@ -126,6 +150,13 @@ function makeClosedPreviousStatus(): AttendanceMonthStatus {
 
 function makeOpenPreviousStatus(): AttendanceMonthStatus {
   return AttendanceMonthStatus.create({ courseCycleId: CC_ID, year: YEAR, month: MONTH - 1 });
+}
+
+/** Closed status for the CURRENT month being generated (not the previous one). */
+function makeClosedCurrentStatus(): AttendanceMonthStatus {
+  const status = AttendanceMonthStatus.create({ courseCycleId: CC_ID, year: YEAR, month: MONTH });
+  status.close('secretario-1');
+  return status;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -169,7 +200,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
 
-      expect(result).toEqual({
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toEqual({
         generalCreated: 2,
         generalSkipped: 0,
         materiaCreated: 3,
@@ -227,7 +259,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
 
-      expect(result).toEqual({
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toEqual({
         generalCreated: 0,
         generalSkipped: 0,
         materiaCreated: 0,
@@ -247,7 +280,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
 
-      expect(result).toEqual({
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toEqual({
         generalCreated: 0,
         generalSkipped: 2,
         materiaCreated: 0,
@@ -336,8 +370,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
 
   // ── GEN-1..5: lockedMap injection (T5.1) ──────────────────────────────────
 
-  describe('GEN-1: Jan 2025 — general rows contain locked-day map (SAB/DOM, no X)', () => {
-    it('each row has days with SAB/DOM keys; no weekday keys; no X entries', async () => {
+  describe('GEN-1: Jan 2025 — general rows contain fillHabilVacios(lockedMap, "P") (hábiles filled, SAB/DOM preserved)', () => {
+    it('each row has days = fillHabilVacios(lockedMap, "P", 2025, 1); no X entries', async () => {
       const { uc, generalRepo } = makeUC();
 
       await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 1, userId: 'u1', userRoles: ['ADMIN'] });
@@ -345,17 +379,17 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
       expect(rows).toHaveLength(2);
 
-      const expectedMap = buildLockedDayMap(2025, 1);
+      const expectedTargetDays = fillHabilVacios(buildLockedDayMap(2025, 1), 'P', 2025, 1);
       for (const row of rows) {
-        expect(row.days).toEqual(expectedMap);
-        // SAB/DOM entries present
+        expect(row.days).toEqual(expectedTargetDays);
+        // SAB/DOM entries present (locked, untouched by autofill)
         expect(row.days['4']).toBe('SAB');
         expect(row.days['5']).toBe('DOM');
-        // Weekday keys absent
-        expect(row.days['1']).toBeUndefined();
-        expect(row.days['2']).toBeUndefined();
-        expect(row.days['3']).toBeUndefined();
-        expect(row.days['6']).toBeUndefined();
+        // Hábil weekday keys now autofilled with the resolved Presente code (ATR-R11.1)
+        expect(row.days['1']).toBe('P');
+        expect(row.days['2']).toBe('P');
+        expect(row.days['3']).toBe('P');
+        expect(row.days['6']).toBe('P');
         // No X entries (January has 31 days)
         for (let d = 1; d <= 31; d++) {
           expect(row.days[String(d)]).not.toBe('X');
@@ -364,8 +398,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
     });
   });
 
-  describe('GEN-2: Feb 2025 (non-leap, 28 days) — X entries for 29/30/31; key 28 absent', () => {
-    it('rows have X for days 29/30/31 and no entry for day 28', async () => {
+  describe('GEN-2: Feb 2025 (non-leap, 28 days) — X entries for 29/30/31; hábil day 28 autofilled with "P"', () => {
+    it('rows have X for days 29/30/31 and "P" for day 28 (Friday, hábil)', async () => {
       const { uc, generalRepo } = makeUC({ alumnos: [enrolled[0]] });
 
       await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 2, userId: 'u1', userRoles: ['ADMIN'] });
@@ -376,7 +410,7 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       expect(days['29']).toBe('X');
       expect(days['30']).toBe('X');
       expect(days['31']).toBe('X');
-      expect(days['28']).toBeUndefined(); // Friday — hábil
+      expect(days['28']).toBe('P'); // Friday — hábil, autofilled (ATR-R11.1)
     });
   });
 
@@ -395,8 +429,8 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
     });
   });
 
-  describe('GEN-4: Apr 2025 (materia) — materia repo receives days with 31:X; 30 absent', () => {
-    it('materiaAsistRepo receives rows with days["31"]="X" and days["30"] absent', async () => {
+  describe('GEN-4: Apr 2025 (materia) — materia repo receives days with 31:X; hábil day 30 autofilled with "P"', () => {
+    it('materiaAsistRepo receives rows with days["31"]="X" and days["30"]="P" (hábil, autofilled)', async () => {
       const { uc, materiaAsistRepo } = makeUC();
 
       await uc.execute({ courseCycleId: CC_ID, year: 2025, month: 4, userId: 'u1', userRoles: ['ADMIN'] });
@@ -406,7 +440,7 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
 
       for (const row of rows) {
         expect(row.days['31']).toBe('X');
-        expect(row.days['30']).toBeUndefined(); // day 30 exists in April
+        expect(row.days['30']).toBe('P'); // day 30 exists in April, hábil, autofilled (ATR-R11.4)
       }
     });
   });
@@ -441,6 +475,101 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
       expect(rows).toHaveLength(2);
       // Same reference — one buildLockedDayMap call per execution
       expect(rows[0].days).toBe(rows[1].days);
+    });
+  });
+
+  // ── GEN-6..GEN-9: PR-3 Application — autollenado de Presente (ATR-R11) ─────────
+
+  describe('GEN-6: nivel sin Presente → Result.err(PresenteTypeNotFoundError), sin escritura', () => {
+    it('returns err(PresenteTypeNotFoundError) when the level has no Presente type configured', async () => {
+      const { uc } = makeUC({ presente: null });
+
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(PresenteTypeNotFoundError);
+    });
+
+    it('does not call generateMany on either axis (no partial write)', async () => {
+      const { uc, generalRepo, materiaAsistRepo } = makeUC({ presente: null });
+
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(generalRepo.generateMany).not.toHaveBeenCalled();
+      expect(materiaAsistRepo.generateMany).not.toHaveBeenCalled();
+    });
+
+    it('resolves findPresenteByLevel with the CourseCycle level', async () => {
+      const { uc, attendanceTypeRepo } = makeUC({ presente: null, level: 3 });
+
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledWith(3);
+    });
+  });
+
+  describe('GEN-7: mes CERRADO → autollenado no-op, comportamiento preexistente de Generar intacto (ADR-4/ATR-R11.6)', () => {
+    it('does not resolve Presente and does not autofill hábil days when the current month is CLOSED', async () => {
+      const { uc, generalRepo, attendanceTypeRepo } = makeUC({
+        existingMonthStatus: makeClosedCurrentStatus(),
+      });
+
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(result.isOk()).toBe(true);
+      expect(attendanceTypeRepo.findPresenteByLevel).not.toHaveBeenCalled();
+
+      const rows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      const expectedLockedMap = buildLockedDayMap(YEAR, MONTH);
+      // Plain lockedMap (no autofill) — pre-existing behavior preserved, no new bypass
+      for (const row of rows) {
+        expect(row.days).toEqual(expectedLockedMap);
+      }
+    });
+
+    it('never returns PresenteTypeNotFoundError on a CLOSED month, even if the level has no Presente configured', async () => {
+      const { uc } = makeUC({
+        existingMonthStatus: makeClosedCurrentStatus(),
+        presente: null,
+      });
+
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(result.isOk()).toBe(true);
+    });
+
+    it('still calls generateMany on both axes on a CLOSED month (rest of Generate unaffected)', async () => {
+      const { uc, generalRepo, materiaAsistRepo } = makeUC({
+        existingMonthStatus: makeClosedCurrentStatus(),
+      });
+
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(generalRepo.generateMany).toHaveBeenCalledOnce();
+      expect(materiaAsistRepo.generateMany).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('GEN-8: findPresenteByLevel se resuelve una sola vez por invocación (no N+1)', () => {
+    it('calls findPresenteByLevel exactly once regardless of enrolled/materia count', async () => {
+      const { uc, attendanceTypeRepo } = makeUC();
+
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      expect(attendanceTypeRepo.findPresenteByLevel).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('GEN-9: ambos ejes (general y materia) reciben el mismo targetDays (mismo helper, ATR-R11.4)', () => {
+    it('general and materia rows share the same days object reference within one invocation', async () => {
+      const { uc, generalRepo, materiaAsistRepo } = makeUC();
+
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
+
+      const generalRows: Array<{ days: Record<string, string> }> = generalRepo.generateMany.mock.calls[0][0];
+      const materiaRows: Array<{ days: Record<string, string> }> = materiaAsistRepo.generateMany.mock.calls[0][0];
+
+      expect(generalRows[0].days).toBe(materiaRows[0].days);
     });
   });
 });
