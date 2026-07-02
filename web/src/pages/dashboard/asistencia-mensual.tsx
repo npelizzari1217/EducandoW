@@ -256,6 +256,14 @@ export default function AsistenciaMensualPage() {
     // A3-3: ccId not in list → silent fallback (no error, no selection)
   }, [courseCycles, ccIdParam]);
 
+  // Limpiar el cartel (toast) al cambiar de curso, mes, año o modo: el mensaje
+  // (ej. "No se puede generar: el mes anterior…") solo debe vivir hasta el
+  // próximo cambio de contexto o hasta generar otro evento. Va ANTES de los
+  // efectos de carga, así un error de carga posterior sí se muestra.
+  useEffect(() => {
+    setToast(null);
+  }, [selectedCCId, year, month, mode]);
+
   // ── Load general rows ─────────────────────────────────────────────────────
 
   const loadGeneralRows = useCallback(async () => {

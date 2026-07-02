@@ -255,6 +255,34 @@ describe('AsistenciaMensualPage', () => {
     });
   });
 
+  it('WM-14: el cartel de error de Generar se limpia al cambiar de mes (no queda pegado)', async () => {
+    const user = userEvent.setup();
+    // Generar falla porque el mes anterior está abierto → muestra el cartel.
+    mockPost.mockRejectedValueOnce({
+      response: { data: { error: { code: 'PREVIOUS_MONTH_OPEN' } } },
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('btn-generar')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('btn-generar'));
+
+    // El cartel aparece con el mensaje del mes anterior abierto.
+    await waitFor(() => {
+      expect(screen.getByText(/el mes anterior generado todavía está abierto/i)).toBeInTheDocument();
+    });
+
+    // Cambiar de mes debe limpiar el cartel (vive solo hasta el próximo cambio de contexto).
+    const monthSel = screen.getByTestId('month-selector') as HTMLSelectElement;
+    await user.selectOptions(monthSel, monthSel.value === '1' ? '2' : '1');
+
+    await waitFor(() => {
+      expect(screen.queryByText(/el mes anterior generado todavía está abierto/i)).not.toBeInTheDocument();
+    });
+  });
+
   it('WM-04: after rows load, shows one row per student in the grid', async () => {
     renderPage();
 
