@@ -84,16 +84,35 @@ describe('mergeLocked — pure helper (T4.1)', () => {
     expect(result['5']).toBe('DOM');
   });
 
-  it('{"6":"P"} + {"6":"SAB"} → "6":"SAB" (legacy incorrect entry corrected when calendar says blocked)', () => {
-    // lockedMap never has hábil days — if it has "6", that means day 6 IS a Saturday.
-    // mergeLocked corrects the legacy "P" to "SAB" because locked keys "win".
+  // ADR-1 (design.md): flip a fill-only — existing SIEMPRE gana sobre incoming.
+  // Antes (locked-wins) este test esperaba que un "P" legacy mal cargado bajo una
+  // key bloqueada (SAB/DOM/X) se "corrigiera" por el merge. Con fill-only esa
+  // auto-corrección desaparece: era un caso defensivo, no alcanzable en flujo
+  // normal (los locked keys son determinísticos por calendario y read-only en
+  // UI) — confirmado con el usuario (open question 2 de tasks.md).
+  it('{"6":"P"} + {"6":"SAB"} → "6":"P" (fill-only: existing SIEMPRE gana, incluso sobre una key locked)', () => {
     const result = mergeLocked({ '6': 'P' }, { '6': 'SAB' });
-    expect(result['6']).toBe('SAB');
+    expect(result['6']).toBe('P');
   });
 
   it('{"1":"P"} + undefined → {"1":"P"} no-op (REGEN-3: no lockedMap provided)', () => {
     const result = mergeLocked({ '1': 'P' }, undefined);
     expect(result).toEqual({ '1': 'P' });
+  });
+
+  it('{} + {"3":"P"} → "3":"P" (hábil ausente en existing + presente en incoming → incoming gana SOLO ahí, ADR-1)', () => {
+    // Caso nuevo (PR-3 pasará fillHabilVacios(lockedMap, presenteCode) como incoming,
+    // con keys hábiles resueltas). Fila existente sin ese día → se rellena.
+    const result = mergeLocked({}, { '3': 'P', '4': 'SAB' });
+    expect(result).toEqual({ '3': 'P', '4': 'SAB' });
+  });
+
+  it('{"3":"A"} + {"3":"P","4":"SAB"} → "3":"A" preservado (docente gana), "4":"SAB" agregado (ADR-1)', () => {
+    // El caso central del feature: un día hábil ya cargado a mano por un docente
+    // (aquí "A") NUNCA es pisado por el autollenado de Presente ("P") en incoming.
+    const result = mergeLocked({ '3': 'A' }, { '3': 'P', '4': 'SAB' });
+    expect(result['3']).toBe('A');
+    expect(result['4']).toBe('SAB');
   });
 });
 

@@ -9,6 +9,10 @@
  * ADR-3 (revised): generateMany uses read-merge-write transactional semantics.
  *   One findMany read + $transaction with createMany (new rows) + conditional
  *   updates (existing rows where merged days differ). Never overwrites hábil keys.
+ * ADR-1 (asistencia-autollenado-p, SDD change): merge is FILL-ONLY — existing
+ *   always wins over incoming. This lets the use-case pass fillHabilVacios(...)
+ *   (locked keys + resolved Presente code) as `incoming` without ever
+ *   overwriting a value a teacher already loaded, including on locked keys.
  */
 import { Injectable } from '@nestjs/common';
 import type {
@@ -23,16 +27,18 @@ import { TenantContext } from '../../../auth/tenant.context';
 // ── Module-local pure helpers (exported for testability, @internal) ───────────
 
 /**
- * Merge existing days JSONB with a locked-day map.
- * lockedMap contains ONLY weekend and non-existent day keys (SAB/DOM/X) — never hábil days.
- * Result: all existing keys are preserved; locked keys are added or corrected.
+ * Merge existing days JSONB with an incoming day-map, FILL-ONLY (ADR-1): existing
+ * ALWAYS wins. A key already present in `existing` — hábil (teacher-loaded) or
+ * locked (SAB/DOM/X) — is never overwritten by `incoming`. Only keys ABSENT in
+ * `existing` are filled from `incoming`. This is what makes autollenado safe to
+ * re-run (idempotent) without ever clobbering a value a teacher already loaded.
  * @internal exported for testability only
  */
 export function mergeLocked(
   existing: Record<string, string>,
   locked?: Record<string, string>,
 ): Record<string, string> {
-  return { ...existing, ...(locked ?? {}) };
+  return { ...(locked ?? {}), ...existing };
 }
 
 /**
@@ -80,9 +86,10 @@ export class PrismaAsistenciaGeneralRepository implements AsistenciaGeneralRepos
    *     - createMany(toCreate, skipDuplicates:true) — new students get full locked map
    *     - for each toUpdate: mergeLocked(existing.days, r.days), then update only if changed
    *
-   * `days` in each input row is the locked-day map built by the use case (buildLockedDayMap).
-   * mergeLocked preserves all hábil keys already in the row; only locked keys (SAB/DOM/X) are
-   * added or corrected. Never overwrites a hábil-day entry.
+   * `days` in each input row is the target day-map built by the use case (buildLockedDayMap,
+   * and — after the autollenado change — fillHabilVacios). mergeLocked is fill-only (ADR-1):
+   * every key already present in the existing row (hábil or locked) is preserved as-is; only
+   * keys ABSENT in the existing row are filled from the incoming map. Never overwrites anything.
    *
    * Returns { created, skipped } where skipped = rows that already existed.
    */
