@@ -46,4 +46,14 @@ export interface AttendanceTypeRepository {
    * Optionally exclude a specific id (for update uniqueness checks).
    */
   existsByLevelCode(level: number, code: string, excludeId?: string): Promise<boolean>;
+
+  /**
+   * Resolves the Presente (attendance marker) AttendanceType for the level.
+   * Filters by the system type with isPresent=true (isPresent && isSystem &&
+   * active && deletedAt === null), unívoco by construction (only the seeded
+   * "P" system type matches — see design.md ADR-2). Returns null if the level
+   * has no Presente type configured (e.g. deactivated/soft-deleted). Does NOT
+   * hardcode the "P" string — returns the entity, caller reads its real code.
+   */
+  findPresenteByLevel(level: number): Promise<AttendanceType | null>;
 }

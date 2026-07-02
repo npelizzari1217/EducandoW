@@ -3,7 +3,7 @@
  * Satisfies: REQ-UTIL-1..4, Scenarios UTIL-1..UTIL-12 + timezone safety
  */
 import { describe, it, expect } from 'vitest';
-import { daysInMonth, dayOfWeek, buildLockedDayMap } from '../calendar-utils';
+import { daysInMonth, dayOfWeek, buildLockedDayMap, fillHabilVacios } from '../calendar-utils';
 
 describe('daysInMonth', () => {
   it('UTIL-1: returns 28 for February 2025 (non-leap)', () => {
@@ -158,5 +158,84 @@ describe('buildLockedDayMap', () => {
     // December has 31 days — no X entries
     const xEntries = Object.entries(map).filter(([, v]) => v === 'X');
     expect(xEntries).toHaveLength(0);
+  });
+});
+
+describe('fillHabilVacios', () => {
+  it('FILL-1: empty grid — every existing hábil day (Mon-Fri) receives presenteCode (January 2025)', () => {
+    const result = fillHabilVacios({}, 'P', 2025, 1);
+
+    // Hábil days in January 2025 (Mon-Fri): 1,2,3,6,7,8,9,10,13,14,15,16,17,20,21,22,23,24,27,28,29,30,31
+    expect(result['1']).toBe('P');
+    expect(result['2']).toBe('P');
+    expect(result['3']).toBe('P');
+    expect(result['6']).toBe('P');
+    expect(result['31']).toBe('P');
+  });
+
+  it('FILL-2: SAB/DOM/X (buildLockedDayMap) never receive presenteCode, even when the locked map is passed as `days` (real call pattern from the use-case)', () => {
+    const locked = buildLockedDayMap(2025, 2); // Feb 2025, 28 days
+    const result = fillHabilVacios(locked, 'P', 2025, 2);
+
+    expect(result['1']).toBe('SAB');
+    expect(result['2']).toBe('DOM');
+    expect(result['29']).toBe('X');
+    expect(result['30']).toBe('X');
+    expect(result['31']).toBe('X');
+    // hábil keys get filled alongside the preserved locked keys
+    expect(result['3']).toBe('P');
+  });
+
+  it('FILL-2b: with an empty `days`, fillHabilVacios does not itself inject locked keys — it only skips filling them (contract: caller passes buildLockedDayMap as `days`)', () => {
+    const result = fillHabilVacios({}, 'P', 2025, 2);
+
+    expect(result['1']).toBeUndefined(); // SAB — not filled, not injected either
+    expect(result['29']).toBeUndefined(); // X — not filled, not injected either
+    expect(result['3']).toBe('P'); // hábil — filled
+  });
+
+  it('FILL-3: an existing hábil key (P/A/T/custom/FERIADO) is preserved regardless of its value', () => {
+    const input = { '3': 'A', '6': 'T', '7': 'FERIADO', '8': 'CUSTOM' };
+    const result = fillHabilVacios(input, 'P', 2025, 1);
+
+    expect(result['3']).toBe('A');
+    expect(result['6']).toBe('T');
+    expect(result['7']).toBe('FERIADO');
+    expect(result['8']).toBe('CUSTOM');
+    // untouched hábil key still gets filled
+    expect(result['2']).toBe('P');
+  });
+
+  it('FILL-4: is immutable — does not mutate the input `days` object', () => {
+    const input = { '3': 'A' };
+    const inputSnapshot = { ...input };
+    fillHabilVacios(input, 'P', 2025, 1);
+
+    expect(input).toEqual(inputSnapshot);
+  });
+
+  it('FILL-5: is idempotent — running twice yields the same result', () => {
+    const input = { '3': 'A' };
+    const once = fillHabilVacios(input, 'P', 2025, 1);
+    const twice = fillHabilVacios(once, 'P', 2025, 1);
+
+    expect(twice).toEqual(once);
+  });
+
+  it('FILL-6: works across 28/29/30/31-day months (Feb non-leap 2025, Feb leap 2024, Apr 2025, Dec 2025)', () => {
+    const feb2025 = fillHabilVacios({}, 'P', 2025, 2); // 28 days
+    expect(feb2025['28']).toBe('P'); // Friday, hábil
+    expect(feb2025['29']).toBeUndefined();
+
+    const feb2024 = fillHabilVacios({}, 'P', 2024, 2); // 29 days, leap
+    expect(feb2024['29']).toBe('P'); // Thursday, hábil, exists in leap year
+    expect(feb2024['30']).toBeUndefined();
+
+    const apr2025 = fillHabilVacios({}, 'P', 2025, 4); // 30 days
+    expect(apr2025['30']).toBe('P'); // Wednesday, hábil, last existing day of April
+    expect(apr2025['31']).toBeUndefined(); // beyond daysInMonth(4) → loop never reaches it
+
+    const dec2025 = fillHabilVacios({}, 'P', 2025, 12); // 31 days
+    expect(dec2025['31']).toBe('P'); // Wednesday, hábil
   });
 });

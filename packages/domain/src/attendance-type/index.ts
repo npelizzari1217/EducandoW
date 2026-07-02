@@ -6,4 +6,5 @@ export { SystemAttendanceTypeError } from './errors/system-attendance-type-error
 export { AttendanceTypeCodeDuplicateError } from './errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './errors/attendance-type-not-found-error';
 export { AttendanceTypeLevelOutOfScopeError } from './errors/attendance-type-level-out-of-scope-error';
+export { PresenteTypeNotFoundError } from './errors/presente-type-not-found-error';
 export type { AttendanceTypeRepository, AttendanceTypeFilters } from './repositories/attendance-type-repository';

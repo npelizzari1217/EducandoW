@@ -35,6 +35,7 @@ describe('AttendanceTypeRepository — port contract', () => {
       save: vi.fn(),
       delete: vi.fn(),
       existsByLevelCode: vi.fn(),
+      findPresenteByLevel: vi.fn(),
     };
 
     expect(typeof mock.findById).toBe('function');
@@ -54,6 +55,7 @@ describe('AttendanceTypeRepository — port contract', () => {
       save: vi.fn(),
       delete: vi.fn(),
       existsByLevelCode: vi.fn(),
+      findPresenteByLevel: vi.fn(),
     };
 
     const result = await mock.findById('ent-1');
@@ -68,6 +70,7 @@ describe('AttendanceTypeRepository — port contract', () => {
       save: vi.fn(),
       delete: vi.fn(),
       existsByLevelCode: vi.fn().mockResolvedValue(true),
+      findPresenteByLevel: vi.fn(),
     };
 
     const a = await mock.existsByLevelCode(2, 'P');
