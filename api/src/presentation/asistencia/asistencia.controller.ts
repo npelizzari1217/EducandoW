@@ -112,7 +112,10 @@ export class AsistenciaController {
         userId: user.userId,
         userRoles: user.roles,
       });
-      return { data: result };
+      // Desenvuelve el Result (ADR-3 asistencia-autollenado-p): isOk → value; isErr →
+      // unwrap() throws el domain error, capturado por el catch de abajo — no matchea
+      // ForbiddenError, cae al `throw err;` final, mapeado a 422 por AppExceptionFilter.
+      return { data: result.unwrap() };
     } catch (err) {
       if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
         throw new ForbiddenException((err as Error).message);

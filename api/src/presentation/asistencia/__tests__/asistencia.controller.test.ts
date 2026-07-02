@@ -4,8 +4,10 @@
  * Updated for enriched list use-cases (EnrichedGeneralAttendance / EnrichedMateriaAttendance).
  *
  * Covers:
- *   CTR-T01: POST generate — returns counts
+ *   CTR-T01: POST generate — returns counts (unwraps Result.ok)
  *   CTR-T02: POST generate — ForbiddenError → ForbiddenException
+ *   CTR-T13: POST generate — Result.err(PresenteTypeNotFoundError) → propagates as-is
+ *            (asistencia-autollenado-p PR-4, mapped to 422 by AppExceptionFilter)
  *   CTR-T03: GET listGeneral — returns mapped rows with studentName "Apellido, Nombre"
  *   CTR-T04: GET listGeneral — ForbiddenError → ForbiddenException
  *   CTR-T05: PATCH recordGeneralDay — studentName === '' (ADR-5)
@@ -25,6 +27,8 @@ import {
   AsistenciaXMateriaXAlumnoXCursoXCiclo,
   DayMap,
   Id,
+  ok,
+  PresenteTypeNotFoundError,
 } from '@educandow/domain';
 import type { EnrichedGeneralAttendance, EnrichedMateriaAttendance } from '@educandow/domain';
 
@@ -83,7 +87,7 @@ const generationCounts = { generalCreated: 3, generalSkipped: 1, materiaCreated:
 function makeController(overrides: Record<string, unknown> = {}) {
   const ctrl = Object.create(AsistenciaController.prototype);
   ctrl.generateMonthlyUC = overrides.generateMonthlyUC ?? {
-    execute: vi.fn().mockResolvedValue(generationCounts),
+    execute: vi.fn().mockResolvedValue(ok(generationCounts)),
   };
   // listGeneralUC now returns EnrichedGeneralAttendance[]
   ctrl.listGeneralUC = overrides.listGeneralUC ?? {
@@ -155,6 +159,18 @@ describe('AsistenciaController — generateMonthly', () => {
 
     await expect(ctrl.generateMonthly('cc-1', mockUser, { year: 2026, month: 6 }))
       .rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('CTR-T13: Result.err(PresenteTypeNotFoundError) from use-case → propagates as-is', async () => {
+    const domainError = new PresenteTypeNotFoundError(1, 'cc-1');
+    const ctrl = makeController({
+      generateMonthlyUC: {
+        execute: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, unwrap: () => { throw domainError; } }),
+      },
+    });
+
+    await expect(ctrl.generateMonthly('cc-1', mockUser, { year: 2026, month: 6 }))
+      .rejects.toBe(domainError);
   });
 });
 
