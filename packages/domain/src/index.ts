@@ -138,6 +138,7 @@ export { SystemAttendanceTypeError } from './attendance-type/errors/system-atten
 export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
 export { AttendanceTypeLevelOutOfScopeError } from './attendance-type/errors/attendance-type-level-out-of-scope-error';
+export { PresenteTypeNotFoundError } from './attendance-type/errors/presente-type-not-found-error';
 export type { AttendanceTypeRepository, AttendanceTypeFilters } from './attendance-type/repositories/attendance-type-repository';
 
 // Nivel Terciario — DocenteXMateriaCarrera (Fase D)
@@ -266,6 +267,9 @@ export { DayMap } from './asistencia';
 
 // ── asistencia-dias-bloqueados — Phase 1: Calendar utils ─────────────────────
 export { daysInMonth, dayOfWeek, buildLockedDayMap } from './asistencia';
+
+// ── asistencia-autollenado-p — PR-1: Domain helper ────────────────────────────
+export { fillHabilVacios } from './asistencia';
 
 // ── asistencia-dias-bloqueados — Phase 2: Domain errors ──────────────────────
 export { DayNotAssignableError } from './asistencia';
