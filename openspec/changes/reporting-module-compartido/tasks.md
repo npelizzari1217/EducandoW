@@ -123,7 +123,7 @@ tiene nada que espiar). `bootstrap()` pasa a: `configureApp(app, config)` + Swag
 
 ## Work Unit 4 — Regresión y no-regresión de los 3 use-cases de PDF (RPI-R4 · RPI-S6, S7, S8) — sin commit propio
 
-- [ ] **Task 13 [verify, no código nuevo]** — Correr `pnpm --filter api test` (o `pnpm test` raíz) + `pnpm --filter
+- [x] **Task 13 [verify, no código nuevo]** — Correr `pnpm --filter api test` (o `pnpm test` raíz) + `pnpm --filter
   api typecheck` completos. Confirmar que **ya están cubiertos por la suite existente** (ningún test nuevo requerido
   — la lógica de negocio de los 3 use-cases no cambia, solo cómo se resuelve `PdfGeneratorService` vía DI):
   - **RPI-S6** (asistencia mensual): `api/src/application/asistencia-reporting/__tests__/generate-asistencia-mensual-pdf.use-case.test.ts`
