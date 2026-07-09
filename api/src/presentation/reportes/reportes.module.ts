@@ -7,6 +7,7 @@ import { BoletinInvalidationService } from '../../application/reportes/boletin-i
 import { GenerateConstanciaRegularUseCase } from '../../application/reportes/generate-constancia-regular.use-case';
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
+import { ReportingModule } from '../../infrastructure/reporting/reporting.module';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PrismaSubjectGradingPeriodRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-grading-period.repository';
 import { PrismaSubjectPeriodGradeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-subject-period-grade.repository';
@@ -15,10 +16,9 @@ import { PrismaCompetenciaXMateriaXAlumnoXCursoXCicloRepo } from '../../infrastr
 import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-informe.repository';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReportingModule],
   controllers: [ReportesController],
   providers: [
-    PdfGeneratorService,
     PdfStorageService,
     PrismaService,
 

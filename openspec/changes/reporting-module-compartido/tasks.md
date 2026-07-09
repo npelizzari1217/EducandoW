@@ -61,7 +61,7 @@ tiene nada que espiar). `bootstrap()` pasa a: `configureApp(app, config)` + Swag
 
 ## Work Unit 2 — Los 3 módulos feature consumen ReportingModule (RPI-R5 · RPI-S9)
 
-- [ ] **Task 4 [RED]** — `api/src/infrastructure/reporting/__tests__/reporting-module-metadata.test.ts` (NUEVO).
+- [x] **Task 4 [RED]** — `api/src/infrastructure/reporting/__tests__/reporting-module-metadata.test.ts` (NUEVO).
   Aserción ESTÁTICA sin DI, `Reflect.getMetadata('imports'|'providers', Modulo)` para
   `AttendanceTypeModule`, `AsistenciaReportingModule`, `ReportesModule`:
   - `imports` MUST incluir `ReportingModule`.
@@ -69,21 +69,21 @@ tiene nada que espiar). `bootstrap()` pasa a: `configureApp(app, config)` + Swag
   Debe fallar: ninguno de los 3 importa `ReportingModule` hoy, y 2 de ellos (`AsistenciaReportingModule`,
   `ReportesModule`) sí registran `PdfGeneratorService` en `providers` (verificado por grep en design.md).
 
-- [ ] **Task 5 [GREEN]** — `api/src/presentation/attendance-type/attendance-type.module.ts` (MODIFICAR).
+- [x] **Task 5 [GREEN]** — `api/src/presentation/attendance-type/attendance-type.module.ts` (MODIFICAR).
   Agregar `ReportingModule` a `imports: [AuthModule, ReportingModule]`. Quitar `PdfGeneratorService` de `providers`.
   Borrar el comentario de deuda técnica (líneas 21-27, "NO shared ReportingModule exists..."). El `import` de la
   CLASE `PdfGeneratorService` se mantiene (se usa como tipo en el `useFactory` de `GenerateAttendanceTypesPdfUseCase`
   y en `inject`). RPI-S9.
 
-- [ ] **Task 6 [GREEN]** — `api/src/presentation/asistencia-reporting/asistencia-reporting.module.ts` (MODIFICAR).
+- [x] **Task 6 [GREEN]** — `api/src/presentation/asistencia-reporting/asistencia-reporting.module.ts` (MODIFICAR).
   Mismo tratamiento: `ReportingModule` a `imports`, quitar `PdfGeneratorService` de `providers`, mantener el import
   de tipo. RPI-S9.
 
-- [ ] **Task 7 [GREEN]** — `api/src/presentation/reportes/reportes.module.ts` (MODIFICAR). Mismo tratamiento. Ojo:
+- [x] **Task 7 [GREEN]** — `api/src/presentation/reportes/reportes.module.ts` (MODIFICAR). Mismo tratamiento. Ojo:
   este módulo tiene `exports: [BoletinInvalidationService, PdfStorageService]` — no tocar, `PdfGeneratorService`
   nunca estuvo exportado. RPI-S9.
 
-- [ ] **Task 8 [verify]** — Correr Task 4 → verde.
+- [x] **Task 8 [verify]** — Correr Task 4 → verde.
 
 **Commit sugerido**: `refactor(reporting): consume shared ReportingModule from feature modules`
 

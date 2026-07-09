@@ -13,6 +13,7 @@ import { GenerateAsistenciaMensualPdfUseCase } from '../../application/asistenci
 
 // ── Infrastructure ─────────────────────────────────────────────────────────
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { ReportingModule } from '../../infrastructure/reporting/reporting.module';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
 // ── Repositories — asistencia + catalog (existing) ────────────────────────
@@ -27,10 +28,9 @@ import { PrismaDocenteXCicloRepository } from '../../infrastructure/persistence/
 import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-asignacion-curso-x-ciclo.repository';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReportingModule],
   controllers: [AsistenciaReportingController],
   providers: [
-    PdfGeneratorService,
     PrismaService,
 
     PrismaAsistenciaGeneralRepository,
