@@ -91,7 +91,7 @@ tiene nada que espiar). `bootstrap()` pasa a: `configureApp(app, config)` + Swag
 
 ## Work Unit 3 — Shutdown hooks testeables en bootstrap (RPI-R6 · RPI-S10) — corrección del hueco TDD
 
-- [ ] **Task 9 [RED]** — `api/src/infrastructure/config/__tests__/configure-app.test.ts` (NUEVO). Doble de `app`
+- [x] **Task 9 [RED]** — `api/src/infrastructure/config/__tests__/configure-app.test.ts` (NUEVO). Doble de `app`
   (objeto plano con `setGlobalPrefix`, `useStaticAssets`, `enableCors`, `use`, `enableShutdownHooks` como
   `vi.fn()`) + `EnvConfig` de fixture (`corsOrigin: 'http://localhost:5173'`). Llamar
   `configureApp(fakeApp, fakeConfig)`. Aserciones:
@@ -103,19 +103,19 @@ tiene nada que espiar). `bootstrap()` pasa a: `configureApp(app, config)` + Swag
   Debe fallar: el módulo `infrastructure/config/configure-app.ts` no existe (import error) — RED real, previo a
   cualquier cambio de producción.
 
-- [ ] **Task 10 [GREEN]** — `api/src/infrastructure/config/configure-app.ts` (NUEVO). Exporta
+- [x] **Task 10 [GREEN]** — `api/src/infrastructure/config/configure-app.ts` (NUEVO). Exporta
   `configureApp(app: NestExpressApplication, config: EnvConfig): void`. Contiene, en orden (ADR-04): prefijo global,
   static assets, resolución de CORS origin (misma lógica que hoy vive inline en `main.ts` líneas 41-48) + `enableCors`,
   `app.use(cookieParser())`, `app.enableShutdownHooks()` al final (después de cookieParser, antes de que el caller
   haga `listen`). Sin Swagger — queda en `bootstrap()`.
 
-- [ ] **Task 11 [GREEN/refactor]** — `api/src/main.ts` (MODIFICAR). `bootstrap()` pasa a llamar
+- [x] **Task 11 [GREEN/refactor]** — `api/src/main.ts` (MODIFICAR). `bootstrap()` pasa a llamar
   `configureApp(app, config);` en vez del bloque inline (setGlobalPrefix/staticAssets/CORS/cookieParser). Mantener
   Swagger (`DocumentBuilder`/`SwaggerModule`) y `await app.listen(config.port)` en `bootstrap()`. Quitar de `main.ts`
   los imports que migraron a `configure-app.ts` (`join`, `cookieParser`) si quedan sin uso; agregar
   `import { configureApp } from './infrastructure/config/configure-app';`.
 
-- [ ] **Task 12 [verify]** — Correr Task 9 → verde.
+- [x] **Task 12 [verify]** — Correr Task 9 → verde.
 
 **Commit sugerido**: `fix(bootstrap): extract configureApp so RPI-S10 shutdown-hook wiring is test-enforced`
 

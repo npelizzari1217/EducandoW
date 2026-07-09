@@ -2,10 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { join } from 'path';
 import { AppModule } from './app.module';
 import { loadEnvConfig } from './infrastructure/config/env.config';
-import cookieParser from 'cookie-parser';
+import { configureApp } from './infrastructure/config/configure-app';
 
 async function bootstrap() {
   const config = loadEnvConfig();
@@ -13,10 +12,7 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  app.setGlobalPrefix('v1');
-
-  // ── Static files (uploaded logos, documents) ──
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
+  configureApp(app, config);
 
   // ── Swagger / OpenAPI ─────────────────────────────────────────────────
   const swaggerConfig = new DocumentBuilder()
@@ -35,20 +31,6 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
-
-  // ── CORS ──────────────────────────────────────────────────────────────
-  const rawOrigin = config.corsOrigin;
-  const corsOrigin =
-    rawOrigin === '*'
-      ? (origin: string | undefined, cb: (err: Error | null, allow?: boolean | string) => void) =>
-          cb(null, origin ?? true)
-      : rawOrigin.includes(',')
-        ? rawOrigin.split(',').map((s) => s.trim())
-        : rawOrigin;
-  app.enableCors({ origin: corsOrigin, credentials: true });
-
-  // ── Cookie parser ─────────────────────────────────────────────────────
-  app.use(cookieParser());
 
   await app.listen(config.port);
   logger.log(`🚀 EducandoW API running on http://localhost:${config.port}/v1`);
