@@ -119,6 +119,8 @@ Importar `StudentModule` arrastraría `AuthModule` + `PrismaStudentRepository`/`
 **Elegido:** un testing module ad-hoc que declara `controllers: [StudentController]` y provee los 12 use-cases como **stubs por token-clase** (mismo patrón que `attendance-type.controller.e2e.test.ts`, líneas 79-86). Esto ejercita EXACTAMENTE lo que el transform arregla: que el constructor del controller **resuelva cada parámetro tipado-por-clase por su `design:paramtypes`**. Sin `AppModule`, sin Prisma, sin AuthModule.
 
 - Los `@UseGuards(AuthGuard, RolesGuard)` del controller NO se resuelven en construcción (son metadata de request-time). `.compile()` + obtener el controller NO instancia guards → no hace falta overridearlos ni proveerlos.
+
+  **Corrección post-implementación (reconciliada en archive):** esta afirmación es **FALSA** una vez wireado `unplugin-swc` con metadata real. Con `design:paramtypes` presente, Nest instancia los guards de `@UseGuards` **eagerly durante `.compile()`**, no en request-time. Bajo esbuild (sin metadata) esto pasaba desapercibido porque la dependencia del constructor del guard (`JwtAuthPort` para `AuthGuard`) resolvía en silencio a `undefined` en vez de tirar error. Con metadata real, `.compile()` intenta construir `AuthGuard` de verdad y falla si sus dependencias no están provistas — por eso el guard final necesitó `.overrideGuard(AuthGuard).useValue({ canActivate: () => true })` (`RolesGuard` no lo necesitó: solo depende del `Reflector` built-in, que `TestingModule` provee solo). Ver `student.controller.di.test.ts` para la forma final.
 - El param 13 (`@Inject('StudentRepository')`, categoría A) resuelve por su decorator explícito **incluso bajo esbuild** — hay que proveer `{ provide: 'StudentRepository', useValue: stub }` para que compile, pero NO es lo que prueba el fix. El fix se prueba en los **12 tipados-por-clase**.
 
 ### Cómo se inspecciona que los params NO son `undefined`
@@ -243,7 +245,9 @@ O sea: **la suite completa YA es el guardarraíl contra over-cleanup**. Un test 
 | `api/vitest.config.ts` | +12 | import de `unplugin-swc` + bloque `plugins: [swc.vite({ jsc:{...}, module:{...} })]` con opciones de paridad explícitas |
 | `api/src/presentation/attendance-type/attendance-type.controller.ts` | −7 | −6 `@Inject(Clase)` + quitar `Inject` del import de `@nestjs/common` (queda sin uso) |
 | `api/src/presentation/student/__tests__/student.controller.di.test.ts` | +40 (nuevo) | testing module ligero + 12 stubs + loop de aserción |
-| **Total** | **~+45 neto** | 1 solo PR, MUY por debajo del budget de 400 líneas → no aplica review workload guard |
+| **Total (estimado, pre-implementación)** | **~+45 neto** | 1 solo PR, MUY por debajo del budget de 400 líneas → no aplica review workload guard |
+
+**Corrección post-implementación (reconciliada en archive):** la estimación de arriba quedó desactualizada porque no anticipaba `list-grupos-global.use-case.ts` (Phase 2a, descubierto durante el gate A — ver `tasks.md`). El real, `git diff --stat main..HEAD -- . ':!openspec'`, es **4 archivos / 65 inserciones / 9 eliminaciones (~65 líneas de código)**: `api/vitest.config.ts`, `api/src/presentation/attendance-type/attendance-type.controller.ts`, `api/src/presentation/student/__tests__/student.controller.di.test.ts`, `api/src/application/materia-grupo-ciclo/list-grupos-global.use-case.ts`. Sigue MUY por debajo del budget de 400 líneas — no aplica review workload guard.
 
 **Corrección al proposal:** el proposal estimó ~25 líneas (guard ~15). El guard realista con 12 stubs + setup es ~40. Sigue siendo un PR chico. La estimación de config sube de +3 a +12 porque las opciones de paridad de decorators se explicitan (no se delega a un `.swcrc`).
 
