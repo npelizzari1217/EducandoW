@@ -18,8 +18,8 @@
 
 ### WU2 — Instancia única vía `ReportingModule` (PDP-R5 / PDP-S5)
 
-- [ ] 3. **RED** — editar `api/src/infrastructure/reporting/__tests__/reporting.module.test.ts`: agregar `it('resolves PDF_PORT and PdfGeneratorService to the same instance (PDP-S5)', ...)`, reusando el mock de `puppeteer` y el `beforeEach` ya presentes; `expect(moduleRef.get(PDF_PORT)).toBe(moduleRef.get(PdfGeneratorService))`. Falla: `PDF_PORT` aún no lo provee `ReportingModule`. → PDP-S5.
-- [ ] 4. **GREEN** — editar `api/src/infrastructure/reporting/reporting.module.ts`: importar `PDF_PORT` desde `../../application/shared/ports/pdf.port`; agregar `{ provide: PDF_PORT, useExisting: PdfGeneratorService }` a `providers` (NO `useClass` — crearía un segundo `PdfGeneratorService`/segundo `Browser`, rompe RPI-R1 de #107); agregar `PDF_PORT` a `exports`. Deja verde la task 3. → PDP-S5 GREEN.
+- [x] 3. **RED** — editar `api/src/infrastructure/reporting/__tests__/reporting.module.test.ts`: agregar `it('resolves PDF_PORT and PdfGeneratorService to the same instance (PDP-S5)', ...)`, reusando el mock de `puppeteer` y el `beforeEach` ya presentes; `expect(moduleRef.get(PDF_PORT)).toBe(moduleRef.get(PdfGeneratorService))`. Falla: `PDF_PORT` aún no lo provee `ReportingModule`. → PDP-S5.
+- [x] 4. **GREEN** — editar `api/src/infrastructure/reporting/reporting.module.ts`: importar `PDF_PORT` desde `../../application/shared/ports/pdf.port`; agregar `{ provide: PDF_PORT, useExisting: PdfGeneratorService }` a `providers` (NO `useClass` — crearía un segundo `PdfGeneratorService`/segundo `Browser`, rompe RPI-R1 de #107); agregar `PDF_PORT` a `exports`. Deja verde la task 3. → PDP-S5 GREEN.
 
 ### WU3 — Infra implementa el port (PDP-R4 / PDP-S4)
 
