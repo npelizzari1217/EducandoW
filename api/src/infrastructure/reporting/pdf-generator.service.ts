@@ -1,13 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import puppeteer, { Browser, Page } from 'puppeteer';
-
-/** Optional per-call overrides for {@link PdfGeneratorService.generatePdf}. */
-export interface GeneratePdfOptions {
-  /** Renders the page in landscape orientation. Default: `false` (portrait). */
-  landscape?: boolean;
-  /** Overrides individual margin sides; unspecified sides keep the default (15mm/12mm). */
-  margin?: Partial<{ top: string; bottom: string; left: string; right: string }>;
-}
+import type { PdfPort, GeneratePdfOptions } from '../../application/shared/ports/pdf.port';
 
 /**
  * PdfGeneratorService — renders HTML to PDF via Puppeteer.
@@ -15,9 +8,12 @@ export interface GeneratePdfOptions {
  * Maintains a single shared Browser instance to avoid startup cost per request.
  * Suitable for single-instance deployments. For horizontal scaling, consider
  * a browser pool or external rendering service.
+ *
+ * Implements `PdfPort` (ADR-06) — `GeneratePdfOptions` is owned by the port,
+ * not this class (infra → application import direction, DIP).
  */
 @Injectable()
-export class PdfGeneratorService implements OnModuleDestroy {
+export class PdfGeneratorService implements PdfPort, OnModuleDestroy {
   private readonly logger = new Logger(PdfGeneratorService.name);
   private browserPromise: Promise<Browser> | null = null;
 

@@ -12,7 +12,7 @@ import {
 import { GenerateAttendanceTypesPdfUseCase } from '../../application/attendance-type/use-cases/generate-attendance-types-pdf.use-case';
 import { PrismaAttendanceTypeRepository } from '../../infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../../application/shared/ports/pdf.port';
 
 @Module({
   imports: [AuthModule, ReportingModule],
@@ -52,11 +52,11 @@ import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generato
     {
       provide: GenerateAttendanceTypesPdfUseCase,
       useFactory: (
-        pdfGen: PdfGeneratorService,
+        pdfGen: PdfPort,
         prisma: PrismaService,
         repo: PrismaAttendanceTypeRepository,
       ) => new GenerateAttendanceTypesPdfUseCase(pdfGen, prisma, repo),
-      inject: [PdfGeneratorService, PrismaService, 'AttendanceTypeRepository'],
+      inject: [PDF_PORT, PrismaService, 'AttendanceTypeRepository'],
     },
   ],
 })

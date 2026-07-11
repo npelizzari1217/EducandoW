@@ -6,11 +6,13 @@
 > Puppeteer y shutdown de la aplicación — NO el contenido/formato de los PDF generados.
 > Changes:
 >   reporting-module-compartido (archived 2026-07-09) — RPI-R1, RPI-R2, RPI-R3, RPI-R4, RPI-R5, RPI-R6
-> IDs: RPI-R* / RPI-S*
+>   pdf-port (archived 2026-07-11) — PDP-R1, PDP-R2, PDP-R3, PDP-R4, PDP-R5, PDP-R6
+> IDs: RPI-R* / RPI-S* (ciclo de vida del provider) · PDP-R* / PDP-S* (inversión de dependencia sobre
+> el mismo provider)
 > Cross-references:
->   `asistencia-reporting/spec.md` (consumidor de `PdfGeneratorService`, contenido de PDF sin cambios)
->   `report-cards/spec.md` (consumidor de `PdfGeneratorService`, contenido de PDF sin cambios)
->   `attendance-types/spec.md` (consumidor de `PdfGeneratorService` para exportar tipos de asistencia,
+>   `asistencia-reporting/spec.md` (consumidor de `PdfGeneratorService`/`PdfPort`, contenido de PDF sin cambios)
+>   `report-cards/spec.md` (consumidor de `PdfGeneratorService`/`PdfPort`, contenido de PDF sin cambios)
+>   `attendance-types/spec.md` (consumidor de `PdfGeneratorService`/`PdfPort` para exportar tipos de asistencia,
 >   contenido de PDF sin cambios)
 
 ## Purpose
@@ -21,6 +23,10 @@ proceso, apagado limpio, y ninguna regresión funcional en los PDF que las tres 
 Esta spec NO cubre contenido ni formato de PDF (grillas, totales, templates Handlebars) — eso vive en
 `asistencia-reporting/spec.md`, `report-cards/spec.md` y `attendance-types/spec.md`, ninguna de las
 cuales es modificada por esta capability.
+
+Además define el contrato de inversión de dependencia (`PdfPort`) que `application/` MUST usar para
+consumir el motor de PDF: los use-cases dependen de una interface propia de `application/`, nunca de
+la clase concreta de `infrastructure/`.
 
 ## Requirements
 
@@ -179,6 +185,107 @@ el sistema MUST ser `ReportingModule`.
 
 ---
 
+### PDP-R1 — Existe el contrato `PdfPort`
+
+`api/src/application/shared/ports/pdf.port.ts` MUST exportar una interface `PdfPort` con el método
+`generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>`, y una constante
+`PDF_PORT = Symbol('PDF_PORT')` en el mismo archivo. `GeneratePdfOptions` MUST estar definida en este
+archivo (no en infra).
+
+#### PDP-S1 — El port define la superficie única
+
+- GIVEN el archivo `api/src/application/shared/ports/pdf.port.ts`
+- WHEN se inspecciona su contenido exportado
+- THEN MUST exportar la interface `PdfPort` con la firma
+  `generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>`
+- AND MUST exportar `PDF_PORT: symbol`
+- AND MUST exportar el tipo `GeneratePdfOptions`
+
+---
+
+### PDP-R2 — Inversión de dependencia: `application/` no conoce infra (requisito central)
+
+Ningún archivo bajo `api/src/application/` MUST importar la clase concreta `PdfGeneratorService` ni
+ningún path bajo `infrastructure/reporting/pdf-generator.service`. La única referencia permitida desde
+`application/` al motor de PDF es el contrato `PdfPort` / token `PDF_PORT`.
+
+#### PDP-S2 — Aserción estática: cero imports de infra desde application
+
+- GIVEN el árbol de código bajo `api/src/application/`
+- WHEN se busca (grep/test de arquitectura) la cadena `PdfGeneratorService` o el path
+  `infrastructure/reporting/pdf-generator.service` en sentencias de import
+- THEN el resultado MUST ser cero coincidencias
+
+---
+
+### PDP-R3 — Los 4 use-cases dependen del port, no de la clase
+
+`GenerateAttendanceTypesPdfUseCase`, `GenerateConstanciaRegularUseCase`, `GenerateBoletinUseCase` y
+`GenerateAsistenciaMensualPdfUseCase` MUST inyectar `PdfPort` vía `@Inject(PDF_PORT)` en su
+constructor. Ninguno MUST tipar el parámetro como `PdfGeneratorService`.
+
+#### PDP-S3 — Los 4 use-cases resuelven `PdfPort` por token
+
+- GIVEN los 4 use-cases instanciados vía `TestingModule` con un provider
+  `{ provide: PDF_PORT, useValue: { generatePdf: vi.fn() } }`
+- WHEN se construye cada use-case
+- THEN cada uno MUST resolver su dependencia de generación de PDF a través de `PDF_PORT`, sin requerir
+  ningún provider registrado bajo la clase `PdfGeneratorService`
+
+---
+
+### PDP-R4 — Infra implementa el port sin invertir la fuga de tipos
+
+`PdfGeneratorService` MUST declarar `implements PdfPort`. Su firma pública de `generatePdf` MUST
+coincidir exactamente con la del port. `PdfGeneratorService` MUST importar `GeneratePdfOptions` desde
+`pdf.port.ts` (dirección infra → application), y MUST NOT seguir exportando su propia definición de
+`GeneratePdfOptions`.
+
+#### PDP-S4 — La clase de infra satisface el contrato del port
+
+- GIVEN la declaración de clase `PdfGeneratorService`
+- WHEN se inspecciona su firma (`implements`) y su import de `GeneratePdfOptions`
+- THEN MUST declarar `implements PdfPort`
+- AND MUST importar `GeneratePdfOptions` desde `application/shared/ports/pdf.port.ts`
+- AND la firma de `generatePdf` MUST ser estructuralmente idéntica a la de `PdfPort['generatePdf']`
+
+---
+
+### PDP-R5 — Una sola instancia preservada (protege RPI-R1)
+
+El wiring de `PDF_PORT` MUST resolver a la MISMA instancia singleton de `PdfGeneratorService` que
+gestiona el ciclo de vida del `Browser` de Puppeteer — MUST NOT crear una segunda instancia. El
+provider de `PDF_PORT` MUST usar `useExisting: PdfGeneratorService` (o equivalente que preserve la
+referencia), no `useClass`.
+
+#### PDP-S5 — `PDF_PORT` y `PdfGeneratorService` resuelven a la misma referencia
+
+- GIVEN un `TestingModule` que registra `ReportingModule` y expone tanto `PdfGeneratorService` como
+  `PDF_PORT`
+- WHEN se resuelven ambos desde el mismo contexto de módulo (`moduleRef.get(PdfGeneratorService)` y
+  `moduleRef.get(PDF_PORT)`)
+- THEN las dos referencias obtenidas MUST ser estrictamente iguales (`===`)
+
+---
+
+### PDP-R6 — Sin regresión de comportamiento
+
+Los 4 use-cases MUST seguir produciendo el mismo PDF (mismo Buffer resultante para la misma entrada)
+tras la inversión de dependencia. Los tests existentes que mockean la dependencia como
+`{ generatePdf: vi.fn() }` MUST seguir pasando sin cambiar la forma del mock — solo el tipo/token
+inyectado cambia.
+
+#### PDP-S6 — Los 4 use-cases producen el mismo PDF con el mismo mock
+
+- GIVEN cada uno de los 4 use-cases con un mock
+  `{ generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) }` provisto bajo `PDF_PORT`
+- WHEN se ejecuta cada use-case con datos válidos (igual que antes del cambio)
+- THEN cada uno MUST devolver el mismo `Buffer` que el mock resuelve, sin cambios de comportamiento
+  observable
+- AND la suite de tests existente MUST seguir en verde sin modificar la forma de los mocks
+
+---
+
 ## Trazabilidad requisito → escenario
 
 | Requisito | Escenarios |
@@ -189,6 +296,12 @@ el sistema MUST ser `ReportingModule`.
 | RPI-R4 | RPI-S6, RPI-S7, RPI-S8 |
 | RPI-R5 | RPI-S9 |
 | RPI-R6 | RPI-S10 |
+| PDP-R1 | PDP-S1 |
+| PDP-R2 | PDP-S2 |
+| PDP-R3 | PDP-S3 |
+| PDP-R4 | PDP-S4 |
+| PDP-R5 | PDP-S5 |
+| PDP-R6 | PDP-S6 |
 
 ## ADR cross-reference (reporting-module-compartido)
 
@@ -200,22 +313,34 @@ el sistema MUST ser `ReportingModule`.
 | ADR-04 | `app.enableShutdownHooks()` agregado al bootstrap (vía `configureApp`) — condición pre-existente ausente, no una regresión | RPI-R3, RPI-R6 |
 | ADR-05 | Se descarta `@Global()` — `PdfGeneratorService` es feature-scoped a tres módulos nombrados, no cross-cutting | RPI-R5 |
 
+## ADR cross-reference (pdf-port)
+
+| ADR    | Decision | Satisfies |
+|--------|----------|-----------|
+| ADR-06 | `{ provide: PDF_PORT, useExisting: PdfGeneratorService }` en `ReportingModule` (alias al mismo singleton) — descartado `useClass` (instanciaría un segundo `PdfGeneratorService`/`Browser`) y `useValue` (pierde el ciclo de vida `onModuleDestroy` gestionado por Nest) | PDP-R5 |
+| ADR-07 | `PDF_PORT` se registra y exporta una sola vez en `ReportingModule` (dueño del singleton); los 3 módulos feature lo reciben gratis al importar `ReportingModule`, sin duplicar el wiring | PDP-R3, PDP-R5 |
+| ADR-08 | `GeneratePdfOptions` se reubica a `pdf.port.ts`; `pdf-generator.service.ts` la reimporta (flecha `infra → application`, dirección DIP correcta) | PDP-R1, PDP-R4 |
+| ADR-09 | Test de arquitectura path-based (no name-based) sobre `api/src/application/` para detectar imports de infra — evita falso positivo con referencias a `PdfGeneratorService` en JSDoc | PDP-R2 |
+| ADR-10 | Verificación de PDP-S4 vía inspección de código fuente (no type-assignability): TS structural typing hace asignable cualquier clase con la misma forma a `PdfPort` sin `implements` explícito, y esbuild no type-checka en tiempo de test — un `const x: PdfPort = service` nunca daría RED. La combinación test-de-fuente (`pnpm test`) + `implements`-enforcement (`pnpm typecheck`, TS2420 si la firma diverge) cubre el requisito sin ventana abierta | PDP-R4 |
+
 ## Out of Scope (explicit non-requirements)
 
-- `PdfPort` / token `Symbol` en `application/` para que los 4 use-cases dejen de importar la clase
-  concreta `PdfGeneratorService` — resolvería la violación de ADR-06 del proyecto (application importa
-  infraestructura concreta). Deuda preexistente, no forma parte de esta capability. Ver Follow-up.
 - Cambios de contenido, formato u opciones de los PDF generados (grillas, totales, templates
   Handlebars) — cubiertos por `asistencia-reporting/spec.md`, `report-cards/spec.md` y
   `attendance-types/spec.md`, ninguna modificada.
 - Mover `PdfGeneratorService` de capa — ya vive correctamente en `infrastructure/reporting/`.
+- `Result<Buffer, PdfError>` — `PdfPort.generatePdf` sigue devolviendo `Promise<Buffer>` (puede
+  rechazar). Ver Follow-up.
+- `onModuleDestroy` en el contrato de `PdfPort` — lifecycle de infra ligado a `ReportingModule`, no
+  forma parte del contrato del port.
+- Unificar la convención de tokens legada (`AuthPort`/`FileStoragePort` string-literal) — deuda
+  separada, no forma parte de esta capability.
 
 ## Follow-up (tickets separados, no forman parte de esta capability)
 
-1. Introducir `PdfPort` (token `Symbol`) en `application/` + implementación en `infrastructure/`, y
-   hacer que los 4 use-cases inyecten el port en vez de la clase concreta `PdfGeneratorService` →
-   resuelve la violación ADR-06 del proyecto. Este era el enfoque (c) evaluado y descartado por scope
-   durante `sdd-design` de `reporting-module-compartido`.
+1. Migrar `PdfPort.generatePdf` de `Promise<Buffer>` a `Result<Buffer, PdfError>` — alinea con la
+   convención de error-handling del proyecto; tocaría los 4 call-sites (use-cases) y sus tests. No
+   implementado por `pdf-port` (fuera de su scope explícito).
 2. Si en el futuro NestJS (o un mecanismo propio) permite destruir un submódulo sin cerrar la
    aplicación completa, reforzar RPI-S5 con un test literal que ejercite ese escenario en vez de
    depender de la inferencia arquitectónica descrita en la nota de RPI-S5.

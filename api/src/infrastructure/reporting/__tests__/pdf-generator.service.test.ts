@@ -30,6 +30,8 @@ vi.mock('puppeteer', () => ({
 
 // Import after the mock so the module picks up the mocked puppeteer.
 import { PdfGeneratorService } from '../pdf-generator.service';
+import * as fs from 'fs';
+import * as path from 'path';
 
 describe('PdfGeneratorService', () => {
   let service: PdfGeneratorService;
@@ -40,6 +42,30 @@ describe('PdfGeneratorService', () => {
     mockBrowser.newPage.mockResolvedValue(mockPage);
     mockPagePdf.mockResolvedValue(Buffer.from('PDF'));
     service = new PdfGeneratorService();
+  });
+
+  // ── PDP-S4 ───────────────────────────────────────────────────────────────
+  // Source-inspection (not a plain type-assignability check): TS structural
+  // typing already makes PdfGeneratorService assignable to PdfPort today
+  // (identical member shape) even without `implements`, and Vitest's esbuild
+  // transform strips types at test-run time — so a `const x: PdfPort = service`
+  // assertion can never go RED. Scanning the declaration + import source is
+  // the only way to genuinely fail before the refactor and pass after it.
+
+  const source = fs.readFileSync(
+    path.resolve(__dirname, '../pdf-generator.service.ts'),
+    'utf-8',
+  );
+
+  it('class declaration declares `implements PdfPort`', () => {
+    expect(source).toMatch(/class\s+PdfGeneratorService\s+implements[^{]*\bPdfPort\b/);
+  });
+
+  it('imports GeneratePdfOptions from application/shared/ports/pdf.port (not a local export)', () => {
+    expect(source).toMatch(
+      /import\s+type\s*\{[^}]*GeneratePdfOptions[^}]*\}\s*from\s+['"][^'"]*application\/shared\/ports\/pdf\.port['"]/,
+    );
+    expect(source).not.toMatch(/export\s+interface\s+GeneratePdfOptions/);
   });
 
   // ── Regression guard: no options → unchanged portrait A4 defaults ──────────

@@ -1,11 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin, SlotCursadaBoletin, IntentoFinalBoletin, GrupoCuatrimestreBoletin } from './templates/boletin.template';
 import type { SlotCursadaTerciarioValue } from '@educandow/domain';
@@ -54,7 +54,7 @@ export class GenerateBoletinUseCase {
   private readonly templates: Map<string, HandlebarsTemplateDelegate<DatosBoletin>>;
 
   constructor(
-    private readonly pdfGenerator: PdfGeneratorService,
+    @Inject(PDF_PORT) private readonly pdfGenerator: PdfPort,
     private readonly pdfStorage: PdfStorageService,
     private readonly prisma: PrismaService,
     private readonly sgpRepo?: SubjectGradingPeriodRepository,

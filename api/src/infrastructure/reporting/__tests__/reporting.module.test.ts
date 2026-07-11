@@ -40,6 +40,7 @@ vi.mock('puppeteer', () => ({
 // Import after the mock so the module picks up the mocked puppeteer.
 import { ReportingModule } from '../reporting.module';
 import { PdfGeneratorService } from '../pdf-generator.service';
+import { PDF_PORT } from '../../../application/shared/ports/pdf.port';
 
 // ── Stub consumer modules (design.md ADR-02, opción ii) ─────────────────────
 // Replicate EXACTLY what a real feature module does: import ReportingModule,
@@ -135,5 +136,15 @@ describe('ReportingModule', () => {
     await app.close();
 
     expect(mockBrowser.close).not.toHaveBeenCalled();
+  });
+
+  // ── PDP-S5 ───────────────────────────────────────────────────────────────
+
+  it('resolves PDF_PORT and PdfGeneratorService to the same instance (PDP-S5)', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [ReportingModule],
+    }).compile();
+
+    expect(moduleRef.get(PDF_PORT)).toBe(moduleRef.get(PdfGeneratorService));
   });
 });

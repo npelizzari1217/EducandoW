@@ -12,7 +12,7 @@ import { AsistenciaReportingController } from './asistencia-reporting.controller
 import { GenerateAsistenciaMensualPdfUseCase } from '../../application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case';
 
 // ── Infrastructure ─────────────────────────────────────────────────────────
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../../application/shared/ports/pdf.port';
 import { ReportingModule } from '../../infrastructure/reporting/reporting.module';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 
@@ -44,7 +44,7 @@ import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/pers
     {
       provide: GenerateAsistenciaMensualPdfUseCase,
       useFactory: (
-        pdfGen: PdfGeneratorService,
+        pdfGen: PdfPort,
         prisma: PrismaService,
         attendanceTypeRepo: PrismaAttendanceTypeRepository,
         generalRepo: PrismaAsistenciaGeneralRepository,
@@ -58,7 +58,7 @@ import { PrismaAsignacionCursoXCicloRepository } from '../../infrastructure/pers
         docenteRepo, asignacionRepo, grupoRepo, alumnosXGrupoRepo,
       ),
       inject: [
-        PdfGeneratorService,
+        PDF_PORT,
         PrismaService,
         PrismaAttendanceTypeRepository,
         PrismaAsistenciaGeneralRepository,
