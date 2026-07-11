@@ -11,8 +11,8 @@
  *   findByScopeAndMonthEnriched repo method (general or materia) → per-student
  *   computeStudentTotals + course-level computeDiasHabiles (packages/domain
  *   asistencia-totals, PR3a) → assemble the view-model documented in the .hbs
- *   comment header (PR3b) → Handlebars render → PdfGeneratorService.generatePdf
- *   with { landscape: true } (PR3b).
+ *   comment header (PR3b) → Handlebars render → PdfPort.generatePdf with
+ *   { landscape: true } (PR3b).
  *
  * Authorization (Door 2, same pattern as ListGeneralAttendanceUseCase /
  * ListSubjectAttendanceUseCase):
@@ -20,7 +20,7 @@
  *   General — Door 2: preceptor of the CourseCycle
  *   Materia — Door 2: teacher owns at least one group for this materia
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
@@ -45,7 +45,7 @@ import type {
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
 import { AsistenciaReportingError } from './asistencia-reporting.errors';
 
@@ -105,7 +105,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
   private readonly template: HandlebarsTemplateDelegate<AsistenciaMensualTemplateContext> | null = null;
 
   constructor(
-    private readonly pdfGenerator: PdfGeneratorService,
+    @Inject(PDF_PORT) private readonly pdfGenerator: PdfPort,
     private readonly prisma: PrismaService,
     private readonly attendanceTypeRepo: AttendanceTypeRepository,
     private readonly generalRepo: AsistenciaGeneralRepository,

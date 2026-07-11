@@ -29,16 +29,17 @@
 
 ### WU4 — Inversión de dependencia en los 4 use-cases + arch test (PDP-R2 / PDP-R3 / PDP-S2 / PDP-S3)
 
-- [ ] 7. **RED** — nuevo `api/src/application/__tests__/no-infra-pdf-import.arch.test.ts`: lee recursivamente `*.ts` bajo `api/src/application` (excluye `__tests__`).
+- [x] 7. **RED** — nuevo `api/src/application/__tests__/no-infra-pdf-import.arch.test.ts`: lee recursivamente `*.ts` bajo `api/src/application` (excluye `__tests__`).
   - Aserción **primaria** (robusta, path-based): ninguna línea de import matchea `FORBIDDEN_PATH = /from\s+['"][^'"]*infrastructure\/reporting\/pdf-generator\.service['"]/`.
   - Aserción **secundaria**: ninguna línea que empiece con `import` matchea `FORBIDDEN_IMPORT = /^\s*import\b[^;]*\bPdfGeneratorService\b/m` (restringido a líneas `import`, NO un `\bPdfGeneratorService\b` a secas sobre todo el archivo).
   - **CRÍTICO**: NO implementar como búsqueda del nombre de clase `PdfGeneratorService` sin restringir a la línea de import. El JSDoc de `generate-attendance-types-pdf.use-case.ts:13` y `generate-asistencia-mensual-pdf.use-case.ts:14` contiene el texto literal `PdfGeneratorService.generatePdf` en un comentario — un test por-nombre-de-clase matchearía esos comentarios y quedaría en rojo PARA SIEMPRE, incluso después del refactor. La aserción primaria debe ser por PATH del import.
   - Falla hoy: los 4 use-cases importan la clase. → PDP-S2.
-- [ ] 8. **GREEN** — editar `api/src/application/attendance-type/use-cases/generate-attendance-types-pdf.use-case.ts`: quitar `import { PdfGeneratorService } from '../../../infrastructure/reporting/pdf-generator.service'`; agregar `import { Inject } from '@nestjs/common'` (si falta) + `import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port'` (un `../` extra — el archivo vive un nivel más profundo, en `use-cases/`); constructor: `@Inject(PDF_PORT) private readonly pdfGenerator: PdfPort`. **Higiene**: corregir el JSDoc línea 13 — `PdfGeneratorService.generatePdf(html)` → `PdfPort.generatePdf(html)`. → PDP-R3 (este use-case).
-- [ ] 9. **GREEN** — mismo patrón en `api/src/application/reportes/generate-constancia-regular.use-case.ts`. → PDP-R3.
-- [ ] 10. **GREEN** — mismo patrón en `api/src/application/reportes/generate-boletin.use-case.ts`. → PDP-R3.
-- [ ] 11. **GREEN** — mismo patrón en `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts`. **Higiene**: corregir el JSDoc línea 14 — `PdfGeneratorService.generatePdf` → `PdfPort.generatePdf`. → PDP-R3.
-- [ ] 12. **VERIFY** — tras 8-11, confirmar que el arch test de la task 7 (PDP-S2) queda en verde y que PDP-S3 se sostiene (cada use-case resuelve `PdfPort` por token, sin provider bajo la clase).
+  - RED confirmado: 2 aserciones fallando, listando los 4 use-cases (`asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts`, `attendance-type/use-cases/generate-attendance-types-pdf.use-case.ts`, `reportes/generate-boletin.use-case.ts`, `reportes/generate-constancia-regular.use-case.ts`).
+- [x] 8. **GREEN** — editar `api/src/application/attendance-type/use-cases/generate-attendance-types-pdf.use-case.ts`: quitar `import { PdfGeneratorService } from '../../../infrastructure/reporting/pdf-generator.service'`; agregar `import { Inject } from '@nestjs/common'` (si falta) + `import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port'` (un `../` extra — el archivo vive un nivel más profundo, en `use-cases/`); constructor: `@Inject(PDF_PORT) private readonly pdfGenerator: PdfPort`. **Higiene**: corregir el JSDoc línea 13 — `PdfGeneratorService.generatePdf(html)` → `PdfPort.generatePdf(html)`. → PDP-R3 (este use-case).
+- [x] 9. **GREEN** — mismo patrón en `api/src/application/reportes/generate-constancia-regular.use-case.ts`. → PDP-R3.
+- [x] 10. **GREEN** — mismo patrón en `api/src/application/reportes/generate-boletin.use-case.ts`. → PDP-R3.
+- [x] 11. **GREEN** — mismo patrón en `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts`. **Higiene**: corregir el JSDoc línea 14 — `PdfGeneratorService.generatePdf` → `PdfPort.generatePdf`. → PDP-R3.
+- [x] 12. **VERIFY** — tras 8-11, confirmar que el arch test de la task 7 (PDP-S2) queda en verde y que PDP-S3 se sostiene (cada use-case resuelve `PdfPort` por token, sin provider bajo la clase). Arch test: 2/2 GREEN. Suites de los 4 use-cases (+ variantes boletín): 9 archivos, 158 tests, todos GREEN — sin cambios en la forma de los mocks (PDP-S6).
 
 ### WU5 — Wiring runtime en los 3 módulos feature (PDP-R5 completado en runtime · PDP-S6 sin regresión)
 

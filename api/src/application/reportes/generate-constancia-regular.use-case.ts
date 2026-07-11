@@ -1,10 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
 import type { DatosConstancia } from './templates/constancia.template';
 import { ConstanciaError } from './templates/constancia.template';
@@ -62,7 +62,7 @@ export class GenerateConstanciaRegularUseCase {
   private readonly template: HandlebarsTemplateDelegate<DatosConstancia> | null = null;
 
   constructor(
-    private readonly pdfGenerator: PdfGeneratorService,
+    @Inject(PDF_PORT) private readonly pdfGenerator: PdfPort,
     private readonly prisma: PrismaService,
   ) {
     // Sentinel-based template resolution (matches boletin use case pattern).

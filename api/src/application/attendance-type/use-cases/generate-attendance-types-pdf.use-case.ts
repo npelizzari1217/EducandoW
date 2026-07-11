@@ -10,10 +10,10 @@
  * ListAttendanceTypesUseCase.execute) → repo.list(filters) → sort rows (level,
  * then code) → resolve institución/logo (paridad con la `resolveInstitution`
  * privada de generate-asistencia-mensual-pdf.use-case.ts:287-300) → render
- * `attendance-types.hbs` con Handlebars → PdfGeneratorService.generatePdf(html)
- * SIN `landscape` (portrait A4, default del servicio — ADR-06).
+ * `attendance-types.hbs` con Handlebars → PdfPort.generatePdf(html) SIN
+ * `landscape` (portrait A4, default del servicio — ADR-06).
  */
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
@@ -28,7 +28,7 @@ import {
 } from '@educandow/domain';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
-import { PdfGeneratorService } from '../../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../../infrastructure/reporting/resolve-logo-data-uri';
 import type { AttendanceTypeCurrentUser } from './attendance-type.use-cases';
 
@@ -60,7 +60,7 @@ export class GenerateAttendanceTypesPdfUseCase {
   private readonly template: HandlebarsTemplateDelegate<AttendanceTypesTemplateContext> | null = null;
 
   constructor(
-    private readonly pdfGenerator: PdfGeneratorService,
+    @Inject(PDF_PORT) private readonly pdfGenerator: PdfPort,
     private readonly prisma: PrismaService,
     private readonly repo: AttendanceTypeRepository,
   ) {
