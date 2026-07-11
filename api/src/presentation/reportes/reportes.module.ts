@@ -5,7 +5,7 @@ import { GenerateBoletinUseCase } from '../../application/reportes/generate-bole
 import { GenerateBoletinBatchUseCase } from '../../application/reportes/generate-boletin-batch.use-case';
 import { BoletinInvalidationService } from '../../application/reportes/boletin-invalidation.service';
 import { GenerateConstanciaRegularUseCase } from '../../application/reportes/generate-constancia-regular.use-case';
-import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
+import { PdfPort, PDF_PORT } from '../../application/shared/ports/pdf.port';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import { ReportingModule } from '../../infrastructure/reporting/reporting.module';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
@@ -35,7 +35,7 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
     {
       provide: GenerateBoletinUseCase,
       useFactory: (
-        pdfGen: PdfGeneratorService,
+        pdfGen: PdfPort,
         pdfStorage: PdfStorageService,
         prisma: PrismaService,
         sgpRepo: PrismaSubjectGradingPeriodRepository,
@@ -45,7 +45,7 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
         informeRepo: PrismaInformeRepository,
       ) => new GenerateBoletinUseCase(pdfGen, pdfStorage, prisma, sgpRepo, pgRepo, fgRepo, cvRepo, undefined, informeRepo),
       inject: [
-        PdfGeneratorService,
+        PDF_PORT,
         PdfStorageService,
         PrismaService,
         PrismaSubjectGradingPeriodRepository,
@@ -61,9 +61,9 @@ import { PrismaInformeRepository } from '../../infrastructure/persistence/prisma
     // ── Constancia de alumno regular ──────────────────────────────────────────
     {
       provide: GenerateConstanciaRegularUseCase,
-      useFactory: (pdfGen: PdfGeneratorService, prisma: PrismaService) =>
+      useFactory: (pdfGen: PdfPort, prisma: PrismaService) =>
         new GenerateConstanciaRegularUseCase(pdfGen, prisma),
-      inject: [PdfGeneratorService, PrismaService],
+      inject: [PDF_PORT, PrismaService],
     },
   ],
   exports: [BoletinInvalidationService, PdfStorageService],
