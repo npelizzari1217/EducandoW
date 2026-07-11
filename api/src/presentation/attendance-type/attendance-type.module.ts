@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
+import { ReportingModule } from '../../infrastructure/reporting/reporting.module';
 import { AttendanceTypeController } from './attendance-type.controller';
 import {
   CreateAttendanceTypeUseCase,
@@ -14,18 +15,10 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 import { PdfGeneratorService } from '../../infrastructure/reporting/pdf-generator.service';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ReportingModule],
   controllers: [AttendanceTypeController],
   providers: [
     PrismaService,
-    // PdfGeneratorService: NO shared ReportingModule exists in this codebase to import
-    // from (verified — asistencia-reporting.module.ts and reportes.module.ts each list
-    // it directly in their own `providers` array too, so 2 separate Puppeteer browser
-    // singletons already coexist today). Following that SAME established precedent here
-    // (a 3rd module-scoped instance) instead of introducing a new shared module out of
-    // scope for this PR. See design.md §9 ("aceptable, o mover a un ReportingModule
-    // compartido") — documented tradeoff, not a regression.
-    PdfGeneratorService,
     {
       provide: PrismaAttendanceTypeRepository,
       useClass: PrismaAttendanceTypeRepository,
