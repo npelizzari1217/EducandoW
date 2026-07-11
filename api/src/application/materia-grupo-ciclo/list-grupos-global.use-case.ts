@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import {
+import type {
   GrupoRepository,
   GrupoGlobalRow,
   GrupoGlobalFilters,
   DocenteXCicloRepository,
-  resolveAccessScope,
 } from '@educandow/domain';
+import { resolveAccessScope } from '@educandow/domain';
 
 /**
  * ListGruposGlobalUseCase — cross-materia grupo listing with scope-based filtering.
