@@ -123,6 +123,19 @@ Reusa el `vi.mock('puppeteer', ...)` y el `beforeEach` ya presentes en ese archi
 
 ---
 
+**Nota de ejecución (post-apply, agregada en archive — ver verify-report.md Prioridad 1(A)):**
+la redacción original de este ADR y de `tasks.md` describía el test de PDP-S4 (paso 6 de §8) como un
+"type-assignability check" (`const x: PdfPort = service`). Esa técnica resultó NO poder fallar nunca:
+el structural typing de TS hace asignable cualquier clase con la misma forma a `PdfPort` sin
+`implements` explícito, y Vitest transpila con esbuild sin type-check en tiempo de test — no había
+forma de obtener RED legítimo. `apply` reemplazó la técnica por **inspección de código fuente** (mismo
+patrón que el arch test de §4/WU4): lee `pdf-generator.service.ts` como texto y verifica
+`implements ... PdfPort` en la cláusula de clase + import de `GeneratePdfOptions` desde el port +
+ausencia del `export interface GeneratePdfOptions` local. La firma exacta de `generatePdf` queda
+cubierta igual, pero por el compilador (`pnpm typecheck`, TS2420 si diverge de `implements PdfPort`),
+no por el test de Vitest. `verify` confirmó empíricamente (clase estructuralmente compatible sin
+`implements`, 0 errores de typecheck) que la desviación es legítima y no debilita PDP-S4.
+
 ## 6. Contrato del port (PDP-R1) — artefacto nuevo
 
 `api/src/application/shared/ports/pdf.port.ts`:
