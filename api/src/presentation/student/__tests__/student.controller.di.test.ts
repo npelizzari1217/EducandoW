@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { StudentController } from '../student.controller';
+import { AuthGuard } from '../../../infrastructure/auth/guards/auth.guard';
 import {
   CreateStudentUseCase, ListStudentsUseCase, GetStudentUseCase, DeleteStudentUseCase,
   PatchStudentUseCase, GetMyStudentDataUseCase, GetMyChildrenUseCase,
@@ -30,7 +31,10 @@ describe('StudentController — DI implícita (guard VSM-R5)', () => {
         ...CLASS_UCS.map((UC) => ({ provide: UC, useValue: { execute: () => {} } })),
         { provide: 'StudentRepository', useValue: { search: () => [] } },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     const ctrl = moduleRef.get(StudentController);
     for (const field of FIELDS) {
