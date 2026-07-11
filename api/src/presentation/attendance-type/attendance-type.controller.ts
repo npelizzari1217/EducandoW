@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete, Body, Param, Query, Res,
-  HttpCode, HttpStatus, UseGuards, Inject,
+  HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
@@ -40,12 +40,12 @@ function toResponse(entity: AttendanceType) {
 @UseGuards(AuthGuard, RolesGuard)
 export class AttendanceTypeController {
   constructor(
-    @Inject(CreateAttendanceTypeUseCase) private readonly createUC: CreateAttendanceTypeUseCase,
-    @Inject(ListAttendanceTypesUseCase) private readonly listUC: ListAttendanceTypesUseCase,
-    @Inject(GetAttendanceTypeUseCase) private readonly getUC: GetAttendanceTypeUseCase,
-    @Inject(UpdateAttendanceTypeUseCase) private readonly updateUC: UpdateAttendanceTypeUseCase,
-    @Inject(DeleteAttendanceTypeUseCase) private readonly deleteUC: DeleteAttendanceTypeUseCase,
-    @Inject(GenerateAttendanceTypesPdfUseCase) private readonly generatePdfUC: GenerateAttendanceTypesPdfUseCase,
+    private readonly createUC: CreateAttendanceTypeUseCase,
+    private readonly listUC: ListAttendanceTypesUseCase,
+    private readonly getUC: GetAttendanceTypeUseCase,
+    private readonly updateUC: UpdateAttendanceTypeUseCase,
+    private readonly deleteUC: DeleteAttendanceTypeUseCase,
+    private readonly generatePdfUC: GenerateAttendanceTypesPdfUseCase,
   ) {}
 
   @Post()
