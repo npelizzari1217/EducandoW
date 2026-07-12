@@ -6,13 +6,14 @@ import {
   ValidationError,
   type InstitutionLevelEntry,
 } from '@educandow/domain';
-import { InsufficientRoleHierarchyError } from '../../shared/errors/authorization-errors';
+import { InsufficientRoleHierarchyError, CrossInstitutionForbiddenError } from '../../shared/errors/authorization-errors';
 
 import {
   userToResponse,
   validateLevelsSubset,
   ListUsersUseCase,
   CreateUserUseCase,
+  UpdateUserUseCase,
 } from '../use-cases/users.use-cases';
 
 // ── userToResponse tests ──────────────────────────────────
@@ -487,5 +488,262 @@ describe('CreateUserUseCase', () => {
     });
 
     expect(result.isOk()).toBe(true);
+  });
+});
+
+// ── UpdateUserUseCase — Result migration (AEM-R4/R5/R6) ────────────
+
+function makeExistingUserRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'user-1',
+    email: 'existing@test.com',
+    name: 'Existing User',
+    passwordHash: 'hashed',
+    institutionId: 'inst-1',
+    active: true,
+    failedAttempts: 0,
+    lockedUntil: null,
+    deletedAt: null,
+    createdAt: new Date('2025-01-01'),
+    updatedAt: new Date('2025-01-02'),
+    userRoles: [] as { role: { id: string; name: string; description: string } }[],
+    institution: null,
+    userModules: [],
+    userLevels: [],
+    firstName: null,
+    lastName: null,
+    dni: null,
+    title: null,
+    phone: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Mock PrismaService for UpdateUserUseCase. `user.findUnique` is called with `where: { id }`
+ * (initial lookup, then post-update refresh) and with `where: { email }` (uniqueness check) —
+ * differentiated by argument shape. The first `id` lookup returns `existingUser`; the last
+ * returns `updatedUser` (post-update refresh).
+ */
+function makeUpdatePrisma(opts: {
+  existingUser?: ReturnType<typeof makeExistingUserRecord> | null;
+  emailConflict?: unknown;
+  institution?: { levels: { level: number; modality: number }[] } | null;
+  updatedUser?: ReturnType<typeof makeExistingUserRecord>;
+} = {}) {
+  let idCallCount = 0;
+  const existingUser =
+    opts.existingUser === undefined ? makeExistingUserRecord() : opts.existingUser;
+
+  const findUnique = vi.fn().mockImplementation((args: { where?: { email?: string; id?: string } }) => {
+    if (args?.where?.email !== undefined) {
+      return Promise.resolve(opts.emailConflict ?? null);
+    }
+    idCallCount += 1;
+    if (idCallCount === 1) {
+      return Promise.resolve(existingUser);
+    }
+    return Promise.resolve(opts.updatedUser ?? existingUser);
+  });
+
+  return {
+    getMasterClient: () => ({
+      user: {
+        findUnique,
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+      institution: {
+        findUnique: vi.fn().mockResolvedValue(opts.institution ?? null),
+      },
+      role: { findMany: vi.fn().mockResolvedValue([]) },
+      userRole: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      profileModulePermission: { findMany: vi.fn().mockResolvedValue([]) },
+      module: { findMany: vi.fn().mockResolvedValue([]) },
+      userModule: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+    }),
+  } as unknown as import('../../../infrastructure/persistence/prisma/prisma.service').PrismaService;
+}
+
+describe('UpdateUserUseCase', () => {
+  // AEM-R4.S2 / AEM-R5.S5 (site #4) — cross-institution → err, not throw
+  it('returns err(CrossInstitutionForbiddenError) when creatorInstitutionId differs from the target institutionId', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({ existingUser: makeExistingUserRecord({ institutionId: 'inst-2' }) }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { name: 'New Name' },
+      ['DIRECTOR'],
+      'inst-1',
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(CrossInstitutionForbiddenError);
+  });
+
+  // AEM-R4.S3 / AEM-R5.S2 (site #5) — insufficient hierarchy to manage target → err, not throw
+  it('returns err(InsufficientRoleHierarchyError) when caller cannot manage the target by canManageUser', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({
+          institutionId: 'inst-1',
+          userRoles: [{ role: { id: 'r1', name: 'ADMIN', description: 'Admin' } }],
+        }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { name: 'New Name' },
+      ['TEACHER'],
+      'inst-1',
+    );
+
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(InsufficientRoleHierarchyError);
+    expect(error.code).toBe('INSUFFICIENT_ROLE_HIERARCHY');
+  });
+
+  // AEM-R4.S4 / AEM-R5.S3 (site #6) — assigning roles above own rank → err, not throw
+  it('returns err(InsufficientRoleHierarchyError) when assigning roles above the caller own rank', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({
+          institutionId: 'inst-1',
+          userRoles: [{ role: { id: 'r1', name: 'TEACHER', description: 'Teacher' } }],
+        }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { roles: ['ADMIN'] },
+      ['DIRECTOR'],
+      'inst-1',
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(InsufficientRoleHierarchyError);
+  });
+
+  // AEM-R4.S6 (site #7) — email conflict → err, not throw
+  it('returns err(EmailAlreadyExistsError) on email conflict', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({ institutionId: 'inst-1' }),
+        emailConflict: makeExistingUserRecord({ id: 'other-user' }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { email: 'taken@test.com' },
+      ['ROOT'],
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(EmailAlreadyExistsError);
+  });
+
+  // AEM-R4.S6 (site #8) — invalid levels → err, not throw
+  it('returns err(ValidationError) when levels are not a subset of institution levels', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({ institutionId: 'inst-1' }),
+        institution: { levels: [{ level: 2, modality: 0 }] },
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { levels: [{ level: 4, modality: 0 }] },
+      ['DIRECTOR'],
+      'inst-1',
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+  });
+
+  // Not-found semantics unchanged: ok path with data: null, NOT an error (design §3.1)
+  it('returns ok({ data: null }) when the target user does not exist (unchanged semantics)', async () => {
+    const uc = new UpdateUserUseCase(makeUpdatePrisma({ existingUser: null }));
+
+    const result = await uc.execute('missing-id', { name: 'New Name' }, ['ROOT']);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toEqual({ data: null });
+  });
+
+  // AEM-R6.S1 — ROOT bypasses all hierarchy and institution checks
+  it('ROOT caller succeeds regardless of target roles or institution', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({
+          institutionId: 'inst-2',
+          userRoles: [{ role: { id: 'r1', name: 'ADMIN', description: 'Admin' } }],
+        }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { roles: ['ADMIN'] },
+      ['ROOT'],
+      'inst-1',
+    );
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  // AEM-R6.S2 — non-ROOT caller with strictly sufficient hierarchy succeeds
+  it('non-ROOT caller with sufficient hierarchy succeeds', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({
+          institutionId: 'inst-1',
+          userRoles: [{ role: { id: 'r1', name: 'TEACHER', description: 'Teacher' } }],
+        }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { name: 'New Name' },
+      ['ADMIN'],
+      'inst-1',
+    );
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  // AEM-R6.S3 — same-institution update never returns CrossInstitutionForbiddenError
+  it('same-institution update never returns CrossInstitutionForbiddenError', async () => {
+    const uc = new UpdateUserUseCase(
+      makeUpdatePrisma({
+        existingUser: makeExistingUserRecord({ institutionId: 'inst-1' }),
+      }),
+    );
+
+    const result = await uc.execute(
+      'user-1',
+      { name: 'New Name' },
+      ['DIRECTOR'],
+      'inst-1',
+    );
+
+    if (result.isErr()) {
+      expect(result.unwrapErr()).not.toBeInstanceOf(CrossInstitutionForbiddenError);
+    } else {
+      expect(result.isOk()).toBe(true);
+    }
   });
 });

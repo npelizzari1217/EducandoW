@@ -401,7 +401,7 @@ export class UpdateUserUseCase {
     creatorRoles: string[],
     creatorInstitutionId?: string,
     creatorModules: ModuleAccessItem[] = [],
-  ) {
+  ): Promise<Result<{ data: ReturnType<typeof userToResponse> | null }, EmailAlreadyExistsError | CrossInstitutionForbiddenError | InsufficientRoleHierarchyError | ValidationError>> {
     const client = this.prisma.getMasterClient();
     const isRoot = creatorRoles.includes('ROOT');
 
@@ -414,37 +414,37 @@ export class UpdateUserUseCase {
         userLevels: true,
       },
     });
-    if (!existing) return { data: null };
+    if (!existing) return ok({ data: null });
 
     // Verificar que un no-ROOT no pueda editar usuarios de otra institución
     if (!isRoot && creatorInstitutionId && existing.institutionId !== creatorInstitutionId) {
-      throw new Error(
+      return err(new CrossInstitutionForbiddenError(
         'No podés modificar usuarios de otra institución.',
-      );
+      ));
     }
 
     // Verificar jerarquía contra los roles ACTUALES del objetivo
     const existingRoles = (existing.userRoles ?? []).map((ur) => ur.role.name);
     if (!isRoot && !canManageUser(creatorRoles, existingRoles)) {
-      throw new Error(
+      return err(new InsufficientRoleHierarchyError(
         'No tenés jerarquía suficiente para modificar este usuario. ' +
         'Solo podés gestionar usuarios con roles de jerarquía inferior al tuyo.',
-      );
+      ));
     }
 
     // Si se están cambiando los roles, verificar que los nuevos sean iguales o inferiores
     if (!isRoot && input.roles && input.roles.length > 0) {
       if (!canViewUser(creatorRoles, input.roles)) {
-        throw new Error(
+        return err(new InsufficientRoleHierarchyError(
           'No podés asignar roles de jerarquía superior a la tuya.',
-        );
+        ));
       }
     }
 
     // Verificar email único si cambia
     if (input.email && input.email !== existing.email) {
       const conflict = await client.user.findUnique({ where: { email: input.email } });
-      if (conflict) throw new EmailAlreadyExistsError(input.email);
+      if (conflict) return err(new EmailAlreadyExistsError(input.email));
     }
 
     // Forzar institutionId del creador si no es ROOT
@@ -490,7 +490,7 @@ export class UpdateUserUseCase {
             })),
           );
           if (validationResult.isErr()) {
-            throw validationResult.unwrapErr();
+            return err(validationResult.unwrapErr());
           }
         }
       }
@@ -604,7 +604,7 @@ export class UpdateUserUseCase {
       },
     });
 
-    return { data: userToResponse(updated as UserRow) };
+    return ok({ data: userToResponse(updated as UserRow) });
   }
 }
 
