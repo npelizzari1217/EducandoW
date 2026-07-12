@@ -26,10 +26,12 @@ import {
   EducationalLevel,
   EducationalLevelCode,
 } from '@educandow/domain';
+import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../../infrastructure/reporting/resolve-logo-data-uri';
+import type { PdfError } from '../../shared/errors/pdf.error';
 import type { AttendanceTypeCurrentUser } from './attendance-type.use-cases';
 
 export interface GenerateAttendanceTypesPdfInput {
@@ -82,7 +84,7 @@ export class GenerateAttendanceTypesPdfUseCase {
     }
   }
 
-  async execute(input: GenerateAttendanceTypesPdfInput): Promise<Buffer> {
+  async execute(input: GenerateAttendanceTypesPdfInput): Promise<Result<Buffer, PdfError>> {
     const { level, active, currentUser } = input;
     const scope = resolveAccessScope(currentUser);
 
@@ -105,7 +107,7 @@ export class GenerateAttendanceTypesPdfUseCase {
 
   // ── Shared render pipeline ───────────────────────────────────────────────
 
-  private async render(types: AttendanceType[]): Promise<Buffer> {
+  private async render(types: AttendanceType[]): Promise<Result<Buffer, PdfError>> {
     if (!this.template) {
       throw new Error('Template attendance-types.hbs no encontrado');
     }
