@@ -21,6 +21,7 @@ import {
 } from '../../application/attendance-type/use-cases/attendance-type.use-cases';
 import { GenerateAttendanceTypesPdfUseCase } from '../../application/attendance-type/use-cases/generate-attendance-types-pdf.use-case';
 import type { AttendanceType } from '@educandow/domain';
+import { unwrapResultOrThrow } from '../shared/http/unwrap-result-or-throw';
 
 function toResponse(entity: AttendanceType) {
   return {
@@ -93,11 +94,12 @@ export class AttendanceTypeController {
     @Query(new ZodValidationPipe(PrintAttendanceTypesQuerySchema)) query: PrintAttendanceTypesDTO,
     @Res() res: Response,
   ): Promise<void> {
-    const pdfBuffer = await this.generatePdfUC.execute({
+    const result = await this.generatePdfUC.execute({
       level: query.level,
       active: query.active,
       currentUser: user,
     });
+    const pdfBuffer = unwrapResultOrThrow(result);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="tipos-asistencia.pdf"',

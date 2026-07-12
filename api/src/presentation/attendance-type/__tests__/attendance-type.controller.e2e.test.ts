@@ -17,8 +17,9 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ExecutionContext, CanActivate } from '@nestjs/common';
 import request from 'supertest';
-import { AttendanceTypeLevelOutOfScopeError, ok, AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError, ok, err, AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { AttendanceTypeController } from '../attendance-type.controller';
+import { PdfError } from '../../../application/shared/errors/pdf.error';
 import { AuthGuard } from '../../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../../infrastructure/auth/guards/roles.guard';
 import { AppExceptionFilter } from '../../shared/filters/exception.filter';
@@ -219,7 +220,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   // ── PR4 — T27/T28/T30: GET /attendance-types/print (impresión PDF scopeada) ──
 
   it('GET /attendance-types/print returns REAL HTTP 200 with application/pdf + Content-Disposition attachment for a level in scope', async () => {
-    generatePdfExecute.mockResolvedValueOnce(Buffer.from('%PDF-1.4 FAKE'));
+    generatePdfExecute.mockResolvedValueOnce(ok(Buffer.from('%PDF-1.4 FAKE')));
 
     const res = await request(app.getHttpServer()).get('/attendance-types/print');
 
@@ -253,12 +254,23 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('route order hazard: GET /attendance-types/print does NOT get swallowed by GET /:id (getUC never invoked)', async () => {
-    generatePdfExecute.mockResolvedValueOnce(Buffer.from('%PDF-1.4 FAKE'));
+    generatePdfExecute.mockResolvedValueOnce(ok(Buffer.from('%PDF-1.4 FAKE')));
     getExecute.mockClear();
 
     await request(app.getHttpServer()).get('/attendance-types/print');
 
     expect(getExecute).not.toHaveBeenCalled();
     expect(generatePdfExecute).toHaveBeenCalled();
+  });
+
+  // ── PPR-S8 — err(PdfError) via the REAL pipeline (unwrapResultOrThrow → filter) ──
+
+  it('(PPR-S8) GET /attendance-types/print returns REAL HTTP 500 when generatePdfUC resolves err(PdfError), no PDF body sent', async () => {
+    generatePdfExecute.mockResolvedValueOnce(err(new PdfError({ cause: new Error('boom') })));
+
+    const res = await request(app.getHttpServer()).get('/attendance-types/print');
+
+    expect(res.status).toBe(500);
+    expect(res.headers['content-type']).not.toContain('application/pdf');
   });
 });
