@@ -78,7 +78,7 @@ export class UsersController {
   ) {
     const roles = body.roles ?? (body.role ? [body.role] : undefined);
 
-    return this.createUC.execute({
+    const result = await this.createUC.execute({
       email: body.email,
       password: body.password,
       name: body.name,
@@ -97,6 +97,8 @@ export class UsersController {
       title: body.title,
       phone: body.phone,
     });
+    if (result.isErr()) throw result.unwrapErr();
+    return result.unwrap();
   }
 
   @Patch(':id')
@@ -106,14 +108,17 @@ export class UsersController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateUserSchema)) body: UpdateUserDTO,
   ) {
-    return this.updateUC.execute(id, body, this.getCreatorRoles(req), this.getCreatorInstitutionId(req), this.getCreatorModules(req));
+    const result = await this.updateUC.execute(id, body, this.getCreatorRoles(req), this.getCreatorInstitutionId(req), this.getCreatorModules(req));
+    if (result.isErr()) throw result.unwrapErr();
+    return result.unwrap();
   }
 
   @Delete(':id')
   @Roles('ROOT', { module: 'USERS', action: 'DELETE' })
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Req() req: Request, @Param('id') id: string) {
-    await this.deleteUC.execute(id, this.getCreatorRoles(req));
+    const result = await this.deleteUC.execute(id, this.getCreatorRoles(req));
+    if (result.isErr()) throw result.unwrapErr();
     return;
   }
 }
