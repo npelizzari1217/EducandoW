@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import puppeteer, { Browser, Page } from 'puppeteer';
+import { ok, err } from '@educandow/domain';
+import type { Result } from '@educandow/domain';
 import type { PdfPort, GeneratePdfOptions } from '../../application/shared/ports/pdf.port';
+import { PdfError } from '../../application/shared/errors/pdf.error';
 
 /**
  * PdfGeneratorService — renders HTML to PDF via Puppeteer.
@@ -22,8 +25,12 @@ export class PdfGeneratorService implements PdfPort, OnModuleDestroy {
    *
    * `options` is additive and optional — omitting it (or any of its keys)
    * preserves the original portrait A4 defaults used by boletines/constancias.
+   *
+   * ADR-2 (PPR-R2/S2): on a `page.setContent`/`page.pdf` rejection, this
+   * MUST NOT throw nor let the promise reject — it resolves in
+   * `err(PdfError)` with the original error preserved as `cause`.
    */
-  async generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer> {
+  async generatePdf(html: string, options?: GeneratePdfOptions): Promise<Result<Buffer, PdfError>> {
     const page = await this.newPage();
     try {
       await page.setContent(html, {
@@ -42,10 +49,10 @@ export class PdfGeneratorService implements PdfPort, OnModuleDestroy {
         displayHeaderFooter: false,
       });
 
-      return Buffer.from(pdf);
-    } catch (err) {
-      this.logger.error(`PDF generation failed: ${(err as Error).message}`);
-      throw err;
+      return ok(Buffer.from(pdf));
+    } catch (e) {
+      this.logger.error(`PDF generation failed: ${(e as Error).message}`);
+      return err(new PdfError({ cause: e }));
     } finally {
       await page.close();
     }
