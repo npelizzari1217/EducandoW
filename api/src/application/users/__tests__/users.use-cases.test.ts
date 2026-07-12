@@ -2,13 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   EducationalLevelCode,
   EducationalModalityCode,
+  EmailAlreadyExistsError,
+  ValidationError,
   type InstitutionLevelEntry,
 } from '@educandow/domain';
+import { InsufficientRoleHierarchyError } from '../../shared/errors/authorization-errors';
 
 import {
   userToResponse,
   validateLevelsSubset,
   ListUsersUseCase,
+  CreateUserUseCase,
 } from '../use-cases/users.use-cases';
 
 // ── userToResponse tests ──────────────────────────────────
@@ -333,5 +337,155 @@ describe('ListUsersUseCase — level and roles filters', () => {
     expect(ids).not.toContain('u-primario'); // TEACHER, not DIRECTOR
     expect(ids).not.toContain('u-secundario'); // PRECEPTOR, not DIRECTOR
     expect(ids).not.toContain('u-no-level'); // SECRETARIO, not DIRECTOR
+  });
+});
+
+// ── CreateUserUseCase — Result migration (AEM-R4/R5/R6) ────────────
+
+/**
+ * Builds a fake full user record as returned by user.create / the post-create refresh findUnique.
+ */
+function makeCreatedUserRecord(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'user-new',
+    email: 'new@test.com',
+    name: 'New User',
+    passwordHash: 'hashed',
+    institutionId: 'inst-1',
+    active: true,
+    failedAttempts: 0,
+    lockedUntil: null,
+    deletedAt: null,
+    createdAt: new Date('2025-01-01'),
+    updatedAt: new Date('2025-01-02'),
+    userRoles: [],
+    institution: null,
+    userModules: [],
+    userLevels: [],
+    firstName: null,
+    lastName: null,
+    dni: null,
+    title: null,
+    phone: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Mock PrismaService for CreateUserUseCase. First `user.findUnique` call is the email-uniqueness
+ * check; the second (only reached on the success path) is the post-create refresh.
+ */
+function makeCreatePrisma(opts: {
+  existingEmail?: unknown;
+  institution?: { levels: { level: number; modality: number }[] } | null;
+} = {}) {
+  const findUnique = vi
+    .fn()
+    .mockResolvedValueOnce(opts.existingEmail ?? null)
+    .mockResolvedValueOnce(makeCreatedUserRecord());
+
+  return {
+    getMasterClient: () => ({
+      user: {
+        findUnique,
+        create: vi.fn().mockResolvedValue(makeCreatedUserRecord()),
+      },
+      institution: {
+        findUnique: vi.fn().mockResolvedValue(opts.institution ?? null),
+      },
+      role: { findMany: vi.fn().mockResolvedValue([]) },
+      userRole: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      profileModulePermission: { findMany: vi.fn().mockResolvedValue([]) },
+      module: { findMany: vi.fn().mockResolvedValue([]) },
+      userModule: { createMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    }),
+  } as unknown as import('../../../infrastructure/persistence/prisma/prisma.service').PrismaService;
+}
+
+describe('CreateUserUseCase', () => {
+  // AEM-R4.S1 / AEM-R5.S1 — insufficient hierarchy → err, not throw
+  it('returns err(InsufficientRoleHierarchyError) when caller lacks hierarchy for the requested roles', async () => {
+    const uc = new CreateUserUseCase(makeCreatePrisma());
+
+    const result = await uc.execute({
+      email: 'new@test.com',
+      password: 'secret123',
+      name: 'New User',
+      roles: ['ADMIN'],
+      creatorRoles: ['TEACHER'],
+    });
+
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(InsufficientRoleHierarchyError);
+    expect(error.code).toBe('INSUFFICIENT_ROLE_HIERARCHY');
+  });
+
+  // AEM-R4.S6 (site #1) — email already exists → err, not throw
+  it('returns err(EmailAlreadyExistsError) when the email is already registered', async () => {
+    const uc = new CreateUserUseCase(
+      makeCreatePrisma({ existingEmail: makeCreatedUserRecord({ id: 'existing' }) }),
+    );
+
+    const result = await uc.execute({
+      email: 'new@test.com',
+      password: 'secret123',
+      name: 'New User',
+      creatorRoles: ['ROOT'],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(EmailAlreadyExistsError);
+  });
+
+  // AEM-R4.S6 (site #3) — levels not a subset of institution levels → err, not throw
+  it('returns err(ValidationError) when levels are not a subset of institution levels', async () => {
+    const uc = new CreateUserUseCase(
+      makeCreatePrisma({
+        institution: { levels: [{ level: 2, modality: 0 }] }, // Primario Común only
+      }),
+    );
+
+    const result = await uc.execute({
+      email: 'new@test.com',
+      password: 'secret123',
+      name: 'New User',
+      creatorRoles: ['DIRECTOR'],
+      creatorInstitutionId: 'inst-1',
+      levels: [{ level: 4, modality: 0 }], // Terciario — not in institution
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+  });
+
+  // AEM-R6.S1 — ROOT bypasses hierarchy entirely
+  it('ROOT caller succeeds regardless of requested role hierarchy', async () => {
+    const uc = new CreateUserUseCase(makeCreatePrisma());
+
+    const result = await uc.execute({
+      email: 'new@test.com',
+      password: 'secret123',
+      name: 'New User',
+      roles: ['ADMIN'],
+      creatorRoles: ['ROOT'],
+    });
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  // AEM-R6.S2 — non-ROOT caller with strictly sufficient hierarchy succeeds
+  it('non-ROOT caller with sufficient hierarchy succeeds', async () => {
+    const uc = new CreateUserUseCase(makeCreatePrisma());
+
+    const result = await uc.execute({
+      email: 'new@test.com',
+      password: 'secret123',
+      name: 'New User',
+      roles: ['TEACHER'],
+      creatorRoles: ['ADMIN'],
+    });
+
+    expect(result.isOk()).toBe(true);
   });
 });

@@ -5,6 +5,7 @@ import { EmailAlreadyExistsError, canManageUser, canViewUser, type UserLevelEntr
 import * as bcrypt from 'bcrypt';
 import { filterModuleAccess, type ModuleAccessItem } from '../filter-module-access';
 import { profileToModuleAccess, type ProfilePermissionRow } from '../../profiles/use-cases/profiles.use-cases';
+import { InsufficientRoleHierarchyError, CrossInstitutionForbiddenError } from '../../shared/errors/authorization-errors';
 
 // ── Types ────────────────────────────────────────────────
 
@@ -196,22 +197,22 @@ export class CreateUserUseCase {
     dni?: string;
     title?: string;
     phone?: string;
-  }) {
+  }): Promise<Result<{ data: ReturnType<typeof userToResponse> }, EmailAlreadyExistsError | InsufficientRoleHierarchyError | ValidationError>> {
     const client = this.prisma.getMasterClient();
     const isRoot = input.creatorRoles.includes('ROOT');
 
     // Verificar email único
     const existing = await client.user.findUnique({ where: { email: input.email } });
-    if (existing) throw new EmailAlreadyExistsError(input.email);
+    if (existing) return err(new EmailAlreadyExistsError(input.email));
 
     // Verificar jerarquía de roles: el creador debe tener jerarquía igual o superior
     // a los roles que está asignando al nuevo usuario
     if (!isRoot && input.roles && input.roles.length > 0) {
       if (!canViewUser(input.creatorRoles, input.roles)) {
-        throw new Error(
+        return err(new InsufficientRoleHierarchyError(
           'No tenés jerarquía suficiente para crear un usuario con estos roles. ' +
           'Solo podés asignar roles de jerarquía igual o inferior al tuyo.',
-        );
+        ));
       }
     }
 
@@ -238,7 +239,7 @@ export class CreateUserUseCase {
           })),
         );
         if (validationResult.isErr()) {
-          throw validationResult.unwrapErr();
+          return err(validationResult.unwrapErr());
         }
       }
     }
@@ -368,7 +369,7 @@ export class CreateUserUseCase {
       },
     });
 
-    return { data: userToResponse(final as UserRow) };
+    return ok({ data: userToResponse(final as UserRow) });
   }
 }
 
