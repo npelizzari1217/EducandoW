@@ -2,10 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
+import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
+import type { PdfError } from '../shared/errors/pdf.error';
 import type { DatosConstancia } from './templates/constancia.template';
 import { ConstanciaError } from './templates/constancia.template';
 
@@ -85,7 +87,7 @@ export class GenerateConstanciaRegularUseCase {
     }
   }
 
-  async execute(axccId: string, input: ConstanciaInput): Promise<Buffer> {
+  async execute(axccId: string, input: ConstanciaInput): Promise<Result<Buffer, PdfError>> {
     const tenantClient = TenantContext.getClient();
     if (!tenantClient) {
       throw new ConstanciaError('No tenant context available', 'INTERNAL_ERROR', 500);
