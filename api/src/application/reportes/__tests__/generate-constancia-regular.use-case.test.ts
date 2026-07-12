@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ok, err } from '@educandow/domain';
 import { GenerateConstanciaRegularUseCase } from '../generate-constancia-regular.use-case';
 import { ConstanciaError } from '../templates/constancia.template';
+import { PdfError } from '../../shared/errors/pdf.error';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
 // ── Module mocks ────────────────────────────────────────────────────────────
@@ -19,7 +21,7 @@ vi.mock('../../../infrastructure/reporting/resolve-logo-data-uri', () => ({
 // ── Factories ───────────────────────────────────────────────────────────────
 
 function makePdfGenerator() {
-  return { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  return { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
 }
 
 // When called with no argument → returns a non-null institution (happy-path default).
@@ -165,9 +167,9 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     );
   });
 
-  // ── Case (c): happy path → Buffer ─────────────────────────────────────────
+  // ── Case (c): happy path → ok(Buffer) ─────────────────────────────────────
 
-  it('(c) returns a Buffer on happy path', async () => {
+  it('(c) returns ok(Buffer) on happy path', async () => {
     const tenantClient = makeTenantClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
 
@@ -179,8 +181,45 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
 
     const result = await uc.execute('axcc-1', defaultInput);
 
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
     expect(pdfGenerator.generatePdf).toHaveBeenCalledOnce();
+  });
+
+  // ── PPR-S4/S5 — Result propagation from the port ─────────────────────────
+
+  it('(PPR-S4) propagates err(PdfError) from the port without throwing', async () => {
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const pdfError = new PdfError({ cause: new Error('boom') });
+    const pdfGenerator = { generatePdf: vi.fn().mockResolvedValue(err(pdfError)) };
+    const uc = new GenerateConstanciaRegularUseCase(
+      pdfGenerator as never,
+      makePrisma() as never,
+    );
+
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBe(pdfError);
+  });
+
+  it('(PPR-S5) propagates ok(buffer) from the port with the same Buffer instance', async () => {
+    const tenantClient = makeTenantClient();
+    vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
+
+    const buffer = Buffer.from('SPECIFIC-PDF-BYTES');
+    const pdfGenerator = { generatePdf: vi.fn().mockResolvedValue(ok(buffer)) };
+    const uc = new GenerateConstanciaRegularUseCase(
+      pdfGenerator as never,
+      makePrisma() as never,
+    );
+
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(buffer);
   });
 
   // ── Case (d): DatosConstancia assembled — 4 groups ───────────────────────
@@ -458,7 +497,8 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
 
     // Should succeed (institution = null is allowed when institutionId is null)
     const result = await uc.execute('axcc-1', defaultInput);
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
     // institution fields should fall back to defaults
     const [htmlArg] = pdfGenerator.generatePdf.mock.calls[0] as [string];
     // no institution name → rendered as empty string by HBS fallback
@@ -486,7 +526,8 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     );
 
     const result = await uc.execute('axcc-1', defaultInput);
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   // resolveLevelName: level not in {1,2,3,4} → names[decade] ?? `Nivel ${level}`

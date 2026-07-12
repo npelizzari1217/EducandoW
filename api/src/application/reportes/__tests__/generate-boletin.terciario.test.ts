@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import { ok } from '@educandow/domain';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
@@ -12,7 +13,7 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
 // ── Shared mock factories ─────────────────────────────────────────────────────
 
 function makePdfGenerator() {
-  return { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  return { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
 }
 
 function makePdfStorage() {

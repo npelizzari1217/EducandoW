@@ -8,8 +8,9 @@
  * reimplement the modality-collapse logic.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { AttendanceTypeLevelOutOfScopeError } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError, ok, err } from '@educandow/domain';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
+import { PdfError } from '../../shared/errors/pdf.error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -64,7 +65,7 @@ function makeUC({
     existsByLevelCode: vi.fn(),
   };
   const pdfGenerator = {
-    generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')),
+    generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))),
   };
   const prisma = {
     getMasterClient: vi.fn().mockReturnValue({
@@ -170,13 +171,37 @@ describe('GenerateAttendanceTypesPdfUseCase — render pipeline', () => {
     expect(prisma.getMasterClient).toHaveBeenCalled();
   });
 
-  it('retorna el Buffer producido por pdfGenerator.generatePdf', async () => {
+  it('retorna ok(Buffer) producido por pdfGenerator.generatePdf', async () => {
     const { uc, pdfGenerator } = makeUC();
-    pdfGenerator.generatePdf.mockResolvedValue(Buffer.from('MY-PDF'));
+    pdfGenerator.generatePdf.mockResolvedValue(ok(Buffer.from('MY-PDF')));
 
     const result = await uc.execute({ currentUser: rootUser });
 
-    expect(result).toBeInstanceOf(Buffer);
-    expect(result.toString()).toBe('MY-PDF');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().toString()).toBe('MY-PDF');
+  });
+
+  // ── PPR-S4/S5 — Result propagation from the port ─────────────────────────
+
+  it('(PPR-S4) propagates err(PdfError) from the port without throwing', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const pdfError = new PdfError({ cause: new Error('boom') });
+    pdfGenerator.generatePdf.mockResolvedValue(err(pdfError));
+
+    const result = await uc.execute({ currentUser: rootUser });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBe(pdfError);
+  });
+
+  it('(PPR-S5) propagates ok(buffer) from the port with the same Buffer instance', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const buffer = Buffer.from('SPECIFIC-PDF-BYTES');
+    pdfGenerator.generatePdf.mockResolvedValue(ok(buffer));
+
+    const result = await uc.execute({ currentUser: rootUser });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(buffer);
   });
 });

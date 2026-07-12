@@ -2,10 +2,13 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
+import { ok } from '@educandow/domain';
+import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
+import type { PdfError } from '../shared/errors/pdf.error';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin, SlotCursadaBoletin, IntentoFinalBoletin, GrupoCuatrimestreBoletin } from './templates/boletin.template';
 import type { SlotCursadaTerciarioValue } from '@educandow/domain';
@@ -115,7 +118,7 @@ export class GenerateBoletinUseCase {
    *
    * @returns The PDF Buffer ready to be served as application/pdf.
    */
-  async execute(alumnosXCursoXCicloId: string): Promise<Buffer> {
+  async execute(alumnosXCursoXCicloId: string): Promise<Result<Buffer, PdfError>> {
     const client = this.tenantClient();
 
     // 1. Fetch AlumnosXCursoXCiclo row (replaces enrollment.findUnique)
@@ -133,7 +136,7 @@ export class GenerateBoletinUseCase {
     const cachedPath = await this.pdfStorage.getPath(axcc.id);
     if (cachedPath) {
       this.logger.log(`Returning cached PDF for AlumnosXCursoXCiclo ${axcc.id}`);
-      return fs.promises.readFile(cachedPath);
+      return ok(await fs.promises.readFile(cachedPath));
     }
 
     // 3. Resolve CourseCycle → CourseSection (grade/division/academicYear) + AcademicCycle (cycleId)
@@ -214,14 +217,16 @@ export class GenerateBoletinUseCase {
     const html = template(datos);
 
     // 11. Generate PDF
-    const pdfBuffer = await this.pdfGenerator.generatePdf(html);
+    const result = await this.pdfGenerator.generatePdf(html);
+    if (result.isErr()) return result;
+    const pdfBuffer = result.unwrap();
 
     // 12. Store PDF for future requests (key = axcc.id)
     await this.pdfStorage.save(axcc.id, pdfBuffer);
 
     this.logger.log(`Boletín PDF generated for AlumnosXCursoXCiclo ${axcc.id} (${(student as any).lastName}, ${(student as any).firstName})`);
 
-    return pdfBuffer;
+    return ok(pdfBuffer);
   }
 
   // ── Data aggregation ───────────────────────────────────────

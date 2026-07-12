@@ -11,6 +11,7 @@ import { GenerateConstanciaRegularUseCase } from '../../application/reportes/gen
 import { ConstanciaError } from '../../application/reportes/templates/constancia.template';
 import { ConstanciaBodySchema, ConstanciaBodyDto } from './dto/constancia.dto';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
+import { unwrapResultOrThrow } from '../shared/http/unwrap-result-or-throw';
 
 @Controller('reportes')
 @UseGuards(AuthGuard, RolesGuard)
@@ -33,7 +34,8 @@ export class ReportesController {
     @Res() res: Response,
   ) {
     try {
-      const pdfBuffer = await this.singleUC.execute(alumnosXCursoXCicloId);
+      const result = await this.singleUC.execute(alumnosXCursoXCicloId);
+      const pdfBuffer = unwrapResultOrThrow(result);
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="boletin-${alumnosXCursoXCicloId}.pdf"`,
@@ -98,7 +100,8 @@ export class ReportesController {
     @Res() res: Response,
   ) {
     try {
-      const pdfBuffer = await this.constanciaUC.execute(axccId, dto);
+      const result = await this.constanciaUC.execute(axccId, dto);
+      const pdfBuffer = unwrapResultOrThrow(result);
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="constancia-regular-${axccId}.pdf"`,

@@ -30,6 +30,7 @@ vi.mock('puppeteer', () => ({
 
 // Import after the mock so the module picks up the mocked puppeteer.
 import { PdfGeneratorService } from '../pdf-generator.service';
+import { PdfError } from '../../../application/shared/errors/pdf.error';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -128,5 +129,50 @@ describe('PdfGeneratorService', () => {
       landscape: true,
       margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
     });
+  });
+
+  // ── PPR-S2 — Puppeteer rejection resolves to err(PdfError), NOT a throw ────
+
+  describe('PPR-R2/S2 — resolves err(PdfError) on Puppeteer rejection (does not throw)', () => {
+    it('page.setContent rejects → generatePdf resolves in err(PdfError) with code PDF_GENERATION_FAILED and cause preserved', async () => {
+      const original = new Error('setContent timeout');
+      mockPageSetContent.mockRejectedValueOnce(original);
+
+      const result = await service.generatePdf('<html></html>');
+
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(PdfError);
+      expect(error.code).toBe('PDF_GENERATION_FAILED');
+      expect(error.cause).toBe(original);
+    });
+
+    it('page.pdf rejects → generatePdf resolves in err(PdfError), promise never rejects', async () => {
+      const original = new Error('pdf render crashed');
+      mockPagePdf.mockRejectedValueOnce(original);
+
+      const promise = service.generatePdf('<html></html>');
+      await expect(promise).resolves.toBeDefined();
+      const result = await promise;
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr().cause).toBe(original);
+    });
+
+    it('page.close() (finally) still runs when generation fails', async () => {
+      mockPagePdf.mockRejectedValueOnce(new Error('boom'));
+
+      await service.generatePdf('<html></html>');
+
+      expect(mockPageClose).toHaveBeenCalledOnce();
+    });
+  });
+
+  // ── PPR-S2 — happy path resolves ok(Buffer) ─────────────────────────────────
+
+  it('generatePdf(html) on success resolves in ok(Buffer) (not a raw Buffer)', async () => {
+    const result = await service.generatePdf('<html></html>');
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 });

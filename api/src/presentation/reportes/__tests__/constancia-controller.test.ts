@@ -3,6 +3,7 @@
  * Satisfies: REQ-2, REQ-6 (Sc6.1)
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { ok } from '@educandow/domain';
 import { ConstanciaError } from '../../../application/reportes/templates/constancia.template';
 
 let ReportesController: any;
@@ -103,7 +104,7 @@ describe('ReportesController#createConstanciaRegular — ConstanciaError 500', (
 describe('ReportesController#createConstanciaRegular — happy path', () => {
   it('sets Content-Type application/pdf, Content-Disposition inline, and sends buffer (REQ-6 Sc6.1)', async () => {
     const pdfBuffer = Buffer.from('%PDF-mock');
-    const ctrl = makeController(() => Promise.resolve(pdfBuffer));
+    const ctrl = makeController(() => Promise.resolve(ok(pdfBuffer)));
     const res = makeRes();
 
     await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);
@@ -120,7 +121,7 @@ describe('ReportesController#createConstanciaRegular — happy path', () => {
 
   it('includes axccId in the Content-Disposition filename', async () => {
     const pdfBuffer = Buffer.from('%PDF-mock');
-    const ctrl = makeController(() => Promise.resolve(pdfBuffer));
+    const ctrl = makeController(() => Promise.resolve(ok(pdfBuffer)));
     const res = makeRes();
 
     await ctrl.createConstanciaRegular(AXCC_ID, VALID_DTO, res);

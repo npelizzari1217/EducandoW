@@ -8,10 +8,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { ForbiddenException } from '@nestjs/common';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenException, HttpException } from '@nestjs/common';
+import { ForbiddenError, ok, err } from '@educandow/domain';
 import { AsistenciaReportingController } from '../asistencia-reporting.controller';
 import { AsistenciaReportingError } from '../../../application/asistencia-reporting/asistencia-reporting.errors';
+import { PdfError } from '../../../application/shared/errors/pdf.error';
 import { ROLES_KEY } from '../../../infrastructure/auth/decorators/roles.decorator';
 
 function makeRes() {
@@ -33,8 +34,8 @@ describe('AsistenciaReportingController', () => {
 
   beforeEach(() => {
     useCase = {
-      executeGeneral: vi.fn().mockResolvedValue(Buffer.from('PDF-GENERAL')),
-      executeMateria: vi.fn().mockResolvedValue(Buffer.from('PDF-MATERIA')),
+      executeGeneral: vi.fn().mockResolvedValue(ok(Buffer.from('PDF-GENERAL'))),
+      executeMateria: vi.fn().mockResolvedValue(ok(Buffer.from('PDF-MATERIA'))),
     };
     controller = new AsistenciaReportingController(useCase as never);
   });
@@ -86,6 +87,19 @@ describe('AsistenciaReportingController', () => {
         controller.printGeneral('cc-1', makeUser() as never, { year: 2026, month: 7 }, res as never),
       ).rejects.toBe(boom);
     });
+
+    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); handleError rethrows it (not AsistenciaReportingError/ForbiddenError), no PDF ever sent', async () => {
+      useCase.executeGeneral.mockResolvedValue(err(new PdfError({ cause: new Error('boom') })));
+      const res = makeRes();
+
+      const promise = controller.printGeneral('cc-1', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(500);
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
   });
 
   describe('GET .../asistencia-mensual/print (Por Materia)', () => {
@@ -122,6 +136,19 @@ describe('AsistenciaReportingController', () => {
       const reflector = new Reflector();
       const roles = reflector.get(ROLES_KEY, controller.printMateria);
       expect(roles).toContainEqual({ module: 'ATTENDANCE', action: 'READ' });
+    });
+
+    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); handleError rethrows it, no PDF ever sent', async () => {
+      useCase.executeMateria.mockResolvedValue(err(new PdfError({ cause: new Error('boom') })));
+      const res = makeRes();
+
+      const promise = controller.printMateria('mxcc-1', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(500);
+      });
+      expect(res.send).not.toHaveBeenCalled();
     });
   });
 });

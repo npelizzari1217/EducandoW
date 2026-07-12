@@ -38,6 +38,7 @@ import {
 } from './dto/asistencia-reporting.dto';
 import { GenerateAsistenciaMensualPdfUseCase } from '../../application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case';
 import { AsistenciaReportingError } from '../../application/asistencia-reporting/asistencia-reporting.errors';
+import { unwrapResultOrThrow } from '../shared/http/unwrap-result-or-throw';
 
 @Controller()
 @UseGuards(AuthGuard, RolesGuard)
@@ -59,13 +60,14 @@ export class AsistenciaReportingController {
     @Res() res: Response,
   ): Promise<void> {
     try {
-      const pdfBuffer = await this.generateUC.executeGeneral({
+      const result = await this.generateUC.executeGeneral({
         courseCycleId: ccId,
         year: query.year,
         month: query.month,
         userId: user.userId,
         userRoles: user.roles,
       });
+      const pdfBuffer = unwrapResultOrThrow(result);
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="asistencia-mensual-${ccId}-${query.year}-${query.month}.pdf"`,
@@ -91,7 +93,7 @@ export class AsistenciaReportingController {
     @Res() res: Response,
   ): Promise<void> {
     try {
-      const pdfBuffer = await this.generateUC.executeMateria({
+      const result = await this.generateUC.executeMateria({
         materiaXCursoXCicloId: materiaId,
         year: query.year,
         month: query.month,
@@ -99,6 +101,7 @@ export class AsistenciaReportingController {
         userId: user.userId,
         userRoles: user.roles,
       });
+      const pdfBuffer = unwrapResultOrThrow(result);
       res.set({
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="asistencia-mensual-${materiaId}-${query.year}-${query.month}.pdf"`,

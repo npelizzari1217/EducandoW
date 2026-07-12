@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { InformeEvolutivo, Periodo, Id } from '@educandow/domain';
+import { InformeEvolutivo, Periodo, Id, ok } from '@educandow/domain';
 import type { InformeRepository } from '@educandow/domain';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
@@ -14,7 +14,7 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
 // ── Shared mock factories ─────────────────────────────────────────────────────
 
 function makePdfGenerator() {
-  return { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  return { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
 }
 
 function makePdfStorage() {
@@ -288,7 +288,7 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Inicial (level=10)', () 
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );

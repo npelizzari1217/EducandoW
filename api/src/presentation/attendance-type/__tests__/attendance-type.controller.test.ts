@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { Reflector } from '@nestjs/core';
+import { HttpException } from '@nestjs/common';
 import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
@@ -10,6 +11,7 @@ import {
 } from '@educandow/domain';
 import { ROLES_KEY } from '../../../infrastructure/auth/decorators/roles.decorator';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
+import { PdfError } from '../../../application/shared/errors/pdf.error';
 
 // ── Current-user fixtures (PR2 — @CurrentUser) ──────────────────
 
@@ -57,7 +59,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
   const mockGet = overrides.getUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockUpdate = overrides.updateUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockDelete = overrides.deleteUC ?? { execute: vi.fn().mockResolvedValue(ok(undefined)) };
-  const mockGeneratePdf = overrides.generatePdfUC ?? { execute: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  const mockGeneratePdf = overrides.generatePdfUC ?? { execute: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
 
   Object.assign(ctrl, {
     createUC: mockCreate,
@@ -359,7 +361,7 @@ describe('AttendanceTypeController.remove', () => {
 
 describe('AttendanceTypeController.printList', () => {
   it('calls generatePdfUC.execute with @CurrentUser + query and returns the PDF with attachment headers', async () => {
-    const mockExecute = vi.fn().mockResolvedValue(Buffer.from('PDF-BYTES'));
+    const mockExecute = vi.fn().mockResolvedValue(ok(Buffer.from('PDF-BYTES')));
     const ctrl = makeController({ generatePdfUC: { execute: mockExecute } });
     const res = makeRes();
 
@@ -383,6 +385,37 @@ describe('AttendanceTypeController.printList', () => {
       AttendanceTypeLevelOutOfScopeError,
     );
     expect(res.send).not.toHaveBeenCalled();
+  });
+
+  // ── PPR-S8/S9 — Result materialization via unwrapResultOrThrow ─────────────
+
+  it('(PPR-S8) err(PdfError) → unwrapResultOrThrow throws HttpException(500); no PDF ever sent, no throw inside application', async () => {
+    const ctrl = makeController({
+      generatePdfUC: {
+        execute: vi.fn().mockResolvedValue(err(new PdfError({ cause: new Error('boom') }))),
+      },
+    });
+    const res = makeRes();
+
+    const promise = ctrl.printList(teacherLevel2, { level: 2, active: undefined }, res);
+
+    await expect(promise).rejects.toBeInstanceOf(HttpException);
+    await promise.catch((e: HttpException) => {
+      expect(e.getStatus()).toBe(500);
+    });
+    expect(res.send).not.toHaveBeenCalled();
+  });
+
+  it('(PPR-S9) ok(buffer) → returns 200 with the same Buffer, sin throw en application', async () => {
+    const buffer = Buffer.from('SPECIFIC-PDF-BYTES');
+    const ctrl = makeController({
+      generatePdfUC: { execute: vi.fn().mockResolvedValue(ok(buffer)) },
+    });
+    const res = makeRes();
+
+    await ctrl.printList(teacherLevel2, { level: 2, active: undefined }, res);
+
+    expect(res.send).toHaveBeenCalledWith(buffer);
   });
 
   it('exposes @Roles module/action metadata consistent with list()/getOne() (ATTENDANCE_TYPES/READ)', () => {
