@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import { ok, err } from '@educandow/domain';
 import { GenerateBoletinUseCase, BoletinError } from '../generate-boletin.use-case';
 import type { MesaExamenBoletin } from '../templates/boletin.template';
+import { PdfError } from '../../shared/errors/pdf.error';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -21,7 +26,7 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
 describe('GenerateBoletinUseCase — HOTFIX-2: template loading from real src layout', () => {
   function makeUc() {
     return new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
@@ -54,7 +59,7 @@ describe('GenerateBoletinUseCase — HOTFIX-2: template loading from real src la
 // ── Minimal mocks ──────────────────────────────────────────────────────────────
 
 function makePdfGenerator() {
-  return { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  return { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
 }
 
 function makePdfStorage(cachedPath: string | null = null) {
@@ -419,7 +424,7 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
 
   function makeUcForExecute(cachedPath: string | null = null) {
     return new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       {
         getPath: vi.fn().mockResolvedValue(cachedPath),
         save: vi.fn().mockResolvedValue(undefined),
@@ -500,7 +505,7 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
       delete: vi.fn().mockResolvedValue(undefined),
     };
     const uc = new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       storage as never,
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
@@ -511,6 +516,75 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     expect(storage.getPath).toHaveBeenCalledWith('axcc-cache-key');
     // Cache save MUST use axcc.id
     expect(storage.save).toHaveBeenCalledWith('axcc-cache-key', expect.any(Buffer));
+  });
+
+  // ── PPR-S11/S12 — post-process: save on ok, no-save on err ─────────────────
+
+  function makeFreshPathMocks() {
+    const axcc = { id: 'axcc-fresh', courseCycleId: 'cc-1', studentId: 'stu-1', printable: true };
+    const cc = {
+      uuid: 'cc-1', level: 10 /* Inicial */, cycleId: 'cyc-1',
+      course: { grade: null, division: null, academicYear: '2026' },
+    };
+    const student = { id: 'stu-1', firstName: 'Juan', lastName: 'García', dni: '11111111' };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue(cc),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      student: { findUnique: vi.fn().mockResolvedValue(student) },
+      salaEnrollment: { findFirst: vi.fn().mockResolvedValue(null) },
+      asistenciaXAlumnoXCursoXCiclo: { findMany: vi.fn().mockResolvedValue([]) },
+      attendanceType: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    return { client };
+  }
+
+  it('(PPR-S11) ok(buffer) from the port → pdfStorage.save called BEFORE returning ok(buffer)', async () => {
+    const { client } = makeFreshPathMocks();
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const buffer = Buffer.from('FRESH-PDF');
+    const storage = {
+      getPath: vi.fn().mockResolvedValue(null), // cache miss → generate
+      save: vi.fn().mockResolvedValue('/uploads/boletines/axcc-fresh.pdf'),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(ok(buffer)) } as never,
+      storage as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    const result = await uc.execute('axcc-fresh');
+
+    expect(storage.save).toHaveBeenCalledWith('axcc-fresh', buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(buffer);
+  });
+
+  it('(PPR-S12) err(PdfError) from the port → pdfStorage.save is NOT invoked, err propagates without throw', async () => {
+    const { client } = makeFreshPathMocks();
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const pdfError = new PdfError({ cause: new Error('boom') });
+    const storage = {
+      getPath: vi.fn().mockResolvedValue(null), // cache miss → generate
+      save: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    const uc = new GenerateBoletinUseCase(
+      { generatePdf: vi.fn().mockResolvedValue(err(pdfError)) } as never,
+      storage as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    const result = await uc.execute('axcc-fresh');
+
+    expect(storage.save).not.toHaveBeenCalled();
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBe(pdfError);
   });
 });
 
@@ -527,6 +601,40 @@ describe('GenerateBoletinUseCase — cache-first', () => {
     const storage = makePdfStorage(null);
     const cachedPath = await storage.getPath('enrollment-123');
     expect(cachedPath).toBeNull();
+  });
+
+  // ── PPR-S13 — cache-hit returns ok(buffer) without invoking the port ───────
+
+  it('(PPR-S13) cache-hit: returns ok(buffer) read from the cached file, without invoking PDF_PORT.generatePdf', async () => {
+    const axcc = { id: 'axcc-cached', courseCycleId: 'cc-1', studentId: 'stu-1', printable: true };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    // Use a real temp file so fs.promises.readFile resolves with real bytes.
+    const tmpFile = path.join(os.tmpdir(), `boletin-cache-test-${Date.now()}.pdf`);
+    fs.writeFileSync(tmpFile, 'CACHED-PDF-BYTES');
+
+    const pdfGenerator = { generatePdf: vi.fn() };
+    const storage = {
+      getPath: vi.fn().mockResolvedValue(tmpFile),
+      save: vi.fn(),
+      delete: vi.fn(),
+    };
+    const uc = new GenerateBoletinUseCase(
+      pdfGenerator as never,
+      storage as never,
+      { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
+    );
+
+    const result = await uc.execute('axcc-cached');
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().toString()).toBe('CACHED-PDF-BYTES');
+    expect(pdfGenerator.generatePdf).not.toHaveBeenCalled();
+
+    fs.unlinkSync(tmpFile);
   });
 });
 

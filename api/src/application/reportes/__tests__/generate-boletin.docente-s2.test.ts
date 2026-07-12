@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ok } from '@educandow/domain';
 import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
@@ -66,7 +67,7 @@ function makeUCWithRepos(
   const master = makeMasterClient(users);
   const prisma = { getMasterClient: vi.fn().mockReturnValue(master) };
   const uc = new GenerateBoletinUseCase(
-    { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+    { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
     { getPath: vi.fn().mockResolvedValue(null), save: vi.fn() } as never,
     prisma as never,
     repos.sgpRepo as never,
@@ -321,7 +322,7 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
@@ -343,7 +344,7 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = new GenerateBoletinUseCase(
-      { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) } as never,
+      { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) } as never,
       { getPath: vi.fn().mockResolvedValue(null), save: vi.fn(), delete: vi.fn() } as never,
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
