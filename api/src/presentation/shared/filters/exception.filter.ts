@@ -1,6 +1,7 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { DomainError } from '@educandow/domain';
+import { ApplicationError } from '../../../application/shared/errors/application-error';
 
 // Map domain error codes to HTTP status
 const DOMAIN_STATUS: Record<string, number> = {
@@ -87,6 +88,10 @@ export class AppExceptionFilter implements ExceptionFilter {
           message = (obj.message as string[]).join('; ');
         }
       }
+    } else if (exception instanceof ApplicationError) {
+      status = exception.httpStatus;
+      message = exception.message;
+      code = exception.code;
     } else if (exception instanceof DomainError) {
       status = DOMAIN_STATUS[exception.code] ?? HttpStatus.BAD_REQUEST;
       message = exception.message;

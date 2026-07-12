@@ -21,6 +21,14 @@ import {
   PresenteTypeNotFoundError,
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
+import { ApplicationError } from '../../../../application/shared/errors/application-error';
+
+// Local stub — mirrors a real ApplicationError subclass without pulling in the users module.
+class StubApplicationError extends ApplicationError {
+  constructor(message: string, code: string, httpStatus: number) {
+    super(message, code, httpStatus);
+  }
+}
 
 // Suppress logger output during tests (filter logs 5xx internally)
 vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
@@ -183,6 +191,47 @@ describe('AppExceptionFilter', () => {
       const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
       expect(body.error.code).toBe('PRESENTE_TYPE_NOT_FOUND');
       expect(body.error.status).toBe(422);
+    });
+  });
+
+  describe('AEM-R2: ApplicationError branch', () => {
+    // AEM-R2.S1 — ApplicationError instance maps to its own httpStatus and code
+    it('maps ApplicationError to its own httpStatus, code and message', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new StubApplicationError('denied', 'SOME_CODE', 403);
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(403);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: { status: 403, code: 'SOME_CODE', message: 'denied' },
+      });
+    });
+
+    // AEM-R2.S2 — does not fall through to the generic Error branch (which would leave status at 500)
+    it('does not fall through to the generic Error fallback (status is never 500)', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn } = makeMockHost();
+      const exc = new StubApplicationError('denied', 'SOME_CODE', 403);
+
+      filter.catch(exc, host);
+
+      expect(statusFn).not.toHaveBeenCalledWith(500);
+    });
+
+    // AEM-R2.S3 — DomainError handling is unaffected (regression, reuses FILTER-5 case)
+    it('DomainError (e.g. NotFoundError) still maps via DOMAIN_STATUS, unaffected by the new branch', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new NotFoundError('CourseCycle', 'cc-1');
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(404);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('NOT_FOUND');
+      expect(body.error.status).toBe(404);
     });
   });
 });
