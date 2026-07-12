@@ -14,6 +14,7 @@ import {
   ListUsersUseCase,
   CreateUserUseCase,
   UpdateUserUseCase,
+  DeleteUserUseCase,
 } from '../use-cases/users.use-cases';
 
 // ── userToResponse tests ──────────────────────────────────
@@ -745,5 +746,78 @@ describe('UpdateUserUseCase', () => {
     } else {
       expect(result.isOk()).toBe(true);
     }
+  });
+});
+
+// ── DeleteUserUseCase — Result migration (AEM-R4/R5/R6) ────────────
+
+function makeDeletePrisma(opts: {
+  existingUser?: { id: string; userRoles: { role: { name: string } }[] } | null;
+} = {}) {
+  const existingUser =
+    opts.existingUser === undefined
+      ? { id: 'user-1', userRoles: [] as { role: { name: string } }[] }
+      : opts.existingUser;
+
+  return {
+    getMasterClient: () => ({
+      user: {
+        findUnique: vi.fn().mockResolvedValue(existingUser),
+        update: vi.fn().mockResolvedValue(undefined),
+      },
+    }),
+  } as unknown as import('../../../infrastructure/persistence/prisma/prisma.service').PrismaService;
+}
+
+describe('DeleteUserUseCase', () => {
+  // AEM-R4.S5 / AEM-R5.S4 (site #9) — insufficient hierarchy → err, not throw
+  it('returns err(InsufficientRoleHierarchyError) when caller cannot manage the target by canManageUser', async () => {
+    const uc = new DeleteUserUseCase(
+      makeDeletePrisma({
+        existingUser: { id: 'user-1', userRoles: [{ role: { name: 'ADMIN' } }] },
+      }),
+    );
+
+    const result = await uc.execute('user-1', ['TEACHER']);
+
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(InsufficientRoleHierarchyError);
+    expect(error.code).toBe('INSUFFICIENT_ROLE_HIERARCHY');
+  });
+
+  // Not-found semantics unchanged: idempotent no-op, ok(undefined), NOT an error (design §4)
+  it('returns ok(undefined) when the target user does not exist (idempotent no-op)', async () => {
+    const uc = new DeleteUserUseCase(makeDeletePrisma({ existingUser: null }));
+
+    const result = await uc.execute('missing-id', ['ROOT']);
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  // AEM-R6.S1 — ROOT bypasses hierarchy entirely
+  it('ROOT caller succeeds regardless of target roles', async () => {
+    const uc = new DeleteUserUseCase(
+      makeDeletePrisma({
+        existingUser: { id: 'user-1', userRoles: [{ role: { name: 'ADMIN' } }] },
+      }),
+    );
+
+    const result = await uc.execute('user-1', ['ROOT']);
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  // AEM-R6.S2 — non-ROOT caller with strictly sufficient hierarchy succeeds
+  it('non-ROOT caller with sufficient hierarchy succeeds', async () => {
+    const uc = new DeleteUserUseCase(
+      makeDeletePrisma({
+        existingUser: { id: 'user-1', userRoles: [{ role: { name: 'TEACHER' } }] },
+      }),
+    );
+
+    const result = await uc.execute('user-1', ['ADMIN']);
+
+    expect(result.isOk()).toBe(true);
   });
 });

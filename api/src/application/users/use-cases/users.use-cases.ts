@@ -614,7 +614,7 @@ export class UpdateUserUseCase {
 export class DeleteUserUseCase {
   constructor(private readonly prisma: PrismaService) {}
 
-  async execute(id: string, creatorRoles: string[]): Promise<boolean> {
+  async execute(id: string, creatorRoles: string[]): Promise<Result<void, InsufficientRoleHierarchyError>> {
     const client = this.prisma.getMasterClient();
     const isRoot = creatorRoles.includes('ROOT');
 
@@ -622,20 +622,20 @@ export class DeleteUserUseCase {
       where: { id },
       include: { userRoles: { include: { role: true } } },
     });
-    if (!existing) return false;
+    if (!existing) return ok(undefined);
 
     // Verificar jerarquía contra los roles del objetivo
     const targetRoles = (existing.userRoles ?? []).map((ur) => ur.role.name);
     if (!isRoot && !canManageUser(creatorRoles, targetRoles)) {
-      throw new Error(
+      return err(new InsufficientRoleHierarchyError(
         'No tenés jerarquía suficiente para eliminar este usuario.',
-      );
+      ));
     }
 
     await client.user.update({
       where: { id },
       data: { active: false, deletedAt: new Date() },
     });
-    return true;
+    return ok(undefined);
   }
 }
