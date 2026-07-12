@@ -75,8 +75,19 @@ export class GenerateBoletinBatchUseCase {
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       try {
-        // singleUC.execute now takes alumnosXCursoXCicloId (row.id) — T13 repoint
-        const pdfBuffer = await this.singleUC.execute(row.id);
+        // singleUC.execute now takes alumnosXCursoXCicloId (row.id) — T13 repoint.
+        // ADR-5: singleUC.execute returns Result<Buffer, PdfError> (canal A, PDF
+        // failures) — the try/catch below is kept ONLY for BoletinError
+        // (canal B, validation), which the singleUC can still throw before
+        // reaching the port.
+        const result = await this.singleUC.execute(row.id);
+        if (result.isErr()) {
+          this.logger.error(
+            `Failed to generate PDF for AlumnosXCursoXCiclo ${row.id}: ${result.unwrapErr().message}`,
+          );
+          continue; // Skip this row — don't append, don't fail the whole batch
+        }
+        const pdfBuffer = result.unwrap();
         const studentName = `${row.student.lastName}_${row.student.firstName}`
           .replace(/\s+/g, '_')
           .normalize('NFD')
@@ -89,7 +100,7 @@ export class GenerateBoletinBatchUseCase {
         this.logger.error(
           `Failed to generate PDF for AlumnosXCursoXCiclo ${row.id}: ${(err as Error).message}`,
         );
-        // Continue with next student — don't fail the whole batch
+        // Continue with next student — don't fail the whole batch (canal B: BoletinError)
       }
     }
 
