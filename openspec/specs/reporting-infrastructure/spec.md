@@ -7,8 +7,9 @@
 > Changes:
 >   reporting-module-compartido (archived 2026-07-09) — RPI-R1, RPI-R2, RPI-R3, RPI-R4, RPI-R5, RPI-R6
 >   pdf-port (archived 2026-07-11) — PDP-R1, PDP-R2, PDP-R3, PDP-R4, PDP-R5, PDP-R6
+>   pdf-port-result (archived 2026-07-12) — PPR-R1, PPR-R2, PPR-R3, PPR-R4, PPR-R5, PPR-R6, PPR-R7
 > IDs: RPI-R* / RPI-S* (ciclo de vida del provider) · PDP-R* / PDP-S* (inversión de dependencia sobre
-> el mismo provider)
+> el mismo provider) · PPR-R* / PPR-S* (propagación del error de PDF como `Result` de punta a punta)
 > Cross-references:
 >   `asistencia-reporting/spec.md` (consumidor de `PdfGeneratorService`/`PdfPort`, contenido de PDF sin cambios)
 >   `report-cards/spec.md` (consumidor de `PdfGeneratorService`/`PdfPort`, contenido de PDF sin cambios)
@@ -27,6 +28,13 @@ cuales es modificada por esta capability.
 Además define el contrato de inversión de dependencia (`PdfPort`) que `application/` MUST usar para
 consumir el motor de PDF: los use-cases dependen de una interface propia de `application/`, nunca de
 la clase concreta de `infrastructure/`.
+
+El contrato del port también define cómo viaja el **error** de generación de PDF: `PdfPort.generatePdf`
+MUST devolver `Result<Buffer, PdfError>` (nunca lanzar) y ese `Result` MUST propagarse sin `throw` a
+través de `application/` hasta materializarse en HTTP recién en `presentation/` (ver PPR-R1..R7). Los
+errores de negocio NO relacionados con PDF (`BoletinError`, `ConstanciaError`,
+`AsistenciaReportingError`, etc.) NO están cubiertos por este contrato y siguen por `throw` — ver
+`app-error-model` en Follow-up.
 
 ## Requirements
 
@@ -185,19 +193,26 @@ el sistema MUST ser `ReportingModule`.
 
 ---
 
-### PDP-R1 — Existe el contrato `PdfPort`
+### PDP-R1 — Existe el contrato `PdfPort` *(firma SUPERSEDED por `PPR-R1`)*
+
+> **SUPERSEDED por `PPR-R1`** (change `pdf-port-result`, 2026-07-12): la firma de retorno descrita
+> abajo (`Promise<Buffer>`, puede rechazar) quedó reemplazada por `Promise<Result<Buffer, PdfError>>`
+> (nunca rechaza). El resto del requisito — que exista la interface `PdfPort`, la constante
+> `PDF_PORT = Symbol('PDF_PORT')` y que `GeneratePdfOptions` viva en este archivo — sigue vigente sin
+> cambios. Ver `PPR-R1`/`PPR-S1` para la firma actual.
 
 `api/src/application/shared/ports/pdf.port.ts` MUST exportar una interface `PdfPort` con el método
-`generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>`, y una constante
-`PDF_PORT = Symbol('PDF_PORT')` en el mismo archivo. `GeneratePdfOptions` MUST estar definida en este
-archivo (no en infra).
+`generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>` ~~(superseded — ver arriba,
+la firma vigente es `Promise<Result<Buffer, PdfError>>`)~~, y una constante `PDF_PORT = Symbol('PDF_PORT')`
+en el mismo archivo. `GeneratePdfOptions` MUST estar definida en este archivo (no en infra).
 
-#### PDP-S1 — El port define la superficie única
+#### PDP-S1 — El port define la superficie única *(escenario histórico, ver `PPR-S1` para la firma vigente)*
 
 - GIVEN el archivo `api/src/application/shared/ports/pdf.port.ts`
 - WHEN se inspecciona su contenido exportado
 - THEN MUST exportar la interface `PdfPort` con la firma
-  `generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>`
+  `generatePdf(html: string, options?: GeneratePdfOptions): Promise<Buffer>` ~~(superseded por
+  `PPR-S1`: `Promise<Result<Buffer, PdfError>>`)~~
 - AND MUST exportar `PDF_PORT: symbol`
 - AND MUST exportar el tipo `GeneratePdfOptions`
 
@@ -234,20 +249,27 @@ constructor. Ninguno MUST tipar el parámetro como `PdfGeneratorService`.
 
 ---
 
-### PDP-R4 — Infra implementa el port sin invertir la fuga de tipos
+### PDP-R4 — Infra implementa el port sin invertir la fuga de tipos *(firma SUPERSEDED por `PPR-R2`)*
+
+> **SUPERSEDED por `PPR-R2`** (change `pdf-port-result`, 2026-07-12): "firma pública... MUST coincidir
+> exactamente con la del port" ahora resuelve contra la firma vigente de `PdfPort` (`PPR-R1`):
+> `PdfGeneratorService.generatePdf` ante fallo de Puppeteer MUST devolver `err(PdfError)` (NO lanzar,
+> NO dejar rechazar la promesa). El resto del requisito — `implements PdfPort`, import de
+> `GeneratePdfOptions` desde `pdf.port.ts` — sigue vigente sin cambios. Ver `PPR-R2`/`PPR-S2`.
 
 `PdfGeneratorService` MUST declarar `implements PdfPort`. Su firma pública de `generatePdf` MUST
-coincidir exactamente con la del port. `PdfGeneratorService` MUST importar `GeneratePdfOptions` desde
-`pdf.port.ts` (dirección infra → application), y MUST NOT seguir exportando su propia definición de
-`GeneratePdfOptions`.
+coincidir exactamente con la del port (vigente: `Promise<Result<Buffer, PdfError>>`, ver `PPR-R1`).
+`PdfGeneratorService` MUST importar `GeneratePdfOptions` desde `pdf.port.ts` (dirección
+infra → application), y MUST NOT seguir exportando su propia definición de `GeneratePdfOptions`.
 
-#### PDP-S4 — La clase de infra satisface el contrato del port
+#### PDP-S4 — La clase de infra satisface el contrato del port *(escenario histórico, ver `PPR-S2` para el comportamiento vigente ante fallo)*
 
 - GIVEN la declaración de clase `PdfGeneratorService`
 - WHEN se inspecciona su firma (`implements`) y su import de `GeneratePdfOptions`
 - THEN MUST declarar `implements PdfPort`
 - AND MUST importar `GeneratePdfOptions` desde `application/shared/ports/pdf.port.ts`
 - AND la firma de `generatePdf` MUST ser estructuralmente idéntica a la de `PdfPort['generatePdf']`
+  (vigente: `Promise<Result<Buffer, PdfError>>` — ver `PPR-S1`)
 
 ---
 
@@ -286,6 +308,169 @@ inyectado cambia.
 
 ---
 
+### PPR-R1 — El port devuelve `Result`, no lanza
+
+`PdfPort.generatePdf` MUST tener la firma
+`generatePdf(html: string, options?: GeneratePdfOptions): Promise<Result<Buffer, PdfError>>`.
+Ante un fallo de generación, el port MUST NOT rechazar la promesa ni lanzar — el fallo se representa
+como `err(PdfError)`. Reemplaza la firma histórica de `PDP-R1`/`PDP-S1` (`Promise<Buffer>`).
+
+#### PPR-S1 — Firma del contrato
+
+- GIVEN `api/src/application/shared/ports/pdf.port.ts`
+- WHEN se inspecciona la interface `PdfPort`
+- THEN `generatePdf` MUST devolver `Promise<Result<Buffer, PdfError>>`
+
+---
+
+### PPR-R2 — El service traduce fallos de Puppeteer a `err(PdfError)`
+
+`PdfGeneratorService.generatePdf`, ante el rechazo de `page.setContent`, `page.pdf` o el lanzamiento
+del browser, MUST devolver `err(PdfError)` con `code: 'PDF_GENERATION_FAILED'`. MUST NOT lanzar ni
+dejar rechazar la promesa devuelta. El error original MUST preservarse en `PdfError.cause`. Satisface
+la firma vigente exigida por `PDP-R4` (superseded).
+
+#### PPR-S2 — Rechazo de Puppeteer se traduce a `err`, no a throw
+
+- GIVEN un `PdfGeneratorService` con `page.setContent` o `page.pdf` mockeados para rechazar
+- WHEN se invoca `generatePdf(html)`
+- THEN la promesa devuelta MUST resolverse (no rechazar) en `err(PdfError)` con
+  `code === 'PDF_GENERATION_FAILED'`
+- AND `PdfError.cause` MUST ser el error original capturado
+
+---
+
+### PPR-R3 — Existe `PdfError`
+
+`application/shared/errors/pdf.error.ts` MUST exportar `class PdfError extends Error` con
+`code: 'PDF_GENERATION_FAILED'`, `httpStatus: 500` y `cause?: unknown`.
+
+#### PPR-S3 — Forma de `PdfError`
+
+- GIVEN `application/shared/errors/pdf.error.ts`
+- WHEN se inspecciona la clase exportada
+- THEN MUST tener `code = 'PDF_GENERATION_FAILED'`, `httpStatus = 500` y campo opcional `cause`
+
+---
+
+### PPR-R4 — Los 4 use-cases propagan el `Result` sin `throw` (incluye post-proceso de boletín)
+
+`GenerateAttendanceTypesPdfUseCase`, `GenerateConstanciaRegularUseCase`, `GenerateBoletinUseCase` y
+`GenerateAsistenciaMensualPdfUseCase` MUST devolver `Result<Buffer, PdfError>`. Ante `err(PdfError)`
+del port, cada uno MUST propagar `err(PdfError)` sin lanzar y sin ejecutar ningún post-proceso.
+Ante `ok(buffer)`, MUST devolver `ok(buffer)`.
+
+`GenerateBoletinUseCase` es un caso con post-proceso propio y MUST cumplir además: (a) en el camino de
+generación fresca, ante `ok(buffer)` del port, MUST invocar `pdfStorage.save(axcc.id, buffer)` **antes**
+de devolver `ok(buffer)`; ante `err(PdfError)`, MUST NOT invocar `pdfStorage.save`; (b) en el camino
+cache-first (PDF ya almacenado, el port NO se invoca), MUST devolver `ok(buffer)` con el contenido leído
+del cache.
+
+#### PPR-S4 — `err` del port se propaga sin throw
+
+- GIVEN cualquiera de los 4 use-cases con `PDF_PORT` mockeado para devolver `err(PdfError)`
+- WHEN se invoca `execute(...)`
+- THEN el use-case MUST devolver `err(PdfError)` sin lanzar excepción
+
+#### PPR-S5 — `ok` del port se propaga igual
+
+- GIVEN cualquiera de los 4 use-cases con `PDF_PORT` mockeado para devolver `ok(buffer)`
+- WHEN se invoca `execute(...)`
+- THEN el use-case MUST devolver `ok(buffer)` con el mismo `Buffer`
+
+#### PPR-S11 — `GenerateBoletinUseCase`: `ok(buffer)` se persiste antes de devolver
+
+- GIVEN `GenerateBoletinUseCase` con `PDF_PORT` mockeado devolviendo `ok(buffer)` y sin PDF cacheado
+  previo para `alumnosXCursoXCicloId`
+- WHEN se invoca `execute(alumnosXCursoXCicloId)`
+- THEN `pdfStorage.save(axcc.id, buffer)` MUST haber sido invocado antes de que el use-case devuelva
+- AND el use-case MUST devolver `ok(buffer)`
+
+#### PPR-S12 — `GenerateBoletinUseCase`: `err(PdfError)` NO se persiste
+
+- GIVEN `GenerateBoletinUseCase` con `PDF_PORT` mockeado devolviendo `err(PdfError)`
+- WHEN se invoca `execute(...)`
+- THEN `pdfStorage.save` MUST NOT haber sido invocado
+- AND el use-case MUST devolver `err(PdfError)` sin lanzar
+
+#### PPR-S13 — `GenerateBoletinUseCase`: cache-hit devuelve `ok(buffer)` sin invocar el port
+
+- GIVEN un PDF ya cacheado para `alumnosXCursoXCicloId` (`pdfStorage.getPath` devuelve una ruta
+  existente)
+- WHEN se invoca `execute(...)`
+- THEN el use-case MUST devolver `ok(buffer)` con el contenido leído del archivo cacheado
+- AND `PDF_PORT.generatePdf` MUST NOT haber sido invocado
+
+---
+
+### PPR-R5 — Helper `unwrapResultOrThrow` materializa `Result` a HTTP
+
+`presentation/shared/` MUST exportar `unwrapResultOrThrow(result: Result<Buffer, PdfError>)`. Ante
+`err(PdfError)`, MUST lanzar `HttpException` con `status = PdfError.httpStatus`. Ante `ok(buffer)`,
+MUST devolver el `Buffer`.
+
+#### PPR-S6 — `err` lanza `HttpException`
+
+- GIVEN `unwrapResultOrThrow(err(pdfError))` con `pdfError.httpStatus === 500`
+- WHEN se invoca el helper
+- THEN MUST lanzar `HttpException` con status `500`
+
+#### PPR-S7 — `ok` devuelve el buffer
+
+- GIVEN `unwrapResultOrThrow(ok(buffer))`
+- WHEN se invoca el helper
+- THEN MUST devolver el mismo `Buffer`, sin lanzar
+
+---
+
+### PPR-R6 — Los 3 controllers mapean el `Result` a HTTP sin throw en `application`
+
+Los controllers de `attendance-type`, `reportes` y `asistencia` que devuelven PDF, ante `err(PdfError)`
+del use-case, MUST responder HTTP `500`. Ante `ok`, MUST responder `200` con el PDF. El error de PDF
+MUST fluir como `Result` desde el port hasta el borde de `presentation` — ningún punto intermedio en
+`application/` MUST lanzar.
+
+#### PPR-S8 — `err(PdfError)` del use-case → HTTP 500
+
+- GIVEN un endpoint de PDF (attendance-type / reportes / asistencia) con su use-case mockeado para
+  devolver `err(PdfError)`
+- WHEN se invoca el endpoint HTTP
+- THEN la respuesta MUST tener status `500` con body mapeado desde `PdfError`
+- AND ningún método de `application/` invocado en la cadena MUST haber lanzado una excepción
+  (verificable: el use-case y el service devuelven, no rechazan/lanzan)
+
+#### PPR-S9 — `ok(buffer)` del use-case → HTTP 200 con el PDF *(escenario clave)*
+
+- GIVEN el mismo endpoint con su use-case mockeado para devolver `ok(buffer)`
+- WHEN se invoca el endpoint HTTP
+- THEN la respuesta MUST tener status `200` con el `Buffer` del PDF
+- AND la cadena completa (port → service → use-case → helper → controller) MUST haber operado sin
+  ningún `throw` en `application/`, demostrando el Result end-to-end del path PDF
+
+---
+
+### PPR-R7 — El consumidor transitivo (`GenerateBoletinBatchUseCase`) maneja el `Result`, no depende de `throw`
+
+`GenerateBoletinBatchUseCase.execute` invoca `GenerateBoletinUseCase.execute` (ahora
+`Result<Buffer, PdfError>` por `PPR-R4`) una vez por fila imprimible. Ante `err(PdfError)`, el batch
+MUST detectarlo (`isErr()`), MUST NOT appendear ese resultado al ZIP, y MUST tratarlo como un fallo
+individual dentro de su lógica existente de "saltear y seguir" (equivalente al camino `catch` actual,
+que deja de dispararse porque el use-case singular ya no lanza). Ante `ok(buffer)`, MUST appendear
+`buffer` al ZIP como hoy. El batch MUST NOT depender de `try/catch` para capturar fallos de generación
+de PDF del use-case singular.
+
+#### PPR-S10 — Un fallo de PDF en el lote no rompe el ZIP ni appendea basura
+
+- GIVEN un batch de N boletines para una `CourseCycle`, donde `GenerateBoletinUseCase.execute` devuelve
+  `err(PdfError)` para exactamente 1 fila y `ok(buffer)` para las N-1 restantes
+- WHEN se ejecuta `GenerateBoletinBatchUseCase.execute(courseCycleId)`
+- THEN el ZIP resultante MUST contener exactamente N-1 PDFs (uno por cada `ok`)
+- AND el fallo MUST registrarse (log / contador) sin lanzar ni abortar el batch
+- AND el ZIP MUST NOT contener ninguna entrada correspondiente a la fila fallida — nada de "basura"
+  appendeada por tratar un `Result` como si fuera directamente el `Buffer`
+
+---
+
 ## Trazabilidad requisito → escenario
 
 | Requisito | Escenarios |
@@ -302,6 +487,13 @@ inyectado cambia.
 | PDP-R4 | PDP-S4 |
 | PDP-R5 | PDP-S5 |
 | PDP-R6 | PDP-S6 |
+| PPR-R1 *(supersede firma de PDP-R1)* | PPR-S1 |
+| PPR-R2 *(supersede firma de PDP-R4)* | PPR-S2 |
+| PPR-R3 | PPR-S3 |
+| PPR-R4 | PPR-S4, PPR-S5, PPR-S11, PPR-S12, PPR-S13 |
+| PPR-R5 | PPR-S6, PPR-S7 |
+| PPR-R6 | PPR-S8, PPR-S9 |
+| PPR-R7 | PPR-S10 |
 
 ## ADR cross-reference (reporting-module-compartido)
 
@@ -321,7 +513,17 @@ inyectado cambia.
 | ADR-07 | `PDF_PORT` se registra y exporta una sola vez en `ReportingModule` (dueño del singleton); los 3 módulos feature lo reciben gratis al importar `ReportingModule`, sin duplicar el wiring | PDP-R3, PDP-R5 |
 | ADR-08 | `GeneratePdfOptions` se reubica a `pdf.port.ts`; `pdf-generator.service.ts` la reimporta (flecha `infra → application`, dirección DIP correcta) | PDP-R1, PDP-R4 |
 | ADR-09 | Test de arquitectura path-based (no name-based) sobre `api/src/application/` para detectar imports de infra — evita falso positivo con referencias a `PdfGeneratorService` en JSDoc | PDP-R2 |
-| ADR-10 | Verificación de PDP-S4 vía inspección de código fuente (no type-assignability): TS structural typing hace asignable cualquier clase con la misma forma a `PdfPort` sin `implements` explícito, y esbuild no type-checka en tiempo de test — un `const x: PdfPort = service` nunca daría RED. La combinación test-de-fuente (`pnpm test`) + `implements`-enforcement (`pnpm typecheck`, TS2420 si la firma diverge) cubre el requisito sin ventana abierta | PDP-R4 |
+| ADR-10 | Verificación de PDP-S4 vía inspección de código fuente (no type-assignability): TS structural typing hace asignable cualquier clase con la misma forma a `PdfPort` sin `implements` explícito, y esbuild no type-checka en tiempo de test — un `const x: PdfPort = service` nunca daría RED. La combinación test-de-fuente (`pnpm test`) + `implements`-enforcement (`pnpm typecheck`, TS2420 si la firma diverge) cubre el requisito sin ventana abierta | PDP-R4 *(superseded — ver ADR-15)* |
+
+## ADR cross-reference (pdf-port-result)
+
+| ADR    | Decision | Satisfies |
+|--------|----------|-----------|
+| ADR-11 | Doble canal de error transitorio: el fallo de PDF (único que subía crudo desde infra) baja al canal `Result`; los errores de negocio no-PDF (`BoletinError`, `ConstanciaError`, `AsistenciaReportingError`, etc.) siguen por `throw`. Ambos canales convergen en `HttpException → AppExceptionFilter` en el borde de `presentation/`. Cierre completo de la coexistencia queda para el change `app-error-model` (requiere una base `ApplicationError` que hoy no existe) | PPR-R1..R7 |
+| ADR-12 | `PdfError` como clase en `application/shared/errors/`, `cause` como campo propio (no `super(msg,{cause})`, para no depender del `lib` de tsconfig) | PPR-R3 |
+| ADR-13 | `unwrapResultOrThrow<T>` en `presentation/shared/http/` — genérico, lanza `HttpException` mapeando `PdfError.httpStatus`; decisión consciente de NO tocar `AppExceptionFilter` (el `code` del `PdfError` no viaja en el body, solo `status`+`message`; mejora de +2 líneas queda como SUGGESTION no tomada) | PPR-R5 |
+| ADR-14 | `GenerateBoletinBatchUseCase` (5.º consumidor, hallado en `design`, no listado originalmente en la spec/proposal) adaptado para manejar AMBOS canales en el mismo loop: `isErr()` para el `Result` de PDF, `try/catch` para `BoletinError` no-PDF — ambos resuelven en "saltear alumno, seguir" | PPR-R7 |
+| ADR-15 | La firma `Promise<Buffer>` fijada por `PDP-R1`/`PDP-S1` y el requisito estructural de `PDP-R4`/`PDP-S4` quedan `SUPERSEDED` por `PPR-R1`/`PPR-R2` — el port y su implementación ahora devuelven `Promise<Result<Buffer, PdfError>>` y nunca lanzan | PDP-R1, PDP-R4 → PPR-R1, PPR-R2 |
 
 ## Out of Scope (explicit non-requirements)
 
@@ -329,18 +531,29 @@ inyectado cambia.
   Handlebars) — cubiertos por `asistencia-reporting/spec.md`, `report-cards/spec.md` y
   `attendance-types/spec.md`, ninguna modificada.
 - Mover `PdfGeneratorService` de capa — ya vive correctamente en `infrastructure/reporting/`.
-- `Result<Buffer, PdfError>` — `PdfPort.generatePdf` sigue devolviendo `Promise<Buffer>` (puede
-  rechazar). Ver Follow-up.
 - `onModuleDestroy` en el contrato de `PdfPort` — lifecycle de infra ligado a `ReportingModule`, no
   forma parte del contrato del port.
 - Unificar la convención de tokens legada (`AuthPort`/`FileStoragePort` string-literal) — deuda
   separada, no forma parte de esta capability.
+- Convertir a `Result` los errores NO-PDF de los use-cases (`BoletinError`, `ConstanciaError`,
+  `AsistenciaReportingError`, `AttendanceTypeLevelOutOfScopeError`) — siguen por `throw`. Requiere
+  primero una base `ApplicationError` compartida (no existe hoy). Ver Follow-up (`app-error-model`).
+- Clasificar causas de fallo de PDF en infra (timeout vs launch vs render) — el catch de
+  `PdfGeneratorService` sigue siendo genérico, un solo `PdfError`.
 
 ## Follow-up (tickets separados, no forman parte de esta capability)
 
-1. Migrar `PdfPort.generatePdf` de `Promise<Buffer>` a `Result<Buffer, PdfError>` — alinea con la
-   convención de error-handling del proyecto; tocaría los 4 call-sites (use-cases) y sus tests. No
-   implementado por `pdf-port` (fuera de su scope explícito).
+1. ~~Migrar `PdfPort.generatePdf` de `Promise<Buffer>` a `Result<Buffer, PdfError>`~~ — **RESUELTO**
+   por el change `pdf-port-result` (2026-07-12, ver `PPR-R1`/`PPR-R2`).
 2. Si en el futuro NestJS (o un mecanismo propio) permite destruir un submódulo sin cerrar la
    aplicación completa, reforzar RPI-S5 con un test literal que ejercite ese escenario en vez de
    depender de la inferencia arquitectónica descrita en la nota de RPI-S5.
+3. **`app-error-model`** (nuevo, hallado por `pdf-port-result`): crear una base `ApplicationError`
+   compartida y convertir a `Result` los errores no-PDF de los use-cases (`BoletinError`,
+   `ConstanciaError`, `AsistenciaReportingError`, `AttendanceTypeLevelOutOfScopeError`) — cierra la
+   coexistencia de dos mecanismos de error documentada en ADR-11.
+4. **Mejora opcional de +2 líneas en `AppExceptionFilter`** (hallado por `pdf-port-result`, ADR-13):
+   hoy el filter extrae `message` de `HttpException` pero no `code`, así que `PdfError.code`
+   (`PDF_GENERATION_FAILED`) no viaja en el body HTTP (solo `status`+`message`). No bloqueante.
+5. **Clasificar causas de fallo de PDF en infra** (timeout vs launch vs render) — hoy
+   `PdfGeneratorService` tiene un solo catch genérico y un único `PdfError`.
