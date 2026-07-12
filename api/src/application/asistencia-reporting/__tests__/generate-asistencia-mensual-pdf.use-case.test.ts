@@ -7,7 +7,7 @@
  * "covered by T3.9 use-case test rendering real HTML").
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError, ok, err } from '@educandow/domain';
 import {
   AttendanceType,
   AttendanceBehaviorValue,
@@ -16,6 +16,7 @@ import {
   Id,
 } from '@educandow/domain';
 import type { EnrichedGeneralAttendance } from '@educandow/domain';
+import { PdfError } from '../../shared/errors/pdf.error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -136,7 +137,7 @@ function makeUC({
     findStudentIdsByGrupoIds: vi.fn(),
   };
   const pdfGenerator = {
-    generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')),
+    generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))),
   };
   const prisma = {
     getMasterClient: vi.fn().mockReturnValue({
@@ -183,7 +184,8 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     expect(options).toEqual({ landscape: true });
     expect(typeof html).toBe('string');
     expect(html).toContain('5° A');
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('includes per-student six totals computed via computeStudentTotals in the rendered HTML', async () => {
@@ -195,7 +197,8 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     const pdf = await uc.executeGeneral({
       courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
     });
-    expect(pdf).toBeInstanceOf(Buffer);
+    expect(pdf.isOk()).toBe(true);
+    expect(pdf.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('computes días hábiles once at course level and passes it through', async () => {
@@ -214,9 +217,11 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     const { uc } = makeUC({
       enrichedRows: [makeEnrichedRow('stu-1', 'Sin Marcas, Alumno', {})],
     });
-    await expect(
-      uc.executeGeneral({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] }),
-    ).resolves.toBeInstanceOf(Buffer);
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('unknown/missing courseCycleId → AsistenciaReportingError with 404', async () => {
@@ -231,9 +236,11 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
 
   it('non-admin preceptor of the CourseCycle → allowed (Door 2)', async () => {
     const { uc, docenteRepo, asignacionRepo } = makeUC({ docenteExists: true, isPreceptor: true });
-    await expect(
-      uc.executeGeneral({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).resolves.toBeInstanceOf(Buffer);
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
     expect(docenteRepo.findByUserAndCycle).toHaveBeenCalled();
     expect(asignacionRepo.isPreceptor).toHaveBeenCalled();
   });
@@ -271,5 +278,33 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     await uc.executeGeneral({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] });
     const [html] = pdfGenerator.generatePdf.mock.calls[0];
     expect(html).toContain('Institución Educativa');
+  });
+
+  // ── PPR-S4/S5 — Result propagation from the port ─────────────────────────
+
+  it('(PPR-S4) executeGeneral propagates err(PdfError) from the port without throwing', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const pdfError = new PdfError({ cause: new Error('boom') });
+    pdfGenerator.generatePdf.mockResolvedValue(err(pdfError));
+
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBe(pdfError);
+  });
+
+  it('(PPR-S5) executeGeneral propagates ok(buffer) from the port with the same Buffer instance', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const buffer = Buffer.from('SPECIFIC-PDF-BYTES');
+    pdfGenerator.generatePdf.mockResolvedValue(ok(buffer));
+
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(buffer);
   });
 });

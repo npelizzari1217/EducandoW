@@ -5,7 +5,7 @@
  * Totals/días-hábiles wiring identical to General (Scenario P2-11).
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError, ok, err } from '@educandow/domain';
 import {
   AttendanceType,
   AttendanceBehaviorValue,
@@ -14,6 +14,7 @@ import {
   Id,
 } from '@educandow/domain';
 import type { EnrichedMateriaAttendance } from '@educandow/domain';
+import { PdfError } from '../../shared/errors/pdf.error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -136,7 +137,7 @@ function makeUC({
   const alumnosXGrupoRepo = {
     findStudentIdsByGrupoIds: vi.fn().mockResolvedValue(studentIdsInGroup),
   };
-  const pdfGenerator = { generatePdf: vi.fn().mockResolvedValue(Buffer.from('PDF')) };
+  const pdfGenerator = { generatePdf: vi.fn().mockResolvedValue(ok(Buffer.from('PDF'))) };
   const prisma = {
     getMasterClient: vi.fn().mockReturnValue({
       institution: { findUnique: vi.fn().mockResolvedValue({ name: 'Escuela Test', logoUrl: null }) },
@@ -180,7 +181,8 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
     expect(options).toEqual({ landscape: true });
     expect(html).toContain('Matemática');
     expect(html).toContain('5° A');
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('produces identical totals/días-hábiles wiring as General given equivalent data (P2-11)', async () => {
@@ -217,9 +219,11 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
 
   it('teacher with a group in the materia → allowed (Door 2)', async () => {
     const { uc } = makeUC({ teacherGroups: [{ id: GRUPO_ID, docenteXCicloId: 'dxc-1' }] });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).resolves.toBeInstanceOf(Buffer);
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('teacher with no group in the materia → ForbiddenError', async () => {
@@ -259,5 +263,33 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
     ).rejects.toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
     expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
     expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
+  });
+
+  // ── PPR-S4/S5 — Result propagation from the port ─────────────────────────
+
+  it('(PPR-S4) executeMateria propagates err(PdfError) from the port without throwing', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const pdfError = new PdfError({ cause: new Error('boom') });
+    pdfGenerator.generatePdf.mockResolvedValue(err(pdfError));
+
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBe(pdfError);
+  });
+
+  it('(PPR-S5) executeMateria propagates ok(buffer) from the port with the same Buffer instance', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    const buffer = Buffer.from('SPECIFIC-PDF-BYTES');
+    pdfGenerator.generatePdf.mockResolvedValue(ok(buffer));
+
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(buffer);
   });
 });

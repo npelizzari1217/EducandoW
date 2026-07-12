@@ -42,11 +42,13 @@ import type {
   AsignacionCursoXCicloRepository,
   GrupoRepository,
   AlumnosXGrupoRepository,
+  Result,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
+import type { PdfError } from '../shared/errors/pdf.error';
 import { AsistenciaReportingError } from './asistencia-reporting.errors';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -134,7 +136,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
 
   // ── General scope ────────────────────────────────────────────────────────
 
-  async executeGeneral(input: GenerateAsistenciaGeneralInput): Promise<Buffer> {
+  async executeGeneral(input: GenerateAsistenciaGeneralInput): Promise<Result<Buffer, PdfError>> {
     const { courseCycleId, year, month, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
@@ -166,7 +168,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
 
   // ── Por Materia scope ────────────────────────────────────────────────────
 
-  async executeMateria(input: GenerateAsistenciaMateriaInput): Promise<Buffer> {
+  async executeMateria(input: GenerateAsistenciaMateriaInput): Promise<Result<Buffer, PdfError>> {
     const { materiaXCursoXCicloId, year, month, grupoId, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
@@ -223,7 +225,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
     year: number;
     month: number;
     enrichedRows: (EnrichedGeneralAttendance | EnrichedMateriaAttendance)[];
-  }): Promise<Buffer> {
+  }): Promise<Result<Buffer, PdfError>> {
     if (!this.template) {
       throw new AsistenciaReportingError(
         'Template asistencia-mensual.hbs no encontrado', 'TEMPLATE_NOT_FOUND', 500,
