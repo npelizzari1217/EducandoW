@@ -5,10 +5,6 @@ import apiClient from '../api/client';
 
 const BASE_URL = '/academic-cycles';
 
-function withInstitution(url: string, institutionId?: string): string {
-  return institutionId ? `${url}?institutionId=${institutionId}` : url;
-}
-
 export function useAcademicCycles(institutionId?: string, params?: Record<string, string>) {
   const allParams: Record<string, string> = { ...params };
   if (institutionId) allParams.institutionId = institutionId;
@@ -26,8 +22,8 @@ export function useUpdateAcademicCycle(institutionId?: string) {
 }
 
 export function useDeleteAcademicCycle(institutionId?: string) {
-  const base = institutionId ? withInstitution(BASE_URL, institutionId) : BASE_URL;
-  return useApiDelete(base);
+  const queryParams = institutionId ? { institutionId } : undefined;
+  return useApiDelete(BASE_URL, queryParams);
 }
 
 export function useToggleAcademicCycleActive(institutionId?: string) {
