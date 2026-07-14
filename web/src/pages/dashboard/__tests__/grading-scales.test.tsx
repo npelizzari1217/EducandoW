@@ -329,6 +329,55 @@ describe('GradingScalesPage — value form internalStatus', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// DELETE SCALE — real server error message
+// ═══════════════════════════════════════════════════════════
+
+describe('GradingScalesPage — delete scale error handling', () => {
+  beforeEach(() => {
+    mockUserRoles = ['ROOT'];
+    mockInstitutionConfig = { id: 'inst-1', name: 'Escuela Test', levels: [10, 20], send_email: false, send_messages: false };
+    setupApiMock();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('shows the real server error message when delete fails, instead of a generic alert', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockApiDelete.mockRejectedValueOnce({
+      response: { data: { error: { message: 'No se puede eliminar: escala en uso' } } },
+    });
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Numérica 1-10')).toBeInTheDocument();
+    });
+
+    // Open delete confirmation modal for the first scale row
+    const deleteBtns = screen.getAllByRole('button', { name: /^Eliminar$/i });
+    await user.click(deleteBtns[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/confirmar eliminación/i)).toBeInTheDocument();
+    });
+
+    // Confirm deletion — the modal's confirm button is the last "Eliminar" button in the DOM
+    const confirmBtns = screen.getAllByRole('button', { name: /^Eliminar$/i });
+    await user.click(confirmBtns[confirmBtns.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getByText(/escala en uso/i)).toBeInTheDocument();
+    });
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════
 // ROOT USER — institution selector and institutionId in calls
 // ═══════════════════════════════════════════════════════════
 

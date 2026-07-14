@@ -108,7 +108,7 @@ export default function StudentsPage() {
     '/students',
     isStaff && !isTutor && !isStudent ? { institutionId } : undefined,
   );
-  const { deleting, del } = useApiDelete('/students');
+  const { deleting, deleteError, del } = useApiDelete('/students');
   const { creating, createError, create } = useApiCreate('/students');
   const { updating, updateError, update } = useApiUpdate('/students', institutionId ? { institutionId } : undefined);
   const [showForm, setShowForm] = useState(false);
@@ -558,6 +558,8 @@ export default function StudentsPage() {
             </div>
           </div>
       </Modal>
+
+      {deleteError && <p className="text-sm text-red-600" role="alert">No se pudo eliminar: {deleteError}</p>}
 
       <Card className="mt-lg">
         <Table

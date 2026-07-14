@@ -11,7 +11,7 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
   extraParams?: Record<string, string>;
 }) {
   const { data, loading, reload } = useApiList<Record<string, string>>(url, extraParams);
-  const { deleting, del } = useApiDelete(url);
+  const { deleting, deleteError, del } = useApiDelete(url);
   const { creating, createError, create } = useApiCreate<Record<string, unknown>>(url);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
@@ -29,6 +29,8 @@ function GenericPage({ title, subtitle, url, columns, fields, extraParams }: {
         <div><h1 className="page-title">{title}</h1><p className="page-subtitle">{subtitle}</p></div>
         <Button variant={showForm ? 'danger-soft' : 'success-soft'} onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancelar' : 'Nuevo'}</Button>
       </div>
+
+      {deleteError && <div style={{ background: '#fef2f2', color: 'var(--color-danger)', padding: '0.5rem', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)', fontSize: 'var(--text-sm)' }}>No se pudo eliminar: {deleteError}</div>}
 
       {showForm && (
         <Card title={`Nuevo ${title.toLowerCase()}`} className="mt-md">

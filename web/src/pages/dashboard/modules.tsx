@@ -54,7 +54,7 @@ function moduleDescription(code: string): string {
 export default function ModulesPage() {
   const { config } = useInstitution();
   const { data, loading, reload } = useApiList<Module>('/modules');
-  const { deleting, del } = useApiDelete('/modules');
+  const { deleting, deleteError, del } = useApiDelete('/modules');
   const { creating, createError, create, setCreateError } = useApiCreate('/modules');
   const { updating, updateError, update, setUpdateError } = useApiUpdate('/modules');
 
@@ -244,6 +244,8 @@ export default function ModulesPage() {
           </div>
         </div>
       )}
+
+      {deleteError && <div className="mph-form-error" role="alert">No se pudo eliminar: {deleteError}</div>}
 
       {loading ? (
         <div className="modules-empty"><div className="modules-empty-icon">⏳</div><div className="modules-empty-text">Cargando módulos...</div></div>

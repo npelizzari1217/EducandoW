@@ -119,7 +119,7 @@ export default function GradingScalesPage() {
   const listUrl = (isRoot && !institutionId) ? '' : '/grading/scales';
 
   const { data, loading, reload } = useApiList<GradeScaleRow>(listUrl, rootQueryParams);
-  const { deleting: deletingScale, del: delScale } = useApiDelete('/grading/scales', rootQueryParams);
+  const { deleting: deletingScale, deleteError: scaleDeleteError, del: delScale } = useApiDelete('/grading/scales', rootQueryParams);
 
   // Filters
   const [filterLevel, setFilterLevel] = useState('');
@@ -225,8 +225,6 @@ export default function GradingScalesPage() {
     if (success) {
       if (selectedScaleId === deleteTarget.id) setSelectedScaleId(null);
       reload();
-    } else {
-      alert('Error al eliminar. Intentá de nuevo.');
     }
   };
 
@@ -506,6 +504,22 @@ export default function GradingScalesPage() {
 
           {/* Filters + main table */}
           <Card className="mt-md">
+            {scaleDeleteError && (
+              <div
+                role="alert"
+                style={{
+                  background: 'var(--color-danger-light)',
+                  color: 'var(--color-danger)',
+                  padding: 'var(--space-sm)',
+                  borderRadius: 'var(--radius-md)',
+                  marginBottom: 'var(--space-md)',
+                  fontSize: 'var(--text-sm)',
+                }}
+              >
+                No se pudo eliminar: {scaleDeleteError}
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap' }}>
               <div className="field" style={{ minWidth: 160 }}>
                 <label className="field-label">Filtrar por nivel</label>

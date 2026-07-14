@@ -33,31 +33,35 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/api/client', () => ({
 let mockStudentList: unknown[] = [];
 
 // ── Mock useApiList / useApiDelete / useApiCreate ──
-vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', () => ({
-  useApiList: () => ({
-    data: mockStudentList,
-    loading: false,
-    error: '',
-    reload: vi.fn(),
-  }),
-  useApiDelete: () => ({
-    deleting: false,
-    del: vi.fn().mockResolvedValue(true),
-  }),
-  useApiCreate: () => ({
-    creating: false,
-    createError: '',
-    create: vi.fn().mockResolvedValue(true),
-    setCreateError: vi.fn(),
-  }),
-  useApiUpdate: () => ({
-    updating: false,
-    updateError: '',
-    update: mockStudentUpdate,
-    setUpdateError: vi.fn(),
-  }),
-  extractErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'API error'),
-}));
+// useApiDelete uses the REAL implementation (via importOriginal): it's a stateful hook
+// (deleting/deleteError via useState) built on top of the mocked apiClient.delete, so
+// rejections re-render the component with a real deleteError message — a static mock
+// return value can't do that since it never changes across renders.
+vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('/home/usuario/proyectos/educandow/web/src/hooks/use-api')>();
+  return {
+    useApiList: () => ({
+      data: mockStudentList,
+      loading: false,
+      error: '',
+      reload: vi.fn(),
+    }),
+    useApiDelete: actual.useApiDelete,
+    useApiCreate: () => ({
+      creating: false,
+      createError: '',
+      create: vi.fn().mockResolvedValue(true),
+      setCreateError: vi.fn(),
+    }),
+    useApiUpdate: () => ({
+      updating: false,
+      updateError: '',
+      update: mockStudentUpdate,
+      setUpdateError: vi.fn(),
+    }),
+    extractErrorMessage: (e: unknown) => (e instanceof Error ? e.message : 'API error'),
+  };
+});
 
 // ── Configurable auth mock (ROOT vs non-ROOT) ──
 let mockRoles: string[] = ['ROOT'];
@@ -901,5 +905,33 @@ describe('StudentsPage — code-review round-7 bug fixes', () => {
     });
     const calledBody = mockStudentUpdate.mock.calls[0][1];
     expect(calledBody).toHaveProperty('email', '');
+  });
+});
+
+// ── Delete error banner ───────────────────────────────────────────────────────
+describe('StudentsPage — delete error banner', () => {
+  const mockStudentBase = { id: 's1', fullName: 'Juan Pérez', dni: '12345678' };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStudentList = [mockStudentBase];
+    setAuthMock(['ADMIN'], 'inst-1');
+    mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
+    mockApiGet.mockResolvedValue({ data: { data: [] } });
+  });
+
+  it('shows the server error message when deleting a student fails', async () => {
+    mockApiDelete.mockRejectedValueOnce({
+      response: { data: { error: { message: 'No se puede eliminar: tiene inscripciones' } } },
+    });
+
+    renderStudents();
+
+    const deleteBtn = await screen.findByRole('button', { name: 'Eliminar' });
+    await userEvent.click(deleteBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/tiene inscripciones/i)).toBeInTheDocument();
+    });
   });
 });
