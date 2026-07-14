@@ -80,7 +80,7 @@ export default function AcademicCyclesPage() {
   const { data, loading, reload } = useAcademicCycles(institutionId, Object.keys(params).length > 0 ? params : undefined);
   const { creating, createError, create, setCreateError } = useCreateAcademicCycle(institutionId);
   const { updating, updateError, update, setUpdateError } = useUpdateAcademicCycle(institutionId);
-  const { deleting, del } = useDeleteAcademicCycle(institutionId);
+  const { deleting, del, deleteError } = useDeleteAcademicCycle(institutionId);
   const { toggling, toggle } = useToggleAcademicCycleActive(institutionId);
 
   const [form, setForm] = useState<CreateAcademicCycleDto>({
@@ -445,6 +445,11 @@ export default function AcademicCyclesPage() {
             </div>
           </form>
         </Card>
+      )}
+
+      {/* Delete error */}
+      {deleteError && (
+        <p className="text-sm text-red-600" role="alert">No se pudo eliminar: {deleteError}</p>
       )}
 
       {/* Table */}

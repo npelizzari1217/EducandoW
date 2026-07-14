@@ -307,3 +307,37 @@ describe('AcademicCyclesPage — period dates section', () => {
     });
   });
 });
+
+// ═══════════════════════════════════════════════════════════
+// DELETE ERROR SURFACING — no longer silent
+// ═══════════════════════════════════════════════════════════
+
+describe('AcademicCyclesPage — delete error surfacing', () => {
+  beforeEach(() => {
+    setupApiMock();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  it('shows the server error when deleting a cycle fails instead of doing nothing', async () => {
+    mockApiDelete.mockRejectedValue({
+      response: { data: { error: { message: 'No se puede eliminar: tiene cursos asociados' } } },
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText('Ciclo Lectivo 2026')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /^Eliminar$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/tiene cursos asociados/i)).toBeInTheDocument();
+    });
+  });
+});

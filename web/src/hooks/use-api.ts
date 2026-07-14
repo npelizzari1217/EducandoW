@@ -58,14 +58,16 @@ export function useApiList<T>(url: string, params?: Record<string, string>) {
 
 export function useApiDelete(url: string, queryParams?: Record<string, string>) {
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
   const del = async (id: string) => {
-    setDeleting(true);
+    setDeleting(true); setDeleteError('');
     try {
       await apiClient.delete(`${url}/${id}`, queryParams ? { params: queryParams } : undefined);
       return true;
-    } catch { return false; } finally { setDeleting(false); }
+    } catch (e: unknown) { setDeleteError(extractErrorMessage(e)); return false; }
+    finally { setDeleting(false); }
   };
-  return { deleting, del };
+  return { deleting, deleteError, del, setDeleteError };
 }
 
 export function useApiCreate<T>(url: string, queryParams?: Record<string, string>) {
