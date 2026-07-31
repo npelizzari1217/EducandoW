@@ -43,10 +43,10 @@ export class CreateAttendanceTypeUseCase {
   async execute(
     input: CreateAttendanceTypeInput,
     currentUser: AttendanceTypeCurrentUser,
-  ): Promise<Result<AttendanceType, AttendanceTypeCodeDuplicateError>> {
+  ): Promise<Result<AttendanceType, AttendanceTypeCodeDuplicateError | AttendanceTypeLevelOutOfScopeError>> {
     const scope = resolveAccessScope(currentUser);
     if (!scope.allLevels && !scope.baseLevels.includes(input.level)) {
-      throw new AttendanceTypeLevelOutOfScopeError(input.level);
+      return err(new AttendanceTypeLevelOutOfScopeError(input.level));
     }
 
     const duplicate = await this.repo.existsByLevelCode(input.level, input.code.toUpperCase().trim());
@@ -88,7 +88,7 @@ export class UpdateAttendanceTypeUseCase {
     id: string,
     input: UpdateAttendanceTypeInput,
     currentUser: AttendanceTypeCurrentUser,
-  ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError | SystemAttendanceTypeError>> {
+  ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError | SystemAttendanceTypeError | AttendanceTypeLevelOutOfScopeError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
@@ -96,7 +96,7 @@ export class UpdateAttendanceTypeUseCase {
 
     const scope = resolveAccessScope(currentUser);
     if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
-      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
+      return err(new AttendanceTypeLevelOutOfScopeError(entity.level));
     }
 
     try {
@@ -136,7 +136,7 @@ export class DeleteAttendanceTypeUseCase {
   async execute(
     id: string,
     currentUser: AttendanceTypeCurrentUser,
-  ): Promise<Result<void, AttendanceTypeNotFoundError | SystemAttendanceTypeError>> {
+  ): Promise<Result<void, AttendanceTypeNotFoundError | SystemAttendanceTypeError | AttendanceTypeLevelOutOfScopeError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
@@ -144,7 +144,7 @@ export class DeleteAttendanceTypeUseCase {
 
     const scope = resolveAccessScope(currentUser);
     if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
-      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
+      return err(new AttendanceTypeLevelOutOfScopeError(entity.level));
     }
 
     try {
@@ -169,18 +169,18 @@ export class ListAttendanceTypesUseCase {
   async execute(
     filters: AttendanceTypeFilters | undefined,
     currentUser: AttendanceTypeCurrentUser,
-  ): Promise<AttendanceType[]> {
+  ): Promise<Result<AttendanceType[], AttendanceTypeLevelOutOfScopeError>> {
     const scope = resolveAccessScope(currentUser);
 
     if (scope.allLevels) {
-      return this.repo.list(filters);
+      return ok(await this.repo.list(filters));
     }
 
     if (filters?.level !== undefined && !scope.baseLevels.includes(filters.level)) {
-      throw new AttendanceTypeLevelOutOfScopeError(filters.level);
+      return err(new AttendanceTypeLevelOutOfScopeError(filters.level));
     }
 
-    return this.repo.list({ ...filters, allowedLevels: scope.baseLevels });
+    return ok(await this.repo.list({ ...filters, allowedLevels: scope.baseLevels }));
   }
 }
 
@@ -195,7 +195,7 @@ export class GetAttendanceTypeUseCase {
   async execute(
     id: string,
     currentUser: AttendanceTypeCurrentUser,
-  ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError>> {
+  ): Promise<Result<AttendanceType, AttendanceTypeNotFoundError | AttendanceTypeLevelOutOfScopeError>> {
     const entity = await this.repo.findById(id);
     if (!entity) {
       return err(new AttendanceTypeNotFoundError(id));
@@ -203,7 +203,7 @@ export class GetAttendanceTypeUseCase {
 
     const scope = resolveAccessScope(currentUser);
     if (!scope.allLevels && !scope.baseLevels.includes(entity.level)) {
-      throw new AttendanceTypeLevelOutOfScopeError(entity.level);
+      return err(new AttendanceTypeLevelOutOfScopeError(entity.level));
     }
 
     return ok(entity);

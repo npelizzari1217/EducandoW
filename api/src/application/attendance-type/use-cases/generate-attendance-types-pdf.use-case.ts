@@ -24,6 +24,7 @@ import {
   AttendanceType,
   EducationalLevel,
   EducationalLevelCode,
+  err,
 } from '@educandow/domain';
 import type { Result } from '@educandow/domain';
 import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
@@ -84,7 +85,9 @@ export class GenerateAttendanceTypesPdfUseCase {
     }
   }
 
-  async execute(input: GenerateAttendanceTypesPdfInput): Promise<Result<Buffer, PdfError>> {
+  async execute(
+    input: GenerateAttendanceTypesPdfInput,
+  ): Promise<Result<Buffer, PdfError | AttendanceTypeLevelOutOfScopeError>> {
     const { level, active, currentUser } = input;
     const scope = resolveAccessScope(currentUser);
 
@@ -97,7 +100,7 @@ export class GenerateAttendanceTypesPdfUseCase {
       types = await this.repo.list(Object.keys(filters).length ? filters : undefined);
     } else {
       if (level !== undefined && !scope.baseLevels.includes(level)) {
-        throw new AttendanceTypeLevelOutOfScopeError(level);
+        return err(new AttendanceTypeLevelOutOfScopeError(level));
       }
       types = await this.repo.list({ ...filters, allowedLevels: scope.baseLevels });
     }
