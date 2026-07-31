@@ -194,9 +194,15 @@ governs authorization DECISIONS already made elsewhere (`role-hierarchy`), not a
 
 Consumers not yet migrated to this capability (tracked as separate changes, NOT implemented here):
 
-- `materia-grupo-ciclo` (17 throws) — needs domain-wrap for 16 sites plus a NEW `DomainError`
-  subclass for its one intrinsic-invariant throw (group ⊆ subject), which is NOT an
-  `ApplicationError` case (see "Classification note" below).
+- `materia-grupo-ciclo` — FULLY MIGRATED (archived 2026-07-31) by change
+  `materia-grupo-ciclo-result-migration` (3 stacked slices: A materia use-cases, B grupo use-cases +
+  `validateTeacherLevel` helper, C `add-student-to-grupo`). 15 of 17 throws were mechanical
+  `Result`-wraps of existing `DomainError`s; the group ⊆ materia intrinsic invariant got a NEW
+  `DomainError` subclass `GrupoMateriaMismatchError` (code `GRUPO_MATERIA_MISMATCH`, HTTP 422 —
+  fixing a prior bare-`Error` 500 bug). Remaining for this area: the 2 mistyped infrastructure
+  guards (`update-grupo.use-case.ts` "No tenant client available", `competency.use-cases.ts:258`)
+  DEFERRED to the `InfrastructureError` follow-up below; the `createGrupo` controller raw-Prisma
+  anti-pattern; domain entity constructor guards.
 - `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — BLOCKED until PR #111
   merges; migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`.
 - `asistencia` (41 throws, 100% domain-wrap candidate).
