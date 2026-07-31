@@ -8,9 +8,10 @@
  * reimplement the modality-collapse logic.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { AttendanceTypeLevelOutOfScopeError, ok, err } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { PdfError } from '../../shared/errors/pdf.error';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {

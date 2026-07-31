@@ -138,7 +138,6 @@ export { AttendanceBehavior, AttendanceBehaviorValue } from './attendance-type/v
 export { SystemAttendanceTypeError } from './attendance-type/errors/system-attendance-type-error';
 export { AttendanceTypeCodeDuplicateError } from './attendance-type/errors/attendance-type-code-duplicate-error';
 export { AttendanceTypeNotFoundError } from './attendance-type/errors/attendance-type-not-found-error';
-export { AttendanceTypeLevelOutOfScopeError } from './attendance-type/errors/attendance-type-level-out-of-scope-error';
 export { PresenteTypeNotFoundError } from './attendance-type/errors/presente-type-not-found-error';
 export type { AttendanceTypeRepository, AttendanceTypeFilters } from './attendance-type/repositories/attendance-type-repository';
 

@@ -4,7 +4,6 @@ import { HttpException } from '@nestjs/common';
 import {
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
-  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   ok,
   err,
@@ -12,6 +11,7 @@ import {
 import { ROLES_KEY } from '../../../infrastructure/auth/decorators/roles.decorator';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { PdfError } from '../../../application/shared/errors/pdf.error';
+import { AttendanceTypeLevelOutOfScopeError } from '../../../application/shared/errors/attendance-type-level-out-of-scope-error';
 
 // ── Current-user fixtures (PR2 — @CurrentUser) ──────────────────
 

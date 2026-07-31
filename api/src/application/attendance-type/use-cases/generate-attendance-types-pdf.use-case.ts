@@ -19,7 +19,6 @@ import * as path from 'path';
 import Handlebars from 'handlebars';
 import {
   resolveAccessScope,
-  AttendanceTypeLevelOutOfScopeError,
   AttendanceTypeRepository,
   AttendanceTypeFilters,
   AttendanceType,
@@ -27,6 +26,7 @@ import {
   EducationalLevelCode,
 } from '@educandow/domain';
 import type { Result } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port';

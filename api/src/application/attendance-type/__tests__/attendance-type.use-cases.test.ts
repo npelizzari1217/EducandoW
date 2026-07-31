@@ -15,11 +15,11 @@ import {
   AttendanceTypeCode,
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
-  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   AttendanceBehavior,
   AttendanceBehaviorValue,
 } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 
 // ── Current-user fixtures (PR2 — scope de nivel base) ──────────
 

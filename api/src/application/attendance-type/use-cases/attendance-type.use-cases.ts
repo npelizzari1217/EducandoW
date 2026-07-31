@@ -6,12 +6,12 @@ import {
   AttendanceTypeFilters,
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
-  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   AttendanceBehavior,
   AttendanceBehaviorValue,
   resolveAccessScope,
 } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 
 /**
  * Subconjunto de `AuthenticatedUser` (api/infra) requerido por `resolveAccessScope`.
