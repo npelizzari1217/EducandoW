@@ -4,7 +4,7 @@ import type {
   GrupoRepository,
   GrupoXCursoXMateriaXCiclo,
 } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ValidationError, ok, err, Result } from '@educandow/domain';
 import { DocenteXCicloService } from '../docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { validateTeacherLevel } from './validate-teacher-level';
@@ -41,25 +41,28 @@ export class CreateGrupoUseCase {
     /** AcademicCycle UUID — resolved by the caller from the CourseCycle. */
     cycleId: string;
     name?: string;
-  }): Promise<GrupoXCursoXMateriaXCiclo> {
+  }): Promise<Result<GrupoXCursoXMateriaXCiclo, NotFoundError | ValidationError>> {
     // Validate materia exists
     const materia = await this.materiaRepo.findById(input.materiaXCursoXCicloId);
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId);
+      return err(new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId));
     }
 
     // Validate teacher's level matches the materia's course-cycle level
-    await validateTeacherLevel(this.prisma, input.userId, materia.courseCycleId);
+    const levelCheck = await validateTeacherLevel(this.prisma, input.userId, materia.courseCycleId);
+    if (levelCheck.isErr()) return err(levelCheck.unwrapErr());
 
     // Get or create the DocenteXCiclo for this user in this cycle (idempotent)
     const docenteXCiclo = await this.docenteService.getOrCreateForCycle(input.userId, input.cycleId);
 
     // Persist the group
-    return this.grupoRepo.create({
-      materiaXCursoXCicloId: input.materiaXCursoXCicloId,
-      docenteXCicloId: docenteXCiclo.id,
-      name: input.name,
-    });
+    return ok(
+      await this.grupoRepo.create({
+        materiaXCursoXCicloId: input.materiaXCursoXCicloId,
+        docenteXCicloId: docenteXCiclo.id,
+        name: input.name,
+      }),
+    );
   }
 
 }

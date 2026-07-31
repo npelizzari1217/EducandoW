@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { GrupoRepository, MateriaXCursoXCicloRepository, GrupoXCursoXMateriaXCiclo } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ValidationError, ok, err, Result } from '@educandow/domain';
 import { DocenteXCicloService } from '../docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
@@ -27,17 +27,18 @@ export class UpdateGrupoUseCase {
     id: string;
     name?: string;
     userId?: string;
-  }): Promise<GrupoXCursoXMateriaXCiclo> {
+  }): Promise<Result<GrupoXCursoXMateriaXCiclo, NotFoundError | ValidationError>> {
     const grupo = await this.grupoRepo.findById(input.id);
-    if (!grupo) throw new NotFoundError('GrupoXCursoXMateriaXCiclo', input.id);
+    if (!grupo) return err(new NotFoundError('GrupoXCursoXMateriaXCiclo', input.id));
 
     let docenteXCicloId: string | undefined;
 
     if (input.userId !== undefined) {
       const materia = await this.materiaRepo.findById(grupo.materiaXCursoXCicloId);
-      if (!materia) throw new NotFoundError('MateriaXCursoXCiclo', grupo.materiaXCursoXCicloId);
+      if (!materia) return err(new NotFoundError('MateriaXCursoXCiclo', grupo.materiaXCursoXCicloId));
 
-      await validateTeacherLevel(this.prisma, input.userId, materia.courseCycleId);
+      const levelCheck = await validateTeacherLevel(this.prisma, input.userId, materia.courseCycleId);
+      if (levelCheck.isErr()) return err(levelCheck.unwrapErr());
 
       const client = TenantContext.getClient();
       if (!client) throw new Error('No tenant client available');
@@ -46,15 +47,17 @@ export class UpdateGrupoUseCase {
         where: { uuid: materia.courseCycleId },
         select: { cycleId: true },
       });
-      if (!cc) throw new NotFoundError('CourseCycle', materia.courseCycleId);
+      if (!cc) return err(new NotFoundError('CourseCycle', materia.courseCycleId));
 
       const newDocente = await this.docenteService.getOrCreateForCycle(input.userId, cc.cycleId);
       docenteXCicloId = newDocente.id;
     }
 
-    return this.grupoRepo.update(input.id, {
-      name: input.name,
-      docenteXCicloId,
-    });
+    return ok(
+      await this.grupoRepo.update(input.id, {
+        name: input.name,
+        docenteXCicloId,
+      }),
+    );
   }
 }
