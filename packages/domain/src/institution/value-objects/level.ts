@@ -220,7 +220,7 @@ export class Level {
   static fromParts(levelCode: EducationalLevelCode, modalityCode: EducationalModalityCode): Level {
     const composite = levelCode * 10 + modalityCode;
     if (!Object.values(LevelType).includes(composite)) {
-      throw new Error(
+      throw new ValidationError(
         `Invalid level composite: ${composite} (level=${levelCode}, modality=${modalityCode}). ` +
         `Must be one of: ${Object.values(LevelType).filter(v => typeof v === 'number').join(', ')}`,
       );
