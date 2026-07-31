@@ -271,17 +271,30 @@ describe('DeleteCourseCycleUseCase', () => {
     const cc = makeCC();
     mockRepo.findByUuid = vi.fn().mockResolvedValue(cc);
 
-    await useCase.execute(cc.uuid);
+    const result = await useCase.execute(cc.uuid);
 
+    expect(result.isOk()).toBe(true);
     expect(mockRepo.softDelete).toHaveBeenCalledWith(cc.uuid);
   });
 
-  it('rejects delete on closed cycle', async () => {
+  it('returns err(CourseCycleClosedError), not a throw, on closed cycle', async () => {
     const cc = makeCC();
     cc.deactivate();
     mockRepo.findByUuid = vi.fn().mockResolvedValue(cc);
 
-    await expect(useCase.execute(cc.uuid)).rejects.toThrow(CourseCycleClosedError);
+    const result = await useCase.execute(cc.uuid);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(CourseCycleClosedError);
+  });
+
+  it('returns err(CourseCycleNotFoundError), not a throw, when cycle does not exist', async () => {
+    mockRepo.findByUuid = vi.fn().mockResolvedValue(null);
+
+    const result = await useCase.execute('nonexistent');
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(CourseCycleNotFoundError);
   });
 });
 
@@ -383,20 +396,25 @@ describe('ListStudentsByCourseCycleUC', () => {
 
     const result = await useCase.execute(cc.uuid);
 
-    expect(result).toHaveLength(3);
-    expect(result[0]).toEqual({ studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' });
+    expect(result.isOk()).toBe(true);
+    const students2 = result.unwrap();
+    expect(students2).toHaveLength(3);
+    expect(students2[0]).toEqual({ studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' });
     expect(mockRepo.findEnrolledStudents).toHaveBeenCalledWith(cc.uuid);
   });
 
-  it('SBC-2: throws CourseCycleNotFoundError when cycle does not exist', async () => {
+  it('SBC-2: returns err(CourseCycleNotFoundError), not a throw, when cycle does not exist', async () => {
     const mockRepo = makeMockRepo({ findByUuid: vi.fn().mockResolvedValue(null) });
     const useCase = new ListStudentsByCourseCycleUC(mockRepo);
 
-    await expect(useCase.execute('cc-nonexistent')).rejects.toThrow(CourseCycleNotFoundError);
+    const result = await useCase.execute('cc-nonexistent');
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(CourseCycleNotFoundError);
     expect(mockRepo.findEnrolledStudents).not.toHaveBeenCalled();
   });
 
-  it('SBC-3: returns [] when cycle exists but has no enrolled students', async () => {
+  it('SBC-3: returns ok([]) when cycle exists but has no enrolled students', async () => {
     const cc = makeCC();
     const mockRepo = makeMockRepo({
       findByUuid: vi.fn().mockResolvedValue(cc),
@@ -406,7 +424,8 @@ describe('ListStudentsByCourseCycleUC', () => {
 
     const result = await useCase.execute(cc.uuid);
 
-    expect(result).toEqual([]);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toEqual([]);
   });
 });
 
@@ -528,7 +547,7 @@ describe('GenerateCourseCyclesUseCase', () => {
     ]);
     mockRepo.findByPair = vi.fn().mockResolvedValue(null); // none exist
 
-    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+    const result = (await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' })).unwrap();
 
     expect(result.created).toBe(5);
     expect(result.updated).toBe(0);
@@ -558,7 +577,7 @@ describe('GenerateCourseCyclesUseCase', () => {
       .mockResolvedValueOnce(existingCC2)   // course-2 exists
       .mockResolvedValue(null);             // rest are new
 
-    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+    const result = (await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' })).unwrap();
 
     expect(result.created).toBe(3);
     expect(result.updated).toBe(2);
@@ -586,7 +605,7 @@ describe('GenerateCourseCyclesUseCase', () => {
       .mockResolvedValueOnce(existingCC)  // course-1 exists → update
       .mockResolvedValue(null);            // course-2, course-3 new → create
 
-    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+    const result = (await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' })).unwrap();
 
     expect(result.updated).toBe(1);
     expect(result.created).toBe(2);
@@ -656,7 +675,7 @@ describe('GenerateCourseCyclesUseCase', () => {
     mockRepo.findByPair = vi.fn().mockResolvedValue(null);
 
     // Spy on save to inspect the level set on the CourseCycle
-    const result = await useCase.execute({ level: 21, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+    const result = (await useCase.execute({ level: 21, cycleId: 'cycle-1', studyPlanId: 'plan-1' })).unwrap();
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
@@ -693,7 +712,7 @@ describe('GenerateCourseCyclesUseCase', () => {
       ]);
     mockRepo.findByPair = vi.fn().mockResolvedValue(null);
 
-    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1' });
+    const result = (await useCase.execute({ level: 20, cycleId: 'cycle-1' })).unwrap();
 
     expect(result.created).toBe(4);
     expect(result.updated).toBe(0);
@@ -706,7 +725,7 @@ describe('GenerateCourseCyclesUseCase', () => {
   it('returns zeros when no plans match the level', async () => {
     mockPlanRepo.findAll = vi.fn().mockResolvedValue([]);
 
-    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1' });
+    const result = (await useCase.execute({ level: 20, cycleId: 'cycle-1' })).unwrap();
 
     expect(result.created).toBe(0);
     expect(result.updated).toBe(0);
@@ -715,25 +734,27 @@ describe('GenerateCourseCyclesUseCase', () => {
   });
 
   // 6. StudyPlan not found
-  it('rejects when studyPlanId is provided but not found', async () => {
+  it('returns err(NotFoundError), not a throw, when studyPlanId is provided but not found', async () => {
     mockPlanRepo.findById = vi.fn().mockResolvedValue(null);
 
-    await expect(
-      useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'nonexistent' }),
-    ).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'nonexistent' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   // 7. AcademicCycle not found
-  it('rejects when AcademicCycle is not found', async () => {
+  it('returns err(NotFoundError), not a throw, when AcademicCycle is not found', async () => {
     mockCycleRepo.findByUuid = vi.fn().mockResolvedValue(null);
 
-    await expect(
-      useCase.execute({ level: 20, cycleId: 'nonexistent-cycle', studyPlanId: 'plan-1' }),
-    ).rejects.toThrow(NotFoundError);
+    const result = await useCase.execute({ level: 20, cycleId: 'nonexistent-cycle', studyPlanId: 'plan-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   // 8. AcademicCycle is inactive
-  it('rejects when AcademicCycle is inactive', async () => {
+  it('returns err(AcademicCycleClosedError), not a throw, when AcademicCycle is inactive', async () => {
     mockCycleRepo.findByUuid = vi.fn().mockResolvedValue({
       id: Id.reconstruct('cycle-1'),
       name: '2025',
@@ -741,9 +762,28 @@ describe('GenerateCourseCyclesUseCase', () => {
       isCurrent: () => false,
     });
 
+    const result = await useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AcademicCycleClosedError);
+  });
+
+  // CCRM-R3: an invalid level/modality composite inside the loop still escapes as a throw
+  // (batch-abort loop internals are unchanged, only Level.fromParts now throws ValidationError
+  // instead of a bare Error — see Unit 2).
+  it('CCRM-R3: throws ValidationError (not bare Error) when a plan composes an invalid level/modality', async () => {
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan Inválido', level: 5, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+    ]);
+    mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
     await expect(
       useCase.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' }),
-    ).rejects.toThrow(AcademicCycleClosedError);
+    ).rejects.toThrow(ValidationError);
   });
 
   // T10 RED → T11 GREEN: esOptativa mapping through GenerateCourseCyclesUseCase
@@ -845,7 +885,7 @@ describe('GenerateCourseCyclesUseCase', () => {
     ]);
     mockRepo.findByPair = vi.fn().mockResolvedValue(null);
 
-    const result = await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+    const result = (await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' })).unwrap();
 
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);

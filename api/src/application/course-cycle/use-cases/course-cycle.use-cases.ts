@@ -245,14 +245,16 @@ export class UpdateCourseCycleUseCase {
 export class DeleteCourseCycleUseCase {
   constructor(private readonly courseCycleRepo: CourseCycleRepository) {}
 
-  async execute(uuid: string): Promise<void> {
+  async execute(uuid: string): Promise<Result<void, Error>> {
     const cc = await this.courseCycleRepo.findByUuid(uuid);
     if (!cc) {
-      throw new CourseCycleNotFoundError(uuid);
+      return err(new CourseCycleNotFoundError(uuid));
     }
-
-    cc.ensureActive();
+    if (!cc.active) {
+      return err(new CourseCycleClosedError(cc.uuid));
+    }
     await this.courseCycleRepo.softDelete(cc.uuid);
+    return ok(undefined);
   }
 }
 
@@ -297,13 +299,13 @@ export class ListStudentsByCourseCycleUC {
 
   /**
    * Returns enrolled students for the given CourseCycle.
-   * Throws CourseCycleNotFoundError (→ HTTP 404) if cycle does not exist.
-   * Returns [] when cycle exists but has no active enrollments (SBC-3).
+   * Returns err(CourseCycleNotFoundError) (→ HTTP 404) if the cycle does not exist.
+   * Returns ok([]) when the cycle exists but has no active enrollments (SBC-3).
    */
-  async execute(uuid: string): Promise<EnrolledStudent[]> {
+  async execute(uuid: string): Promise<Result<EnrolledStudent[], Error>> {
     const cc = await this.repo.findByUuid(uuid);
-    if (!cc) throw new CourseCycleNotFoundError(uuid);
-    return this.repo.findEnrolledStudents(uuid);
+    if (!cc) return err(new CourseCycleNotFoundError(uuid));
+    return ok(await this.repo.findEnrolledStudents(uuid));
   }
 }
 
@@ -330,14 +332,14 @@ export class GenerateCourseCyclesUseCase {
     private readonly materializeMateriasUC?: MaterializeMateriasUseCase,
   ) {}
 
-  async execute(input: GenerateCourseCyclesInput): Promise<CreateManyResult> {
+  async execute(input: GenerateCourseCyclesInput): Promise<Result<CreateManyResult, Error>> {
     // 1. Validate cycle exists and is active
     const cycle = await this.academicCycleRepo.findByUuid(input.cycleId);
     if (!cycle) {
-      throw new NotFoundError('AcademicCycle', input.cycleId);
+      return err(new NotFoundError('AcademicCycle', input.cycleId));
     }
     if (!cycle.active) {
-      throw new AcademicCycleClosedError(input.cycleId);
+      return err(new AcademicCycleClosedError(input.cycleId));
     }
 
     // 2. Determine plans to process
@@ -346,7 +348,7 @@ export class GenerateCourseCyclesUseCase {
     if (input.studyPlanId) {
       const plan = await this.studyPlanRepo.findById(input.studyPlanId);
       if (!plan) {
-        throw new NotFoundError('StudyPlan', input.studyPlanId);
+        return err(new NotFoundError('StudyPlan', input.studyPlanId));
       }
       plans.push({
         id: plan.id.get(),
@@ -442,6 +444,6 @@ export class GenerateCourseCyclesUseCase {
       }
     }
 
-    return { created, updated, total };
+    return ok({ created, updated, total });
   }
 }
