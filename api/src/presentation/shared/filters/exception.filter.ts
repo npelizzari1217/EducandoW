@@ -44,6 +44,7 @@ const DOMAIN_STATUS: Record<string, number> = {
   ASSIGNMENT_ALREADY_INACTIVE: 409,
   // Materia-grupo-ciclo — Fase 3 (exclusión estricta: un alumno = un grupo por materia)
   ALUMNO_ALREADY_IN_GRUPO: 409,
+  GRUPO_MATERIA_MISMATCH: 422,
   // Asistencia — días bloqueados (T7.2)
   DAY_NOT_ASSIGNABLE: 422,
   STATUS_NOT_ASSIGNABLE: 400,
