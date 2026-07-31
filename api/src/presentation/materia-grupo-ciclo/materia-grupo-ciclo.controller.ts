@@ -131,11 +131,13 @@ export class MateriasGruposController {
       materiaXCursoXCicloId: materiaId,
       studentId: body.studentId,
     });
+    if (result.isErr()) throw result.unwrapErr();
+    const created = result.unwrap();
     return {
       data: {
-        id: result.id,
-        materiaXCursoXCicloId: result.materiaXCursoXCicloId,
-        studentId: result.studentId,
+        id: created.id,
+        materiaXCursoXCicloId: created.materiaXCursoXCicloId,
+        studentId: created.studentId,
       },
     };
   }
@@ -264,10 +266,11 @@ export class MateriasGruposController {
     @Query('eligible') eligible?: string,
   ): Promise<{ data: AlumnoMateriaItem[] }> {
     if (eligible === 'true') {
-      const data = await this.listEnrollableStudentsForMateriaUC.execute({
+      const result = await this.listEnrollableStudentsForMateriaUC.execute({
         materiaXCursoXCicloId: materiaId,
       });
-      return { data };
+      if (result.isErr()) throw result.unwrapErr();
+      return { data: result.unwrap() };
     }
     const data = await this.listAlumnosMateriaUC.execute({
       materiaXCursoXCicloId: materiaId,
@@ -290,10 +293,11 @@ export class MateriasGruposController {
     @Param('materiaId') materiaId: string,
     @Param('id') id: string,
   ): Promise<void> {
-    await this.removeStudentFromMateriaUC.execute({
+    const result = await this.removeStudentFromMateriaUC.execute({
       materiaXCursoXCicloId: materiaId,
       alumnoXMateriaId: id,
     });
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   /**
@@ -310,10 +314,12 @@ export class MateriasGruposController {
     @Param('materiaId') materiaId: string,
     @Body(new ZodValidationPipe(SetMateriaEsOptativaSchema)) body: SetMateriaEsOptativaDto,
   ): Promise<{ data: MateriaResponse }> {
-    const materia = await this.setMateriaEsOptativaUC.execute({
+    const result = await this.setMateriaEsOptativaUC.execute({
       id: materiaId,
       esOptativa: body.esOptativa,
     });
+    if (result.isErr()) throw result.unwrapErr();
+    const materia = result.unwrap();
     return {
       data: {
         id: materia.id,

@@ -36,7 +36,7 @@ function makeMateriaRepo(
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 describe('SetMateriaEsOptativaUseCase', () => {
-  it('execute({ id, esOptativa: true }) delegates setEsOptativa(id, true) and returns entity', async () => {
+  it('execute({ id, esOptativa: true }) delegates setEsOptativa(id, true) and returns ok(entity)', async () => {
     const materia = makeMateria('mxcc-1', false);
     const updated = makeMateria('mxcc-1', true);
     const materiaRepo = makeMateriaRepo(materia, updated);
@@ -46,7 +46,8 @@ describe('SetMateriaEsOptativaUseCase', () => {
 
     expect(materiaRepo.findById).toHaveBeenCalledWith('mxcc-1');
     expect(materiaRepo.setEsOptativa).toHaveBeenCalledWith('mxcc-1', true);
-    expect(result.esOptativa).toBe(true);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().esOptativa).toBe(true);
   });
 
   it('execute({ id, esOptativa: false }) delegates setEsOptativa(id, false)', async () => {
@@ -58,16 +59,18 @@ describe('SetMateriaEsOptativaUseCase', () => {
     const result = await uc.execute({ id: 'mxcc-1', esOptativa: false });
 
     expect(materiaRepo.setEsOptativa).toHaveBeenCalledWith('mxcc-1', false);
-    expect(result.esOptativa).toBe(false);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().esOptativa).toBe(false);
   });
 
-  it('materia not found → throws NotFoundError', async () => {
+  it('materia not found → returns err(NotFoundError)', async () => {
     const materiaRepo = makeMateriaRepo(null);
     const uc = new SetMateriaEsOptativaUseCase(materiaRepo);
 
-    await expect(uc.execute({ id: 'non-existent', esOptativa: true })).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    const result = await uc.execute({ id: 'non-existent', esOptativa: true });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   it('does NOT interact with AlumnosXMateriaRepository (D6: no retroactive cleanup)', async () => {
