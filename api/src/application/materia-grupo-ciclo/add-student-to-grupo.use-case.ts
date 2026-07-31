@@ -4,8 +4,15 @@ import type {
   AlumnosXGrupoRepository,
   AlumnosXMateriaRepository,
   AlumnosXGrupoXCursoXMateriaXCiclo,
+  Result,
 } from '@educandow/domain';
-import { NotFoundError, AlumnoAlreadyInGrupoError } from '@educandow/domain';
+import {
+  NotFoundError,
+  AlumnoAlreadyInGrupoError,
+  GrupoMateriaMismatchError,
+  ok,
+  err,
+} from '@educandow/domain';
 
 /**
  * AddStudentToGrupoUseCase — Fase 3c (F3-A4).
@@ -13,7 +20,8 @@ import { NotFoundError, AlumnoAlreadyInGrupoError } from '@educandow/domain';
  * Adds a student (via their MateriasXAlumnoXCursoXCiclo membership) to a group.
  *
  * Hard containment (MGC-R4): verifies that the alumnosXMateriaXCursoXCicloId
- * belongs to the same materiaXCursoXCicloId as the group. If not → rejected.
+ * belongs to the same materiaXCursoXCicloId as the group. If not → returns
+ * `err(GrupoMateriaMismatchError)` (422, MGCM-R3).
  *
  * Cross-CC rejection (MGC-S10) is also covered by the containment check because
  * a student from a different CC has an alumnosXMateriaId referencing a different
@@ -21,8 +29,8 @@ import { NotFoundError, AlumnoAlreadyInGrupoError } from '@educandow/domain';
  *
  * Exclusión estricta (MGC-S13 / Fase 3): one student = one group per materia.
  * Co-docencia (multiple groups, same materia) is no longer allowed.
- * Throws AlumnoAlreadyInGrupoError (409) if the student is already in any group
- * of the same materia.
+ * Returns `err(AlumnoAlreadyInGrupoError)` (409) if the student is already in
+ * any group of the same materia.
  */
 @Injectable()
 export class AddStudentToGrupoUseCase {
@@ -35,25 +43,22 @@ export class AddStudentToGrupoUseCase {
   async execute(input: {
     grupoId: string;
     alumnosXMateriaXCursoXCicloId: string;
-  }): Promise<AlumnosXGrupoXCursoXMateriaXCiclo> {
+  }): Promise<Result<AlumnosXGrupoXCursoXMateriaXCiclo, NotFoundError | GrupoMateriaMismatchError | AlumnoAlreadyInGrupoError>> {
     // Validate group exists
     const grupo = await this.grupoRepo.findById(input.grupoId);
     if (!grupo) {
-      throw new NotFoundError('GrupoXCursoXMateriaXCiclo', input.grupoId);
+      return err(new NotFoundError('GrupoXCursoXMateriaXCiclo', input.grupoId));
     }
 
     // Validate AlumnosXMateria exists
     const axm = await this.alumnosMateriaRepo.findById(input.alumnosXMateriaXCursoXCicloId);
     if (!axm) {
-      throw new NotFoundError('MateriasXAlumnoXCursoXCiclo', input.alumnosXMateriaXCursoXCicloId);
+      return err(new NotFoundError('MateriasXAlumnoXCursoXCiclo', input.alumnosXMateriaXCursoXCicloId));
     }
 
     // Hard containment check: grupo ⊆ materia (MGC-R4, MGC-S11, MGC-S10)
     if (axm.materiaXCursoXCicloId !== grupo.materiaXCursoXCicloId) {
-      throw new Error(
-        `Student is not in the universe of this grupo's materia (MGC-R4). ` +
-        `grupo.materiaId=${grupo.materiaXCursoXCicloId}, axm.materiaId=${axm.materiaXCursoXCicloId}`,
-      );
+      return err(new GrupoMateriaMismatchError());
     }
 
     // Exclusión estricta (MGC-S13): one student per materia per group.
@@ -62,10 +67,10 @@ export class AddStudentToGrupoUseCase {
       grupo.materiaXCursoXCicloId,
     );
     if (assignedIds.includes(input.alumnosXMateriaXCursoXCicloId)) {
-      throw new AlumnoAlreadyInGrupoError();
+      return err(new AlumnoAlreadyInGrupoError());
     }
 
     // Add to group
-    return this.alumnosGrupoRepo.addStudent(input.grupoId, input.alumnosXMateriaXCursoXCicloId);
+    return ok(await this.alumnosGrupoRepo.addStudent(input.grupoId, input.alumnosXMateriaXCursoXCicloId));
   }
 }

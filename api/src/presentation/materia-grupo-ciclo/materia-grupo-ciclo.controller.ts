@@ -351,11 +351,13 @@ export class MateriasGruposController {
       grupoId,
       alumnosXMateriaXCursoXCicloId: body.alumnosXMateriaXCursoXCicloId,
     });
+    if (result.isErr()) throw result.unwrapErr();
+    const created = result.unwrap();
     return {
       data: {
-        id: result.id,
-        grupoId: result.grupoId,
-        alumnosXMateriaXCursoXCicloId: result.alumnosXMateriaXCursoXCicloId,
+        id: created.id,
+        grupoId: created.grupoId,
+        alumnosXMateriaXCursoXCicloId: created.alumnosXMateriaXCursoXCicloId,
       },
     };
   }

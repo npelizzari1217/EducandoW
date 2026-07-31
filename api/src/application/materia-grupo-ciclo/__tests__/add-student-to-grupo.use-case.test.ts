@@ -19,6 +19,7 @@ import {
   AlumnosXGrupoXCursoXMateriaXCiclo,
   NotFoundError,
   AlumnoAlreadyInGrupoError,
+  GrupoMateriaMismatchError,
 } from '@educandow/domain';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -108,12 +109,13 @@ describe('AddStudentToGrupoUseCase', () => {
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
+    const r = await uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
 
+    expect(r.isOk()).toBe(true);
     expect(alumnosGrupoRepo.addStudent).toHaveBeenCalledWith('grupo-1', 'axm-1');
   });
 
-  // F3-T4 / MGC-S11: student not in universe of this materia → rejected
+  // F3-T4 / MGC-S11: student not in universe of this materia → rejected (MGC-R4, 422)
   it('rejects student whose AlumnosXMateria belongs to a different materia (MGC-S11)', async () => {
     const grupo = makeGrupo('grupo-1', 'm-1');
     const axm = makeAlumnosXMateria('axm-1', 'm-OTHER'); // different materia!
@@ -122,15 +124,15 @@ describe('AddStudentToGrupoUseCase', () => {
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' })
-    ).rejects.toThrow(/universe.*materia|MGC-R4/i);
+    const r = await uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
 
+    expect(r.isErr()).toBe(true);
+    expect(r.unwrapErr()).toBeInstanceOf(GrupoMateriaMismatchError);
     expect(alumnosGrupoRepo.addStudent).not.toHaveBeenCalled();
   });
 
   // F3-T5 / MGC-S10: student from a different CC → their AlumnosXMateria has a different materiaId
-  // which means different CC → the containment check covers this case too
+  // which means different CC → the containment check covers this case too (MGC-R4, 422)
   it('rejects student from a different CC via containment check (MGC-S10)', async () => {
     const grupo = makeGrupo('grupo-1', 'm-1');
     // axm belongs to m-OTHER which is from a different CC
@@ -140,10 +142,10 @@ describe('AddStudentToGrupoUseCase', () => {
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-other-cc' })
-    ).rejects.toThrow();
+    const r = await uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-other-cc' });
 
+    expect(r.isErr()).toBe(true);
+    expect(r.unwrapErr()).toBeInstanceOf(GrupoMateriaMismatchError);
     expect(alumnosGrupoRepo.addStudent).not.toHaveBeenCalled();
   });
 
@@ -159,7 +161,8 @@ describe('AddStudentToGrupoUseCase', () => {
     const grupoRepoG1 = makeGrupoRepo(grupoG1);
     const alumnosGrupoRepoG1 = makeAlumnosGrupoRepo([]); // nobody assigned yet
     const ucG1 = new AddStudentToGrupoUseCase(grupoRepoG1, alumnosGrupoRepoG1, alumnosMateriaRepo);
-    await ucG1.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
+    const rG1 = await ucG1.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'axm-1' });
+    expect(rG1.isOk()).toBe(true);
     expect(alumnosGrupoRepoG1.addStudent).toHaveBeenCalledWith('grupo-1', 'axm-1');
 
     // G2: axm-1 already in G1 → rejected
@@ -167,15 +170,15 @@ describe('AddStudentToGrupoUseCase', () => {
     const alumnosGrupoRepoG2 = makeAlumnosGrupoRepo(['axm-1']); // axm-1 pre-assigned (via G1)
     const ucG2 = new AddStudentToGrupoUseCase(grupoRepoG2, alumnosGrupoRepoG2, alumnosMateriaRepo);
 
-    await expect(
-      ucG2.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' })
-    ).rejects.toBeInstanceOf(AlumnoAlreadyInGrupoError);
+    const rG2 = await ucG2.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' });
 
+    expect(rG2.isErr()).toBe(true);
+    expect(rG2.unwrapErr()).toBeInstanceOf(AlumnoAlreadyInGrupoError);
     expect(alumnosGrupoRepoG2.addStudent).not.toHaveBeenCalled();
   });
 
   // MGC-S13: student already in another group of the same materia → 409
-  it('throws AlumnoAlreadyInGrupoError when student already in another grupo of same materia (MGC-S13)', async () => {
+  it('returns err(AlumnoAlreadyInGrupoError) when student already in another grupo of same materia (MGC-S13)', async () => {
     const grupo = makeGrupo('grupo-2', 'm-1');
     const axm = makeAlumnosXMateria('axm-1', 'm-1');
     const grupoRepo = makeGrupoRepo(grupo);
@@ -184,34 +187,36 @@ describe('AddStudentToGrupoUseCase', () => {
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' })
-    ).rejects.toBeInstanceOf(AlumnoAlreadyInGrupoError);
+    const r = await uc.execute({ grupoId: 'grupo-2', alumnosXMateriaXCursoXCicloId: 'axm-1' });
 
+    expect(r.isErr()).toBe(true);
+    expect(r.unwrapErr()).toBeInstanceOf(AlumnoAlreadyInGrupoError);
     expect(alumnosGrupoRepo.addStudent).not.toHaveBeenCalled();
   });
 
-  it('throws NotFoundError when grupo not found', async () => {
+  it('returns err(NotFoundError) when grupo not found', async () => {
     const grupoRepo = makeGrupoRepo(null);
     const alumnosGrupoRepo = makeAlumnosGrupoRepo();
     const axm = makeAlumnosXMateria();
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(axm);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'non-existent', alumnosXMateriaXCursoXCicloId: 'axm-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const r = await uc.execute({ grupoId: 'non-existent', alumnosXMateriaXCursoXCicloId: 'axm-1' });
+
+    expect(r.isErr()).toBe(true);
+    expect(r.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
-  it('throws NotFoundError when AlumnosXMateria not found', async () => {
+  it('returns err(NotFoundError) when AlumnosXMateria not found', async () => {
     const grupo = makeGrupo();
     const grupoRepo = makeGrupoRepo(grupo);
     const alumnosGrupoRepo = makeAlumnosGrupoRepo();
     const alumnosMateriaRepo = makeAlumnosMateriaRepo(null);
     const uc = new AddStudentToGrupoUseCase(grupoRepo, alumnosGrupoRepo, alumnosMateriaRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'non-existent' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const r = await uc.execute({ grupoId: 'grupo-1', alumnosXMateriaXCursoXCicloId: 'non-existent' });
+
+    expect(r.isErr()).toBe(true);
+    expect(r.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 });

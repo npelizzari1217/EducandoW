@@ -19,6 +19,7 @@ import {
   MonthClosedError,
   PreviousMonthOpenError,
   PresenteTypeNotFoundError,
+  GrupoMateriaMismatchError,
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ApplicationError } from '../../../../application/shared/errors/application-error';
@@ -190,6 +191,22 @@ describe('AppExceptionFilter', () => {
       expect(statusFn).toHaveBeenCalledWith(422);
       const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
       expect(body.error.code).toBe('PRESENTE_TYPE_NOT_FOUND');
+      expect(body.error.status).toBe(422);
+    });
+  });
+
+  describe('FILTER-8: GrupoMateriaMismatchError → HTTP 422, not 500 (MGCM-R3)', () => {
+    it('maps GrupoMateriaMismatchError to 422 with code "GRUPO_MATERIA_MISMATCH"', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new GrupoMateriaMismatchError();
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(422);
+      expect(statusFn).not.toHaveBeenCalledWith(500);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('GRUPO_MATERIA_MISMATCH');
       expect(body.error.status).toBe(422);
     });
   });
