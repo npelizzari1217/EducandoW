@@ -213,7 +213,14 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   `toggle-printable` + `AlumnosXCursoXCicloController` retrofit, plus the `PaseFechaInvalidaError`
   entity-throw bridge) by change `course-cycle-alumnos-result-migration`. Follow-up remaining for
   this area: `GenerateCourseCyclesUseCase` batch partial-success semantics (product decision).
-- `attendance-type.use-cases.ts` (5 throws, misleading return types).
+- `attendance-type` — FULLY MIGRATED (archived 2026-07-31) by change `attendance-type-result-migration`.
+  6 `AttendanceTypeLevelOutOfScopeError` throws (5 in `attendance-type.use-cases.ts` + 1 in the PDF
+  use-case) moved into the `Result` channel. Notably, `AttendanceTypeLevelOutOfScopeError` was
+  **reclassified from `DomainError` to `ApplicationError`** (fixed `httpStatus = 403`) and moved to
+  `api/src/application/shared/errors/` — it is the **2nd real consumer** of the `ApplicationError`
+  catalog (after the `users.use-cases.ts` pilot), proving the abstraction generalizes. HTTP 403
+  unchanged (no behavior regression). Remaining: the `generate-attendance-types-pdf.use-case.ts`
+  template bare-`Error` guard (infra, deferred to `InfrastructureError`).
 - Long tail: `pedagogy`, `ingresante`, `institution`, `asignacion-curso`, `nivel-terciario`.
 - Shared `unwrapOrThrow` helper — 23+ controllers duplicate `if (isErr) throw unwrapErr()` inline;
   a shared helper would remove the duplication once enough consumers exist to justify it.
