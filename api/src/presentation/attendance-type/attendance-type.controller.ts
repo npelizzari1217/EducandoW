@@ -80,8 +80,9 @@ export class AttendanceTypeController {
     if (active === 'true') filters.active = true;
     else if (active === 'false') filters.active = false;
 
-    const entities = await this.listUC.execute(Object.keys(filters).length ? filters : undefined, user);
-    return { data: entities.map(toResponse) };
+    const result = await this.listUC.execute(Object.keys(filters).length ? filters : undefined, user);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap().map(toResponse) };
   }
 
   // NOTE: this route MUST be declared BEFORE `GET :id` — Nest matches routes in
