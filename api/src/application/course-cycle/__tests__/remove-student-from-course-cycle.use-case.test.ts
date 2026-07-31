@@ -97,40 +97,41 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
     const studentRepo = makeStudentRepo(false);
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
 
+    expect(result.isOk()).toBe(true);
     expect(alumnosRepo.remove).toHaveBeenCalledWith('cc-1', 'axcc-1');
     expect(alumnosRepo.remove).toHaveBeenCalledTimes(1);
   });
 
-  it('throws NotFoundError when course-cycle does not exist', async () => {
+  it('cc not found: returns err(NotFoundError) when course-cycle does not exist', async () => {
     const ccRepo = makeCCRepo(false);
     const alumnosRepo = makeAlumnosRepo(null);
     const studentRepo = makeStudentRepo(false);
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-999', id: 'axcc-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-999', id: 'axcc-1' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.findById).not.toHaveBeenCalled();
     expect(alumnosRepo.remove).not.toHaveBeenCalled();
   });
 
-  it('S-08: throws NotFoundError when enrollment row does not exist', async () => {
+  it('S-08: returns err(NotFoundError) when enrollment row does not exist', async () => {
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(null); // findById returns null
     const studentRepo = makeStudentRepo(false);
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.remove).not.toHaveBeenCalled();
   });
 
-  it('S-08 (IDOR): throws NotFoundError when enrollment belongs to a different course-cycle', async () => {
+  it('S-08 (IDOR): returns err(NotFoundError) when enrollment belongs to a different course-cycle', async () => {
     // Enrollment exists but belongs to cc-2, not cc-1
     const enrollment = makeEnrollment('axcc-1', 'cc-2');
     const ccRepo = makeCCRepo(true);
@@ -138,14 +139,14 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
     const studentRepo = makeStudentRepo(false);
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.remove).not.toHaveBeenCalled();
   });
 
-  it('S-5-A: lanza StudentHasPaseError cuando el alumno tiene pase registrado', async () => {
+  it('S-5-A: retorna err(StudentHasPaseError) cuando el alumno tiene pase registrado', async () => {
     const enrollment = makeEnrollment('axcc-1', 'cc-1');
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(enrollment);
@@ -153,10 +154,10 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
 
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' }),
-    ).rejects.toBeInstanceOf(StudentHasPaseError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(StudentHasPaseError);
     expect(alumnosRepo.remove).not.toHaveBeenCalled();
   });
 
@@ -167,8 +168,9 @@ describe('RemoveStudentFromCourseCycleUseCase', () => {
     const studentRepo = makeStudentRepo(false); // tienePase = false
 
     const uc = new RemoveStudentFromCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
-    await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1' });
 
+    expect(result.isOk()).toBe(true);
     expect(alumnosRepo.remove).toHaveBeenCalledWith('cc-1', 'axcc-1');
     expect(alumnosRepo.remove).toHaveBeenCalledTimes(1);
   });

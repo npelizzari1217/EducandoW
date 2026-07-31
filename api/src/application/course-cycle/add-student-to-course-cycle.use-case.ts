@@ -5,7 +5,7 @@ import type {
   AlumnosXCursoXCiclo,
   StudentRepository,
 } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * AddStudentToCourseCycleUseCase — T-08 (SDD-1).
@@ -26,20 +26,21 @@ export class AddStudentToCourseCycleUseCase {
   async execute(input: {
     courseCycleId: string;
     studentId: string;
-  }): Promise<AlumnosXCursoXCiclo> {
+  }): Promise<Result<AlumnosXCursoXCiclo, Error>> {
     // Validate CourseCycle exists (checked first — consistent with spec S-07)
     const cc = await this.ccRepo.findByUuid(input.courseCycleId);
     if (!cc) {
-      throw new NotFoundError('CourseCycle', input.courseCycleId);
+      return err(new NotFoundError('CourseCycle', input.courseCycleId));
     }
 
     // Validate Student exists (spec S-06)
     const student = await this.studentRepo.findById(input.studentId);
     if (!student) {
-      throw new NotFoundError('Student', input.studentId);
+      return err(new NotFoundError('Student', input.studentId));
     }
 
     // Add to universe — idempotent via @@unique([courseCycleId, studentId])
-    return this.alumnosRepo.addStudent(input.courseCycleId, input.studentId);
+    const enrollment = await this.alumnosRepo.addStudent(input.courseCycleId, input.studentId);
+    return ok(enrollment);
   }
 }
