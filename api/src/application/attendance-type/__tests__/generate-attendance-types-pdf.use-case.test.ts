@@ -108,13 +108,13 @@ describe('GenerateAttendanceTypesPdfUseCase — scope (mirrors ListAttendanceTyp
     expect(callArg?.allowedLevels).toBeUndefined();
   });
 
-  it('level explícito fuera de scope: lanza AttendanceTypeLevelOutOfScopeError y NUNCA llama generatePdf', async () => {
+  it('level explícito fuera de scope: retorna err(AttendanceTypeLevelOutOfScopeError) y NUNCA llama generatePdf', async () => {
     const { uc, repo, pdfGenerator } = makeUC();
 
-    await expect(uc.execute({ level: 3, currentUser: teacherLevel2 })).rejects.toBeInstanceOf(
-      AttendanceTypeLevelOutOfScopeError,
-    );
+    const result = await uc.execute({ level: 3, currentUser: teacherLevel2 });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.list).not.toHaveBeenCalled();
     expect(pdfGenerator.generatePdf).not.toHaveBeenCalled();
   });

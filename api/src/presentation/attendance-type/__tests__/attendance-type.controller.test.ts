@@ -55,7 +55,7 @@ function makeEntity(overrides: Partial<{
 function makeController(overrides: Record<string, unknown> = {}) {
   const ctrl = Object.create(AttendanceTypeController.prototype);
   const mockCreate = overrides.createUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
-  const mockList = overrides.listUC ?? { execute: vi.fn().mockResolvedValue([makeEntity()]) };
+  const mockList = overrides.listUC ?? { execute: vi.fn().mockResolvedValue(ok([makeEntity()])) };
   const mockGet = overrides.getUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockUpdate = overrides.updateUC ?? { execute: vi.fn().mockResolvedValue(ok(makeEntity())) };
   const mockDelete = overrides.deleteUC ?? { execute: vi.fn().mockResolvedValue(ok(undefined)) };
@@ -133,7 +133,7 @@ describe('AttendanceTypeController.create', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by createUC (mapped to 403 by the global filter)', async () => {
     const ctrl = makeController({
-      createUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      createUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
 
     await expect(
@@ -150,7 +150,7 @@ describe('AttendanceTypeController.list', () => {
   it('returns { data: [...] } when UC returns entities', async () => {
     const entities = [makeEntity({ id: 'e1' }), makeEntity({ id: 'e2' })];
     const ctrl = makeController({
-      listUC: { execute: vi.fn().mockResolvedValue(entities) },
+      listUC: { execute: vi.fn().mockResolvedValue(ok(entities)) },
     });
 
     const result = await ctrl.list(rootUser, undefined, undefined);
@@ -160,7 +160,7 @@ describe('AttendanceTypeController.list', () => {
   });
 
   it('passes level filter to the use case', async () => {
-    const mockExecute = vi.fn().mockResolvedValue([]);
+    const mockExecute = vi.fn().mockResolvedValue(ok([]));
     const ctrl = makeController({ listUC: { execute: mockExecute } });
 
     await ctrl.list(rootUser, '2', undefined);
@@ -170,7 +170,7 @@ describe('AttendanceTypeController.list', () => {
   });
 
   it('passes active=true filter to the use case', async () => {
-    const mockExecute = vi.fn().mockResolvedValue([]);
+    const mockExecute = vi.fn().mockResolvedValue(ok([]));
     const ctrl = makeController({ listUC: { execute: mockExecute } });
 
     await ctrl.list(rootUser, undefined, 'true');
@@ -182,7 +182,7 @@ describe('AttendanceTypeController.list', () => {
   // ── PR2 — T9 (RED): @CurrentUser pasado al use case + 403 fuera de scope (ADD-4.1) ──
 
   it('passes @CurrentUser() to listUC.execute', async () => {
-    const mockExecute = vi.fn().mockResolvedValue([]);
+    const mockExecute = vi.fn().mockResolvedValue(ok([]));
     const ctrl = makeController({ listUC: { execute: mockExecute } });
 
     await ctrl.list(teacherLevel2, undefined, undefined);
@@ -192,7 +192,7 @@ describe('AttendanceTypeController.list', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by listUC (mapped to 403 by the global filter, NEVER 200 with data:[])', async () => {
     const ctrl = makeController({
-      listUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      listUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
 
     await expect(ctrl.list(teacherLevel2, '3', undefined)).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
@@ -237,7 +237,7 @@ describe('AttendanceTypeController.getOne', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by getUC (mapped to 403 by the global filter)', async () => {
     const ctrl = makeController({
-      getUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      getUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
 
     await expect(ctrl.getOne(teacherLevel2, 'uuid-3')).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
@@ -292,7 +292,7 @@ describe('AttendanceTypeController.update', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by updateUC (mapped to 403 by the global filter)', async () => {
     const ctrl = makeController({
-      updateUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      updateUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
 
     await expect(
@@ -348,7 +348,7 @@ describe('AttendanceTypeController.remove', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by deleteUC (mapped to 403 by the global filter)', async () => {
     const ctrl = makeController({
-      deleteUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      deleteUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
 
     await expect(ctrl.remove(teacherLevel2, 'uuid-3')).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
@@ -377,7 +377,7 @@ describe('AttendanceTypeController.printList', () => {
 
   it('propagates AttendanceTypeLevelOutOfScopeError thrown by generatePdfUC (mapped to 403 by the global filter, no PDF ever sent)', async () => {
     const ctrl = makeController({
-      generatePdfUC: { execute: vi.fn().mockRejectedValue(new AttendanceTypeLevelOutOfScopeError(3)) },
+      generatePdfUC: { execute: vi.fn().mockResolvedValue(err(new AttendanceTypeLevelOutOfScopeError(3))) },
     });
     const res = makeRes();
 
