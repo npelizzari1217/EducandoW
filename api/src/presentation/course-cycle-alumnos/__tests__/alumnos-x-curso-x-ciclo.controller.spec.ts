@@ -12,7 +12,7 @@
  * Pattern: Object.create(prototype) + property injection, no NestJS bootstrap.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NotFoundError, PaseFechaInvalidaError, StudentHasPaseError } from '@educandow/domain';
+import { NotFoundError, PaseFechaInvalidaError, StudentHasPaseError, ok, err } from '@educandow/domain';
 import { AddStudentToCourseCycleSchema, RegistrarPaseSchema } from '../dto/alumnos-x-curso-x-ciclo.dto';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +115,45 @@ describe('AlumnosXCursoXCicloController — DELETE /course-cycles/:ccId/alumnos/
     const ctrl = makeController({ removeUC });
 
     await expect(ctrl.removeStudent('cc-1', 'axcc-999')).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+// ── PATCH /course-cycles/:ccId/alumnos/:id/printable ──────────────────────────
+
+describe('AlumnosXCursoXCicloController — PATCH .../:id/printable', () => {
+  it('C-19: 204 — togglePrintableUC.execute called with { courseCycleId, id, value }, returns undefined', async () => {
+    const row = { id: 'axcc-1', courseCycleId: 'cc-1', studentId: 'stu-1', printable: true };
+    const togglePrintableUC = { execute: vi.fn().mockResolvedValue(ok(row)) };
+    const ctrl = makeController({ togglePrintableUC });
+
+    const result = await ctrl.togglePrintable('cc-1', 'axcc-1', { value: true });
+
+    expect(togglePrintableUC.execute).toHaveBeenCalledWith({
+      courseCycleId: 'cc-1',
+      id: 'axcc-1',
+      value: true,
+    });
+    expect(result).toBeUndefined();
+  });
+
+  it('C-20: 404 — NotFoundError propagates when row does not exist', async () => {
+    const error = new NotFoundError('AlumnosXCursoXCiclo', 'axcc-999');
+    const togglePrintableUC = { execute: vi.fn().mockResolvedValue(err(error)) };
+    const ctrl = makeController({ togglePrintableUC });
+
+    await expect(
+      ctrl.togglePrintable('cc-1', 'axcc-999', { value: true }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('C-21: 404 (IDOR) — NotFoundError propagates when row belongs to another course-cycle', async () => {
+    const error = new NotFoundError('AlumnosXCursoXCiclo', 'axcc-1');
+    const togglePrintableUC = { execute: vi.fn().mockResolvedValue(err(error)) };
+    const ctrl = makeController({ togglePrintableUC });
+
+    await expect(
+      ctrl.togglePrintable('cc-2', 'axcc-1', { value: true }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
