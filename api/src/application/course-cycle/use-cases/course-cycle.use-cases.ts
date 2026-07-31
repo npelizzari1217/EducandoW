@@ -11,9 +11,11 @@ import {
   Level,
   CourseCycleAlreadyExistsError,
   CourseCycleNotFoundError,
+  CourseCycleClosedError,
   AcademicCycleClosedError,
   EducationalLevelCode,
   EducationalModalityCode,
+  ValidationError,
   type UpdateCourseCycleInput as DomainUpdateCourseCycleInput,
 } from '@educandow/domain';
 import type { EnrolledStudent } from '@educandow/domain';
@@ -26,23 +28,30 @@ import type { MaterializeMateriasUseCase } from '../../materia-grupo-ciclo/mater
 
 // ── Helpers ──────────────────────────────────────────────────
 
-function buildLevel(levelStr: string): Level {
-  const result = Level.create(levelStr);
-  if (result.isOk()) return result.unwrap();
-  // Fallback: try by numeric code
+function buildLevel(levelStr: string): Result<Level, ValidationError> {
+  const primary = Level.create(levelStr);
+  if (primary.isOk()) return primary;
+
+  // Fallback: retry by numeric code (Level.create already parses numeric strings,
+  // but this preserves the historical defensive retry for edge inputs).
   const numeric = parseInt(levelStr, 10);
   if (!isNaN(numeric)) {
-    const r2 = Level.create(numeric);
-    if (r2.isOk()) return r2.unwrap();
+    const fallback = Level.create(numeric);
+    if (fallback.isOk()) return fallback;
   }
-  throw new Error(`Invalid level: ${levelStr}`);
+
+  // Both attempts failed -> propagate the ORIGINAL ValidationError (string-attempt message).
+  return primary;
 }
 
-function buildBimonthPeriod(startStr?: string, endStr?: string): BimonthPeriod | null {
-  if (!startStr || !endStr) return null;
+function buildBimonthPeriod(
+  startStr?: string,
+  endStr?: string,
+): Result<BimonthPeriod | null, ValidationError> {
+  if (!startStr || !endStr) return ok(null); // valid absence, not a failure
   const result = BimonthPeriod.create(new Date(startStr), new Date(endStr));
-  if (result.isOk()) return result.unwrap();
-  throw new Error(`Invalid bimonth period: ${startStr} -> ${endStr}`);
+  if (result.isErr()) return err(result.unwrapErr());
+  return ok(result.unwrap());
 }
 
 // ── Input types ──────────────────────────────────────────────
@@ -136,27 +145,32 @@ export class CreateCourseCycleUseCase {
     if (courseName.isErr()) return err(courseName.unwrapErr());
 
     const level = buildLevel(input.level);
+    if (level.isErr()) return err(level.unwrapErr());
 
     const passingGrade = PassingGrade.create(input.passingGrade);
     if (passingGrade.isErr()) return err(passingGrade.unwrapErr());
 
     const firstBim = buildBimonthPeriod(input.firstBimonthStart, input.firstBimonthEnd);
+    if (firstBim.isErr()) return err(firstBim.unwrapErr());
     const secondBim = buildBimonthPeriod(input.secondBimonthStart, input.secondBimonthEnd);
+    if (secondBim.isErr()) return err(secondBim.unwrapErr());
     const thirdBim = buildBimonthPeriod(input.thirdBimonthStart, input.thirdBimonthEnd);
+    if (thirdBim.isErr()) return err(thirdBim.unwrapErr());
     const fourthBim = buildBimonthPeriod(input.fourthBimonthStart, input.fourthBimonthEnd);
+    if (fourthBim.isErr()) return err(fourthBim.unwrapErr());
 
     const cc = CourseCycle.create({
       courseId: input.courseId,
       studyPlanId: input.studyPlanId,
       cycleId: input.cycleId,
       courseName: courseName.unwrap(),
-      level,
+      level: level.unwrap(),
       passingGrade: passingGrade.unwrap(),
       promotionText: input.promotionText ?? null,
-      firstBimonth: firstBim,
-      secondBimonth: secondBim,
-      thirdBimonth: thirdBim,
-      fourthBimonth: fourthBim,
+      firstBimonth: firstBim.unwrap(),
+      secondBimonth: secondBim.unwrap(),
+      thirdBimonth: thirdBim.unwrap(),
+      fourthBimonth: fourthBim.unwrap(),
     });
 
     await this.courseCycleRepo.save(cc);
@@ -198,19 +212,27 @@ export class UpdateCourseCycleUseCase {
     }
 
     if (input.firstBimonthStart && input.firstBimonthEnd) {
-      updateData.firstBimonth = buildBimonthPeriod(input.firstBimonthStart, input.firstBimonthEnd);
+      const bim = buildBimonthPeriod(input.firstBimonthStart, input.firstBimonthEnd);
+      if (bim.isErr()) return err(bim.unwrapErr());
+      updateData.firstBimonth = bim.unwrap();
     }
 
     if (input.secondBimonthStart && input.secondBimonthEnd) {
-      updateData.secondBimonth = buildBimonthPeriod(input.secondBimonthStart, input.secondBimonthEnd);
+      const bim = buildBimonthPeriod(input.secondBimonthStart, input.secondBimonthEnd);
+      if (bim.isErr()) return err(bim.unwrapErr());
+      updateData.secondBimonth = bim.unwrap();
     }
 
     if (input.thirdBimonthStart && input.thirdBimonthEnd) {
-      updateData.thirdBimonth = buildBimonthPeriod(input.thirdBimonthStart, input.thirdBimonthEnd);
+      const bim = buildBimonthPeriod(input.thirdBimonthStart, input.thirdBimonthEnd);
+      if (bim.isErr()) return err(bim.unwrapErr());
+      updateData.thirdBimonth = bim.unwrap();
     }
 
     if (input.fourthBimonthStart && input.fourthBimonthEnd) {
-      updateData.fourthBimonth = buildBimonthPeriod(input.fourthBimonthStart, input.fourthBimonthEnd);
+      const bim = buildBimonthPeriod(input.fourthBimonthStart, input.fourthBimonthEnd);
+      if (bim.isErr()) return err(bim.unwrapErr());
+      updateData.fourthBimonth = bim.unwrap();
     }
 
     cc.update(updateData);
