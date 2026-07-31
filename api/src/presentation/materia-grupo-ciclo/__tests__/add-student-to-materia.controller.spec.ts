@@ -4,7 +4,7 @@
  * Spec: MGCM-R1, MGCM-R2, MGCM-R5, MGCM-R7 · Design: §3 "addStudentToMateria"
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { MateriasXAlumnoXCursoXCiclo, NotFoundError } from '@educandow/domain';
+import { MateriasXAlumnoXCursoXCiclo, NotFoundError, ok, err } from '@educandow/domain';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MateriasGruposController: any;
@@ -54,7 +54,6 @@ function makeController(overrides: Record<string, unknown> = {}) {
 
 describe('MateriasGruposController — POST /course-cycles/:ccId/materias/:materiaId/alumnos', () => {
   it('T1: happy path — ok(created) → response.data matches AlumnoXMateriaResponse shape', async () => {
-    const { ok } = await import('@educandow/domain');
     const created = makeCreated('axm-1', 'mxcc-1', 's-1');
     const addStudentToMateriaUC = { execute: vi.fn().mockResolvedValue(ok(created)) };
     const ctrl = makeController({ addStudentToMateriaUC });
@@ -73,7 +72,6 @@ describe('MateriasGruposController — POST /course-cycles/:ccId/materias/:mater
   });
 
   it('T2: materia not found → err(NotFoundError) re-thrown, not swallowed', async () => {
-    const { err } = await import('@educandow/domain');
     const error = new NotFoundError('MateriaXCursoXCiclo', 'bad-id');
     const addStudentToMateriaUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ addStudentToMateriaUC });

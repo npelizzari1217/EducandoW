@@ -85,7 +85,8 @@ describe('AddStudentToMateriaUseCase', () => {
     const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', studentId: 's-1' });
 
     expect(alumnosRepo.addStudent).toHaveBeenCalledWith('m-1', 's-1');
-    expect(result).toBeDefined();
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeDefined();
   });
 
   // MGC-S5: ingresante / student not in registry → rejected
@@ -96,21 +97,22 @@ describe('AddStudentToMateriaUseCase', () => {
     const studentRepo = makeStudentRepo(null); // student not found
     const uc = new AddStudentToMateriaUseCase(materiaRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', studentId: 'unknown-student' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', studentId: 'unknown-student' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.addStudent).not.toHaveBeenCalled();
   });
 
-  it('throws NotFoundError when materia does not exist', async () => {
+  it('returns err(NotFoundError) when materia does not exist', async () => {
     const materiaRepo = makeMateriaRepo(null);
     const alumnosRepo = makeAlumnosRepo();
     const studentRepo = makeStudentRepo(makeStudent());
     const uc = new AddStudentToMateriaUseCase(materiaRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'non-existent', studentId: 's-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ materiaXCursoXCicloId: 'non-existent', studentId: 's-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 });
