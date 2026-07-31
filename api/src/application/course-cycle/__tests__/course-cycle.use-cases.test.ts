@@ -25,6 +25,7 @@ import {
   CourseCycleNotFoundError,
   CourseSection,
   AcademicCycleClosedError,
+  ValidationError,
 } from '@educandow/domain';
 import { Id, NotFoundError } from '@educandow/domain';
 
@@ -174,6 +175,27 @@ describe('CreateCourseCycleUseCase', () => {
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(CourseCycleAlreadyExistsError);
   });
+
+  it('CCRM-R2: rejects invalid level with err(ValidationError), not a throw', async () => {
+    const result = await useCase.execute({
+      courseId: 'course-1', studyPlanId: 'plan-1', cycleId: 'cycle-1',
+      courseName: 'Matemática', level: 'NIVEL_INEXISTENTE', passingGrade: 6,
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+  });
+
+  it('CCRM-R2: rejects bimonth with end <= start with err(ValidationError), not a throw', async () => {
+    const result = await useCase.execute({
+      courseId: 'course-1', studyPlanId: 'plan-1', cycleId: 'cycle-1',
+      courseName: 'Matemática', level: 'PRIMARIO', passingGrade: 6,
+      firstBimonthStart: '2026-04-30', firstBimonthEnd: '2026-03-01',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+  });
 });
 
 // ── UpdateCourseCycleUseCase ──────────────────────────────
@@ -218,6 +240,19 @@ describe('UpdateCourseCycleUseCase', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result.unwrapErr()).toBeInstanceOf(CourseCycleNotFoundError);
+  });
+
+  it('CCRM-R2: rejects bimonth end <= start with err(ValidationError), not a throw', async () => {
+    const cc = makeCC();
+    mockRepo.findByUuid = vi.fn().mockResolvedValue(cc);
+
+    const result = await useCase.execute(cc.uuid, {
+      firstBimonthStart: '2026-04-30',
+      firstBimonthEnd: '2026-03-01',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
   });
 });
 
