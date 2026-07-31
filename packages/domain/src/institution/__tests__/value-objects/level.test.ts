@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Level, LevelType } from '../../value-objects/level';
 import { EducationalLevelCode } from '../../../shared/value-objects/educational-level';
 import { EducationalModalityCode } from '../../../shared/value-objects/educational-modality';
+import { ValidationError } from '../../../shared/errors/validation-error';
 
 describe('Level (new composite scheme)', () => {
   describe('create() — backward compatible string names', () => {
@@ -196,6 +197,10 @@ describe('Level (new composite scheme)', () => {
       const l = Level.fromParts(EducationalLevelCode.PRIMARIO, EducationalModalityCode.TALLERES);
       expect(l.get()).toBe(LevelType.TALLERES_PRIMARIO);
       expect(l.toCode()).toBe(21);
+    });
+
+    it('fromParts throws ValidationError for invalid composite', () => {
+      expect(() => Level.fromParts(5 as EducationalLevelCode, 0 as EducationalModalityCode)).toThrow(ValidationError);
     });
 
     it('allPedagogical returns 10 levels', () => {
