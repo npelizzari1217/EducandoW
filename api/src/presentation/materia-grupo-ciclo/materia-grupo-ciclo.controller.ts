@@ -167,12 +167,14 @@ export class MateriasGruposController {
       cycleId = cc.cycleId;
     }
 
-    const grupo = await this.createGrupoUC.execute({
+    const grupoResult = await this.createGrupoUC.execute({
       materiaXCursoXCicloId: materiaId,
       userId: body.userId,
       cycleId,
       name: body.name,
     });
+    if (grupoResult.isErr()) throw grupoResult.unwrapErr();
+    const grupo = grupoResult.unwrap();
     return {
       data: {
         id: grupo.id,
@@ -435,7 +437,9 @@ export class MateriasGruposController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(UpdateGrupoSchema)) body: UpdateGrupoDto,
   ): Promise<{ data: GrupoResponse }> {
-    const grupo = await this.updateGrupoUC.execute({ id, name: body.name, userId: body.userId });
+    const grupoResult = await this.updateGrupoUC.execute({ id, name: body.name, userId: body.userId });
+    if (grupoResult.isErr()) throw grupoResult.unwrapErr();
+    const grupo = grupoResult.unwrap();
 
     // Resolve userId for response (use body.userId if provided, else look up from tenant)
     let userId = body.userId ?? '';
@@ -471,7 +475,8 @@ export class MateriasGruposController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
   async deleteGrupo(@Param('id') id: string): Promise<void> {
-    await this.deleteGrupoUC.execute(id);
+    const result = await this.deleteGrupoUC.execute(id);
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   /**
@@ -485,6 +490,7 @@ export class MateriasGruposController {
     @Param('grupoId') grupoId: string,
     @Param('alumnoXGrupoId') alumnoXGrupoId: string,
   ): Promise<void> {
-    await this.removeStudentFromGrupoUC.execute({ grupoId, alumnoXGrupoId });
+    const result = await this.removeStudentFromGrupoUC.execute({ grupoId, alumnoXGrupoId });
+    if (result.isErr()) throw result.unwrapErr();
   }
 }
