@@ -3,6 +3,7 @@
  * TDD — written before implementation.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { NotFoundError, ok, err } from '@educandow/domain';
 
 const mockGetClient = vi.fn();
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -51,7 +52,7 @@ function makeGrupoDomain(id = 'g-1', name?: string, docenteXCicloId = 'dxc-1') {
 describe('MateriasGruposController — PATCH /grupos/:id (updateGrupo)', () => {
   it('T1: rename only — updateGrupoUC.execute called with { id, name }, response contains updated name', async () => {
     const updatedGrupo = makeGrupoDomain('g-1', 'Grupo Nuevo');
-    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(updatedGrupo) };
+    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(ok(updatedGrupo)) };
 
     const mockClient = {
       docenteXCiclo: { findUnique: vi.fn().mockResolvedValue({ userId: 'user-1' }) },
@@ -71,7 +72,7 @@ describe('MateriasGruposController — PATCH /grupos/:id (updateGrupo)', () => {
 
   it('T2: reassign teacher — updateGrupoUC.execute called with { id, userId }, response contains userId', async () => {
     const updatedGrupo = makeGrupoDomain('g-1', undefined, 'dxc-new');
-    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(updatedGrupo) };
+    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(ok(updatedGrupo)) };
 
     const mockClient = {
       docenteXCiclo: { findUnique: vi.fn().mockResolvedValue({ userId: 'user-new' }) },
@@ -93,7 +94,7 @@ describe('MateriasGruposController — PATCH /grupos/:id (updateGrupo)', () => {
 
   it('T3: response conforms to GrupoResponse shape', async () => {
     const updatedGrupo = makeGrupoDomain('g-1', 'Comisión A', 'dxc-1');
-    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(updatedGrupo) };
+    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(ok(updatedGrupo)) };
 
     mockGetClient.mockReturnValue({
       docenteXCiclo: { findUnique: vi.fn().mockResolvedValue({ userId: 'user-1' }) },
@@ -110,5 +111,16 @@ describe('MateriasGruposController — PATCH /grupos/:id (updateGrupo)', () => {
     });
     expect(typeof result.data.id).toBe('string');
     expect(typeof result.data.docenteXCicloId).toBe('string');
+  });
+
+  it('T4: grupo not found → err(NotFoundError) re-thrown, not swallowed', async () => {
+    const error = new NotFoundError('GrupoXCursoXMateriaXCiclo', 'non-existent');
+    const updateGrupoUC = { execute: vi.fn().mockResolvedValue(err(error)) };
+
+    const ctrl = makeController({ updateGrupoUC });
+
+    await expect(
+      ctrl.updateGrupo('non-existent', { name: 'X' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

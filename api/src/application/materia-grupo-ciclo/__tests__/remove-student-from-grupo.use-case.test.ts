@@ -47,28 +47,30 @@ function makeAlumnosGrupoRepo(): AlumnosXGrupoRepository {
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 describe('RemoveStudentFromGrupoUseCase', () => {
-  it('happy path: llama removeStudent con (grupoId, alumnoXGrupoId)', async () => {
+  it('happy path: llama removeStudent con (grupoId, alumnoXGrupoId) y retorna ok(undefined)', async () => {
     const grupo = makeGrupo('grupo-1');
     const grupoRepo = makeGrupoRepo(grupo);
     const alumnosGrupoRepo = makeAlumnosGrupoRepo();
     const uc = new RemoveStudentFromGrupoUseCase(grupoRepo, alumnosGrupoRepo);
 
-    await uc.execute({ grupoId: 'grupo-1', alumnoXGrupoId: 'axg-42' });
+    const result = await uc.execute({ grupoId: 'grupo-1', alumnoXGrupoId: 'axg-42' });
 
     // FIX 1: grupoId debe pasarse primero para enforcer scope (previene IDOR)
     expect(alumnosGrupoRepo.removeStudent).toHaveBeenCalledWith('grupo-1', 'axg-42');
     expect(alumnosGrupoRepo.removeStudent).toHaveBeenCalledTimes(1);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
   });
 
-  it('throws NotFoundError cuando el grupo no existe', async () => {
+  it('retorna err(NotFoundError) cuando el grupo no existe', async () => {
     const grupoRepo = makeGrupoRepo(null);
     const alumnosGrupoRepo = makeAlumnosGrupoRepo();
     const uc = new RemoveStudentFromGrupoUseCase(grupoRepo, alumnosGrupoRepo);
 
-    await expect(
-      uc.execute({ grupoId: 'non-existent', alumnoXGrupoId: 'axg-42' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ grupoId: 'non-existent', alumnoXGrupoId: 'axg-42' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosGrupoRepo.removeStudent).not.toHaveBeenCalled();
   });
 
@@ -82,10 +84,11 @@ describe('RemoveStudentFromGrupoUseCase', () => {
     const uc = new RemoveStudentFromGrupoUseCase(grupoRepo, alumnosGrupoRepo);
 
     // axg-99 no pertenece a grupo-1 pero el caller pasa grupoId='grupo-1'
-    await uc.execute({ grupoId: 'grupo-1', alumnoXGrupoId: 'axg-99' });
+    const result = await uc.execute({ grupoId: 'grupo-1', alumnoXGrupoId: 'axg-99' });
 
     // El UC siempre delega con (grupoId, alumnoXGrupoId) — el scope se enforza en el repo
     expect(alumnosGrupoRepo.removeStudent).toHaveBeenCalledWith('grupo-1', 'axg-99');
     expect(alumnosGrupoRepo.removeStudent).toHaveBeenCalledTimes(1);
+    expect(result.isOk()).toBe(true);
   });
 });

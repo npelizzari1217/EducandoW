@@ -158,7 +158,8 @@ describe('CreateGrupoUseCase', () => {
       docenteXCicloId: 'dxc-1',
       name: undefined,
     });
-    expect(result.id).toBe('grupo-1');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().id).toBe('grupo-1');
   });
 
   // MGC-S8: split subject — two groups with different docentes
@@ -187,10 +188,11 @@ describe('CreateGrupoUseCase', () => {
       docenteXCicloId: 'dxc-2',
       name: 'Comisión B',
     });
-    expect(result.id).toBe('grupo-2');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().id).toBe('grupo-2');
   });
 
-  it('throws NotFoundError when materia does not exist', async () => {
+  it('returns err(NotFoundError) when materia does not exist', async () => {
     const dxc = makeDocenteXCiclo();
     const grupo = makeGrupo();
 
@@ -202,14 +204,19 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'non-existent', userId: 'user-1', cycleId: 'cycle-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({
+      materiaXCursoXCicloId: 'non-existent',
+      userId: 'user-1',
+      cycleId: 'cycle-1',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   // ── Nivel validation tests (TASK-2) ────────────────────────────────────────
 
-  it('NIVEL: rechaza cuando la materia es de un nivel que el docente NO tiene', async () => {
+  it('NIVEL: rechaza (err(ValidationError)) cuando la materia es de un nivel que el docente NO tiene', async () => {
     const materia = makeMateria('m-1', 'cc-uuid-1');
     const dxc = makeDocenteXCiclo();
     const grupo = makeGrupo();
@@ -226,15 +233,15 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' })
-    ).rejects.toThrow('La materia no pertenece al nivel del docente');
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' })
-    ).rejects.toBeInstanceOf(ValidationError);
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
+    expect(result.unwrapErr().message).toBe('La materia no pertenece al nivel del docente');
+    expect(grupoRepo.create).not.toHaveBeenCalled();
   });
 
-  it('NIVEL: permite cuando la materia es del nivel del docente', async () => {
+  it('NIVEL: permite (ok) cuando la materia es del nivel del docente', async () => {
     const materia = makeMateria();
     const dxc = makeDocenteXCiclo();
     const grupo = makeGrupo();
@@ -250,9 +257,9 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' })
-    ).resolves.toBeDefined();
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' });
+
+    expect(result.isOk()).toBe(true);
   });
 
   it('NIVEL: ROOT (allLevels) puede asignar materia de cualquier nivel', async () => {
@@ -271,9 +278,9 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'root-user', cycleId: 'cycle-1' })
-    ).resolves.toBeDefined();
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'root-user', cycleId: 'cycle-1' });
+
+    expect(result.isOk()).toBe(true);
   });
 
   it('NIVEL: ADMIN (allLevels) puede asignar materia de cualquier nivel', async () => {
@@ -291,9 +298,9 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'admin-user', cycleId: 'cycle-1' })
-    ).resolves.toBeDefined();
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'admin-user', cycleId: 'cycle-1' });
+
+    expect(result.isOk()).toBe(true);
   });
 
   it('NIVEL: docente con múltiples niveles puede asignar materia de cualquiera de ellos', async () => {
@@ -315,8 +322,8 @@ describe('CreateGrupoUseCase', () => {
 
     const uc = new CreateGrupoUseCase(materiaRepo, grupoRepo, docenteService, prisma as any);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' })
-    ).resolves.toBeDefined();
+    const result = await uc.execute({ materiaXCursoXCicloId: 'm-1', userId: 'user-1', cycleId: 'cycle-1' });
+
+    expect(result.isOk()).toBe(true);
   });
 });

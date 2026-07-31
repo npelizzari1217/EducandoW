@@ -3,7 +3,7 @@
  * TDD — written before implementation.
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err } from '@educandow/domain';
 
 const mockGetClient = vi.fn();
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -42,7 +42,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
 
 describe('MateriasGruposController — DELETE /grupos/:id (deleteGrupo)', () => {
   it('T1: deleteGrupoUC.execute called with correct id, returns undefined (no body)', async () => {
-    const deleteGrupoUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const deleteGrupoUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
 
     const ctrl = makeController({ deleteGrupoUC });
     const result = await ctrl.deleteGrupo('g-1');
@@ -51,9 +51,9 @@ describe('MateriasGruposController — DELETE /grupos/:id (deleteGrupo)', () => 
     expect(result).toBeUndefined();
   });
 
-  it('T2: if deleteGrupoUC throws NotFoundError, the error propagates (controller does not swallow it)', async () => {
+  it('T2: if deleteGrupoUC returns err(NotFoundError), the error propagates (controller does not swallow it)', async () => {
     const error = new NotFoundError('GrupoXCursoXMateriaXCiclo', 'non-existent');
-    const deleteGrupoUC = { execute: vi.fn().mockRejectedValue(error) };
+    const deleteGrupoUC = { execute: vi.fn().mockResolvedValue(err(error)) };
 
     const ctrl = makeController({ deleteGrupoUC });
 

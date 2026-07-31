@@ -35,23 +35,27 @@ function makeGrupoRepo(grupo: GrupoXCursoXMateriaXCiclo | null): GrupoRepository
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 describe('DeleteGrupoUseCase', () => {
-  it('calls repo.delete when grupo exists', async () => {
+  it('calls repo.delete when grupo exists and returns ok(undefined)', async () => {
     const grupo = makeGrupo('g-1');
     const grupoRepo = makeGrupoRepo(grupo);
 
     const uc = new DeleteGrupoUseCase(grupoRepo);
-    await uc.execute('g-1');
+    const result = await uc.execute('g-1');
 
     expect(grupoRepo.findById).toHaveBeenCalledWith('g-1');
     expect(grupoRepo.delete).toHaveBeenCalledWith('g-1');
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
   });
 
-  it('throws NotFoundError when grupo does not exist', async () => {
+  it('returns err(NotFoundError) when grupo does not exist', async () => {
     const grupoRepo = makeGrupoRepo(null);
 
     const uc = new DeleteGrupoUseCase(grupoRepo);
+    const result = await uc.execute('non-existent');
 
-    await expect(uc.execute('non-existent')).rejects.toBeInstanceOf(NotFoundError);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(grupoRepo.delete).not.toHaveBeenCalled();
   });
 });
