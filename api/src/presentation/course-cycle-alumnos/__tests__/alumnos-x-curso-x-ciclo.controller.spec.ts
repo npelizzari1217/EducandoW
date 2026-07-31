@@ -43,7 +43,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
 describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos', () => {
   it('C-01: 201 — addUC.execute called with ccId + studentId, returns { data: AlumnoXCursoCicloResponse }', async () => {
     const row = { id: 'axcc-1', courseCycleId: 'cc-1', studentId: 'stu-1' };
-    const addUC = { execute: vi.fn().mockResolvedValue(row) };
+    const addUC = { execute: vi.fn().mockResolvedValue(ok(row)) };
     const ctrl = makeController({ addUC });
 
     const result = await ctrl.addStudent('cc-1', { studentId: 'stu-1' });
@@ -54,7 +54,7 @@ describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos', 
 
   it('C-02: 404 — NotFoundError propagates when CourseCycle does not exist', async () => {
     const error = new NotFoundError('CourseCycle', 'cc-999');
-    const addUC = { execute: vi.fn().mockRejectedValue(error) };
+    const addUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ addUC });
 
     await expect(ctrl.addStudent('cc-999', { studentId: 'stu-1' })).rejects.toBeInstanceOf(NotFoundError);
@@ -62,7 +62,7 @@ describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos', 
 
   it('C-03: 404 — NotFoundError propagates when Student does not exist', async () => {
     const error = new NotFoundError('Student', 'stu-999');
-    const addUC = { execute: vi.fn().mockRejectedValue(error) };
+    const addUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ addUC });
 
     await expect(ctrl.addStudent('cc-1', { studentId: 'stu-999' })).rejects.toBeInstanceOf(NotFoundError);
@@ -100,7 +100,7 @@ describe('AlumnosXCursoXCicloController — GET /course-cycles/:ccId/alumnos', (
 
 describe('AlumnosXCursoXCicloController — DELETE /course-cycles/:ccId/alumnos/:id', () => {
   it('C-06: 204 — removeUC.execute called with { courseCycleId, id }, returns undefined', async () => {
-    const removeUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const removeUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
     const ctrl = makeController({ removeUC });
 
     const result = await ctrl.removeStudent('cc-1', 'axcc-1');
@@ -111,7 +111,7 @@ describe('AlumnosXCursoXCicloController — DELETE /course-cycles/:ccId/alumnos/
 
   it('C-07: 404 — NotFoundError propagates when enrollment row does not exist', async () => {
     const error = new NotFoundError('AlumnosXCursoXCiclo', 'axcc-999');
-    const removeUC = { execute: vi.fn().mockRejectedValue(error) };
+    const removeUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ removeUC });
 
     await expect(ctrl.removeStudent('cc-1', 'axcc-999')).rejects.toBeInstanceOf(NotFoundError);
@@ -190,7 +190,7 @@ describe('AlumnosXCursoXCicloController — GET /students/:studentId/memberships
 describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos/:id/cascade', () => {
   it('C-10: 200 — cascadeUC.execute called with { id, ccId }, returns { data: counts }', async () => {
     const counts = { materiasCreated: 3, materiasSkipped: 0, competenciasCreated: 6, competenciasSkipped: 0 };
-    const cascadeUC = { execute: vi.fn().mockResolvedValue(counts) };
+    const cascadeUC = { execute: vi.fn().mockResolvedValue(ok(counts)) };
     const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
     ctrl.addUC = { execute: vi.fn() };
     ctrl.listUC = { execute: vi.fn() };
@@ -209,7 +209,7 @@ describe('AlumnosXCursoXCicloController — POST /course-cycles/:ccId/alumnos/:i
   it('C-11: 404 — NotFoundError propagates when bridge row does not exist', async () => {
     const error = new NotFoundError('AlumnosXCursoXCiclo', 'acc-999');
     const ctrl = Object.create(AlumnosXCursoXCicloController.prototype);
-    ctrl.cascadeUC = { execute: vi.fn().mockRejectedValue(error) };
+    ctrl.cascadeUC = { execute: vi.fn().mockResolvedValue(err(error)) };
 
     await expect(ctrl.cascade('cc-1', 'acc-999')).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -277,7 +277,7 @@ describe('AddStudentToCourseCycleSchema — Zod validation (400 scenarios)', () 
 
 describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:id/pase', () => {
   it('C-14: 204 — registrarPaseUC.execute called with Date when fechaDePase is a valid string', async () => {
-    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
     const ctrl = makeController({ registrarPaseUC });
 
     const result = await ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: '2026-06-25' });
@@ -291,7 +291,7 @@ describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:
   });
 
   it('C-15: 204 revert — registrarPaseUC.execute called with null when fechaDePase is null', async () => {
-    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
     const ctrl = makeController({ registrarPaseUC });
 
     const result = await ctrl.registrarPase('cc-1', 'axcc-1', { fechaDePase: null });
@@ -304,9 +304,9 @@ describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:
     expect(result).toBeUndefined();
   });
 
-  it('C-16: 400 — PaseFechaInvalidaError propagates when UC throws (future date)', async () => {
+  it('C-16: 400 — PaseFechaInvalidaError propagates when UC returns err (future date)', async () => {
     const error = new PaseFechaInvalidaError();
-    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ registrarPaseUC });
 
     await expect(
@@ -316,7 +316,7 @@ describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:
 
   it('C-17: 404 — NotFoundError propagates when CC or enrollment not found', async () => {
     const error = new NotFoundError('CourseCycle', 'cc-999');
-    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ registrarPaseUC });
 
     await expect(
@@ -326,7 +326,7 @@ describe('AlumnosXCursoXCicloController — PATCH /course-cycles/:ccId/alumnos/:
 
   it('C-18: 409 — StudentHasPaseError propagates (exception filter maps to 409)', async () => {
     const error = new StudentHasPaseError();
-    const registrarPaseUC = { execute: vi.fn().mockRejectedValue(error) };
+    const registrarPaseUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ registrarPaseUC });
 
     await expect(

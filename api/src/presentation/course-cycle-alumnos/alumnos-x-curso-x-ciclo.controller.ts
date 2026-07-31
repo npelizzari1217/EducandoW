@@ -75,11 +75,13 @@ export class AlumnosXCursoXCicloController {
       courseCycleId: ccId,
       studentId: body.studentId,
     });
+    if (result.isErr()) throw result.unwrapErr();
+    const enrollment = result.unwrap();
     return {
       data: {
-        id: result.id,
-        courseCycleId: result.courseCycleId,
-        studentId: result.studentId,
+        id: enrollment.id,
+        courseCycleId: enrollment.courseCycleId,
+        studentId: enrollment.studentId,
       },
     };
   }
@@ -110,7 +112,8 @@ export class AlumnosXCursoXCicloController {
     @Param('ccId') ccId: string,
     @Param('id') id: string,
   ): Promise<void> {
-    await this.removeUC.execute({ courseCycleId: ccId, id });
+    const result = await this.removeUC.execute({ courseCycleId: ccId, id });
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   /**
@@ -144,7 +147,8 @@ export class AlumnosXCursoXCicloController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(SetPrintableSchema)) body: SetPrintableDto,
   ): Promise<void> {
-    await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+    const result = await this.togglePrintableUC.execute({ courseCycleId: ccId, id, value: body.value });
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   /**
@@ -163,7 +167,8 @@ export class AlumnosXCursoXCicloController {
     const fechaDePase = body.fechaDePase
       ? new Date(`${body.fechaDePase}T00:00:00.000Z`)
       : null;
-    await this.registrarPaseUC.execute({ courseCycleId: ccId, id, fechaDePase });
+    const result = await this.registrarPaseUC.execute({ courseCycleId: ccId, id, fechaDePase });
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   /**
@@ -208,8 +213,9 @@ export class AlumnosXCursoXCicloController {
     @Param('ccId') ccId: string,
     @Param('id') id: string,
   ): Promise<{ data: CascadeResult }> {
-    const data = await this.cascadeUC.execute({ id, ccId });
-    return { data };
+    const result = await this.cascadeUC.execute({ id, ccId });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
   }
 
   /**
