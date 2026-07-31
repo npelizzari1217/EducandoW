@@ -200,7 +200,13 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
 - `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — BLOCKED until PR #111
   merges; migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`.
 - `asistencia` (41 throws, 100% domain-wrap candidate).
-- `course-cycle` — named-file slice (7 throws in `course-cycle.use-cases.ts` + controller + `Level.fromParts` fix) MIGRATED by change `course-cycle-result-migration` (archived 2026-07-31). REMAINING: the `AlumnosXCurso` slice — 10 throws across `registrar-pase`, `add/remove-student-from-course-cycle`, `cascade-student-materias-competencias`, `toggle-printable` + `AlumnosXCursoXCicloController` retrofit (separate change).
+- `course-cycle` — FULLY MIGRATED (archived 2026-07-31): named-file slice (7 throws in
+  `course-cycle.use-cases.ts` + controller + `Level.fromParts` fix) by change
+  `course-cycle-result-migration`; `AlumnosXCurso` slice (10 throws across `registrar-pase`,
+  `add/remove-student-from-course-cycle`, `cascade-student-materias-competencias`,
+  `toggle-printable` + `AlumnosXCursoXCicloController` retrofit, plus the `PaseFechaInvalidaError`
+  entity-throw bridge) by change `course-cycle-alumnos-result-migration`. Follow-up remaining for
+  this area: `GenerateCourseCyclesUseCase` batch partial-success semantics (product decision).
 - `attendance-type.use-cases.ts` (5 throws, misleading return types).
 - Long tail: `pedagogy`, `ingresante`, `institution`, `asignacion-curso`, `nivel-terciario`.
 - Shared `unwrapOrThrow` helper — 23+ controllers duplicate `if (isErr) throw unwrapErr()` inline;

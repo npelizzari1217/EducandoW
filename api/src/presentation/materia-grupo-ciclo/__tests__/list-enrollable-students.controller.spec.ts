@@ -4,6 +4,7 @@
  * Spec: D5, section 6.4
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { NotFoundError, ok, err } from '@educandow/domain';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MateriasGruposController: any;
@@ -43,7 +44,7 @@ describe('MateriasGruposController — GET /materias/:materiaId/alumnos?eligible
       { id: 'axcc-2', studentId: 's-2', studentName: 'Carlos López' },
     ];
     const listEnrollableStudentsForMateriaUC = {
-      execute: vi.fn().mockResolvedValue(candidates),
+      execute: vi.fn().mockResolvedValue(ok(candidates)),
     };
     const ctrl = makeController({ listEnrollableStudentsForMateriaUC });
 
@@ -53,6 +54,16 @@ describe('MateriasGruposController — GET /materias/:materiaId/alumnos?eligible
       materiaXCursoXCicloId: 'mxcc-1',
     });
     expect(result).toEqual({ data: candidates });
+  });
+
+  it('T1b: materia not found → NotFoundError propagates (controller does not swallow)', async () => {
+    const error = new NotFoundError('MateriaXCursoXCiclo', 'bad-id');
+    const listEnrollableStudentsForMateriaUC = { execute: vi.fn().mockResolvedValue(err(error)) };
+    const ctrl = makeController({ listEnrollableStudentsForMateriaUC });
+
+    await expect(
+      ctrl.listAlumnosMateria('bad-id', undefined, 'true'),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('T2: without eligible → current behavior (delegates to listAlumnosMateriaUC)', async () => {
@@ -73,7 +84,7 @@ describe('MateriasGruposController — GET /materias/:materiaId/alumnos?eligible
 
   it('T3: eligible=true wins over unassigned=true (mutual exclusion — eligible takes priority)', async () => {
     const candidates = [{ id: 'axcc-1', studentId: 's-1', studentName: 'Ana García' }];
-    const listEnrollableStudentsForMateriaUC = { execute: vi.fn().mockResolvedValue(candidates) };
+    const listEnrollableStudentsForMateriaUC = { execute: vi.fn().mockResolvedValue(ok(candidates)) };
     const listAlumnosMateriaUC = { execute: vi.fn().mockResolvedValue([]) };
     const ctrl = makeController({ listEnrollableStudentsForMateriaUC, listAlumnosMateriaUC });
 
@@ -85,7 +96,7 @@ describe('MateriasGruposController — GET /materias/:materiaId/alumnos?eligible
   });
 
   it('T4: eligible=true and no candidates → returns empty array', async () => {
-    const listEnrollableStudentsForMateriaUC = { execute: vi.fn().mockResolvedValue([]) };
+    const listEnrollableStudentsForMateriaUC = { execute: vi.fn().mockResolvedValue(ok([])) };
     const ctrl = makeController({ listEnrollableStudentsForMateriaUC });
 
     const result = await ctrl.listAlumnosMateria('mxcc-1', undefined, 'true');

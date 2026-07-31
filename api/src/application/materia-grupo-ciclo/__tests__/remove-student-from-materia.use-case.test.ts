@@ -45,27 +45,32 @@ function makeAlumnosRepo(): AlumnosXMateriaRepository {
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 describe('RemoveStudentFromMateriaUseCase', () => {
-  it('happy path: delegates alumnosRepo.removeStudent(alumnoXMateriaId)', async () => {
+  it('happy path: delegates alumnosRepo.removeStudent(alumnoXMateriaId) and returns ok(undefined)', async () => {
     const materia = makeMateria('mxcc-1');
     const materiaRepo = makeMateriaRepo(materia);
     const alumnosRepo = makeAlumnosRepo();
     const uc = new RemoveStudentFromMateriaUseCase(materiaRepo, alumnosRepo);
 
-    await uc.execute({ materiaXCursoXCicloId: 'mxcc-1', alumnoXMateriaId: 'axm-42' });
+    const result = await uc.execute({ materiaXCursoXCicloId: 'mxcc-1', alumnoXMateriaId: 'axm-42' });
 
     expect(materiaRepo.findById).toHaveBeenCalledWith('mxcc-1');
     expect(alumnosRepo.removeStudent).toHaveBeenCalledWith('axm-42');
     expect(alumnosRepo.removeStudent).toHaveBeenCalledTimes(1);
+    expect(result.isOk()).toBe(true);
   });
 
-  it('materia not found → throws NotFoundError', async () => {
+  it('materia not found → returns err(NotFoundError)', async () => {
     const materiaRepo = makeMateriaRepo(null);
     const alumnosRepo = makeAlumnosRepo();
     const uc = new RemoveStudentFromMateriaUseCase(materiaRepo, alumnosRepo);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'non-existent', alumnoXMateriaId: 'axm-42' }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({
+      materiaXCursoXCicloId: 'non-existent',
+      alumnoXMateriaId: 'axm-42',
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   it('does NOT call alumnosRepo.removeStudent when materia not found', async () => {
@@ -73,10 +78,12 @@ describe('RemoveStudentFromMateriaUseCase', () => {
     const alumnosRepo = makeAlumnosRepo();
     const uc = new RemoveStudentFromMateriaUseCase(materiaRepo, alumnosRepo);
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'non-existent', alumnoXMateriaId: 'axm-42' }),
-    ).rejects.toThrow();
+    const result = await uc.execute({
+      materiaXCursoXCicloId: 'non-existent',
+      alumnoXMateriaId: 'axm-42',
+    });
 
+    expect(result.isErr()).toBe(true);
     expect(alumnosRepo.removeStudent).not.toHaveBeenCalled();
   });
 });

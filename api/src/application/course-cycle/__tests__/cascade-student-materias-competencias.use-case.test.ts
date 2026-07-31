@@ -100,7 +100,10 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-01: bridge row not fo
       alumnosCCRepo: { findById: vi.fn().mockResolvedValue(null) },
     });
 
-    await expect(uc.execute({ id: 'acc-999', ccId: 'cc-1' })).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ id: 'acc-999', ccId: 'cc-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -114,7 +117,10 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-02: IDOR guard', () =
     });
 
     // Row exists but belongs to 'cc-OTHER', not 'cc-1'
-    await expect(uc.execute({ id: 'acc-1', ccId: 'cc-1' })).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -128,7 +134,7 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-03: zero materias', (
 
     const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
 
-    expect(result).toEqual({
+    expect(result.unwrap()).toEqual({
       materiasCreated: 0,
       materiasSkipped: 0,
       competenciasCreated: 0,
@@ -171,7 +177,7 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-04: happy path', () =
       ['comp-1', 'comp-2', 'comp-3'].sort()
     );
 
-    expect(result).toEqual({
+    expect(result.unwrap()).toEqual({
       materiasCreated: 2,
       materiasSkipped: 0,    // 2 requested, 2 created → 0 skipped
       competenciasCreated: 3,
@@ -208,7 +214,7 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-05: idempotent re-run
 
     const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
 
-    expect(result).toEqual({
+    expect(result.unwrap()).toEqual({
       materiasCreated: 0,
       materiasSkipped: 2,     // 2 materias, all skipped
       competenciasCreated: 0,
@@ -226,7 +232,7 @@ describe('CascadeStudentMateriasCompetenciasUseCase — UC-05: idempotent re-run
 
     const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
 
-    expect(result).toEqual({
+    expect(result.unwrap()).toEqual({
       materiasCreated: 1,
       materiasSkipped: 1,
       competenciasCreated: 2,
@@ -327,7 +333,7 @@ describe('CascadeStudentMateriasCompetenciasUseCase — MGC-S17: all-optativa CC
 
     const result = await uc.execute({ id: 'acc-1', ccId: 'cc-1' });
 
-    expect(result).toEqual({
+    expect(result.unwrap()).toEqual({
       materiasCreated: 0,
       materiasSkipped: 0,
       competenciasCreated: 0,

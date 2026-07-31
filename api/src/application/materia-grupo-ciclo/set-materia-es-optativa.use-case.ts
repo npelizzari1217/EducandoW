@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MateriaXCursoXCicloRepository, MateriaXCursoXCiclo } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * SetMateriaEsOptativaUseCase — MGC-R10, MGC-R11, D3, D6.
@@ -13,11 +13,14 @@ import { NotFoundError } from '@educandow/domain';
 export class SetMateriaEsOptativaUseCase {
   constructor(private readonly materiaRepo: MateriaXCursoXCicloRepository) {}
 
-  async execute(input: { id: string; esOptativa: boolean }): Promise<MateriaXCursoXCiclo> {
+  async execute(input: {
+    id: string;
+    esOptativa: boolean;
+  }): Promise<Result<MateriaXCursoXCiclo, NotFoundError>> {
     const materia = await this.materiaRepo.findById(input.id);
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', input.id);
+      return err(new NotFoundError('MateriaXCursoXCiclo', input.id));
     }
-    return this.materiaRepo.setEsOptativa(input.id, input.esOptativa);
+    return ok(await this.materiaRepo.setEsOptativa(input.id, input.esOptativa));
   }
 }

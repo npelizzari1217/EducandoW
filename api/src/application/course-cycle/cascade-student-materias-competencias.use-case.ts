@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { NotFoundError, CompetenciaXMateriaXAlumnoXCursoXCiclo } from '@educandow/domain';
+import { NotFoundError, CompetenciaXMateriaXAlumnoXCursoXCiclo, ok, err, Result } from '@educandow/domain';
 import type {
   AlumnosXCursoXCicloRepository,
   MateriaXCursoXCicloRepository,
@@ -40,11 +40,11 @@ export class CascadeStudentMateriasCompetenciasUseCase {
     private readonly competenciaRepo: CompetenciaXMateriaXAlumnoXCursoXCicloRepository,
   ) {}
 
-  async execute(input: { id: string; ccId: string }): Promise<CascadeResult> {
+  async execute(input: { id: string; ccId: string }): Promise<Result<CascadeResult, Error>> {
     // 1. Resolve bridge row; IDOR: must belong to :ccId
     const row = await this.alumnosCCRepo.findById(input.id);
     if (!row || row.courseCycleId !== input.ccId) {
-      throw new NotFoundError('AlumnosXCursoXCiclo', input.id);
+      return err(new NotFoundError('AlumnosXCursoXCiclo', input.id));
     }
 
     const { studentId } = row;
@@ -57,7 +57,7 @@ export class CascadeStudentMateriasCompetenciasUseCase {
 
     // Edge case: no materias → all counts zero, no error (R-13)
     if (materias.length === 0) {
-      return { materiasCreated: 0, materiasSkipped: 0, competenciasCreated: 0, competenciasSkipped: 0 };
+      return ok({ materiasCreated: 0, materiasSkipped: 0, competenciasCreated: 0, competenciasSkipped: 0 });
     }
 
     // 3. Upsert one MateriasXAlumnoXCursoXCiclo row per materia for this student
@@ -79,7 +79,7 @@ export class CascadeStudentMateriasCompetenciasUseCase {
 
     if (uniqueSpsIds.length === 0) {
       // No study-plan provenance → no competencies to create
-      return { materiasCreated, materiasSkipped, competenciasCreated: 0, competenciasSkipped: 0 };
+      return ok({ materiasCreated, materiasSkipped, competenciasCreated: 0, competenciasSkipped: 0 });
     }
 
     const competencyLists = await Promise.all(
@@ -88,7 +88,7 @@ export class CascadeStudentMateriasCompetenciasUseCase {
     const allCompetencies = competencyLists.flat();
 
     if (allCompetencies.length === 0) {
-      return { materiasCreated, materiasSkipped, competenciasCreated: 0, competenciasSkipped: 0 };
+      return ok({ materiasCreated, materiasSkipped, competenciasCreated: 0, competenciasSkipped: 0 });
     }
 
     // 5. Build parent valuation rows for (competencyId, studentId, courseCycleId)
@@ -104,6 +104,6 @@ export class CascadeStudentMateriasCompetenciasUseCase {
     const { count: competenciasCreated } = await this.competenciaRepo.bulkCreate(valuations);
     const competenciasSkipped = valuations.length - competenciasCreated;
 
-    return { materiasCreated, materiasSkipped, competenciasCreated, competenciasSkipped };
+    return ok({ materiasCreated, materiasSkipped, competenciasCreated, competenciasSkipped });
   }
 }

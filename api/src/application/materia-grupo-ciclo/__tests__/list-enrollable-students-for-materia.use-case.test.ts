@@ -79,16 +79,17 @@ function makeAlumnosCCRepo(ccStudents: AlumnoCursoCicloEnriched[] = []): Alumnos
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 describe('ListEnrollableStudentsForMateriaUseCase', () => {
-  it('materia not found → throws NotFoundError', async () => {
+  it('materia not found → returns err(NotFoundError)', async () => {
     const uc = new ListEnrollableStudentsForMateriaUseCase(
       makeMateriaRepo(null),
       makeAlumnosXMateriaRepo(),
       makeAlumnosCCRepo(),
     );
 
-    await expect(
-      uc.execute({ materiaXCursoXCicloId: 'non-existent' }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ materiaXCursoXCicloId: 'non-existent' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
   });
 
   it('returns CC students minus already-enrolled (set diff on studentId)', async () => {
@@ -108,11 +109,13 @@ describe('ListEnrollableStudentsForMateriaUseCase', () => {
 
     const result = await uc.execute({ materiaXCursoXCicloId: 'mxcc-1' });
 
+    expect(result.isOk()).toBe(true);
+    const candidates = result.unwrap();
     // s-2 is already enrolled → excluded
-    expect(result).toHaveLength(2);
-    expect(result.map((r) => r.studentId)).not.toContain('s-2');
-    expect(result.map((r) => r.studentId)).toContain('s-1');
-    expect(result.map((r) => r.studentId)).toContain('s-3');
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((r) => r.studentId)).not.toContain('s-2');
+    expect(candidates.map((r) => r.studentId)).toContain('s-1');
+    expect(candidates.map((r) => r.studentId)).toContain('s-3');
   });
 
   it('all CC students already enrolled → returns empty array', async () => {
@@ -134,7 +137,8 @@ describe('ListEnrollableStudentsForMateriaUseCase', () => {
 
     const result = await uc.execute({ materiaXCursoXCicloId: 'mxcc-1' });
 
-    expect(result).toEqual([]);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toEqual([]);
   });
 
   it('empty optativa (0 enrolled) → returns all CC students as candidates', async () => {
@@ -152,8 +156,10 @@ describe('ListEnrollableStudentsForMateriaUseCase', () => {
 
     const result = await uc.execute({ materiaXCursoXCicloId: 'mxcc-1' });
 
-    expect(result).toHaveLength(2);
-    expect(result.map((r) => r.studentId)).toEqual(['s-1', 's-2']);
+    expect(result.isOk()).toBe(true);
+    const candidates = result.unwrap();
+    expect(candidates).toHaveLength(2);
+    expect(candidates.map((r) => r.studentId)).toEqual(['s-1', 's-2']);
   });
 
   it('uses materia.courseCycleId to call findByCourseCycleEnriched', async () => {

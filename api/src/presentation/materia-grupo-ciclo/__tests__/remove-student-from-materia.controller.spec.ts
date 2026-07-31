@@ -4,7 +4,7 @@
  * Spec: MGC-R9, MGC-S19, MGC-S20, MGC-S22 · Design: D4, D8, section 6.3
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err } from '@educandow/domain';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MateriasGruposController: any;
@@ -39,7 +39,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
 
 describe('MateriasGruposController — DELETE /course-cycles/:ccId/materias/:materiaId/alumnos/:id', () => {
   it('T1: HTTP 204 — delegates to removeStudentFromMateriaUC with correct ids', async () => {
-    const removeStudentFromMateriaUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const removeStudentFromMateriaUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
     const ctrl = makeController({ removeStudentFromMateriaUC });
 
     const result = await ctrl.removeStudentFromMateria('cc-1', 'mxcc-1', 'axm-42');
@@ -54,7 +54,7 @@ describe('MateriasGruposController — DELETE /course-cycles/:ccId/materias/:mat
 
   it('T2: materia not found → NotFoundError propagates (controller does not swallow)', async () => {
     const error = new NotFoundError('MateriaXCursoXCiclo', 'non-existent');
-    const removeStudentFromMateriaUC = { execute: vi.fn().mockRejectedValue(error) };
+    const removeStudentFromMateriaUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ removeStudentFromMateriaUC });
 
     await expect(
@@ -65,7 +65,7 @@ describe('MateriasGruposController — DELETE /course-cycles/:ccId/materias/:mat
   it('T3: idempotent — calling twice with same id is valid (repo handles it as no-op)', async () => {
     // The UC delegates to deleteMany which is idempotent.
     // Controller does not add any extra guard — it just delegates.
-    const removeStudentFromMateriaUC = { execute: vi.fn().mockResolvedValue(undefined) };
+    const removeStudentFromMateriaUC = { execute: vi.fn().mockResolvedValue(ok(undefined)) };
     const ctrl = makeController({ removeStudentFromMateriaUC });
 
     await ctrl.removeStudentFromMateria('cc-1', 'mxcc-1', 'axm-42');

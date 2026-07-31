@@ -5,7 +5,7 @@ import type {
   MateriasXAlumnoXCursoXCiclo,
   StudentRepository,
 } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * AddStudentToMateriaUseCase — Fase 3c (F3-A2).
@@ -26,20 +26,20 @@ export class AddStudentToMateriaUseCase {
   async execute(input: {
     materiaXCursoXCicloId: string;
     studentId: string;
-  }): Promise<MateriasXAlumnoXCursoXCiclo> {
+  }): Promise<Result<MateriasXAlumnoXCursoXCiclo, NotFoundError>> {
     // Validate materia exists
     const materia = await this.materiaRepo.findById(input.materiaXCursoXCicloId);
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId);
+      return err(new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId));
     }
 
     // Validate student is in the enrolled registry (not ingresante — MGC-S5)
     const student = await this.studentRepo.findById(input.studentId);
     if (!student) {
-      throw new NotFoundError('Student', input.studentId);
+      return err(new NotFoundError('Student', input.studentId));
     }
 
     // Add to universe (idempotent via @@unique)
-    return this.alumnosRepo.addStudent(input.materiaXCursoXCicloId, input.studentId);
+    return ok(await this.alumnosRepo.addStudent(input.materiaXCursoXCicloId, input.studentId));
   }
 }

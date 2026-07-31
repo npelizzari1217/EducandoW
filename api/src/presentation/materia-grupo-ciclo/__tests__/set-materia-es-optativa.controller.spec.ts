@@ -4,7 +4,7 @@
  * Spec: MGC-R10, MGC-S23, MGC-S24 · Design: D3, D8, section 6.2
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { MateriaXCursoXCiclo, NotFoundError } from '@educandow/domain';
+import { MateriaXCursoXCiclo, NotFoundError, ok, err } from '@educandow/domain';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let MateriasGruposController: any;
@@ -51,7 +51,7 @@ function makeController(overrides: Record<string, unknown> = {}) {
 describe('MateriasGruposController — PATCH /course-cycles/:ccId/materias/:materiaId', () => {
   it('T1: { esOptativa: true } → delegates to setMateriaEsOptativaUC, response has esOptativa=true', async () => {
     const updated = makeMateriaDomain('mxcc-1', true);
-    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(updated) };
+    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(ok(updated)) };
     const ctrl = makeController({ setMateriaEsOptativaUC });
 
     const result = await ctrl.setMateriaEsOptativa('cc-1', 'mxcc-1', { esOptativa: true });
@@ -66,7 +66,7 @@ describe('MateriasGruposController — PATCH /course-cycles/:ccId/materias/:mate
 
   it('T2: { esOptativa: false } → response has esOptativa=false (toggle back)', async () => {
     const updated = makeMateriaDomain('mxcc-1', false);
-    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(updated) };
+    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(ok(updated)) };
     const ctrl = makeController({ setMateriaEsOptativaUC });
 
     const result = await ctrl.setMateriaEsOptativa('cc-1', 'mxcc-1', { esOptativa: false });
@@ -80,7 +80,7 @@ describe('MateriasGruposController — PATCH /course-cycles/:ccId/materias/:mate
 
   it('T3: materia not found → NotFoundError propagates', async () => {
     const error = new NotFoundError('MateriaXCursoXCiclo', 'bad-id');
-    const setMateriaEsOptativaUC = { execute: vi.fn().mockRejectedValue(error) };
+    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(err(error)) };
     const ctrl = makeController({ setMateriaEsOptativaUC });
 
     await expect(
@@ -90,7 +90,7 @@ describe('MateriasGruposController — PATCH /course-cycles/:ccId/materias/:mate
 
   it('T4: response conforms to MateriaResponse shape (includes required fields)', async () => {
     const updated = makeMateriaDomain('mxcc-1', true);
-    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(updated) };
+    const setMateriaEsOptativaUC = { execute: vi.fn().mockResolvedValue(ok(updated)) };
     const ctrl = makeController({ setMateriaEsOptativaUC });
 
     const result = await ctrl.setMateriaEsOptativa('cc-1', 'mxcc-1', { esOptativa: true });

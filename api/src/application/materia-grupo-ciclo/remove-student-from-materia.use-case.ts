@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { MateriaXCursoXCicloRepository, AlumnosXMateriaRepository } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * RemoveStudentFromMateriaUseCase — MGC-R9, D4.
@@ -19,11 +19,12 @@ export class RemoveStudentFromMateriaUseCase {
   async execute(input: {
     materiaXCursoXCicloId: string;
     alumnoXMateriaId: string;
-  }): Promise<void> {
+  }): Promise<Result<void, NotFoundError>> {
     const materia = await this.materiaRepo.findById(input.materiaXCursoXCicloId);
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId);
+      return err(new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId));
     }
     await this.alumnosRepo.removeStudent(input.alumnoXMateriaId);
+    return ok(undefined);
   }
 }

@@ -84,8 +84,8 @@ describe('AddStudentToCourseCycleUseCase', () => {
     const result = await uc.execute({ courseCycleId: 'cc-1', studentId: 's-1' });
 
     expect(alumnosRepo.addStudent).toHaveBeenCalledWith('cc-1', 's-1');
-    expect(result).toBeDefined();
-    expect(result).toBeInstanceOf(AlumnosXCursoXCiclo);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(AlumnosXCursoXCiclo);
   });
 
   it('S-02: idempotent — re-adding existing student returns existing enrollment, no error', async () => {
@@ -100,46 +100,48 @@ describe('AddStudentToCourseCycleUseCase', () => {
     // Second call (simulates re-add)
     const second = await uc.execute({ courseCycleId: 'cc-1', studentId: 's-1' });
 
-    expect(first).toBeDefined();
-    expect(second).toBeDefined();
+    expect(first.isOk()).toBe(true);
+    expect(second.isOk()).toBe(true);
     // addStudent is called both times — idempotency is enforced by the repo (upsert)
     expect(alumnosRepo.addStudent).toHaveBeenCalledTimes(2);
   });
 
-  it('S-07: throws NotFoundError when course-cycle does not exist', async () => {
+  it('S-07: returns err(NotFoundError) when course-cycle does not exist', async () => {
     const ccRepo = makeCCRepo(false);
     const alumnosRepo = makeAlumnosRepo();
     const studentRepo = makeStudentRepo(true);
     const uc = new AddStudentToCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-999', studentId: 's-1' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-999', studentId: 's-1' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.addStudent).not.toHaveBeenCalled();
   });
 
-  it('S-06: throws NotFoundError when student does not exist', async () => {
+  it('S-06: returns err(NotFoundError) when student does not exist', async () => {
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo();
     const studentRepo = makeStudentRepo(false);
     const uc = new AddStudentToCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', studentId: 's-999' })
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', studentId: 's-999' });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.addStudent).not.toHaveBeenCalled();
   });
 
   it('validates course-cycle before student — course-cycle check runs first', async () => {
-    // Both missing; should throw NotFoundError for CourseCycle (checked first)
+    // Both missing; should return err(NotFoundError) for CourseCycle (checked first)
     const ccRepo = makeCCRepo(false);
     const alumnosRepo = makeAlumnosRepo();
     const studentRepo = makeStudentRepo(false);
     const uc = new AddStudentToCourseCycleUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    const error = await uc.execute({ courseCycleId: 'cc-999', studentId: 's-999' }).catch((e) => e);
+    const result = await uc.execute({ courseCycleId: 'cc-999', studentId: 's-999' });
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
     expect(error).toBeInstanceOf(NotFoundError);
     expect(error.message).toContain('CourseCycle');
     expect(studentRepo.findById).not.toHaveBeenCalled();
