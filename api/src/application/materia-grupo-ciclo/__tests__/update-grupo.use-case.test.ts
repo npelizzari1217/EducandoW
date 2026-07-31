@@ -11,6 +11,8 @@ import {
   NotFoundError,
   ValidationError,
   DocenteXCiclo,
+  ok,
+  err,
 } from '@educandow/domain';
 import { DocenteXCicloService } from '../../docente-ciclo/docente-x-ciclo.service';
 import type { DocenteXCicloRepository } from '@educandow/domain';
@@ -22,8 +24,12 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   },
 }));
 
+const { okUndefined } = vi.hoisted(() => ({
+  okUndefined: { isOk: () => true, isErr: () => false, unwrap: () => undefined },
+}));
+
 vi.mock('../validate-teacher-level', () => ({
-  validateTeacherLevel: vi.fn().mockResolvedValue(undefined),
+  validateTeacherLevel: vi.fn().mockResolvedValue(okUndefined),
 }));
 
 import { validateTeacherLevel } from '../validate-teacher-level';
@@ -130,10 +136,11 @@ function makePrismaService() {
 describe('UpdateGrupoUseCase', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(validateTeacherLevel).mockResolvedValue(ok(undefined));
     vi.mocked(TenantContext.getClient).mockReturnValue(makeTenantClient() as any);
   });
 
-  it('rename only — does NOT call materiaRepo, validateTeacherLevel or docenteService', async () => {
+  it('rename only — does NOT call materiaRepo, validateTeacherLevel or docenteService; returns ok(grupo)', async () => {
     const grupo = makeGrupo();
     const grupoRepo = makeGrupoRepo(grupo);
     const materiaRepo = makeMateriaRepo(makeMateria());
@@ -143,14 +150,15 @@ describe('UpdateGrupoUseCase', () => {
     const prisma = makePrismaService();
 
     const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
-    await uc.execute({ id: 'g-1', name: 'Grupo Nuevo' });
+    const result = await uc.execute({ id: 'g-1', name: 'Grupo Nuevo' });
 
     expect(grupoRepo.update).toHaveBeenCalledWith('g-1', { name: 'Grupo Nuevo', docenteXCicloId: undefined });
     expect(materiaRepo.findById).not.toHaveBeenCalled();
     expect(validateTeacherLevel).not.toHaveBeenCalled();
+    expect(result.isOk()).toBe(true);
   });
 
-  it('reassign teacher — calls materiaRepo, validateTeacherLevel, docenteService, grupoRepo.update', async () => {
+  it('reassign teacher — calls materiaRepo, validateTeacherLevel, docenteService, grupoRepo.update; returns ok(grupo)', async () => {
     const grupo = makeGrupo();
     const materia = makeMateria();
     const grupoRepo = makeGrupoRepo(grupo);
@@ -162,7 +170,7 @@ describe('UpdateGrupoUseCase', () => {
     const prisma = makePrismaService();
 
     const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
-    await uc.execute({ id: 'g-1', userId: 'user-2' });
+    const result = await uc.execute({ id: 'g-1', userId: 'user-2' });
 
     expect(materiaRepo.findById).toHaveBeenCalledWith('m-1');
     expect(validateTeacherLevel).toHaveBeenCalledWith(prisma, 'user-2', 'cc-uuid-1');
@@ -171,9 +179,10 @@ describe('UpdateGrupoUseCase', () => {
       name: undefined,
       docenteXCicloId: 'dxc-new',
     });
+    expect(result.isOk()).toBe(true);
   });
 
-  it('throws NotFoundError when grupo does not exist', async () => {
+  it('returns err(NotFoundError) when grupo does not exist', async () => {
     const grupoRepo = makeGrupoRepo(null);
     const materiaRepo = makeMateriaRepo(null);
     const docenteRepo = makeDocenteRepo(makeDocenteXCiclo());
@@ -181,14 +190,16 @@ describe('UpdateGrupoUseCase', () => {
     const prisma = makePrismaService();
 
     const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
+    const result = await uc.execute({ id: 'non-existent', name: 'X' });
 
-    await expect(uc.execute({ id: 'non-existent', name: 'X' })).rejects.toBeInstanceOf(NotFoundError);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(grupoRepo.update).not.toHaveBeenCalled();
   });
 
-  it('propagates ValidationError when validateTeacherLevel rejects', async () => {
-    vi.mocked(validateTeacherLevel).mockRejectedValueOnce(
-      new ValidationError('La materia no pertenece al nivel del docente'),
+  it('propagates err(ValidationError) when validateTeacherLevel returns err', async () => {
+    vi.mocked(validateTeacherLevel).mockResolvedValueOnce(
+      err(new ValidationError('La materia no pertenece al nivel del docente')),
     );
 
     const grupo = makeGrupo();
@@ -201,8 +212,29 @@ describe('UpdateGrupoUseCase', () => {
     const prisma = makePrismaService();
 
     const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
+    const result = await uc.execute({ id: 'g-1', userId: 'user-bad' });
 
-    await expect(uc.execute({ id: 'g-1', userId: 'user-bad' })).rejects.toBeInstanceOf(ValidationError);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     expect(grupoRepo.update).not.toHaveBeenCalled();
+  });
+
+  it('infra guard — still throws (NOT Result) when TenantContext.getClient() returns null (MGCM-R6)', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
+
+    const grupo = makeGrupo();
+    const materia = makeMateria();
+    const grupoRepo = makeGrupoRepo(grupo);
+    const materiaRepo = makeMateriaRepo(materia);
+    const dxc = makeDocenteXCiclo();
+    const docenteRepo = makeDocenteRepo(dxc);
+    const docenteService = new DocenteXCicloService(docenteRepo);
+    const prisma = makePrismaService();
+
+    const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
+
+    await expect(uc.execute({ id: 'g-1', userId: 'user-2' })).rejects.toThrow(
+      'No tenant client available',
+    );
   });
 });
