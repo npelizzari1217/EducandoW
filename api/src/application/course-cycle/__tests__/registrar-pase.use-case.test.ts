@@ -109,8 +109,10 @@ describe('RegistrarPaseUseCase', () => {
     const studentRepo = makeStudentRepo(student);
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
-    await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE });
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE });
 
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
     expect(studentRepo.setFechaDePase).toHaveBeenCalledWith('s-1', VALID_DATE);
     expect(studentRepo.setFechaDePase).toHaveBeenCalledTimes(1);
   });
@@ -123,27 +125,29 @@ describe('RegistrarPaseUseCase', () => {
     const studentRepo = makeStudentRepo(student);
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
-    await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: null });
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: null });
 
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
     expect(studentRepo.setFechaDePase).toHaveBeenCalledWith('s-1', null);
   });
 
-  it('S-2-C: lanza NotFoundError cuando el CourseCycle no existe', async () => {
+  it('S-2-C: retorna err(NotFoundError) cuando el CourseCycle no existe', async () => {
     const ccRepo = makeCCRepo(false);
     const alumnosRepo = makeAlumnosRepo(null);
     const studentRepo = makeStudentRepo(null);
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-999', id: 'axcc-1', fechaDePase: VALID_DATE }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-999', id: 'axcc-1', fechaDePase: VALID_DATE });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(alumnosRepo.findById).not.toHaveBeenCalled();
     expect(studentRepo.setFechaDePase).not.toHaveBeenCalled();
   });
 
-  it('S-3-D (IDOR): lanza NotFoundError cuando el enrollment pertenece a otro cc', async () => {
+  it('S-3-D (IDOR): retorna err(NotFoundError) cuando el enrollment pertenece a otro cc', async () => {
     // enrollment belongs to cc-2, caller claims cc-1
     const enrollment = makeEnrollment('axcc-1', 'cc-2', 's-1');
     const ccRepo = makeCCRepo(true);
@@ -152,28 +156,28 @@ describe('RegistrarPaseUseCase', () => {
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(studentRepo.setFechaDePase).not.toHaveBeenCalled();
   });
 
-  it('S-3-D: lanza NotFoundError cuando el enrollment no existe', async () => {
+  it('S-3-D: retorna err(NotFoundError) cuando el enrollment no existe', async () => {
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(null);
     const studentRepo = makeStudentRepo(makeStudent());
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent', fechaDePase: VALID_DATE }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent', fechaDePase: VALID_DATE });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(studentRepo.setFechaDePase).not.toHaveBeenCalled();
   });
 
-  it('S-4-A: lanza NotFoundError cuando el Student no existe', async () => {
+  it('S-4-A: retorna err(NotFoundError) cuando el Student no existe', async () => {
     const enrollment = makeEnrollment('axcc-1', 'cc-1', 's-1');
     const ccRepo = makeCCRepo(true);
     const alumnosRepo = makeAlumnosRepo(enrollment);
@@ -181,14 +185,14 @@ describe('RegistrarPaseUseCase', () => {
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: VALID_DATE });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(studentRepo.setFechaDePase).not.toHaveBeenCalled();
   });
 
-  it('S-4-B: propaga PaseFechaInvalidaError cuando la fecha es futura', async () => {
+  it('S-4-B: retorna err(PaseFechaInvalidaError) cuando la fecha es futura', async () => {
     const enrollment = makeEnrollment('axcc-1', 'cc-1', 's-1');
     const student = makeStudent(false);
     const ccRepo = makeCCRepo(true);
@@ -197,10 +201,10 @@ describe('RegistrarPaseUseCase', () => {
 
     const uc = new RegistrarPaseUseCase(ccRepo, alumnosRepo, studentRepo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: FUTURE_DATE }),
-    ).rejects.toBeInstanceOf(PaseFechaInvalidaError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', fechaDePase: FUTURE_DATE });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(PaseFechaInvalidaError);
     expect(studentRepo.setFechaDePase).not.toHaveBeenCalled();
   });
 });

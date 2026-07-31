@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CourseCycleRepository, AlumnosXCursoXCicloRepository, StudentRepository } from '@educandow/domain';
-import { NotFoundError, StudentHasPaseError } from '@educandow/domain';
+import { NotFoundError, StudentHasPaseError, ok, err, Result } from '@educandow/domain';
 
 /**
  * RemoveStudentFromCourseCycleUseCase — T-12 (SDD-1).
@@ -21,23 +21,24 @@ export class RemoveStudentFromCourseCycleUseCase {
     private readonly studentRepo: StudentRepository,
   ) {}
 
-  async execute(input: { courseCycleId: string; id: string }): Promise<void> {
+  async execute(input: { courseCycleId: string; id: string }): Promise<Result<void, Error>> {
     // Validate CourseCycle exists
     const cc = await this.ccRepo.findByUuid(input.courseCycleId);
     if (!cc) {
-      throw new NotFoundError('CourseCycle', input.courseCycleId);
+      return err(new NotFoundError('CourseCycle', input.courseCycleId));
     }
 
     // Validate enrollment exists and belongs to this CourseCycle (IDOR prevention)
     const enrollment = await this.alumnosRepo.findById(input.id);
     if (!enrollment || enrollment.courseCycleId !== input.courseCycleId) {
-      throw new NotFoundError('AlumnosXCursoXCiclo', input.id);
+      return err(new NotFoundError('AlumnosXCursoXCiclo', input.id));
     }
 
     // Guard: prevent removing a student with an active pase (ADR-4, pase-alumno-egreso)
     const student = await this.studentRepo.findById(enrollment.studentId);
-    if (student?.tienePase) throw new StudentHasPaseError();
+    if (student?.tienePase) return err(new StudentHasPaseError());
 
     await this.alumnosRepo.remove(input.courseCycleId, input.id);
+    return ok(undefined);
   }
 }
