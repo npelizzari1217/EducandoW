@@ -77,7 +77,9 @@ describe('CourseCycleController — GET :uuid/students', () => {
       { studentId: 'stu-1', firstName: 'Juan', lastName: 'Pérez' },
       { studentId: 'stu-2', firstName: 'Ana', lastName: 'López' },
     ];
-    const listStudentsUC = { execute: vi.fn().mockResolvedValue(students) };
+    const listStudentsUC = {
+      execute: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, unwrap: () => students }),
+    };
     const ctrl = makeController({ listStudentsUC });
 
     const response = await ctrl.listStudents('cc-1');
@@ -87,8 +89,9 @@ describe('CourseCycleController — GET :uuid/students', () => {
   });
 
   it('SBC-2: propagates CourseCycleNotFoundError (→ 404)', async () => {
+    const error = new CourseCycleNotFoundError('cc-nonexistent');
     const listStudentsUC = {
-      execute: vi.fn().mockRejectedValue(new CourseCycleNotFoundError('cc-nonexistent')),
+      execute: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, unwrapErr: () => error }),
     };
     const ctrl = makeController({ listStudentsUC });
 
@@ -96,7 +99,9 @@ describe('CourseCycleController — GET :uuid/students', () => {
   });
 
   it('SBC-3: returns [] when cycle has no enrolled students', async () => {
-    const listStudentsUC = { execute: vi.fn().mockResolvedValue([]) };
+    const listStudentsUC = {
+      execute: vi.fn().mockResolvedValue({ isOk: () => true, isErr: () => false, unwrap: () => [] }),
+    };
     const ctrl = makeController({ listStudentsUC });
 
     const response = await ctrl.listStudents('cc-empty');

@@ -208,7 +208,9 @@ export class CourseCycleController {
   @Get(':uuid/students')
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'READ' })
   async listStudents(@Param('uuid') uuid: string) {
-    return { data: await this.listStudentsUC.execute(uuid) };
+    const result = await this.listStudentsUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
   }
 
   @Patch(':uuid')
@@ -238,7 +240,8 @@ export class CourseCycleController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles('ROOT', { module: 'COURSE_CYCLES', action: 'DELETE' })
   async delete(@Param('uuid') uuid: string) {
-    await this.deleteUC.execute(uuid);
+    const result = await this.deleteUC.execute(uuid);
+    if (result.isErr()) throw result.unwrapErr();
   }
 
   @Patch(':uuid/deactivate')
@@ -265,7 +268,8 @@ export class CourseCycleController {
       cycleId: body.cycleId,
       studyPlanId: body.studyPlanId,
     });
-    return { data: result };
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
   }
 
   @Get(':uuid/grading-period')
