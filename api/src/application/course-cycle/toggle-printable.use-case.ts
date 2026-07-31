@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { AlumnosXCursoXCicloRepository, AlumnosXCursoXCiclo } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * TogglePrintableUseCase — T05 (SDD-2 PR-1).
@@ -17,14 +17,15 @@ export class TogglePrintableUseCase {
     courseCycleId: string;
     id: string;
     value: boolean;
-  }): Promise<AlumnosXCursoXCiclo> {
+  }): Promise<Result<AlumnosXCursoXCiclo, Error>> {
     const row = await this.alumnosRepo.findById(input.id);
 
     // IDOR guard: row must exist AND belong to the claimed courseCycle (REQ-TOG-6)
     if (!row || row.courseCycleId !== input.courseCycleId) {
-      throw new NotFoundError('AlumnosXCursoXCiclo', input.id);
+      return err(new NotFoundError('AlumnosXCursoXCiclo', input.id));
     }
 
-    return this.alumnosRepo.setPrintable(input.id, input.value);
+    const updated = await this.alumnosRepo.setPrintable(input.id, input.value);
+    return ok(updated);
   }
 }

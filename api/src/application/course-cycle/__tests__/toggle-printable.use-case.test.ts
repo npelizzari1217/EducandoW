@@ -57,7 +57,7 @@ describe('TogglePrintableUseCase', () => {
 
     expect(repo.findById).toHaveBeenCalledWith('axcc-1');
     expect(repo.setPrintable).toHaveBeenCalledWith('axcc-1', true);
-    expect(result.printable).toBe(true);
+    expect(result.unwrap().printable).toBe(true);
   });
 
   it('Scenario D: toggles printable=false for an existing row in the correct CC', async () => {
@@ -69,30 +69,30 @@ describe('TogglePrintableUseCase', () => {
     const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-1', value: false });
 
     expect(repo.setPrintable).toHaveBeenCalledWith('axcc-1', false);
-    expect(result.printable).toBe(false);
+    expect(result.unwrap().printable).toBe(false);
   });
 
-  it('Scenario E (IDOR): throws NotFoundError when row belongs to a different CC', async () => {
+  it('Scenario E (IDOR): returns err(NotFoundError) when row belongs to a different CC', async () => {
     // Row R1 belongs to cc-1, caller claims cc-2
     const row = makeEnrollment('axcc-1', 'cc-1', false);
     const repo = makeAlumnosRepo(row);
     const uc = new TogglePrintableUseCase(repo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-2', id: 'axcc-1', value: true }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-2', id: 'axcc-1', value: true });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(repo.setPrintable).not.toHaveBeenCalled();
   });
 
-  it('throws NotFoundError when row does not exist', async () => {
+  it('returns err(NotFoundError) when row does not exist', async () => {
     const repo = makeAlumnosRepo(null);
     const uc = new TogglePrintableUseCase(repo);
 
-    await expect(
-      uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent', value: true }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    const result = await uc.execute({ courseCycleId: 'cc-1', id: 'axcc-nonexistent', value: true });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     expect(repo.setPrintable).not.toHaveBeenCalled();
   });
 });
