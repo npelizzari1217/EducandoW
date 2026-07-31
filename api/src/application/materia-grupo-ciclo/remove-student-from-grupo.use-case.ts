@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { GrupoRepository, AlumnosXGrupoRepository } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * RemoveStudentFromGrupoUseCase — espejo exacto de AddStudentToGrupoUseCase.
@@ -15,12 +15,13 @@ export class RemoveStudentFromGrupoUseCase {
     private readonly alumnosGrupoRepo: AlumnosXGrupoRepository,
   ) {}
 
-  async execute(input: { grupoId: string; alumnoXGrupoId: string }): Promise<void> {
+  async execute(input: { grupoId: string; alumnoXGrupoId: string }): Promise<Result<void, NotFoundError>> {
     const grupo = await this.grupoRepo.findById(input.grupoId);
     if (!grupo) {
-      throw new NotFoundError('GrupoXCursoXMateriaXCiclo', input.grupoId);
+      return err(new NotFoundError('GrupoXCursoXMateriaXCiclo', input.grupoId));
     }
 
     await this.alumnosGrupoRepo.removeStudent(input.grupoId, input.alumnoXGrupoId);
+    return ok(undefined);
   }
 }
