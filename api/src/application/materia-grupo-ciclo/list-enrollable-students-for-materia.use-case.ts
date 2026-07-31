@@ -5,7 +5,7 @@ import type {
   AlumnosXCursoXCicloRepository,
   AlumnoMateriaEnriched,
 } from '@educandow/domain';
-import { NotFoundError } from '@educandow/domain';
+import { NotFoundError, ok, err, Result } from '@educandow/domain';
 
 /**
  * ListEnrollableStudentsForMateriaUseCase — D5.
@@ -28,18 +28,22 @@ export class ListEnrollableStudentsForMateriaUseCase {
     private readonly alumnosCCRepo: AlumnosXCursoXCicloRepository,
   ) {}
 
-  async execute(input: { materiaXCursoXCicloId: string }): Promise<AlumnoMateriaEnriched[]> {
+  async execute(input: {
+    materiaXCursoXCicloId: string;
+  }): Promise<Result<AlumnoMateriaEnriched[], NotFoundError>> {
     const materia = await this.materiaRepo.findById(input.materiaXCursoXCicloId);
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId);
+      return err(new NotFoundError('MateriaXCursoXCiclo', input.materiaXCursoXCicloId));
     }
 
     const ccStudents = await this.alumnosCCRepo.findByCourseCycleEnriched(materia.courseCycleId);
     const enrolledRows = await this.alumnosXMateriaRepo.findByMateria(input.materiaXCursoXCicloId);
     const enrolled = new Set(enrolledRows.map((a) => a.studentId));
 
-    return ccStudents
-      .filter((s) => !enrolled.has(s.studentId))
-      .map((s) => ({ id: s.id, studentId: s.studentId, studentName: s.studentName }));
+    return ok(
+      ccStudents
+        .filter((s) => !enrolled.has(s.studentId))
+        .map((s) => ({ id: s.id, studentId: s.studentId, studentName: s.studentName })),
+    );
   }
 }
