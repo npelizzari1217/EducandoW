@@ -15,11 +15,11 @@ import {
   AttendanceTypeCode,
   AttendanceTypeCodeDuplicateError,
   AttendanceTypeNotFoundError,
-  AttendanceTypeLevelOutOfScopeError,
   SystemAttendanceTypeError,
   AttendanceBehavior,
   AttendanceBehaviorValue,
 } from '@educandow/domain';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 
 // ── Current-user fixtures (PR2 — scope de nivel base) ──────────
 
@@ -184,16 +184,17 @@ describe('CreateAttendanceTypeUseCase', () => {
     expect(repo.save).toHaveBeenCalledTimes(1);
   });
 
-  it('throws AttendanceTypeLevelOutOfScopeError when input.level is outside the caller baseLevels, repo.save is never called', async () => {
-    await expect(
-      useCase.execute({
-        code: 'Z',
-        description: 'Zeta',
-        absenceValue: 0,
-        level: 3,
-        behavior: AttendanceBehaviorValue.NO_COMPUTA,
-      }, teacherLevel2),
-    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+  it('returns err(AttendanceTypeLevelOutOfScopeError) when input.level is outside the caller baseLevels, repo.save is never called', async () => {
+    const result = await useCase.execute({
+      code: 'Z',
+      description: 'Zeta',
+      absenceValue: 0,
+      level: 3,
+      behavior: AttendanceBehaviorValue.NO_COMPUTA,
+    }, teacherLevel2);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.existsByLevelCode).not.toHaveBeenCalled();
     expect(repo.save).not.toHaveBeenCalled();
   });
@@ -332,13 +333,14 @@ describe('UpdateAttendanceTypeUseCase', () => {
     expect(result.unwrap().description).toBe('Actualizado');
   });
 
-  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels, repo.save is never called and the record is unchanged', async () => {
+  it('returns err(AttendanceTypeLevelOutOfScopeError) when entity.level is outside the caller baseLevels, repo.save is never called and the record is unchanged', async () => {
     const entity = makeEntity({ isSystem: false, level: 3, description: 'Original' });
     repo.findById.mockResolvedValue(entity);
 
-    await expect(
-      useCase.execute('at-uuid-1', { description: 'Hackeado' }, teacherLevel2),
-    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    const result = await useCase.execute('at-uuid-1', { description: 'Hackeado' }, teacherLevel2);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.save).not.toHaveBeenCalled();
     expect(entity.description).toBe('Original');
   });
@@ -425,13 +427,14 @@ describe('DeleteAttendanceTypeUseCase', () => {
     expect(repo.delete).toHaveBeenCalledWith('at-uuid-1');
   });
 
-  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels, repo.delete is never called', async () => {
+  it('returns err(AttendanceTypeLevelOutOfScopeError) when entity.level is outside the caller baseLevels, repo.delete is never called', async () => {
     const entity = makeEntity({ isSystem: false, level: 3 });
     repo.findById.mockResolvedValue(entity);
 
-    await expect(
-      useCase.execute('at-uuid-1', teacherLevel2),
-    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    const result = await useCase.execute('at-uuid-1', teacherLevel2);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.delete).not.toHaveBeenCalled();
   });
 
@@ -475,7 +478,8 @@ describe('ListAttendanceTypesUseCase', () => {
     const entities = [makeEntity({ level: 2 }), makeEntity({ level: 3, code: 'X' })];
     repo.list.mockResolvedValue(entities);
     const result = await useCase.execute(undefined, rootUser);
-    expect(result).toBe(entities);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBe(entities);
   });
 
   // ── PR2 — T5 (RED): scope de nivel en listado (REQ-17 MODIFIED / Escenarios 8.5-8.9) ──
@@ -498,10 +502,11 @@ describe('ListAttendanceTypesUseCase', () => {
     expect(repo.list).toHaveBeenCalledWith({ active: true });
   });
 
-  it('filters.level explícito fuera de baseLevels: lanza AttendanceTypeLevelOutOfScopeError, repo.list nunca invocado', async () => {
-    await expect(
-      useCase.execute({ level: 3 }, teacherLevel2),
-    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+  it('filters.level explícito fuera de baseLevels: retorna err(AttendanceTypeLevelOutOfScopeError), repo.list nunca invocado', async () => {
+    const result = await useCase.execute({ level: 3 }, teacherLevel2);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.list).not.toHaveBeenCalled();
   });
 
@@ -515,7 +520,7 @@ describe('ListAttendanceTypesUseCase', () => {
     repo.list.mockResolvedValue([]);
     const result = await useCase.execute(undefined, teacherNoLevels);
     expect(repo.list).toHaveBeenCalledWith({ allowedLevels: [] });
-    expect(result).toEqual([]);
+    expect(result.unwrap()).toEqual([]);
   });
 });
 
@@ -563,13 +568,14 @@ describe('GetAttendanceTypeUseCase', () => {
     expect(result.unwrap()).toBe(entity);
   });
 
-  it('throws AttendanceTypeLevelOutOfScopeError when entity.level is outside the caller baseLevels', async () => {
+  it('returns err(AttendanceTypeLevelOutOfScopeError) when entity.level is outside the caller baseLevels', async () => {
     const entity = makeEntity({ level: 3 });
     repo.findById.mockResolvedValue(entity);
 
-    await expect(
-      useCase.execute('at-uuid-1', teacherLevel2),
-    ).rejects.toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
+    const result = await useCase.execute('at-uuid-1', teacherLevel2);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
   });
 
   it('allows ROOT/ADMIN to get a type of any level, unrestricted', async () => {

@@ -8,9 +8,10 @@
  * reimplement the modality-collapse logic.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { AttendanceTypeLevelOutOfScopeError, ok, err } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { PdfError } from '../../shared/errors/pdf.error';
+import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -107,13 +108,13 @@ describe('GenerateAttendanceTypesPdfUseCase — scope (mirrors ListAttendanceTyp
     expect(callArg?.allowedLevels).toBeUndefined();
   });
 
-  it('level explícito fuera de scope: lanza AttendanceTypeLevelOutOfScopeError y NUNCA llama generatePdf', async () => {
+  it('level explícito fuera de scope: retorna err(AttendanceTypeLevelOutOfScopeError) y NUNCA llama generatePdf', async () => {
     const { uc, repo, pdfGenerator } = makeUC();
 
-    await expect(uc.execute({ level: 3, currentUser: teacherLevel2 })).rejects.toBeInstanceOf(
-      AttendanceTypeLevelOutOfScopeError,
-    );
+    const result = await uc.execute({ level: 3, currentUser: teacherLevel2 });
 
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AttendanceTypeLevelOutOfScopeError);
     expect(repo.list).not.toHaveBeenCalled();
     expect(pdfGenerator.generatePdf).not.toHaveBeenCalled();
   });

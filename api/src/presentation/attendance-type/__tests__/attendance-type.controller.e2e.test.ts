@@ -17,9 +17,10 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ExecutionContext, CanActivate } from '@nestjs/common';
 import request from 'supertest';
-import { AttendanceTypeLevelOutOfScopeError, ok, err, AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
+import { ok, err, AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { AttendanceTypeController } from '../attendance-type.controller';
 import { PdfError } from '../../../application/shared/errors/pdf.error';
+import { AttendanceTypeLevelOutOfScopeError } from '../../../application/shared/errors/attendance-type-level-out-of-scope-error';
 import { AuthGuard } from '../../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../../infrastructure/auth/guards/roles.guard';
 import { AppExceptionFilter } from '../../shared/filters/exception.filter';
@@ -102,7 +103,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('GET /attendance-types?level=<out-of-scope> returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope', async () => {
-    listExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    listExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer()).get('/attendance-types?level=3');
 
@@ -112,7 +113,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('GET /attendance-types?level=<in-scope> returns HTTP 200 with { data: [...] }', async () => {
-    listExecute.mockResolvedValueOnce([]);
+    listExecute.mockResolvedValueOnce(ok([]));
 
     const res = await request(app.getHttpServer()).get('/attendance-types?level=2');
 
@@ -121,7 +122,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('POST /attendance-types returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope when the target level is out of scope', async () => {
-    createExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    createExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer())
       .post('/attendance-types')
@@ -158,7 +159,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   // ── PR3 — T18/T20: closes the UUID security hole for PATCH/DELETE/GET :id ──
 
   it('PATCH /attendance-types/:id returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope when the target level is out of scope', async () => {
-    updateExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    updateExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer())
       .patch('/attendance-types/uuid-3')
@@ -181,7 +182,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('DELETE /attendance-types/:id returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope when the target level is out of scope', async () => {
-    deleteExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    deleteExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer()).delete('/attendance-types/uuid-3');
 
@@ -199,7 +200,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('GET /attendance-types/:id returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope when the target level is out of scope', async () => {
-    getExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    getExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer()).get('/attendance-types/uuid-3');
 
@@ -235,7 +236,7 @@ describe('AttendanceTypeController (controller e2e — GET /attendance-types)', 
   });
 
   it('GET /attendance-types/print?level=<out-of-scope> returns REAL HTTP 403 with the ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE envelope and NO PDF body', async () => {
-    generatePdfExecute.mockRejectedValueOnce(new AttendanceTypeLevelOutOfScopeError(3));
+    generatePdfExecute.mockResolvedValueOnce(err(new AttendanceTypeLevelOutOfScopeError(3)));
 
     const res = await request(app.getHttpServer()).get('/attendance-types/print?level=3');
 

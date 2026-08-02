@@ -840,10 +840,13 @@ Y el registro persiste en la DB sin cambios
 | `ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE`  | 403  | GET/POST/PATCH/DELETE/impresión con `level` fuera del scope de nivel del usuario (REQ-16/REQ-19/REQ-20, agregado por `tipos-asistencia-nivel-e-impresion`, 2026-07-01) |
 
 Los dos primeros DEBEN registrarse en `DOMAIN_STATUS` del `AppExceptionFilter`. El código
-`ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE` NO es un error de dominio en el sentido de invariantes de
-entidad — es un rechazo de autorización resuelto en el use case de application usando el scope de
-domain (`resolveAccessScope`); se documenta acá porque el HTTP mapping (403, envelope `{error}`) es
-observable y forma parte del contrato de API.
+`ATTENDANCE_TYPE_LEVEL_OUT_OF_SCOPE` YA NO es un error de dominio: desde
+`attendance-type-result-migration` está materializado en código como `ApplicationError`
+(`api/src/application/shared/errors/attendance-type-level-out-of-scope-error.ts`,
+`httpStatus = 403`). Su status HTTP (403, envelope `{error}`) lo produce la rama
+`ApplicationError` del filter (`exception.httpStatus`), NO el mapa `DOMAIN_STATUS` — la entrada
+correspondiente fue removida de `DOMAIN_STATUS` como código muerto. El 403 observable es
+idéntico antes y después.
 
 ---
 
