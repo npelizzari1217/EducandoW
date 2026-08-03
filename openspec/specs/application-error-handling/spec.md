@@ -203,18 +203,22 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   guards (`update-grupo.use-case.ts` "No tenant client available", `competency.use-cases.ts:258`)
   DEFERRED to the `InfrastructureError` follow-up below; the `createGrupo` controller raw-Prisma
   anti-pattern; domain entity constructor guards.
-- `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — BLOCKED until PR #111
-  merges; migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`.
+- `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — UNBLOCKED (PR #111 merged
+  2026-07-12). Its `ForbiddenError` throws were already reclassified by `forbidden-error-reclassification`
+  (import + `ApplicationError` parent only, throw idiom preserved); remaining: migrate
+  `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError` + `Result`.
+  Next up as épico follow-up #2.
 - `asistencia` — FULLY MIGRATED (archived 2026-08-03) by change `asistencia-result-migration`
   (4 stacked slices: list pair, record-general, record-subject, generate + month-status). All 41
   throws across the 6 use-cases (`list-general`, `list-subject`, `record-general`, `record-subject`,
   `generate-monthly`, + the 3 `attendance-month-status` Get/Open/Close) moved into the `Result`
   channel; the shared `assertCourseCycleExists` helper and the 2 record-subject auth helpers
   (`checkDoor2`, `resolveCourseCycleId`) also return `Result`. **No behavior change** — every error
-  keeps its current HTTP status (no `DOMAIN_STATUS` edit). `ForbiddenError` was NOT reclassified here
-  (stays `DomainError`) — the `DomainError → ApplicationError` reclassification for the 22 caller-context
-  Forbidden throws is deferred to the cross-cutting follow-up. No new error classes. 212/212 asistencia
-  tests green, typecheck clean.
+  keeps its current HTTP status (no `DOMAIN_STATUS` edit). `ForbiddenError` was not reclassified in
+  *that* change (stayed `DomainError`); the `DomainError → ApplicationError` reclassification for the
+  caller-context Forbidden throws was completed afterwards as the cross-cutting follow-up
+  `forbidden-error-reclassification` (FULLY DONE, archived 2026-08-03 — see its entry below). No new
+  error classes. 212/212 asistencia tests green, typecheck clean.
 - `course-cycle` — FULLY MIGRATED (archived 2026-07-31): named-file slice (7 throws in
   `course-cycle.use-cases.ts` + controller + `Level.fromParts` fix) by change
   `course-cycle-result-migration`; `AlumnosXCurso` slice (10 throws across `registrar-pase`,
@@ -230,6 +234,17 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   catalog (after the `users.use-cases.ts` pilot), proving the abstraction generalizes. HTTP 403
   unchanged (no behavior regression). Remaining: the `generate-attendance-types-pdf.use-case.ts`
   template bare-`Error` guard (infra, deferred to `InfrastructureError`).
+- `ForbiddenError` reclassification — FULLY DONE (archived 2026-08-03) by change
+  `forbidden-error-reclassification`. The generic `ForbiddenError` (AuthZ caller-context) was moved
+  `packages/domain` → `api/src/application/shared/errors/forbidden-error.ts` and reclassified
+  `DomainError → ApplicationError` (`super(message, 'FORBIDDEN', 403)`), transversally across 17
+  production files / 8 modules + 16 test files; 7 use-case signatures widened to
+  `Result<T, DomainError | ForbiddenError>`; the dead `DOMAIN_STATUS['FORBIDDEN']` entry removed.
+  **No behavior change** — HTTP 403 preserved (the filter's `ApplicationError` branch, evaluated
+  before `DomainError`, yields the 403; verified end-to-end via `3-door-enforcement.db.test.ts`
+  against live Postgres). Settles the deferred "Opción A" debt from `asistencia-result-migration`.
+  Scope boundary: NO `throw`→`Result` conversion (those stay per-module follow-ups). **3rd real
+  consumer** of the `ApplicationError` catalog (after the `users` pilot and `attendance-type`).
 - Long tail: `pedagogy`, `ingresante`, `institution`, `asignacion-curso`, `nivel-terciario`.
 - Shared `unwrapOrThrow` helper — 23+ controllers duplicate `if (isErr) throw unwrapErr()` inline;
   a shared helper would remove the duplication once enough consumers exist to justify it.
