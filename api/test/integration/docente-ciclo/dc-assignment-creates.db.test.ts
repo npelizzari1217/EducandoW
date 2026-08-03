@@ -91,9 +91,12 @@ describe('DC-S1/DC-S2 — assignment creates DocenteXCiclo', () => {
       new PrismaService(),
     );
 
-    const grupo = await runInTenant(i1, () =>
+    const grupoResult = await runInTenant(i1, () =>
       uc.execute({ materiaXCursoXCicloId: materia.id, userId, cycleId: cycle.uuid, name: 'G1' }),
     );
+    // CreateGrupoUseCase migrated to the Result pattern (ok/err) — unwrap the
+    // happy path to reach the persisted GrupoXCursoXMateriaXCiclo entity.
+    const grupo = grupoResult.unwrap();
 
     const after = await runInTenant(i1, () =>
       docenteRepo.findByUserAndCycle(userId, cycle.uuid),
