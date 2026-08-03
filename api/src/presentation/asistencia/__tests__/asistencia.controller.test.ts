@@ -11,7 +11,7 @@
  *   CTR-T03: GET listGeneral — returns mapped rows with studentName "Apellido, Nombre"
  *   CTR-T04: GET listGeneral — ForbiddenError propagates as-is (DomainError, 403 via filter)
  *   CTR-T05: PATCH recordGeneralDay — studentName === '' (ADR-5)
- *   CTR-T06: PATCH recordGeneralDay — ForbiddenError → ForbiddenException
+ *   CTR-T06: PATCH recordGeneralDay — ForbiddenError propagates as-is (DomainError, 403 via filter)
  *   CTR-T07: GET listSubject — returns mapped rows with studentName "Apellido, Nombre"
  *   CTR-T08: GET listSubject — passes grupoId through
  *   CTR-T09: PATCH recordSubjectDay — studentName === '' (ADR-5)
@@ -94,9 +94,9 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.listGeneralUC = overrides.listGeneralUC ?? {
     execute: vi.fn().mockResolvedValue(ok([makeEnrichedGeneral()])),
   };
-  // recordGeneralUC still returns a plain domain entity (no enrichment on PATCH)
+  // recordGeneralUC now returns Result<AsistenciaXAlumnoXCursoXCiclo, ...> (no enrichment on PATCH)
   ctrl.recordGeneralUC = overrides.recordGeneralUC ?? {
-    execute: vi.fn().mockResolvedValue(makeGeneralRow()),
+    execute: vi.fn().mockResolvedValue(ok(makeGeneralRow())),
   };
   // listSubjectUC now returns Result<EnrichedMateriaAttendance[], ForbiddenError>
   ctrl.listSubjectUC = overrides.listSubjectUC ?? {
@@ -239,16 +239,16 @@ describe('AsistenciaController — recordGeneralDay', () => {
     });
   });
 
-  it('CTR-T06: ForbiddenError → ForbiddenException', async () => {
+  it('CTR-T06: ForbiddenError → thrown as ForbiddenError (DomainError), 403 unchanged via filter', async () => {
     const ctrl = makeController({
       recordGeneralUC: {
-        execute: vi.fn().mockRejectedValue(new ForbiddenError('preceptor only')),
+        execute: vi.fn().mockResolvedValue(err(new ForbiddenError('preceptor only'))),
       },
     });
     const body = { studentId: 'stu-1', year: 2026, month: 6, day: 5, statusCode: 'P' };
 
     await expect(ctrl.recordGeneralDay('cc-1', mockUser, body))
-      .rejects.toBeInstanceOf(ForbiddenException);
+      .rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 

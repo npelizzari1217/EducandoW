@@ -32,6 +32,8 @@ import {
   DayNotAssignableError,
   StatusNotAssignableError,
   MonthClosedError,
+  ok,
+  err,
 } from '@educandow/domain';
 import type {
   AsistenciaGeneralRepository,
@@ -40,6 +42,7 @@ import type {
   AsignacionCursoXCicloRepository,
   AsistenciaXAlumnoXCursoXCiclo,
   AttendanceMonthStatusRepository,
+  Result,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -64,46 +67,65 @@ export class RecordGeneralAttendanceDayUseCase {
     private readonly monthStatusRepo: AttendanceMonthStatusRepository,
   ) {}
 
-  async execute(input: RecordGeneralAttendanceDayInput): Promise<AsistenciaXAlumnoXCursoXCiclo> {
+  async execute(
+    input: RecordGeneralAttendanceDayInput,
+  ): Promise<
+    Result<
+      AsistenciaXAlumnoXCursoXCiclo,
+      | ForbiddenError
+      | MonthClosedError
+      | NotFoundError
+      | ValidationError
+      | DayNotAssignableError
+      | StatusNotAssignableError
+    >
+  > {
     const { courseCycleId, studentId, year, month, day, statusCode, userId, userRoles } = input;
 
     // Auth: D3 or Door 2 preceptor
     const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
-      await this.checkDoor2(courseCycleId, userId);
+      const check = await this.checkDoor2(courseCycleId, userId);
+      if (check.isErr()) return err(check.unwrapErr());
     }
 
     // Month-closed guard — UNCONDITIONAL, applies to every role including ROOT/ADMIN
     // (AC-B-4/5/6). Never placed behind scope.isAdministrative — no bypass exists.
     const monthStatus = await this.monthStatusRepo.findOne(courseCycleId, year, month);
     if (monthStatus && monthStatus.isClosed()) {
-      throw new MonthClosedError(courseCycleId, year, month);
+      return err(new MonthClosedError(courseCycleId, year, month));
     }
 
     // Find existing row (ADR-4: row must be pre-generated)
     const row = await this.generalRepo.findOne(courseCycleId, studentId, year, month);
     if (!row) {
-      throw new NotFoundError('AsistenciaXAlumnoXCursoXCiclo', `${courseCycleId}/${studentId}/${year}/${month}`);
+      return err(
+        new NotFoundError('AsistenciaXAlumnoXCursoXCiclo', `${courseCycleId}/${studentId}/${year}/${month}`),
+      );
     }
 
     // Step 2: syntactic range check — grid only shows 1..31 (400 ValidationError)
     if (!Number.isInteger(day) || day < 1 || day > 31) {
-      throw new ValidationError(`day must be an integer between 1 and 31`);
+      return err(new ValidationError(`day must be an integer between 1 and 31`));
     }
 
     // Step 3: calendar authority — non-existent day (422 DAY_NOT_ASSIGNABLE)
     const maxDay = daysInMonth(year, month);
     if (day > maxDay) {
-      throw new DayNotAssignableError(
-        `day ${day} does not exist in ${month}/${year} (month has ${maxDay} days)`,
+      return err(
+        new DayNotAssignableError(
+          `day ${day} does not exist in ${month}/${year} (month has ${maxDay} days)`,
+        ),
       );
     }
 
     // Step 4: calendar authority — weekend (422 DAY_NOT_ASSIGNABLE)
     const dow = dayOfWeek(year, month, day);
     if (dow === 0 || dow === 6) {
-      throw new DayNotAssignableError(
-        `day ${day} (${month}/${year}) is a ${dow === 6 ? 'Saturday' : 'Sunday'} and cannot be recorded`,
+      return err(
+        new DayNotAssignableError(
+          `day ${day} (${month}/${year}) is a ${dow === 6 ? 'Saturday' : 'Sunday'} and cannot be recorded`,
+        ),
       );
     }
 
@@ -111,24 +133,24 @@ export class RecordGeneralAttendanceDayUseCase {
     const types = await this.attendanceTypeRepo.list();
     const type = types.find((t) => t.code.get() === statusCode);
     if (!type) {
-      throw new ValidationError(
-        `statusCode "${statusCode}" is not a valid AttendanceType code`,
+      return err(
+        new ValidationError(`statusCode "${statusCode}" is not a valid AttendanceType code`),
       );
     }
 
     // Step 6: assignable guard — non-assignable code (400 STATUS_NOT_ASSIGNABLE)
     if (!type.assignable) {
-      throw new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`);
+      return err(new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`));
     }
 
     // Merge-update the day in the row's JSON day-map (ADR-1)
-    return this.generalRepo.setDay(row.id.get(), day, statusCode);
+    return ok(await this.generalRepo.setDay(row.id.get(), day, statusCode));
   }
 
-  private async checkDoor2(courseCycleId: string, userId: string): Promise<void> {
+  private async checkDoor2(courseCycleId: string, userId: string): Promise<Result<void, ForbiddenError>> {
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
 
     // Resolve cycleId for DocenteXCiclo lookup
@@ -137,17 +159,19 @@ export class RecordGeneralAttendanceDayUseCase {
       select: { cycleId: true },
     });
     if (!cc) {
-      throw new ForbiddenError('CourseCycle not found — authorization failed');
+      return err(new ForbiddenError('CourseCycle not found — authorization failed'));
     }
 
     const docente = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
     if (!docente) {
-      throw new ForbiddenError('User is not a DocenteXCiclo in this cycle');
+      return err(new ForbiddenError('User is not a DocenteXCiclo in this cycle'));
     }
 
     const isPreceptor = await this.asignacionRepo.isPreceptor(docente.id, courseCycleId);
     if (!isPreceptor) {
-      throw new ForbiddenError('User is not a preceptor for this CursoXCiclo');
+      return err(new ForbiddenError('User is not a preceptor for this CursoXCiclo'));
     }
+
+    return ok(undefined);
   }
 }

@@ -11,6 +11,9 @@
  *   RGA-T07: non-preceptor TEACHER → ForbiddenError
  *   RGA-T08: month closed → MonthClosedError (UNCONDITIONAL — incl. D3/ROOT, PR-3b)
  *
+ * Result-shape migration (asistencia-result-migration, Slice 2): `execute` no longer throws —
+ * every error path returns `err(...)`, every success path returns `ok(...)`.
+ *
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
@@ -159,70 +162,70 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
 
       expect(generalRepo.findOne).toHaveBeenCalledWith(CC_ID, STUDENT_ID, YEAR, MONTH);
       expect(generalRepo.setDay).toHaveBeenCalledWith('row-1', 15, 'P');
-      expect(result).toBeDefined();
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toBeDefined();
     });
   });
 
   describe('RGA-T02: register not found → NotFoundError', () => {
-    it('throws NotFoundError when row does not exist (month not generated)', async () => {
+    it('returns err(NotFoundError) when row does not exist (month not generated)', async () => {
       const { uc } = makeUC({ row: null });
 
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(NotFoundError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
 
     it('does not call setDay when row is not found', async () => {
       const { uc, generalRepo } = makeUC({ row: null });
-      try { await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }); } catch { /* expected */ }
+      await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
       expect(generalRepo.setDay).not.toHaveBeenCalled();
     });
   });
 
   describe('RGA-T03/T04: day out of range → ValidationError or DayNotAssignableError', () => {
-    it('throws DayNotAssignableError when day > daysInMonth (June has 30 days, day=31)', async () => {
+    it('returns err(DayNotAssignableError) when day > daysInMonth (June has 30 days, day=31)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 31, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(DayNotAssignableError);
+      const result = await uc.execute({ ...baseInput, day: 31, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
 
-    it('throws ValidationError when day = 0', async () => {
+    it('returns err(ValidationError) when day = 0', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 0, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 0, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
-    it('throws ValidationError when day is negative', async () => {
+    it('returns err(ValidationError) when day is negative', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: -1, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: -1, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
     it('accepts day = 30 (last day of June)', async () => {
       const { uc, generalRepo } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 30, userRoles: ['SECRETARIO'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, day: 30, userRoles: ['SECRETARIO'] });
+      expect(result.isOk()).toBe(true);
       expect(generalRepo.setDay).toHaveBeenCalledWith('row-1', 30, 'P');
     });
   });
 
   describe('RGA-T05: invalid statusCode → ValidationError', () => {
-    it('throws ValidationError when statusCode is not in AttendanceType catalog', async () => {
+    it('returns err(ValidationError) when statusCode is not in AttendanceType catalog', async () => {
       const { uc } = makeUC({ attendanceTypes: [] }); // empty catalog
-      await expect(
-        uc.execute({ ...baseInput, statusCode: 'ZZZZ', userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, statusCode: 'ZZZZ', userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
     it('accepts a code that exists in the catalog', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, statusCode: 'A', userRoles: ['SECRETARIO'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, statusCode: 'A', userRoles: ['SECRETARIO'] });
+      expect(result.isOk()).toBe(true);
     });
   });
 
@@ -241,55 +244,53 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
   });
 
   describe('RGA-T07: non-preceptor TEACHER → ForbiddenError', () => {
-    it('throws ForbiddenError when teacher is not a preceptor for this CC', async () => {
+    it('returns err(ForbiddenError) when teacher is not a preceptor for this CC', async () => {
       const { uc } = makeUC({ isPreceptor: false });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
 
     it('preceptor can record — no ForbiddenError', async () => {
       const { uc, generalRepo } = makeUC({ isPreceptor: true });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isOk()).toBe(true);
       expect(generalRepo.setDay).toHaveBeenCalledOnce();
     });
   });
 
   describe('RGA-T08: month closed → MonthClosedError (UNCONDITIONAL)', () => {
-    it('throws MonthClosedError for D3 SECRETARIO when month is closed', async () => {
+    it('returns err(MonthClosedError) for D3 SECRETARIO when month is closed', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
-    it('throws MonthClosedError for ROOT/ADMIN when month is closed — no bypass', async () => {
+    it('returns err(MonthClosedError) for ROOT/ADMIN when month is closed — no bypass', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['ROOT'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['ROOT'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
-    it('throws MonthClosedError for preceptor TEACHER when month is closed', async () => {
+    it('returns err(MonthClosedError) for preceptor TEACHER when month is closed', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus(), isPreceptor: true });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
     it('does not call setDay when month is closed', async () => {
       const { uc, generalRepo } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      try { await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }); } catch { /* expected */ }
+      await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
       expect(generalRepo.setDay).not.toHaveBeenCalled();
     });
 
     it('allows recording when month is open (no status row)', async () => {
       const { uc, generalRepo } = makeUC({ monthStatus: null });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
+      expect(result.isOk()).toBe(true);
       expect(generalRepo.setDay).toHaveBeenCalledOnce();
     });
   });
@@ -297,84 +298,95 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
   // ── GUARD-1..9: calendar-based guards (T6.1) ──────────────────────────────
 
   describe('GUARD-1: Saturday (day=4, Jan 2025) → DayNotAssignableError (422)', () => {
-    it('throws DayNotAssignableError for Saturday January 4 2025', async () => {
+    it('returns err(DayNotAssignableError) for Saturday January 4 2025', async () => {
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(DayNotAssignableError);
-      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+      });
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(DayNotAssignableError);
+      expect((error as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
     });
   });
 
   describe('GUARD-2: Sunday (day=5, Jan 2025) → DayNotAssignableError (422)', () => {
-    it('throws DayNotAssignableError for Sunday January 5 2025', async () => {
+    it('returns err(DayNotAssignableError) for Sunday January 5 2025', async () => {
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 5, year: 2025, month: 1, userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(DayNotAssignableError);
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
   });
 
   describe('GUARD-3: Non-existent day (day=29, Feb 2025, 28 days) → DayNotAssignableError (422)', () => {
-    it('throws DayNotAssignableError when day exceeds month length', async () => {
+    it('returns err(DayNotAssignableError) when day exceeds month length', async () => {
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 29, year: 2025, month: 2, userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(DayNotAssignableError);
-      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+      });
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(DayNotAssignableError);
+      expect((error as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
     });
   });
 
   describe('GUARD-4: Non-existent day (day=31, Apr 2025, 30 days) → DayNotAssignableError (422)', () => {
-    it('throws DayNotAssignableError for day 31 in April 2025', async () => {
+    it('returns err(DayNotAssignableError) for day 31 in April 2025', async () => {
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 31, year: 2025, month: 4, userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(DayNotAssignableError);
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
   });
 
   describe('GUARD-5: Non-assignable statusCode=SAB on hábil day → StatusNotAssignableError (400)', () => {
-    it('throws StatusNotAssignableError for SAB on Monday Jan 1 2025', async () => {
+    it('returns err(StatusNotAssignableError) for SAB on Monday Jan 1 2025', async () => {
       const { uc } = makeUC({ attendanceTypes: fullCatalog });
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'SAB', userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(StatusNotAssignableError);
-      expect((err as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
+      });
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(StatusNotAssignableError);
+      expect((error as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
     });
   });
 
   describe('GUARD-6: Non-assignable statusCode=DOM on hábil day → StatusNotAssignableError (400)', () => {
-    it('throws StatusNotAssignableError for DOM on a hábil day', async () => {
+    it('returns err(StatusNotAssignableError) for DOM on a hábil day', async () => {
       const { uc } = makeUC({ attendanceTypes: fullCatalog });
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'DOM', userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(StatusNotAssignableError);
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(StatusNotAssignableError);
     });
   });
 
   describe('GUARD-7: Non-assignable statusCode=X on hábil day → StatusNotAssignableError (400)', () => {
-    it('throws StatusNotAssignableError for X on a hábil day', async () => {
+    it('returns err(StatusNotAssignableError) for X on a hábil day', async () => {
       const { uc } = makeUC({ attendanceTypes: fullCatalog });
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'X', userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(StatusNotAssignableError);
+      });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(StatusNotAssignableError);
     });
   });
 
   describe('GUARD-8: Happy path — weekday + assignable code → resolves (HTTP 200)', () => {
-    it('Monday Jan 1 2025 with statusCode=P (assignable=true) resolves successfully', async () => {
+    it('Monday Jan 1 2025 with statusCode=P (assignable=true) returns ok(...)', async () => {
       const { uc, generalRepo } = makeUC({ attendanceTypes: fullCatalog });
-      await expect(
-        uc.execute({ ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['SECRETARIO'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['SECRETARIO'],
+      });
+      expect(result.isOk()).toBe(true);
       expect(generalRepo.setDay).toHaveBeenCalledWith('row-1', 1, 'P');
     });
   });
@@ -383,34 +395,35 @@ describe('RecordGeneralAttendanceDayUseCase', () => {
     it('day=4 Jan 2025 (Saturday) is blocked regardless of empty days JSONB in row', async () => {
       // makeRow() returns row with DayMap.empty() — no key "4" in days
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['SECRETARIO'],
-      }).catch((e: unknown) => e);
+      });
       // Guard is calendar-derived, NOT JSONB-based
-      expect(err).toBeInstanceOf(DayNotAssignableError);
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
   });
 
   describe('GUARD: check ordering (day=0 or day=99 → ValidationError before DayNotAssignableError)', () => {
     it('day=0 → ValidationError (step 2 fires before calendar check)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 0, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 0, year: 2025, month: 2, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
     it('day=99 → ValidationError (step 2: 99 > 31)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 99, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 99, year: 2025, month: 2, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
     it('day=29, Feb 2025 → DayNotAssignableError (step 3: 29 ≤ 31 passes step 2, fails step 3)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 29, year: 2025, month: 2, userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(DayNotAssignableError);
+      const result = await uc.execute({ ...baseInput, day: 29, year: 2025, month: 2, userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
   });
 });
