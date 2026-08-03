@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  ok, err, Result, ValidationError, NotFoundError, ForbiddenError,
+  ok, err, Result, ValidationError, NotFoundError,
   InstitutionRepository,
   Institution, Level, HexColor, Cue, SmtpConfig,
   EducationalLevelCode, EducationalModalityCode,
 } from '@educandow/domain';
 import type { SmtpEncryption } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 import type { PostgresAdminService } from '../../../infrastructure/persistence/postgres-admin.service';
 import { CreateInstitutionAdminUseCase } from './create-institution-admin.use-case';
 import type { EnsureAttendanceTypesForLevelUseCase } from '../../attendance-type/use-cases/ensure-attendance-types-for-level.use-case';

@@ -37,35 +37,35 @@ This is **ONE atomic PR** (Option A, per proposal). There is no intermediate `ts
 
 Mechanical transform per consumer (design §2.1): drop `ForbiddenError` from the `@educandow/domain` import block, add `import { ForbiddenError } from '<relative-path>';` at the depth in the table below. `instanceof ForbiddenError` checks are untouched beyond the import line.
 
-- [ ] 2.1 `api/src/application/asistencia/record-subject-attendance-day.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.2 `api/src/application/asistencia/record-general-attendance-day.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.3 `api/src/application/asistencia/list-subject-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.4 `api/src/application/asistencia/list-general-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.5 `api/src/application/asistencia/generate-monthly-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.6 `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts` — import `../shared/errors/forbidden-error`; **7 literal `throw new ForbiddenError(...)` sites stay throws, no Result conversion** (FER-R2, FER-R6)
-- [ ] 2.7 `api/src/presentation/asistencia-reporting/asistencia-reporting.controller.ts` — import `../../application/shared/errors/forbidden-error`; `handleError()`'s `instanceof ForbiddenError` check untouched beyond the import (FER-R2, FER-R4)
-- [ ] 2.8 `api/src/application/asignacion-curso/assign-docente-to-curso.use-case.ts` — import `../shared/errors/forbidden-error`; **literal `throw`, bare `Promise<T>` return stays unchanged** (FER-R2, FER-R6)
-- [ ] 2.9 `api/src/application/grading/upsert-subject-period-grades.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.10 `api/src/application/grading/upsert-subject-final-grades.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.11 `api/src/application/institution/use-cases/institution.use-cases.ts` — import `../../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.12 `api/src/application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
-- [ ] 2.13 `api/src/application/nivel-terciario/use-cases/docente-materia.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
-- [ ] 2.14 `api/src/application/student-observation/create-observation.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.15 `api/src/application/student-observation/delete-observation.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
-- [ ] 2.16 `api/src/application/student/use-cases/student.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
-- [ ] 2.17 `api/src/presentation/student/student.controller.ts` — import `../../application/shared/errors/forbidden-error`; `throwGuardianError()`'s `instanceof ForbiddenError` check untouched beyond the import (FER-R2, FER-R4)
+- [x] 2.1 `api/src/application/asistencia/record-subject-attendance-day.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.2 `api/src/application/asistencia/record-general-attendance-day.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.3 `api/src/application/asistencia/list-subject-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.4 `api/src/application/asistencia/list-general-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.5 `api/src/application/asistencia/generate-monthly-attendance.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.6 `api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts` — import `../shared/errors/forbidden-error`; **7 literal `throw new ForbiddenError(...)` sites stay throws, no Result conversion** (FER-R2, FER-R6)
+- [x] 2.7 `api/src/presentation/asistencia-reporting/asistencia-reporting.controller.ts` — import `../../application/shared/errors/forbidden-error`; `handleError()`'s `instanceof ForbiddenError` check untouched beyond the import (FER-R2, FER-R4)
+- [x] 2.8 `api/src/application/asignacion-curso/assign-docente-to-curso.use-case.ts` — import `../shared/errors/forbidden-error`; **literal `throw`, bare `Promise<T>` return stays unchanged** (FER-R2, FER-R6)
+- [x] 2.9 `api/src/application/grading/upsert-subject-period-grades.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.10 `api/src/application/grading/upsert-subject-final-grades.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.11 `api/src/application/institution/use-cases/institution.use-cases.ts` — import `../../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.12 `api/src/application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
+- [x] 2.13 `api/src/application/nivel-terciario/use-cases/docente-materia.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
+- [x] 2.14 `api/src/application/student-observation/create-observation.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.15 `api/src/application/student-observation/delete-observation.use-case.ts` — import `../shared/errors/forbidden-error` (FER-R2)
+- [x] 2.16 `api/src/application/student/use-cases/student.use-cases.ts` — import `../../shared/errors/forbidden-error` (widening in Phase 3) (FER-R2)
+- [x] 2.17 `api/src/presentation/student/student.controller.ts` — import `../../application/shared/errors/forbidden-error`; `throwGuardianError()`'s `instanceof ForbiddenError` check untouched beyond the import (FER-R2, FER-R4)
 
 ## Phase 3: Widen 7 Signatures — FER-R5 (review focus)
 
 Required because after Phase 2, `ForbiddenError` no longer satisfies the bare `DomainError` generic. Widen to explicit union — **no `any`, no `as` cast**.
 
-- [ ] 3.1 `api/src/application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases.ts` — `CreateNotaCursadaSlotUC.execute` (L57): `Promise<Result<NotaCursadaTerciario, DomainError>>` → `Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>>` (FER-R5)
-- [ ] 3.2 same file — `UpdateNotaCursadaSlotUC.execute` (L95): `Promise<Result<NotaCursadaTerciario, DomainError>>` → `Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>>` (FER-R5)
-- [ ] 3.3 same file — `ConfirmarNotaCursadaUC.execute` (L134): `Promise<Result<void, DomainError>>` → `Promise<Result<void, DomainError | ForbiddenError>>` (FER-R5)
-- [ ] 3.4 `api/src/application/nivel-terciario/use-cases/docente-materia.use-cases.ts` — `AssignDocenteMateriaUC.execute` (L37): `Promise<Result<DocenteXMateriaCarrera, DomainError>>` → `Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>>` (FER-R5)
-- [ ] 3.5 same file — `ListAssignmentsUC.execute` (L77): `Promise<Result<DocenteXMateriaCarrera[], DomainError>>` → `Promise<Result<DocenteXMateriaCarrera[], DomainError | ForbiddenError>>` (FER-R5)
-- [ ] 3.6 same file — `UnassignDocenteMateriaUC.execute` (L103): `Promise<Result<DocenteXMateriaCarrera, DomainError>>` → `Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>>` (FER-R5). Optional micro-touch: L4 header comment `Return Result<T, DomainError>` → `Result<T, DomainError | ForbiddenError>` (low priority, keep churn minimal per design §3.2)
-- [ ] 3.7 `api/src/application/student/use-cases/student.use-cases.ts` — `PatchStudentUseCase.execute` (L151): `Promise<Result<Student, DomainError>>` → `Promise<Result<Student, DomainError | ForbiddenError>>` (forwards `checkOwnership`'s `Result<void, ForbiddenError>` err at L162-163; `checkOwnership` L199 and `validateAllowedFields` L227 already type `ForbiddenError` explicitly, no change needed there) (FER-R5)
+- [x] 3.1 `api/src/application/nivel-terciario/use-cases/nota-cursada-terciario.use-cases.ts` — `CreateNotaCursadaSlotUC.execute` (L57): `Promise<Result<NotaCursadaTerciario, DomainError>>` → `Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>>` (FER-R5)
+- [x] 3.2 same file — `UpdateNotaCursadaSlotUC.execute` (L95): `Promise<Result<NotaCursadaTerciario, DomainError>>` → `Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>>` (FER-R5)
+- [x] 3.3 same file — `ConfirmarNotaCursadaUC.execute` (L134): `Promise<Result<void, DomainError>>` → `Promise<Result<void, DomainError | ForbiddenError>>` (FER-R5)
+- [x] 3.4 `api/src/application/nivel-terciario/use-cases/docente-materia.use-cases.ts` — `AssignDocenteMateriaUC.execute` (L37): `Promise<Result<DocenteXMateriaCarrera, DomainError>>` → `Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>>` (FER-R5)
+- [x] 3.5 same file — `ListAssignmentsUC.execute` (L77): `Promise<Result<DocenteXMateriaCarrera[], DomainError>>` → `Promise<Result<DocenteXMateriaCarrera[], DomainError | ForbiddenError>>` (FER-R5)
+- [x] 3.6 same file — `UnassignDocenteMateriaUC.execute` (L103): `Promise<Result<DocenteXMateriaCarrera, DomainError>>` → `Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>>` (FER-R5). Optional micro-touch (L4 header comment) skipped — kept churn minimal per design §3.2
+- [x] 3.7 `api/src/application/student/use-cases/student.use-cases.ts` — `PatchStudentUseCase.execute` (L152 in current file — line drifted by 1 vs design's L151, same method, reconciled by name): `Promise<Result<Student, DomainError>>` → `Promise<Result<Student, DomainError | ForbiddenError>>` (forwards `checkOwnership`'s `Result<void, ForbiddenError>` err; `checkOwnership` L200 and `validateAllowedFields` L227 already type `ForbiddenError` explicitly, confirmed NOT widened, no change needed there) (FER-R5)
 
 ## Phase 4: Delete Domain Residue — FER-R1, FER-R9
 

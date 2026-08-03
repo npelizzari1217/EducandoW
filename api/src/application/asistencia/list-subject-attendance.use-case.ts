@@ -15,7 +15,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
-  ForbiddenError,
   ok,
   err,
 } from '@educandow/domain';
@@ -27,6 +26,7 @@ import type {
   EnrichedMateriaAttendance,
   Result,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 export interface ListSubjectAttendanceInput {

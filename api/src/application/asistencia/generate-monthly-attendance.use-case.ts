@@ -45,7 +45,6 @@ import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
   EducationalLevel,
-  ForbiddenError,
   NotFoundError,
   buildLockedDayMap,
   fillHabilVacios,
@@ -55,6 +54,7 @@ import {
   ok,
   err,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import type {
   AlumnosXCursoXCicloRepository,
   MateriaXCursoXCicloRepository,

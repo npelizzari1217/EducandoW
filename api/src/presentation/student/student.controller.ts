@@ -3,7 +3,8 @@ import {
   ConflictException, NotFoundException, BadRequestException, ForbiddenException,
 } from '@nestjs/common';
 import type { StudentRepository } from '@educandow/domain';
-import { NotFoundError, ValidationError, DomainError, ForbiddenError } from '@educandow/domain';
+import { NotFoundError, ValidationError, DomainError } from '@educandow/domain';
+import { ForbiddenError } from '../../application/shared/errors/forbidden-error';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';

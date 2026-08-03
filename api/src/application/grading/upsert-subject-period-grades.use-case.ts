@@ -13,7 +13,7 @@
  * Specs: SPG-R3..R9, PPF-R4, AD-3
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectPeriodGrade, GradingPhaseViolationError } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, SubjectPeriodGrade, GradingPhaseViolationError } from '@educandow/domain';
 import type {
   SubjectPeriodGradeRepository,
   SubjectGradingPeriodRepository,
@@ -22,6 +22,7 @@ import type {
   AssignmentAuthorizerPort,
   GradingPhaseAuthorizerPort,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 // ── Input types ───────────────────────────────────────────────────────────────
