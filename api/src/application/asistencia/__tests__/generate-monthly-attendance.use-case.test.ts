@@ -167,27 +167,27 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
   });
 
   describe('GEN-T01: non-admin role → ForbiddenError', () => {
-    it('throws ForbiddenError when caller is a TEACHER (non-D3)', async () => {
+    it('returns err(ForbiddenError) when caller is a TEACHER (non-D3)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
 
-    it('throws ForbiddenError when caller has no role at all', async () => {
+    it('returns err(ForbiddenError) when caller has no role at all', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: [] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: [] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
   });
 
   describe('GEN-T02: CourseCycle not found → NotFoundError', () => {
-    it('throws NotFoundError when CC does not exist', async () => {
+    it('returns err(NotFoundError) when CC does not exist', async () => {
       const { uc } = makeUC({ ccExists: false });
-      await expect(
-        uc.execute({ courseCycleId: 'unknown-cc', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(NotFoundError);
+      const result = await uc.execute({ courseCycleId: 'unknown-cc', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
   });
 
@@ -307,18 +307,16 @@ describe('GenerateMonthlyAttendanceUseCase', () => {
   });
 
   describe('GEN-T07: previous generated month still open → PreviousMonthOpenError', () => {
-    it('throws PreviousMonthOpenError when the latest generated month is open', async () => {
+    it('returns err(PreviousMonthOpenError) when the latest generated month is open', async () => {
       const { uc } = makeUC({ previousMonthStatus: makeOpenPreviousStatus() });
-      await expect(
-        uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] }),
-      ).rejects.toBeInstanceOf(PreviousMonthOpenError);
+      const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(PreviousMonthOpenError);
     });
 
     it('does not call generateMany when previous month is open', async () => {
       const { uc, generalRepo, materiaAsistRepo } = makeUC({ previousMonthStatus: makeOpenPreviousStatus() });
-      try {
-        await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
-      } catch { /* expected */ }
+      await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['SECRETARIO'] });
       expect(generalRepo.generateMany).not.toHaveBeenCalled();
       expect(materiaAsistRepo.generateMany).not.toHaveBeenCalled();
     });

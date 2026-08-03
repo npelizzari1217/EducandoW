@@ -89,7 +89,7 @@ describe('GetAttendanceMonthStatusUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH });
 
-      expect(result).toEqual({
+      expect(result.unwrap()).toEqual({
         courseCycleId: CC_ID,
         year: YEAR,
         month: MONTH,
@@ -109,21 +109,22 @@ describe('GetAttendanceMonthStatusUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH });
 
-      expect(result.closed).toBe(true);
-      expect(result.closedBy).toBe(USER_ID);
-      expect(result.closedAt).toBeInstanceOf(Date);
+      expect(result.unwrap().closed).toBe(true);
+      expect(result.unwrap().closedBy).toBe(USER_ID);
+      expect(result.unwrap().closedAt).toBeInstanceOf(Date);
     });
   });
 
   describe('AMS-T03: CourseCycle does not exist → NotFoundError', () => {
-    it('throws NotFoundError', async () => {
+    it('returns err(NotFoundError)', async () => {
       mockTenantClient(false);
       const repo = makeRepo();
       const uc = new GetAttendanceMonthStatusUseCase(repo);
 
-      await expect(
-        uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH }),
-      ).rejects.toThrow(NotFoundError);
+      const result = await uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
   });
 });
@@ -142,8 +143,8 @@ describe('CloseAttendanceMonthUseCase', () => {
       expect(repo.upsert).toHaveBeenCalledTimes(1);
       const upserted = vi.mocked(repo.upsert).mock.calls[0][0] as AttendanceMonthStatus;
       expect(upserted.isClosed()).toBe(true);
-      expect(result.closed).toBe(true);
-      expect(result.closedBy).toBe(USER_ID);
+      expect(result.unwrap().closed).toBe(true);
+      expect(result.unwrap().closedBy).toBe(USER_ID);
     });
   });
 
@@ -156,21 +157,22 @@ describe('CloseAttendanceMonthUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: USER_ID });
 
-      expect(result.closed).toBe(true);
-      expect(result.closedBy).toBe(USER_ID);
+      expect(result.unwrap().closed).toBe(true);
+      expect(result.unwrap().closedBy).toBe(USER_ID);
       expect(repo.upsert).toHaveBeenCalledWith(open);
     });
   });
 
   describe('AMS-T08a: CourseCycle does not exist → NotFoundError', () => {
-    it('throws NotFoundError without touching the repo', async () => {
+    it('returns err(NotFoundError) without touching the repo', async () => {
       mockTenantClient(false);
       const repo = makeRepo();
       const uc = new CloseAttendanceMonthUseCase(repo);
 
-      await expect(
-        uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH, userId: USER_ID }),
-      ).rejects.toThrow(NotFoundError);
+      const result = await uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH, userId: USER_ID });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
       expect(repo.upsert).not.toHaveBeenCalled();
     });
   });
@@ -188,9 +190,9 @@ describe('OpenAttendanceMonthUseCase', () => {
 
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: USER_ID });
 
-      expect(result.closed).toBe(false);
-      expect(result.closedAt).toBeNull();
-      expect(result.closedBy).toBeNull();
+      expect(result.unwrap().closed).toBe(false);
+      expect(result.unwrap().closedAt).toBeNull();
+      expect(result.unwrap().closedBy).toBeNull();
       expect(repo.upsert).toHaveBeenCalledWith(closed);
     });
   });
@@ -204,19 +206,20 @@ describe('OpenAttendanceMonthUseCase', () => {
       const result = await uc.execute({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: USER_ID });
 
       expect(repo.upsert).toHaveBeenCalledTimes(1);
-      expect(result.closed).toBe(false);
+      expect(result.unwrap().closed).toBe(false);
     });
   });
 
   describe('AMS-T08b: CourseCycle does not exist → NotFoundError', () => {
-    it('throws NotFoundError without touching the repo', async () => {
+    it('returns err(NotFoundError) without touching the repo', async () => {
       mockTenantClient(false);
       const repo = makeRepo();
       const uc = new OpenAttendanceMonthUseCase(repo);
 
-      await expect(
-        uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH, userId: USER_ID }),
-      ).rejects.toThrow(NotFoundError);
+      const result = await uc.execute({ courseCycleId: 'missing-cc', year: YEAR, month: MONTH, userId: USER_ID });
+
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
       expect(repo.upsert).not.toHaveBeenCalled();
     });
   });
