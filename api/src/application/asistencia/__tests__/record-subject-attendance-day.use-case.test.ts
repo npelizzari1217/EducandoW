@@ -12,6 +12,11 @@
  *   RSA-T08: teacher with no group for this materia → ForbiddenError
  *   RSA-T09: month closed → MonthClosedError (UNCONDITIONAL — incl. D3/ROOT, PR-3b)
  *
+ * Result-shape migration (asistencia-result-migration, Slice 3): `execute` no longer throws —
+ * every error path returns `err(...)`, every success path returns `ok(...)`. Covers BOTH auth
+ * paths: Door 2 (`checkDoor2`, 6 Forbidden branches) and admin-bypass (`resolveCourseCycleId`,
+ * Forbidden + NotFound branches).
+ *
  * Pattern: mocked repos + TenantContext, no NestJS, no DB.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
@@ -81,6 +86,7 @@ function makeUC({
   attendanceTypes = validAttendanceTypes,
   ccCycleId = 'cycle-1',
   courseCycleId = 'cc-1',
+  materiaExists = true,
   docenteExists = true,
   teacherGroups = [{ id: GRUPO_ID, docenteXCicloId: DOCENTE_ID }],
   studentIdsInGroups = [STUDENT_ID],
@@ -90,6 +96,7 @@ function makeUC({
   attendanceTypes?: typeof validAttendanceTypes;
   ccCycleId?: string;
   courseCycleId?: string;
+  materiaExists?: boolean;
   docenteExists?: boolean;
   teacherGroups?: { id: string; docenteXCicloId: string }[];
   studentIdsInGroups?: string[];
@@ -97,7 +104,7 @@ function makeUC({
 } = {}) {
   const mockClient = {
     materiaXCursoXCiclo: {
-      findUnique: vi.fn().mockResolvedValue({ courseCycleId }),
+      findUnique: vi.fn().mockResolvedValue(materiaExists ? { courseCycleId } : null),
     },
     courseCycle: {
       findUnique: vi.fn().mockResolvedValue({ cycleId: ccCycleId }),
@@ -171,41 +178,42 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
       const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
       expect(materiaAsistRepo.findOne).toHaveBeenCalledWith(MXCC_ID, STUDENT_ID, YEAR, MONTH);
       expect(materiaAsistRepo.setDay).toHaveBeenCalledWith('row-m-1', 10, 'P');
-      expect(result).toBeDefined();
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toBeDefined();
     });
   });
 
   describe('RSA-T02: register not found → NotFoundError', () => {
-    it('throws NotFoundError when monthly subject register does not exist', async () => {
+    it('returns err(NotFoundError) when monthly subject register does not exist', async () => {
       const { uc } = makeUC({ row: null });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(NotFoundError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
     });
   });
 
   describe('RSA-T03: day out of range → DayNotAssignableError or ValidationError', () => {
-    it('throws DayNotAssignableError when day=31 in June (30 days)', async () => {
+    it('returns err(DayNotAssignableError) when day=31 in June (30 days)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 31, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(DayNotAssignableError);
+      const result = await uc.execute({ ...baseInput, day: 31, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(DayNotAssignableError);
     });
 
-    it('throws ValidationError when day = 0', async () => {
+    it('returns err(ValidationError) when day = 0', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 0, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 0, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
   });
 
   describe('RSA-T04: invalid statusCode → ValidationError', () => {
-    it('throws ValidationError when code is not in catalog', async () => {
+    it('returns err(ValidationError) when code is not in catalog', async () => {
       const { uc } = makeUC({ attendanceTypes: [] });
-      await expect(
-        uc.execute({ ...baseInput, statusCode: 'ZZZZZ', userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, statusCode: 'ZZZZZ', userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
   });
 
@@ -221,6 +229,21 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
       await uc.execute({ ...baseInput, userRoles: ['ROOT'] });
       expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
     });
+
+    it('returns err(ForbiddenError) when D3 bypass hits missing tenant client', async () => {
+      const { uc } = makeUC();
+      vi.mocked(TenantContext.getClient).mockReturnValue(undefined as never);
+      const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    });
+
+    it('returns err(NotFoundError) when D3 bypass resolves a materia that does not exist', async () => {
+      const { uc } = makeUC({ materiaExists: false });
+      const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(NotFoundError);
+    });
   });
 
   describe('RSA-T06: teacher with group + student in group → success', () => {
@@ -229,74 +252,95 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
         teacherGroups: [{ id: GRUPO_ID, docenteXCicloId: DOCENTE_ID }],
         studentIdsInGroups: [STUDENT_ID],
       });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isOk()).toBe(true);
       expect(materiaAsistRepo.setDay).toHaveBeenCalledOnce();
     });
   });
 
   describe('RSA-T07: teacher with group but student NOT in group → ForbiddenError', () => {
-    it('throws ForbiddenError when target student is not in teacher group', async () => {
+    it('returns err(ForbiddenError) when target student is not in teacher group', async () => {
       const { uc } = makeUC({
         teacherGroups: [{ id: GRUPO_ID, docenteXCicloId: DOCENTE_ID }],
         studentIdsInGroups: ['other-student'], // student not in this group
       });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
   });
 
   describe('RSA-T08: teacher with no group for this materia → ForbiddenError', () => {
-    it('throws ForbiddenError when teacher has no groups for this materia', async () => {
+    it('returns err(ForbiddenError) when teacher has no groups for this materia', async () => {
       const { uc } = makeUC({ teacherGroups: [] });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
 
-    it('throws ForbiddenError when teacher is not a DocenteXCiclo in this cycle', async () => {
+    it('returns err(ForbiddenError) when teacher is not a DocenteXCiclo in this cycle', async () => {
       const { uc } = makeUC({ docenteExists: false });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    });
+
+    it('returns err(ForbiddenError) when tenant client is unavailable on Door 2 path', async () => {
+      const { uc } = makeUC();
+      vi.mocked(TenantContext.getClient).mockReturnValue(undefined as never);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    });
+
+    it('returns err(ForbiddenError) when materia is not found on Door 2 path', async () => {
+      const { uc } = makeUC({ materiaExists: false });
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    });
+
+    it('returns err(ForbiddenError) when courseCycle is not found on Door 2 path', async () => {
+      const { uc, mockClient } = makeUC();
+      vi.mocked(mockClient.courseCycle.findUnique).mockResolvedValue(null as never);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
   });
 
   describe('RSA-T09: month closed → MonthClosedError (UNCONDITIONAL)', () => {
-    it('throws MonthClosedError for D3 ADMIN when month is closed', async () => {
+    it('returns err(MonthClosedError) for D3 ADMIN when month is closed', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
-    it('throws MonthClosedError for ROOT when month is closed — no bypass', async () => {
+    it('returns err(MonthClosedError) for ROOT when month is closed — no bypass', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['ROOT'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['ROOT'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
-    it('throws MonthClosedError for teacher-with-group when month is closed', async () => {
+    it('returns err(MonthClosedError) for teacher-with-group when month is closed', async () => {
       const { uc } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(MonthClosedError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(MonthClosedError);
     });
 
     it('does not call setDay when month is closed', async () => {
       const { uc, materiaAsistRepo } = makeUC({ monthStatus: makeClosedMonthStatus() });
-      try { await uc.execute({ ...baseInput, userRoles: ['ADMIN'] }); } catch { /* expected */ }
+      await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
       expect(materiaAsistRepo.setDay).not.toHaveBeenCalled();
     });
 
     it('allows recording when month is open (no status row)', async () => {
       const { uc, materiaAsistRepo } = makeUC({ monthStatus: null });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['ADMIN'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
+      expect(result.isOk()).toBe(true);
       expect(materiaAsistRepo.setDay).toHaveBeenCalledOnce();
     });
   });
@@ -304,33 +348,38 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
   // ── GUARD-10 + symmetry: calendar guards in subject use case (T6.2) ────────
 
   describe('GUARD-10: Saturday (day=4, Jan 2025) via subject use case → DayNotAssignableError', () => {
-    it('throws DayNotAssignableError for Saturday January 4 2025 — identical to GUARD-1', async () => {
+    it('returns err(DayNotAssignableError) for Saturday January 4 2025 — identical to GUARD-1', async () => {
       const { uc } = makeUC();
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 4, year: 2025, month: 1, userRoles: ['ADMIN'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(DayNotAssignableError);
-      expect((err as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
+      });
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(DayNotAssignableError);
+      expect((error as DayNotAssignableError).code).toBe('DAY_NOT_ASSIGNABLE');
     });
   });
 
   describe('GUARD-10 mirror: non-assignable statusCode=SAB on hábil day via subject use case → StatusNotAssignableError', () => {
-    it('throws StatusNotAssignableError for SAB on Monday Jan 1 2025 — mirrors GUARD-5', async () => {
+    it('returns err(StatusNotAssignableError) for SAB on Monday Jan 1 2025 — mirrors GUARD-5', async () => {
       const { uc } = makeUC({ attendanceTypes: fullCatalog });
-      const err = await uc.execute({
+      const result = await uc.execute({
         ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'SAB', userRoles: ['ADMIN'],
-      }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(StatusNotAssignableError);
-      expect((err as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
+      });
+      expect(result.isErr()).toBe(true);
+      const error = result.unwrapErr();
+      expect(error).toBeInstanceOf(StatusNotAssignableError);
+      expect((error as StatusNotAssignableError).code).toBe('STATUS_NOT_ASSIGNABLE');
     });
   });
 
   describe('GUARD-10 mirror: happy path via subject use case → resolves', () => {
     it('weekday + assignable code resolves successfully — mirrors GUARD-8', async () => {
       const { uc, materiaAsistRepo } = makeUC({ attendanceTypes: fullCatalog });
-      await expect(
-        uc.execute({ ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['ADMIN'] }),
-      ).resolves.toBeDefined();
+      const result = await uc.execute({
+        ...baseInput, day: 1, year: 2025, month: 1, statusCode: 'P', userRoles: ['ADMIN'],
+      });
+      expect(result.isOk()).toBe(true);
       expect(materiaAsistRepo.setDay).toHaveBeenCalledWith('row-m-1', 1, 'P');
     });
   });
@@ -338,16 +387,16 @@ describe('RecordSubjectAttendanceDayUseCase', () => {
   describe('GUARD: check ordering (subject use case)', () => {
     it('day=0 → ValidationError (step 2 fires before calendar check)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 0, year: 2025, month: 1, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 0, year: 2025, month: 1, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
 
     it('day=99 → ValidationError (step 2: 99 > 31)', async () => {
       const { uc } = makeUC();
-      await expect(
-        uc.execute({ ...baseInput, day: 99, year: 2025, month: 1, userRoles: ['ADMIN'] }),
-      ).rejects.toBeInstanceOf(ValidationError);
+      const result = await uc.execute({ ...baseInput, day: 99, year: 2025, month: 1, userRoles: ['ADMIN'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ValidationError);
     });
   });
 });

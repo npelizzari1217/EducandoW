@@ -35,6 +35,8 @@ import {
   DayNotAssignableError,
   StatusNotAssignableError,
   MonthClosedError,
+  ok,
+  err,
 } from '@educandow/domain';
 import type {
   AsistenciaMateriaRepository,
@@ -44,6 +46,7 @@ import type {
   DocenteXCicloRepository,
   AsistenciaXMateriaXAlumnoXCursoXCiclo,
   AttendanceMonthStatusRepository,
+  Result,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -71,50 +74,68 @@ export class RecordSubjectAttendanceDayUseCase {
 
   async execute(
     input: RecordSubjectAttendanceDayInput,
-  ): Promise<AsistenciaXMateriaXAlumnoXCursoXCiclo> {
+  ): Promise<
+    Result<
+      AsistenciaXMateriaXAlumnoXCursoXCiclo,
+      | ForbiddenError
+      | MonthClosedError
+      | NotFoundError
+      | ValidationError
+      | DayNotAssignableError
+      | StatusNotAssignableError
+    >
+  > {
     const { materiaXCursoXCicloId, studentId, year, month, day, statusCode, userId, userRoles } = input;
 
     // Auth: D3 or Door 2 teacher-with-group. Both paths resolve the materia's
     // CourseCycle uuid — needed unconditionally for the month-closed guard below.
     const scope = resolveAccessScope({ roles: userRoles });
-    const courseCycleId = scope.isAdministrative
+    const ccResult = scope.isAdministrative
       ? await this.resolveCourseCycleId(materiaXCursoXCicloId)
       : await this.checkDoor2(materiaXCursoXCicloId, studentId, userId);
+    if (ccResult.isErr()) return err(ccResult.unwrapErr());
+    const courseCycleId = ccResult.unwrap();
 
     // Month-closed guard — UNCONDITIONAL, applies to every role including ROOT/ADMIN
     // (AC-B-4/5/6). Never placed behind scope.isAdministrative — no bypass exists.
     const monthStatus = await this.monthStatusRepo.findOne(courseCycleId, year, month);
     if (monthStatus && monthStatus.isClosed()) {
-      throw new MonthClosedError(courseCycleId, year, month);
+      return err(new MonthClosedError(courseCycleId, year, month));
     }
 
     // Find existing row (ADR-4)
     const row = await this.materiaAsistRepo.findOne(materiaXCursoXCicloId, studentId, year, month);
     if (!row) {
-      throw new NotFoundError(
-        'AsistenciaXMateriaXAlumnoXCursoXCiclo',
-        `${materiaXCursoXCicloId}/${studentId}/${year}/${month}`,
+      return err(
+        new NotFoundError(
+          'AsistenciaXMateriaXAlumnoXCursoXCiclo',
+          `${materiaXCursoXCicloId}/${studentId}/${year}/${month}`,
+        ),
       );
     }
 
     // Step 2: syntactic range check — grid only shows 1..31 (400 ValidationError)
     if (!Number.isInteger(day) || day < 1 || day > 31) {
-      throw new ValidationError(`day must be an integer between 1 and 31`);
+      return err(new ValidationError(`day must be an integer between 1 and 31`));
     }
 
     // Step 3: calendar authority — non-existent day (422 DAY_NOT_ASSIGNABLE)
     const maxDay = daysInMonth(year, month);
     if (day > maxDay) {
-      throw new DayNotAssignableError(
-        `day ${day} does not exist in ${month}/${year} (month has ${maxDay} days)`,
+      return err(
+        new DayNotAssignableError(
+          `day ${day} does not exist in ${month}/${year} (month has ${maxDay} days)`,
+        ),
       );
     }
 
     // Step 4: calendar authority — weekend (422 DAY_NOT_ASSIGNABLE)
     const dow = dayOfWeek(year, month, day);
     if (dow === 0 || dow === 6) {
-      throw new DayNotAssignableError(
-        `day ${day} (${month}/${year}) is a ${dow === 6 ? 'Saturday' : 'Sunday'} and cannot be recorded`,
+      return err(
+        new DayNotAssignableError(
+          `day ${day} (${month}/${year}) is a ${dow === 6 ? 'Saturday' : 'Sunday'} and cannot be recorded`,
+        ),
       );
     }
 
@@ -122,18 +143,18 @@ export class RecordSubjectAttendanceDayUseCase {
     const types = await this.attendanceTypeRepo.list();
     const type = types.find((t) => t.code.get() === statusCode);
     if (!type) {
-      throw new ValidationError(
-        `statusCode "${statusCode}" is not a valid AttendanceType code`,
+      return err(
+        new ValidationError(`statusCode "${statusCode}" is not a valid AttendanceType code`),
       );
     }
 
     // Step 6: assignable guard — non-assignable code (400 STATUS_NOT_ASSIGNABLE)
     if (!type.assignable) {
-      throw new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`);
+      return err(new StatusNotAssignableError(`statusCode "${statusCode}" is not assignable`));
     }
 
     // Merge-update the day
-    return this.materiaAsistRepo.setDay(row.id.get(), day, statusCode);
+    return ok(await this.materiaAsistRepo.setDay(row.id.get(), day, statusCode));
   }
 
   /** Returns the materia's CourseCycle uuid, reused by the caller for the month-closed guard. */
@@ -141,10 +162,10 @@ export class RecordSubjectAttendanceDayUseCase {
     materiaXCursoXCicloId: string,
     studentId: string,
     userId: string,
-  ): Promise<string> {
+  ): Promise<Result<string, ForbiddenError>> {
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
 
     // Step 1: materia → courseCycleId
@@ -153,7 +174,7 @@ export class RecordSubjectAttendanceDayUseCase {
       select: { courseCycleId: true },
     });
     if (!materia) {
-      throw new ForbiddenError('MateriaXCursoXCiclo not found — authorization failed');
+      return err(new ForbiddenError('MateriaXCursoXCiclo not found — authorization failed'));
     }
 
     // Step 2: courseCycle → cycleId
@@ -162,47 +183,51 @@ export class RecordSubjectAttendanceDayUseCase {
       select: { cycleId: true },
     });
     if (!cc) {
-      throw new ForbiddenError('CourseCycle not found — authorization failed');
+      return err(new ForbiddenError('CourseCycle not found — authorization failed'));
     }
 
     // Step 3: resolve DocenteXCiclo
     const docente = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
     if (!docente) {
-      throw new ForbiddenError('User is not a DocenteXCiclo in this cycle');
+      return err(new ForbiddenError('User is not a DocenteXCiclo in this cycle'));
     }
 
     // Step 4: find teacher's groups for this materia
     const teacherGroups = await this.grupoRepo.findGroupsForDocente(docente.id, materiaXCursoXCicloId);
     if (teacherGroups.length === 0) {
-      throw new ForbiddenError('User has no group assignment for this materia');
+      return err(new ForbiddenError('User has no group assignment for this materia'));
     }
 
     // Step 5: verify target student is in teacher's groups
     const groupIds = teacherGroups.map((g) => g.id);
     const studentIds = await this.alumnosXGrupoRepo.findStudentIdsByGrupoIds(groupIds);
     if (!studentIds.includes(studentId)) {
-      throw new ForbiddenError('Target student is not in any of the teacher\'s groups for this materia');
+      return err(
+        new ForbiddenError('Target student is not in any of the teacher\'s groups for this materia'),
+      );
     }
 
-    return materia.courseCycleId;
+    return ok(materia.courseCycleId);
   }
 
   /**
    * Resolves the materia's CourseCycle uuid without any Door 2 authorization check —
    * used only on the D3 admin bypass path, where the caller is already authorized.
    */
-  private async resolveCourseCycleId(materiaXCursoXCicloId: string): Promise<string> {
+  private async resolveCourseCycleId(
+    materiaXCursoXCicloId: string,
+  ): Promise<Result<string, ForbiddenError | NotFoundError>> {
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
     const materia = await client.materiaXCursoXCiclo.findUnique({
       where: { id: materiaXCursoXCicloId },
       select: { courseCycleId: true },
     });
     if (!materia) {
-      throw new NotFoundError('MateriaXCursoXCiclo', materiaXCursoXCicloId);
+      return err(new NotFoundError('MateriaXCursoXCiclo', materiaXCursoXCicloId));
     }
-    return materia.courseCycleId;
+    return ok(materia.courseCycleId);
   }
 }
