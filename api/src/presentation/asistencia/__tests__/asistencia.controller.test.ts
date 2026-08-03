@@ -5,7 +5,7 @@
  *
  * Covers:
  *   CTR-T01: POST generate — returns counts (unwraps Result.ok)
- *   CTR-T02: POST generate — ForbiddenError → ForbiddenException
+ *   CTR-T02: POST generate — ForbiddenError propagates as-is (DomainError, 403 via filter)
  *   CTR-T13: POST generate — Result.err(PresenteTypeNotFoundError) → propagates as-is
  *            (asistencia-autollenado-p PR-4, mapped to 422 by AppExceptionFilter)
  *   CTR-T03: GET listGeneral — returns mapped rows with studentName "Apellido, Nombre"
@@ -20,7 +20,6 @@
  *   CTR-T12: PATCH estado — status:'CLOSED' calls closeMonthUC; status:'OPEN' calls openMonthUC
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { ForbiddenException } from '@nestjs/common';
 import {
   ForbiddenError,
   AsistenciaXAlumnoXCursoXCiclo,
@@ -106,15 +105,15 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.recordSubjectUC = overrides.recordSubjectUC ?? {
     execute: vi.fn().mockResolvedValue(ok(makeMateriaRow())),
   };
-  // Attendance month status use-cases (PR-3b)
+  // Attendance month status use-cases (PR-3b), now Result<AttendanceMonthStatusResult, NotFoundError>
   ctrl.getMonthStatusUC = overrides.getMonthStatusUC ?? {
-    execute: vi.fn().mockResolvedValue(makeOpenStatusResult()),
+    execute: vi.fn().mockResolvedValue(ok(makeOpenStatusResult())),
   };
   ctrl.openMonthUC = overrides.openMonthUC ?? {
-    execute: vi.fn().mockResolvedValue(makeOpenStatusResult()),
+    execute: vi.fn().mockResolvedValue(ok(makeOpenStatusResult())),
   };
   ctrl.closeMonthUC = overrides.closeMonthUC ?? {
-    execute: vi.fn().mockResolvedValue(makeClosedStatusResult()),
+    execute: vi.fn().mockResolvedValue(ok(makeClosedStatusResult())),
   };
   return ctrl;
 }
@@ -151,22 +150,22 @@ describe('AsistenciaController — generateMonthly', () => {
     });
   });
 
-  it('CTR-T02: ForbiddenError from use-case → throws ForbiddenException', async () => {
+  it('CTR-T02: ForbiddenError from use-case → thrown as ForbiddenError (DomainError), 403 unchanged via filter', async () => {
     const ctrl = makeController({
       generateMonthlyUC: {
-        execute: vi.fn().mockRejectedValue(new ForbiddenError('not allowed')),
+        execute: vi.fn().mockResolvedValue(err(new ForbiddenError('not allowed'))),
       },
     });
 
     await expect(ctrl.generateMonthly('cc-1', mockUser, { year: 2026, month: 6 }))
-      .rejects.toBeInstanceOf(ForbiddenException);
+      .rejects.toBeInstanceOf(ForbiddenError);
   });
 
   it('CTR-T13: Result.err(PresenteTypeNotFoundError) from use-case → propagates as-is', async () => {
     const domainError = new PresenteTypeNotFoundError(1, 'cc-1');
     const ctrl = makeController({
       generateMonthlyUC: {
-        execute: vi.fn().mockResolvedValue({ isOk: () => false, isErr: () => true, unwrap: () => { throw domainError; } }),
+        execute: vi.fn().mockResolvedValue(err(domainError)),
       },
     });
 
@@ -357,7 +356,7 @@ describe('AsistenciaController — getMonthStatus', () => {
 
   it('CTR-T11b: returns CLOSED status with attribution when the month is closed', async () => {
     const ctrl = makeController({
-      getMonthStatusUC: { execute: vi.fn().mockResolvedValue(makeClosedStatusResult()) },
+      getMonthStatusUC: { execute: vi.fn().mockResolvedValue(ok(makeClosedStatusResult())) },
     });
     const query = { year: 2026, month: 6 };
 

@@ -29,9 +29,7 @@ import {
   HttpCode,
   HttpStatus,
   UseGuards,
-  ForbiddenException,
 } from '@nestjs/common';
-import { ForbiddenError } from '@educandow/domain';
 import type {
   AsistenciaXAlumnoXCursoXCiclo,
   AsistenciaXMateriaXAlumnoXCursoXCiclo,
@@ -104,24 +102,15 @@ export class AsistenciaController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(GenerateMonthlySchema)) body: GenerateMonthlyDto,
   ): Promise<{ data: GenerationResultResponse }> {
-    try {
-      const result = await this.generateMonthlyUC.execute({
-        courseCycleId: ccId,
-        year: body.year,
-        month: body.month,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      // Desenvuelve el Result (ADR-3 asistencia-autollenado-p): isOk → value; isErr →
-      // unwrap() throws el domain error, capturado por el catch de abajo — no matchea
-      // ForbiddenError, cae al `throw err;` final, mapeado a 422 por AppExceptionFilter.
-      return { data: result.unwrap() };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
+    const result = await this.generateMonthlyUC.execute({
+      courseCycleId: ccId,
+      year: body.year,
+      month: body.month,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap() };
   }
 
   /**
@@ -240,7 +229,8 @@ export class AsistenciaController {
       year: query.year,
       month: query.month,
     });
-    return { data: this.toStatusResponse(result) };
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toStatusResponse(result.unwrap()) };
   }
 
   /**
@@ -260,7 +250,8 @@ export class AsistenciaController {
     const result = body.status === 'CLOSED'
       ? await this.closeMonthUC.execute(input)
       : await this.openMonthUC.execute(input);
-    return { data: this.toStatusResponse(result) };
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toStatusResponse(result.unwrap()) };
   }
 
   // ── Response mappers ───────────────────────────────────────────────────────

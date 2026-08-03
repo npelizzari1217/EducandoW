@@ -205,7 +205,16 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   anti-pattern; domain entity constructor guards.
 - `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — BLOCKED until PR #111
   merges; migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`.
-- `asistencia` (41 throws, 100% domain-wrap candidate).
+- `asistencia` — FULLY MIGRATED (archived 2026-08-03) by change `asistencia-result-migration`
+  (4 stacked slices: list pair, record-general, record-subject, generate + month-status). All 41
+  throws across the 6 use-cases (`list-general`, `list-subject`, `record-general`, `record-subject`,
+  `generate-monthly`, + the 3 `attendance-month-status` Get/Open/Close) moved into the `Result`
+  channel; the shared `assertCourseCycleExists` helper and the 2 record-subject auth helpers
+  (`checkDoor2`, `resolveCourseCycleId`) also return `Result`. **No behavior change** — every error
+  keeps its current HTTP status (no `DOMAIN_STATUS` edit). `ForbiddenError` was NOT reclassified here
+  (stays `DomainError`) — the `DomainError → ApplicationError` reclassification for the 22 caller-context
+  Forbidden throws is deferred to the cross-cutting follow-up. No new error classes. 212/212 asistencia
+  tests green, typecheck clean.
 - `course-cycle` — FULLY MIGRATED (archived 2026-07-31): named-file slice (7 throws in
   `course-cycle.use-cases.ts` + controller + `Level.fromParts` fix) by change
   `course-cycle-result-migration`; `AlumnosXCurso` slice (10 throws across `registrar-pase`,

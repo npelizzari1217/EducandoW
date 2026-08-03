@@ -12,8 +12,8 @@
  * Absence of a row means OPEN (default-open, no cutover — design §B1).
  */
 import { Injectable } from '@nestjs/common';
-import { NotFoundError, AttendanceMonthStatus } from '@educandow/domain';
-import type { AttendanceMonthStatusRepository } from '@educandow/domain';
+import { NotFoundError, AttendanceMonthStatus, ok, err } from '@educandow/domain';
+import type { AttendanceMonthStatusRepository, Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 // ── Types ──────────────────────────────────────────────────
@@ -39,18 +39,19 @@ export interface SetAttendanceMonthStatusInput extends GetAttendanceMonthStatusI
 
 // ── Shared helpers ─────────────────────────────────────────
 
-async function assertCourseCycleExists(courseCycleId: string): Promise<void> {
+async function assertCourseCycleExists(courseCycleId: string): Promise<Result<void, NotFoundError>> {
   const client = TenantContext.getClient();
   if (!client) {
-    throw new NotFoundError('CourseCycle', courseCycleId);
+    return err(new NotFoundError('CourseCycle', courseCycleId));
   }
   const cc = await client.courseCycle.findUnique({
     where: { uuid: courseCycleId },
     select: { uuid: true },
   });
   if (!cc) {
-    throw new NotFoundError('CourseCycle', courseCycleId);
+    return err(new NotFoundError('CourseCycle', courseCycleId));
   }
+  return ok(undefined);
 }
 
 function toResult(status: AttendanceMonthStatus): AttendanceMonthStatusResult {
@@ -70,16 +71,19 @@ function toResult(status: AttendanceMonthStatus): AttendanceMonthStatusResult {
 export class GetAttendanceMonthStatusUseCase {
   constructor(private readonly repo: AttendanceMonthStatusRepository) {}
 
-  async execute(input: GetAttendanceMonthStatusInput): Promise<AttendanceMonthStatusResult> {
+  async execute(
+    input: GetAttendanceMonthStatusInput,
+  ): Promise<Result<AttendanceMonthStatusResult, NotFoundError>> {
     const { courseCycleId, year, month } = input;
-    await assertCourseCycleExists(courseCycleId);
+    const guard = await assertCourseCycleExists(courseCycleId);
+    if (guard.isErr()) return err(guard.unwrapErr());
 
     const status = await this.repo.findOne(courseCycleId, year, month);
     if (!status) {
       // Absence of a row = OPEN (default-open, no cutover — design §B1)
-      return { courseCycleId, year, month, closed: false, closedAt: null, closedBy: null };
+      return ok({ courseCycleId, year, month, closed: false, closedAt: null, closedBy: null });
     }
-    return toResult(status);
+    return ok(toResult(status));
   }
 }
 
@@ -87,9 +91,12 @@ export class GetAttendanceMonthStatusUseCase {
 export class CloseAttendanceMonthUseCase {
   constructor(private readonly repo: AttendanceMonthStatusRepository) {}
 
-  async execute(input: SetAttendanceMonthStatusInput): Promise<AttendanceMonthStatusResult> {
+  async execute(
+    input: SetAttendanceMonthStatusInput,
+  ): Promise<Result<AttendanceMonthStatusResult, NotFoundError>> {
     const { courseCycleId, year, month, userId } = input;
-    await assertCourseCycleExists(courseCycleId);
+    const guard = await assertCourseCycleExists(courseCycleId);
+    if (guard.isErr()) return err(guard.unwrapErr());
 
     let status = await this.repo.findOne(courseCycleId, year, month);
     if (!status) {
@@ -98,7 +105,7 @@ export class CloseAttendanceMonthUseCase {
     status.close(userId);
     await this.repo.upsert(status);
 
-    return toResult(status);
+    return ok(toResult(status));
   }
 }
 
@@ -106,9 +113,12 @@ export class CloseAttendanceMonthUseCase {
 export class OpenAttendanceMonthUseCase {
   constructor(private readonly repo: AttendanceMonthStatusRepository) {}
 
-  async execute(input: SetAttendanceMonthStatusInput): Promise<AttendanceMonthStatusResult> {
+  async execute(
+    input: SetAttendanceMonthStatusInput,
+  ): Promise<Result<AttendanceMonthStatusResult, NotFoundError>> {
     const { courseCycleId, year, month, userId } = input;
-    await assertCourseCycleExists(courseCycleId);
+    const guard = await assertCourseCycleExists(courseCycleId);
+    if (guard.isErr()) return err(guard.unwrapErr());
 
     let status = await this.repo.findOne(courseCycleId, year, month);
     if (!status) {
@@ -119,6 +129,6 @@ export class OpenAttendanceMonthUseCase {
     status.open(userId);
     await this.repo.upsert(status);
 
-    return toResult(status);
+    return ok(toResult(status));
   }
 }
