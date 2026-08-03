@@ -87,14 +87,14 @@ Same split-import transform as Phase 2, at each test file's relative depth. Asse
 
 ## Phase 7: Verification Gate — FER-R1..R9
 
-- [ ] 7.1 `pnpm --filter api typecheck` (`tsc --noEmit`) exits 0 — proves all 7 widenings (Phase 3) + 17 import swaps (Phase 2) are complete and consistent (FER-R5)
-- [ ] 7.2 `pnpm test` green, including the new classification test (Phase 1.1) asserting the full contract. For any DB-bound suite unavailable in the apply environment: run at minimum the classification test + mocked-repo unit suites + `tsc --noEmit`, and honestly report DB-bound suites as "not executed here, no logic changed" — never report green without having run it (FER-R8, design §6.2)
-- [ ] 7.3 Grep — zero domain residue: `rg "\bForbiddenError\b" packages/domain` → 0 hits (FER-R1)
-- [ ] 7.4 Grep — single-source import: `rg "ForbiddenError.*@educandow/domain"` and `rg "@educandow/domain.*ForbiddenError"` → 0 hits (FER-R2)
-- [ ] 7.5 Grep — no new base classes: confirm the only class added under `api/src/application/shared/errors/` is `ForbiddenError` (moved) (FER-R9)
-- [ ] 7.6 Grep — DOMAIN_STATUS cleaned: `rg "FORBIDDEN" api/src/presentation/shared/filters/exception.filter.ts` → 0 hits (FER-R7)
-- [ ] 7.7 Inspect diff — `asistencia-reporting` still has 7 literal `throw new ForbiddenError`; `asignacion-curso` still `throw` + bare `Promise<T>` — no throw→Result conversion introduced (FER-R6)
-- [ ] 7.8 HTTP 403 invariant — guaranteed structurally by 7.6's branch-order proof + the Phase 1.1 test's `httpStatus === 403`; confirm no runtime status change for any of the 8 modules (asistencia, asistencia-reporting, asignacion-curso, grading, institution, nivel-terciario, student-observation, student) (FER-R3)
+- [x] 7.1 `pnpm --filter api typecheck` (`tsc --noEmit`) exits 0 — proves all 7 widenings (Phase 3) + 17 import swaps (Phase 2) are complete and consistent (FER-R5). **Note**: `@educandow/domain`'s `dist/` is stale-cached at the pnpm workspace level; ran `pnpm --filter @educandow/domain build` before this gate, otherwise tsc falsely resolved the old compiled `.d.ts` still exporting `ForbiddenError`
+- [x] 7.2 `pnpm test` (`vitest run`, full mocked-unit suite incl. the new classification test) → **2189/2190 passed**. The 1 failure (`scripts/__tests__/archive-legacy-grading-data.spec.ts`) is a pre-existing Windows path-separator bug (`/tmp/...` hardcoded vs `path.join` backslashes), last touched in an unrelated prior commit (`b77a178`, before this change), zero `ForbiddenError` reference — confirmed unrelated. `test:integration` (Docker/Postgres-bound, excluded from `pnpm test` by config: `exclude: ['**/*.db.test.ts']`) was not run — Docker unavailable in this environment, and it is out of scope for `test_command: pnpm test` (FER-R8, design §6.2)
+- [x] 7.3 Grep — zero domain residue: `rg "\bForbiddenError\b" packages/domain` → 0 hits (FER-R1)
+- [x] 7.4 Grep — single-source import: `rg "ForbiddenError.*@educandow/domain"` → 0 hits; `rg "@educandow/domain.*ForbiddenError"` → 1 hit, a false positive (`nota-cursada-terciario.use-cases.ts`: `Promise<Result<import('@educandow/domain').InscripcionMateria[], ForbiddenError>>` — `ForbiddenError` there is the locally-imported class, coincidentally on the same line as an unrelated inline domain type import; not an actual `ForbiddenError` import from domain) (FER-R2)
+- [x] 7.5 Grep — no new base classes: `git diff` confirms only `forbidden-error.ts` (+ its test) added under `api/src/application/shared/errors/` (FER-R9)
+- [x] 7.6 Grep — DOMAIN_STATUS cleaned: `rg "FORBIDDEN" api/src/presentation/shared/filters/exception.filter.ts` → 0 hits (FER-R7)
+- [x] 7.7 Inspect diff — `asistencia-reporting`: 7 `throw new ForbiddenError` confirmed intact (`rg -c` = 7); `asignacion-curso`: 1 `throw new ForbiddenError` + `async execute(...)` bare-return signature confirmed intact — no throw→Result conversion introduced (FER-R6)
+- [x] 7.8 HTTP 403 invariant — guaranteed structurally by 7.6's branch-order proof + the Phase 1.1 test's `httpStatus === 403`; no runtime status change for any of the 8 modules (FER-R3)
 
 ---
 
