@@ -34,12 +34,12 @@
  *   5. For each materia, get student-materia assignments (MateriasXAlumnoXCursoXCiclo)
  *   6. generateMany (skipDuplicates) for general table
  *   7. generateMany (skipDuplicates) for subject table
- *   8. Return counts, wrapped in `ok(...)` (ADR-3 of asistencia-autollenado-p:
- *      Result only for the new PresenteTypeNotFoundError path — legacy throws
- *      (ForbiddenError/NotFoundError/PreviousMonthOpenError) are unchanged).
+ *   8. Return counts, wrapped in `ok(...)`. All error paths (ForbiddenError,
+ *      NotFoundError, PreviousMonthOpenError, PresenteTypeNotFoundError) return
+ *      `err(...)` — no throw remains (asistencia-result-migration, ASRM-R1/R4).
  *
  * Spec: R-9 through R-15, R-38 (SDD-4); ATR-R11.1..R11.7 (asistencia-autollenado-p).
- * ADR: ADR-3 (SDD-4); ADR-2/ADR-3/ADR-4 (asistencia-autollenado-p).
+ * ADR: ADR-3 (SDD-4); ADR-2/ADR-3/ADR-4 (asistencia-autollenado-p); ASRM-R1/R4 (asistencia-result-migration).
  */
 import { Injectable } from '@nestjs/common';
 import {
@@ -96,33 +96,35 @@ export class GenerateMonthlyAttendanceUseCase {
 
   async execute(
     input: GenerateMonthlyAttendanceInput,
-  ): Promise<Result<GenerationResult, PresenteTypeNotFoundError>> {
+  ): Promise<
+    Result<GenerationResult, PresenteTypeNotFoundError | ForbiddenError | NotFoundError | PreviousMonthOpenError>
+  > {
     const { courseCycleId, year, month, userRoles } = input;
 
     // 1. D3 admin-only gate
     const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
-      throw new ForbiddenError('Monthly attendance generation requires an administrative role (D3)');
+      return err(new ForbiddenError('Monthly attendance generation requires an administrative role (D3)'));
     }
 
     // 2. Verify CourseCycle exists (level needed to resolve Presente — ADR-2)
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
     const cc = await client.courseCycle.findUnique({
       where: { uuid: courseCycleId },
       select: { uuid: true, level: true },
     });
     if (!cc) {
-      throw new NotFoundError('CourseCycle', courseCycleId);
+      return err(new NotFoundError('CourseCycle', courseCycleId));
     }
 
     // 2b. Guard: previous GENERATED month (not the calendar predecessor — schools
     // may skip months) must be closed. First-ever generated month is exempt.
     const previousStatus = await this.monthStatusRepo.findLatestBefore(courseCycleId, year, month);
     if (!AttendanceMonthStatus.canGenerate(previousStatus)) {
-      throw new PreviousMonthOpenError(courseCycleId, year, month);
+      return err(new PreviousMonthOpenError(courseCycleId, year, month));
     }
 
     // 2c. Ensure this month's own status row exists (OPEN) — marks the month as
