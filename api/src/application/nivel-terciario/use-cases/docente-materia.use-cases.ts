@@ -9,7 +9,6 @@ import {
   ok,
   err,
   Result,
-  ForbiddenError,
   NotFoundError,
   DocenteXMateriaCarrera,
   DocenteAlreadyAssignedError,
@@ -18,6 +17,7 @@ import {
   resolveAccessScope,
 } from '@educandow/domain';
 import type { DocenteXMateriaCarreraRepository } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 // ── AssignDocenteMateriaUC ────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ export class AssignDocenteMateriaUC {
   async execute(
     userRoles: string[],
     input: AssignDocenteMateriaInput,
-  ): Promise<Result<DocenteXMateriaCarrera, DomainError>> {
+  ): Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>> {
     // Admin gate (ADR-5 / SPEC-4.1)
     if (!resolveAccessScope({ roles: userRoles }).isAdministrative) {
       return err(new ForbiddenError('Solo secretaría puede gestionar asignaciones'));
@@ -74,7 +74,7 @@ export class ListAssignmentsUC {
   async execute(
     userRoles: string[],
     input: ListAssignmentsInput,
-  ): Promise<Result<DocenteXMateriaCarrera[], DomainError>> {
+  ): Promise<Result<DocenteXMateriaCarrera[], DomainError | ForbiddenError>> {
     if (!resolveAccessScope({ roles: userRoles }).isAdministrative) {
       return err(new ForbiddenError('Solo secretaría puede ver asignaciones'));
     }
@@ -100,7 +100,7 @@ export class UnassignDocenteMateriaUC {
   async execute(
     userRoles: string[],
     id: string,
-  ): Promise<Result<DocenteXMateriaCarrera, DomainError>> {
+  ): Promise<Result<DocenteXMateriaCarrera, DomainError | ForbiddenError>> {
     if (!resolveAccessScope({ roles: userRoles }).isAdministrative) {
       return err(new ForbiddenError('Solo secretaría puede gestionar asignaciones'));
     }

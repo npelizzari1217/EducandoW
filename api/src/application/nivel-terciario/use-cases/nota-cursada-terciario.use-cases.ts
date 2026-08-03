@@ -4,7 +4,6 @@ import {
   err,
   Result,
   NotFoundError,
-  ForbiddenError,
   NotaCursadaTerciario,
   NotaCursadaTerciarioRepository,
   SlotCursadaTerciario,
@@ -16,6 +15,7 @@ import {
   DomainError,
 } from '@educandow/domain';
 import type { TerciarioAuthorizerPort } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 // ── Input types ────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export class CreateNotaCursadaSlotUC {
     userRoles: string[],
     inscripcionMateriaId: string,
     input: CreateSlotInput,
-  ): Promise<Result<NotaCursadaTerciario, DomainError>> {
+  ): Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>> {
     // Door 3: ownership check (SPEC-5.1)
     if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
       return err(new ForbiddenError('No estás asignado a esta materia'));
@@ -92,7 +92,7 @@ export class UpdateNotaCursadaSlotUC {
     inscripcionMateriaId: string,
     slot: string,
     input: UpdateSlotInput,
-  ): Promise<Result<NotaCursadaTerciario, DomainError>> {
+  ): Promise<Result<NotaCursadaTerciario, DomainError | ForbiddenError>> {
     // Door 3: ownership check (SPEC-5.2)
     if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
       return err(new ForbiddenError('No estás asignado a esta materia'));
@@ -131,7 +131,7 @@ export class ConfirmarNotaCursadaUC {
     userRoles: string[],
     inscripcionMateriaId: string,
     input: ConfirmarNotaCursadaInput,
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<void, DomainError | ForbiddenError>> {
     // Door 3: ownership check (SPEC-6.1)
     if (!(await this.authz.canWriteGrades(userId, userRoles, inscripcionMateriaId))) {
       return err(new ForbiddenError('No estás asignado a esta materia'));
