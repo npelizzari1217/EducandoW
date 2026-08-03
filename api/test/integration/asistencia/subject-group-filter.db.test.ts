@@ -28,6 +28,8 @@ import { PrismaAlumnosXMateriaRepository } from '../../../src/infrastructure/per
 import { PrismaGrupoRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-grupo.repository';
 import { PrismaAlumnosXGrupoRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-alumnos-x-grupo.repository';
 import { PrismaDocenteXCicloRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-docente-x-ciclo.repository';
+import { PrismaAttendanceMonthStatusRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-attendance-month-status.repository';
+import { PrismaAttendanceTypeRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository';
 import { GenerateMonthlyAttendanceUseCase } from '../../../src/application/asistencia/generate-monthly-attendance.use-case';
 import { ListSubjectAttendanceUseCase } from '../../../src/application/asistencia/list-subject-attendance.use-case';
 
@@ -39,6 +41,8 @@ const alumnosXMateriaRepo = new PrismaAlumnosXMateriaRepository();
 const grupoRepo = new PrismaGrupoRepository();
 const alumnosXGrupoRepo = new PrismaAlumnosXGrupoRepository();
 const docenteRepo = new PrismaDocenteXCicloRepository();
+const monthStatusRepo = new PrismaAttendanceMonthStatusRepository();
+const attendanceTypeRepo = new PrismaAttendanceTypeRepository();
 
 const generateUC = new GenerateMonthlyAttendanceUseCase(
   alumnosCCRepo,
@@ -46,7 +50,27 @@ const generateUC = new GenerateMonthlyAttendanceUseCase(
   alumnosXMateriaRepo,
   generalRepo,
   materiaAsistRepo,
+  monthStatusRepo,
+  attendanceTypeRepo,
 );
+
+/** Seeds the system "P" AttendanceType at base level 3 (composite 30) so the
+ *  GenerateMonthly autollenado can resolve Presente (behavior NO_COMPUTA). */
+function seedPresenteType(i1: ReturnType<typeof tenantI1Client>) {
+  return i1.attendanceType.create({
+    data: {
+      level: 3,
+      code: 'P',
+      description: 'Presente',
+      absenceValue: 0,
+      isPresent: true,
+      assignable: true,
+      behavior: 'NO_COMPUTA',
+      isSystem: true,
+      active: true,
+    },
+  });
+}
 
 const listSubjectUC = new ListSubjectAttendanceUseCase(
   materiaAsistRepo,
@@ -71,7 +95,8 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
   describe('GRP-DB-01: grupoId filter returns only group members', () => {
     it('only stu-1 (in grupo-A) appears when filtered by grupo-A id', async () => {
       const i1 = tenantI1Client();
-      const { cycle, courseCycle } = await seedCourseCycle(i1);
+      const { cycle, courseCycle } = await seedCourseCycle(i1, { level: 30 });
+      await seedPresenteType(i1);
 
       const student1 = await createStudent(i1);
       const student2 = await createStudent(i1);
@@ -102,8 +127,8 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
         generateUC.execute({ courseCycleId: courseCycle.uuid, year: YEAR, month: MONTH, ...ADMIN_INPUT }),
       );
 
-      // List with grupoId filter → only student1
-      const filtered = await runInTenant(i1, () =>
+      // List with grupoId filter → only student1 (execute returns Result — unwrap)
+      const filteredResult = await runInTenant(i1, () =>
         listSubjectUC.execute({
           materiaXCursoXCicloId: materia.id,
           year: YEAR,
@@ -112,16 +137,19 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
           ...ADMIN_INPUT,
         }),
       );
+      const filtered = filteredResult.unwrap();
 
       expect(filtered).toHaveLength(1);
-      expect(filtered[0].studentId).toBe(student1.id);
+      // Enriched rows wrap the entity: studentId lives under `.attendance`.
+      expect(filtered[0].attendance.studentId).toBe(student1.id);
     });
   });
 
   describe('GRP-DB-02: no grupoId → all materia students', () => {
     it('returns rows for all students in the materia when no grupoId filter', async () => {
       const i1 = tenantI1Client();
-      const { courseCycle } = await seedCourseCycle(i1);
+      const { courseCycle } = await seedCourseCycle(i1, { level: 30 });
+      await seedPresenteType(i1);
 
       const student1 = await createStudent(i1);
       const student2 = await createStudent(i1);
@@ -139,8 +167,8 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
         generateUC.execute({ courseCycleId: courseCycle.uuid, year: YEAR, month: MONTH, ...ADMIN_INPUT }),
       );
 
-      // List WITHOUT grupoId → all students
-      const allRows = await runInTenant(i1, () =>
+      // List WITHOUT grupoId → all students (execute returns Result — unwrap)
+      const allRowsResult = await runInTenant(i1, () =>
         listSubjectUC.execute({
           materiaXCursoXCicloId: materia.id,
           year: YEAR,
@@ -148,9 +176,11 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
           ...ADMIN_INPUT,
         }),
       );
+      const allRows = allRowsResult.unwrap();
 
       expect(allRows).toHaveLength(2);
-      const studentIds = allRows.map((r) => r.studentId).sort();
+      // Enriched rows wrap the entity: studentId lives under `.attendance`.
+      const studentIds = allRows.map((r) => r.attendance.studentId).sort();
       expect(studentIds).toEqual([student1.id, student2.id].sort());
     });
   });
@@ -158,7 +188,8 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
   describe('GRP-DB-03: grupoId with empty group → empty array', () => {
     it('returns empty array when grupo exists but has no student members', async () => {
       const i1 = tenantI1Client();
-      const { cycle, courseCycle } = await seedCourseCycle(i1);
+      const { cycle, courseCycle } = await seedCourseCycle(i1, { level: 30 });
+      await seedPresenteType(i1);
 
       const student1 = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student1.id });
@@ -174,7 +205,7 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
         generateUC.execute({ courseCycleId: courseCycle.uuid, year: YEAR, month: MONTH, ...ADMIN_INPUT }),
       );
 
-      const result = await runInTenant(i1, () =>
+      const resultOutcome = await runInTenant(i1, () =>
         listSubjectUC.execute({
           materiaXCursoXCicloId: materia.id,
           year: YEAR,
@@ -183,6 +214,7 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
           ...ADMIN_INPUT,
         }),
       );
+      const result = resultOutcome.unwrap();
 
       expect(result).toHaveLength(0);
     });

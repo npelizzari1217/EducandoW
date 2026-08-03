@@ -41,6 +41,8 @@ import { PrismaAsistenciaMateriaRepository } from '../../../src/infrastructure/p
 import { PrismaAlumnosXCursoXCicloRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-alumnos-x-curso-x-ciclo.repository';
 import { PrismaMateriaXCursoXCicloRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-materia-x-curso-x-ciclo.repository';
 import { PrismaAlumnosXMateriaRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-alumnos-x-materia.repository';
+import { PrismaAttendanceMonthStatusRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-attendance-month-status.repository';
+import { PrismaAttendanceTypeRepository } from '../../../src/infrastructure/persistence/prisma/repositories/prisma-attendance-type.repository';
 import { GenerateMonthlyAttendanceUseCase } from '../../../src/application/asistencia/generate-monthly-attendance.use-case';
 
 // ── Repos for seeding ─────────────────────────────────────────────────────────
@@ -50,6 +52,8 @@ const materiaAsistRepo = new PrismaAsistenciaMateriaRepository();
 const alumnosCCRepo = new PrismaAlumnosXCursoXCicloRepository();
 const mxccRepo = new PrismaMateriaXCursoXCicloRepository();
 const alumnosXMateriaRepo = new PrismaAlumnosXMateriaRepository();
+const monthStatusRepo = new PrismaAttendanceMonthStatusRepository();
+const attendanceTypeRepo = new PrismaAttendanceTypeRepository();
 
 const generateUC = new GenerateMonthlyAttendanceUseCase(
   alumnosCCRepo,
@@ -57,6 +61,8 @@ const generateUC = new GenerateMonthlyAttendanceUseCase(
   alumnosXMateriaRepo,
   generalRepo,
   materiaAsistRepo,
+  monthStatusRepo,
+  attendanceTypeRepo,
 );
 
 const YEAR = 2026;
@@ -156,7 +162,10 @@ describe('F6-T9 — 3-door enforcement (HTTP level)', () => {
   describe('(c) ATTENDANCE:CREATE present AND user is a preceptor', () => {
     it('returns 200 and persists the recorded day when both doors are satisfied', async () => {
       const i1 = tenantI1Client();
-      const { cycle, courseCycle } = await seedCourseCycle(i1);
+      // Composite level 30 (Secundario común) → base level 3. GenerateMonthly's
+      // autollenado resolves the Presente type via fromLevelCode(30)=3, so the
+      // seeded 'P' type must live at level 3.
+      const { cycle, courseCycle } = await seedCourseCycle(i1, { level: 30 });
       const student = await createStudent(i1);
       await createAlumnosXCursoXCiclo(i1, { courseCycleId: courseCycle.uuid, studentId: student.id });
 
@@ -167,16 +176,20 @@ describe('F6-T9 — 3-door enforcement (HTTP level)', () => {
         docenteXCicloId: docente.id,
       });
 
-      // Seed: attendance type so statusCode 'P' passes catalog validation
+      // Seed: attendance type so statusCode 'P' passes catalog validation AND the
+      // autollenado can resolve Presente (behavior NO_COMPUTA, base level 3).
       await i1.attendanceType.create({
         data: {
-          level: 1,
+          level: 3,
           code: 'P',
           description: 'Presente',
           absenceValue: 0,
           isPresent: true,
           assignable: true,
-          isSystem: false,
+          behavior: 'NO_COMPUTA',
+          // isSystem must be true: findPresenteByLevel (autollenado) only matches
+          // system types, so a non-system 'P' would leave the row ungenerated → 404.
+          isSystem: true,
           active: true,
         },
       });
