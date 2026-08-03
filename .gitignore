@@ -72,6 +72,7 @@ mobile/android/
 
 # Herramientas
 mobile/.atl/
+.atl/.skill-registry.cache.json
 
 # Claude Code personal overrides
 .claude/settings.local.json
