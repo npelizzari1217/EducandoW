@@ -133,9 +133,10 @@ describe('ListSubjectAttendanceUseCase', () => {
     it('returns all enriched rows when no grupoId is passed', async () => {
       const { uc, materiaAsistRepo } = makeUC();
       const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
-      expect(result).toHaveLength(2); // both stu-1 and stu-2
-      expect(result[0]).toHaveProperty('attendance');
-      expect(result[0]).toHaveProperty('studentName');
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toHaveLength(2); // both stu-1 and stu-2
+      expect(result.unwrap()[0]).toHaveProperty('attendance');
+      expect(result.unwrap()[0]).toHaveProperty('studentName');
       // No studentIds filter passed to repo
       expect(materiaAsistRepo.findByScopeAndMonthEnriched).toHaveBeenCalledWith(MXCC_ID, YEAR, MONTH, undefined);
     });
@@ -156,8 +157,8 @@ describe('ListSubjectAttendanceUseCase', () => {
       expect(materiaAsistRepo.findByScopeAndMonthEnriched).toHaveBeenCalledWith(
         MXCC_ID, YEAR, MONTH, ['stu-1'],
       );
-      expect(result).toHaveLength(1);
-      expect(result[0]).toBe(enrichedStu1);
+      expect(result.unwrap()).toHaveLength(1);
+      expect(result.unwrap()[0]).toBe(enrichedStu1);
     });
   });
 
@@ -165,7 +166,7 @@ describe('ListSubjectAttendanceUseCase', () => {
     it('returns empty array when group has no students', async () => {
       const { uc } = makeUC({ studentIdsInGroup: [], filteredEnrichedRows: [] });
       const result = await uc.execute({ ...baseInput, grupoId: GRUPO_ID, userRoles: ['ADMIN'] });
-      expect(result).toEqual([]);
+      expect(result.unwrap()).toEqual([]);
     });
   });
 
@@ -184,23 +185,23 @@ describe('ListSubjectAttendanceUseCase', () => {
       });
       const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
       expect(materiaAsistRepo.findByScopeAndMonthEnriched).toHaveBeenCalledOnce();
-      expect(result).toBeDefined();
+      expect(result.isOk()).toBe(true);
     });
   });
 
   describe('LSA-T06: TEACHER with no group in materia → ForbiddenError', () => {
-    it('throws ForbiddenError when teacher has no group for this materia', async () => {
+    it('returns err(ForbiddenError) when teacher has no group for this materia', async () => {
       const { uc } = makeUC({ teacherGroups: [] });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
 
-    it('throws ForbiddenError when teacher is not a DocenteXCiclo', async () => {
+    it('returns err(ForbiddenError) when teacher is not a DocenteXCiclo', async () => {
       const { uc } = makeUC({ docenteExists: false });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
   });
 });
