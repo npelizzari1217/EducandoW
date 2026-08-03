@@ -11,7 +11,7 @@
  * The mock stubs findByScopeAndMonthEnriched (NOT findByScopeAndMonth).
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 import { DayMap, AsistenciaXAlumnoXCursoXCiclo, Id } from '@educandow/domain';
 import type { EnrichedGeneralAttendance } from '@educandow/domain';
 

@@ -10,11 +10,11 @@ import {
   StudentRepository,
   StudentGuardianRepository,
   NotFoundError,
-  ForbiddenError,
   ValidationError,
   Dni,
   Id,
 } from '@educandow/domain';
+import { ForbiddenError } from '../../../shared/errors/forbidden-error';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

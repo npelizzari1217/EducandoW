@@ -26,11 +26,11 @@ import * as path from 'path';
 import Handlebars from 'handlebars';
 import {
   resolveAccessScope,
-  ForbiddenError,
   computeStudentTotals,
   computeDiasHabiles,
   daysInMonth,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import type {
   AttendanceTypeRepository,
   AsistenciaGeneralRepository,

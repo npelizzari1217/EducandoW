@@ -4,7 +4,6 @@ export type { Result } from './shared/result';
 export { DomainError } from './shared/errors/domain-error';
 export { NotFoundError } from './shared/errors/not-found-error';
 export { ValidationError } from './shared/errors/validation-error';
-export { ForbiddenError } from './shared/errors/forbidden-error';
 export { AlumnoAlreadyInGrupoError } from './shared/errors/alumno-already-in-grupo-error';
 export { GrupoMateriaMismatchError } from './shared/errors/grupo-materia-mismatch-error';
 export { DomainEvent } from './shared/events/domain-event';

@@ -5,7 +5,8 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpsertSubjectPeriodGradesUseCase } from './upsert-subject-period-grades.use-case';
-import { SubjectPeriodGrade, SubjectGradingPeriod, NotFoundError, ValidationError, ForbiddenError } from '@educandow/domain';
+import { SubjectPeriodGrade, SubjectGradingPeriod, NotFoundError, ValidationError } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({

@@ -15,7 +15,6 @@
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import {
-  ForbiddenError,
   NotFoundError,
   buildLockedDayMap,
   fillHabilVacios,
@@ -23,6 +22,7 @@ import {
   PreviousMonthOpenError,
   PresenteTypeNotFoundError,
 } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: { getClient: vi.fn() },

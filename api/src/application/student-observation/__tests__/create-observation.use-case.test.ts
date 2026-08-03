@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CreateObservationUseCase } from '../create-observation.use-case';
 import type { StudentObservationRepository } from '@educandow/domain';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 describe('CreateObservationUseCase — PSYCHOPEDAGOGICAL authorization + academicCycleId', () => {
   let useCase: CreateObservationUseCase;

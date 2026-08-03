@@ -23,7 +23,7 @@ import {
   Controller, Get, Param, Query, Res, UseGuards, ForbiddenException,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError } from '../../application/shared/errors/forbidden-error';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';

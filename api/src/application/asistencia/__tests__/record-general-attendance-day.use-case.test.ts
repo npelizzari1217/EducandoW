@@ -18,7 +18,6 @@
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import {
-  ForbiddenError,
   NotFoundError,
   ValidationError,
   DayNotAssignableError,
@@ -27,6 +26,7 @@ import {
   AttendanceMonthStatus,
 } from '@educandow/domain';
 import { DayMap, AsistenciaXAlumnoXCursoXCiclo, Id, AttendanceTypeCode } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: { getClient: vi.fn() },

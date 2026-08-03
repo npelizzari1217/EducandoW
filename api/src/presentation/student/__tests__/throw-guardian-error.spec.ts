@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
-import { ForbiddenError } from '@educandow/domain';
+import { ForbiddenError } from '../../../application/shared/errors/forbidden-error';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let StudentController: any;

@@ -9,7 +9,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Reflector } from '@nestjs/core';
 import { ForbiddenException, HttpException } from '@nestjs/common';
-import { ForbiddenError, ok, err } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
+import { ForbiddenError } from '../../../application/shared/errors/forbidden-error';
 import { AsistenciaReportingController } from '../asistencia-reporting.controller';
 import { AsistenciaReportingError } from '../../../application/asistencia-reporting/asistencia-reporting.errors';
 import { PdfError } from '../../../application/shared/errors/pdf.error';

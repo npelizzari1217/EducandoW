@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { ok, err, Result, ValidationError, StudentRepository, Student, Id, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, ForbiddenError, Email, Mobile, DomainError } from '@educandow/domain';
+import { ok, err, Result, ValidationError, StudentRepository, Student, Id, Dni, StudentGuardian, StudentGuardianRepository, NotFoundError, Email, Mobile, DomainError } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 
 export interface CreateStudentInput {
   firstName: string;
@@ -148,7 +149,7 @@ export class PatchStudentUseCase {
     studentId: string,
     body: Record<string, unknown>,
     caller: CallerInfo,
-  ): Promise<Result<Student, DomainError>> {
+  ): Promise<Result<Student, DomainError | ForbiddenError>> {
     // 1. Validate student exists
     const student = await this.studentRepo.findById(studentId);
     if (!student) return err(new NotFoundError('Student', studentId));

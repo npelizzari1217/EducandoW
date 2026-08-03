@@ -13,7 +13,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
-  ForbiddenError,
   ok,
   err,
 } from '@educandow/domain';
@@ -24,6 +23,7 @@ import type {
   EnrichedGeneralAttendance,
   Result,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 export interface ListGeneralAttendanceInput {

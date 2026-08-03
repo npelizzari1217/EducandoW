@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { AsignacionCursoXCiclo, AsignacionCursoXCicloRepository } from '@educandow/domain';
-import { RolCurso, TurnoCurso, ForbiddenError } from '@educandow/domain';
+import { RolCurso, TurnoCurso } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { DocenteXCicloService } from '../docente-ciclo/docente-x-ciclo.service';
 
 /**

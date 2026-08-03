@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
   ok, err, Result,
-  NotFoundError, ForbiddenError,
+  NotFoundError,
   Id,
   StudentObservationRepository,
   getHighestRoleRank,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 
 export interface DeleteObservationInput {
   observationId: string;

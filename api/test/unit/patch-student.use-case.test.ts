@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PatchStudentUseCase } from '../../src/application/student/use-cases/student.use-cases';
-import { StudentRepository, StudentGuardianRepository, Student, ForbiddenError, NotFoundError } from '@educandow/domain';
+import { StudentRepository, StudentGuardianRepository, Student, NotFoundError } from '@educandow/domain';
+import { ForbiddenError } from '../../src/application/shared/errors/forbidden-error';
 
 describe('PatchStudentUseCase', () => {
   let useCase: PatchStudentUseCase;

@@ -15,7 +15,7 @@
  * Specs: SFG-R3..R9, AD-2
  */
 import { Injectable } from '@nestjs/common';
-import { Result, ok, err, NotFoundError, ValidationError, ForbiddenError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion, GradingPhaseViolationError } from '@educandow/domain';
+import { Result, ok, err, NotFoundError, ValidationError, SubjectFinalGrade, SubjectFinalGradeType, SubjectFinalGradeCondicion, GradingPhaseViolationError } from '@educandow/domain';
 import type {
   SubjectFinalGradeRepository,
   CourseCycleRepository,
@@ -23,6 +23,7 @@ import type {
   AssignmentAuthorizerPort,
   GradingPhaseAuthorizerPort,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 // ── Input types ───────────────────────────────────────────────────────────────

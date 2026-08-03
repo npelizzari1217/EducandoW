@@ -27,7 +27,6 @@
 import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
-  ForbiddenError,
   NotFoundError,
   ValidationError,
   daysInMonth,
@@ -38,6 +37,7 @@ import {
   ok,
   err,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import type {
   AsistenciaMateriaRepository,
   AttendanceTypeRepository,
