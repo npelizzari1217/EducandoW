@@ -14,12 +14,15 @@ import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
   ForbiddenError,
+  ok,
+  err,
 } from '@educandow/domain';
 import type {
   AsistenciaGeneralRepository,
   DocenteXCicloRepository,
   AsignacionCursoXCicloRepository,
   EnrichedGeneralAttendance,
+  Result,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -39,21 +42,25 @@ export class ListGeneralAttendanceUseCase {
     private readonly asignacionRepo: AsignacionCursoXCicloRepository,
   ) {}
 
-  async execute(input: ListGeneralAttendanceInput): Promise<EnrichedGeneralAttendance[]> {
+  async execute(
+    input: ListGeneralAttendanceInput,
+  ): Promise<Result<EnrichedGeneralAttendance[], ForbiddenError>> {
     const { courseCycleId, year, month, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
-      await this.checkDoor2(courseCycleId, userId);
+      const check = await this.checkDoor2(courseCycleId, userId);
+      if (check.isErr()) return err(check.unwrapErr());
     }
 
-    return this.generalRepo.findByScopeAndMonthEnriched(courseCycleId, year, month, undefined);
+    const rows = await this.generalRepo.findByScopeAndMonthEnriched(courseCycleId, year, month, undefined);
+    return ok(rows);
   }
 
-  private async checkDoor2(courseCycleId: string, userId: string): Promise<void> {
+  private async checkDoor2(courseCycleId: string, userId: string): Promise<Result<void, ForbiddenError>> {
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
 
     const cc = await client.courseCycle.findUnique({
@@ -61,17 +68,19 @@ export class ListGeneralAttendanceUseCase {
       select: { cycleId: true },
     });
     if (!cc) {
-      throw new ForbiddenError('CourseCycle not found — authorization failed');
+      return err(new ForbiddenError('CourseCycle not found — authorization failed'));
     }
 
     const docente = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
     if (!docente) {
-      throw new ForbiddenError('User is not a DocenteXCiclo in this cycle');
+      return err(new ForbiddenError('User is not a DocenteXCiclo in this cycle'));
     }
 
     const isPreceptor = await this.asignacionRepo.isPreceptor(docente.id, courseCycleId);
     if (!isPreceptor) {
-      throw new ForbiddenError('User is not a preceptor for this CursoXCiclo');
+      return err(new ForbiddenError('User is not a preceptor for this CursoXCiclo'));
     }
+
+    return ok(undefined);
   }
 }

@@ -16,6 +16,8 @@ import { Injectable } from '@nestjs/common';
 import {
   resolveAccessScope,
   ForbiddenError,
+  ok,
+  err,
 } from '@educandow/domain';
 import type {
   AsistenciaMateriaRepository,
@@ -23,6 +25,7 @@ import type {
   AlumnosXGrupoRepository,
   DocenteXCicloRepository,
   EnrichedMateriaAttendance,
+  Result,
 } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
@@ -47,12 +50,13 @@ export class ListSubjectAttendanceUseCase {
 
   async execute(
     input: ListSubjectAttendanceInput,
-  ): Promise<EnrichedMateriaAttendance[]> {
+  ): Promise<Result<EnrichedMateriaAttendance[], ForbiddenError>> {
     const { materiaXCursoXCicloId, year, month, grupoId, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
     if (!scope.isAdministrative) {
-      await this.checkDoor2(materiaXCursoXCicloId, userId);
+      const check = await this.checkDoor2(materiaXCursoXCicloId, userId);
+      if (check.isErr()) return err(check.unwrapErr());
     }
 
     // Apply group filter when grupoId is provided (ADR-2, R-22/R-23)
@@ -61,13 +65,14 @@ export class ListSubjectAttendanceUseCase {
       studentIds = await this.alumnosXGrupoRepo.findStudentIdsByGrupoIds([grupoId]);
     }
 
-    return this.materiaAsistRepo.findByScopeAndMonthEnriched(materiaXCursoXCicloId, year, month, studentIds);
+    const rows = await this.materiaAsistRepo.findByScopeAndMonthEnriched(materiaXCursoXCicloId, year, month, studentIds);
+    return ok(rows);
   }
 
-  private async checkDoor2(materiaXCursoXCicloId: string, userId: string): Promise<void> {
+  private async checkDoor2(materiaXCursoXCicloId: string, userId: string): Promise<Result<void, ForbiddenError>> {
     const client = TenantContext.getClient();
     if (!client) {
-      throw new ForbiddenError('Tenant context unavailable');
+      return err(new ForbiddenError('Tenant context unavailable'));
     }
 
     // Resolve materia → CC → cycleId
@@ -76,7 +81,7 @@ export class ListSubjectAttendanceUseCase {
       select: { courseCycleId: true },
     });
     if (!materia) {
-      throw new ForbiddenError('MateriaXCursoXCiclo not found — authorization failed');
+      return err(new ForbiddenError('MateriaXCursoXCiclo not found — authorization failed'));
     }
 
     const cc = await client.courseCycle.findUnique({
@@ -84,17 +89,19 @@ export class ListSubjectAttendanceUseCase {
       select: { cycleId: true },
     });
     if (!cc) {
-      throw new ForbiddenError('CourseCycle not found — authorization failed');
+      return err(new ForbiddenError('CourseCycle not found — authorization failed'));
     }
 
     const docente = await this.docenteRepo.findByUserAndCycle(userId, cc.cycleId);
     if (!docente) {
-      throw new ForbiddenError('User is not a DocenteXCiclo in this cycle');
+      return err(new ForbiddenError('User is not a DocenteXCiclo in this cycle'));
     }
 
     const teacherGroups = await this.grupoRepo.findGroupsForDocente(docente.id, materiaXCursoXCicloId);
     if (teacherGroups.length === 0) {
-      throw new ForbiddenError('User has no group assignment for this materia');
+      return err(new ForbiddenError('User has no group assignment for this materia'));
     }
+
+    return ok(undefined);
   }
 }
