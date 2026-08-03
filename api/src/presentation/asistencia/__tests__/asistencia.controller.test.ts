@@ -102,9 +102,9 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.listSubjectUC = overrides.listSubjectUC ?? {
     execute: vi.fn().mockResolvedValue(ok([makeEnrichedMateria()])),
   };
-  // recordSubjectUC still returns a plain domain entity
+  // recordSubjectUC now returns Result<AsistenciaXMateriaXAlumnoXCursoXCiclo, ...> (no enrichment on PATCH)
   ctrl.recordSubjectUC = overrides.recordSubjectUC ?? {
-    execute: vi.fn().mockResolvedValue(makeMateriaRow()),
+    execute: vi.fn().mockResolvedValue(ok(makeMateriaRow())),
   };
   // Attendance month status use-cases (PR-3b)
   ctrl.getMonthStatusUC = overrides.getMonthStatusUC ?? {
@@ -329,7 +329,7 @@ describe('AsistenciaController — recordSubjectDay', () => {
     const domainError = new Error('NotFound: row not found');
     const ctrl = makeController({
       recordSubjectUC: {
-        execute: vi.fn().mockRejectedValue(domainError),
+        execute: vi.fn().mockResolvedValue(err(domainError)),
       },
     });
     const body = { studentId: 'stu-1', year: 2026, month: 6, day: 10, statusCode: 'A' };
