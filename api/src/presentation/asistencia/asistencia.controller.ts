@@ -210,24 +210,18 @@ export class AsistenciaController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(RecordSubjectDaySchema)) body: RecordSubjectDayDto,
   ): Promise<{ data: AsistenciaMateriaResponse }> {
-    try {
-      const row = await this.recordSubjectUC.execute({
-        materiaXCursoXCicloId: materiaId,
-        studentId: body.studentId,
-        year: body.year,
-        month: body.month,
-        day: body.day,
-        statusCode: body.statusCode,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      return { data: this.toMateriaResponse(row, '') };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
+    const result = await this.recordSubjectUC.execute({
+      materiaXCursoXCicloId: materiaId,
+      studentId: body.studentId,
+      year: body.year,
+      month: body.month,
+      day: body.day,
+      statusCode: body.statusCode,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: this.toMateriaResponse(result.unwrap(), '') };
   }
 
   /**
