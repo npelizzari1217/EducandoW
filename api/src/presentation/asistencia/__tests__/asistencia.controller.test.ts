@@ -9,7 +9,7 @@
  *   CTR-T13: POST generate — Result.err(PresenteTypeNotFoundError) → propagates as-is
  *            (asistencia-autollenado-p PR-4, mapped to 422 by AppExceptionFilter)
  *   CTR-T03: GET listGeneral — returns mapped rows with studentName "Apellido, Nombre"
- *   CTR-T04: GET listGeneral — ForbiddenError → ForbiddenException
+ *   CTR-T04: GET listGeneral — ForbiddenError propagates as-is (DomainError, 403 via filter)
  *   CTR-T05: PATCH recordGeneralDay — studentName === '' (ADR-5)
  *   CTR-T06: PATCH recordGeneralDay — ForbiddenError → ForbiddenException
  *   CTR-T07: GET listSubject — returns mapped rows with studentName "Apellido, Nombre"
@@ -28,6 +28,7 @@ import {
   DayMap,
   Id,
   ok,
+  err,
   PresenteTypeNotFoundError,
 } from '@educandow/domain';
 import type { EnrichedGeneralAttendance, EnrichedMateriaAttendance } from '@educandow/domain';
@@ -89,17 +90,17 @@ function makeController(overrides: Record<string, unknown> = {}) {
   ctrl.generateMonthlyUC = overrides.generateMonthlyUC ?? {
     execute: vi.fn().mockResolvedValue(ok(generationCounts)),
   };
-  // listGeneralUC now returns EnrichedGeneralAttendance[]
+  // listGeneralUC now returns Result<EnrichedGeneralAttendance[], ForbiddenError>
   ctrl.listGeneralUC = overrides.listGeneralUC ?? {
-    execute: vi.fn().mockResolvedValue([makeEnrichedGeneral()]),
+    execute: vi.fn().mockResolvedValue(ok([makeEnrichedGeneral()])),
   };
   // recordGeneralUC still returns a plain domain entity (no enrichment on PATCH)
   ctrl.recordGeneralUC = overrides.recordGeneralUC ?? {
     execute: vi.fn().mockResolvedValue(makeGeneralRow()),
   };
-  // listSubjectUC now returns EnrichedMateriaAttendance[]
+  // listSubjectUC now returns Result<EnrichedMateriaAttendance[], ForbiddenError>
   ctrl.listSubjectUC = overrides.listSubjectUC ?? {
-    execute: vi.fn().mockResolvedValue([makeEnrichedMateria()]),
+    execute: vi.fn().mockResolvedValue(ok([makeEnrichedMateria()])),
   };
   // recordSubjectUC still returns a plain domain entity
   ctrl.recordSubjectUC = overrides.recordSubjectUC ?? {
@@ -197,15 +198,15 @@ describe('AsistenciaController — listGeneral', () => {
     });
   });
 
-  it('CTR-T04: ForbiddenError → ForbiddenException', async () => {
+  it('CTR-T04: ForbiddenError → thrown as ForbiddenError (DomainError), 403 unchanged via filter', async () => {
     const ctrl = makeController({
       listGeneralUC: {
-        execute: vi.fn().mockRejectedValue(new ForbiddenError('no access')),
+        execute: vi.fn().mockResolvedValue(err(new ForbiddenError('no access'))),
       },
     });
 
     await expect(ctrl.listGeneral('cc-1', mockUser, { year: 2026, month: 6 }))
-      .rejects.toBeInstanceOf(ForbiddenException);
+      .rejects.toBeInstanceOf(ForbiddenError);
   });
 });
 
@@ -277,7 +278,7 @@ describe('AsistenciaController — listSubject', () => {
   it('CTR-T08: passes grupoId through to use-case', async () => {
     const ctrl = makeController({
       listSubjectUC: {
-        execute: vi.fn().mockResolvedValue([makeEnrichedMateria()]),
+        execute: vi.fn().mockResolvedValue(ok([makeEnrichedMateria()])),
       },
     });
     const query = { year: 2026, month: 6, grupoId: 'grp-1' };

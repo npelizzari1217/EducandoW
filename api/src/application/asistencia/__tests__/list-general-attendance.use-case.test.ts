@@ -103,9 +103,10 @@ describe('ListGeneralAttendanceUseCase', () => {
     it('SECRETARIO gets enriched rows without Door 2 check', async () => {
       const { uc, generalRepo, asignacionRepo } = makeUC({ enrichedRows: makeEnrichedRows(3) });
       const result = await uc.execute({ ...baseInput, userRoles: ['SECRETARIO'] });
-      expect(result).toHaveLength(3);
-      expect(result[0]).toHaveProperty('attendance');
-      expect(result[0]).toHaveProperty('studentName');
+      expect(result.isOk()).toBe(true);
+      expect(result.unwrap()).toHaveLength(3);
+      expect(result.unwrap()[0]).toHaveProperty('attendance');
+      expect(result.unwrap()[0]).toHaveProperty('studentName');
       expect(generalRepo.findByScopeAndMonthEnriched).toHaveBeenCalledWith(CC_ID, YEAR, MONTH, undefined);
       expect(asignacionRepo.isPreceptor).not.toHaveBeenCalled();
     });
@@ -115,17 +116,17 @@ describe('ListGeneralAttendanceUseCase', () => {
     it('preceptor can list general attendance for their CC', async () => {
       const { uc, generalRepo } = makeUC({ isPreceptor: true });
       const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
-      expect(result).toHaveLength(2);
+      expect(result.unwrap()).toHaveLength(2);
       expect(generalRepo.findByScopeAndMonthEnriched).toHaveBeenCalledOnce();
     });
   });
 
   describe('LGA-T03: non-preceptor TEACHER → ForbiddenError', () => {
-    it('throws ForbiddenError when teacher is not a preceptor', async () => {
+    it('returns err(ForbiddenError) when teacher is not a preceptor', async () => {
       const { uc } = makeUC({ isPreceptor: false });
-      await expect(
-        uc.execute({ ...baseInput, userRoles: ['TEACHER'] }),
-      ).rejects.toBeInstanceOf(ForbiddenError);
+      const result = await uc.execute({ ...baseInput, userRoles: ['TEACHER'] });
+      expect(result.isErr()).toBe(true);
+      expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
     });
   });
 
@@ -133,7 +134,7 @@ describe('ListGeneralAttendanceUseCase', () => {
     it('returns empty array when month not generated (no error)', async () => {
       const { uc } = makeUC({ enrichedRows: [] });
       const result = await uc.execute({ ...baseInput, userRoles: ['ADMIN'] });
-      expect(result).toEqual([]);
+      expect(result.unwrap()).toEqual([]);
     });
   });
 });

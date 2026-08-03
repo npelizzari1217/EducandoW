@@ -136,21 +136,15 @@ export class AsistenciaController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(GeneralAttendanceQuerySchema)) query: GeneralAttendanceQueryDto,
   ): Promise<{ data: AsistenciaGeneralResponse[] }> {
-    try {
-      const rows = await this.listGeneralUC.execute({
-        courseCycleId: ccId,
-        year: query.year,
-        month: query.month,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      return { data: rows.map((e) => this.toGeneralResponse(e.attendance, e.studentName)) };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
+    const result = await this.listGeneralUC.execute({
+      courseCycleId: ccId,
+      year: query.year,
+      month: query.month,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap().map((e) => this.toGeneralResponse(e.attendance, e.studentName)) };
   }
 
   /**
@@ -198,22 +192,16 @@ export class AsistenciaController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(SubjectAttendanceQuerySchema)) query: SubjectAttendanceQueryDto,
   ): Promise<{ data: AsistenciaMateriaResponse[] }> {
-    try {
-      const rows = await this.listSubjectUC.execute({
-        materiaXCursoXCicloId: materiaId,
-        year: query.year,
-        month: query.month,
-        grupoId: query.grupoId,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      return { data: rows.map((e) => this.toMateriaResponse(e.attendance, e.studentName)) };
-    } catch (err) {
-      if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-        throw new ForbiddenException((err as Error).message);
-      }
-      throw err;
-    }
+    const result = await this.listSubjectUC.execute({
+      materiaXCursoXCicloId: materiaId,
+      year: query.year,
+      month: query.month,
+      grupoId: query.grupoId,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    if (result.isErr()) throw result.unwrapErr();
+    return { data: result.unwrap().map((e) => this.toMateriaResponse(e.attendance, e.studentName)) };
   }
 
   /**
