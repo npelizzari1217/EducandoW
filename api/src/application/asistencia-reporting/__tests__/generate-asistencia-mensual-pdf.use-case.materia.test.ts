@@ -5,7 +5,8 @@
  * Totals/días-hábiles wiring identical to General (Scenario P2-11).
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, ok, err } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 import {
   AttendanceType,
   AttendanceBehaviorValue,

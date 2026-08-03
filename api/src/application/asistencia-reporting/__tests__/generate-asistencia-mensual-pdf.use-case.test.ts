@@ -7,7 +7,8 @@
  * "covered by T3.9 use-case test rendering real HTML").
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ForbiddenError, ok, err } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
+import { ForbiddenError } from '../../shared/errors/forbidden-error';
 import {
   AttendanceType,
   AttendanceBehaviorValue,

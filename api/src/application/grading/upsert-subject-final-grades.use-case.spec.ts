@@ -11,8 +11,8 @@ import {
   SubjectFinalGradeCondicion,
   NotFoundError,
   ValidationError,
-  ForbiddenError,
 } from '@educandow/domain';
+import { ForbiddenError } from '../shared/errors/forbidden-error';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 
 vi.mock('../../infrastructure/auth/tenant.context', () => ({

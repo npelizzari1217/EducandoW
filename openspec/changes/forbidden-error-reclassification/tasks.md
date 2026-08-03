@@ -69,21 +69,21 @@ Required because after Phase 2, `ForbiddenError` no longer satisfies the bare `D
 
 ## Phase 4: Delete Domain Residue — FER-R1, FER-R9
 
-- [ ] 4.1 Delete `packages/domain/src/shared/errors/forbidden-error.ts` entirely (FER-R1)
-- [ ] 4.2 Remove `export { ForbiddenError } from './shared/errors/forbidden-error';` from `packages/domain/src/index.ts:7` (FER-R1). No other file under `packages/domain` is touched (FER-R9)
+- [x] 4.1 Delete `packages/domain/src/shared/errors/forbidden-error.ts` entirely (FER-R1)
+- [x] 4.2 Remove `export { ForbiddenError } from './shared/errors/forbidden-error';` from `packages/domain/src/index.ts:7` (FER-R1). No other file under `packages/domain` is touched (FER-R9)
 
 ## Phase 5: Filter Cleanup — FER-R7
 
-- [ ] 5.1 Delete `FORBIDDEN: 403,` (L13) from the `DOMAIN_STATUS` map in `api/src/presentation/shared/filters/exception.filter.ts` — dead code once `ForbiddenError` is `instanceof ApplicationError` (the `ApplicationError` branch at L91 fires before `DomainError`/`DOMAIN_STATUS` at L95); no observable status change (FER-R3, FER-R7)
+- [x] 5.1 Delete `FORBIDDEN: 403,` (L13) from the `DOMAIN_STATUS` map in `api/src/presentation/shared/filters/exception.filter.ts` — dead code once `ForbiddenError` is `instanceof ApplicationError` (the `ApplicationError` branch at L91 fires before `DomainError`/`DOMAIN_STATUS` at L95); no observable status change (FER-R3, FER-R7)
 
 ## Phase 6: Split-Import — 16 Existing Test Files — FER-R2, FER-R8, FER-R9
 
 Same split-import transform as Phase 2, at each test file's relative depth. Assertions (`toBeInstanceOf(ForbiddenError)`, `.rejects.toBeInstanceOf(ForbiddenError)`, `constructor.name === 'ForbiddenError'`) are **unaffected** — only the import line changes, no Result-shape or assertion rewrites (FER-R6 scope boundary applies here too).
 
-- [ ] 6.1 Enumerate the full set before editing: run `rg -l "\bForbiddenError\b" api --glob "**/*.test.ts"` and `rg -l "\bForbiddenError\b" api/test` — reconcile against explore.md's count of 16 (design §6.2)
-- [ ] 6.2 Split-import each hit from 6.1, covering (at minimum) the known members: the `nivel-terciario`, `student`, `asistencia`, `grading`, `institution`, `student-observation` use-case test suites, and the `asistencia-reporting.controller` / `student.controller` presentation tests (the `instanceof` handlers) (FER-R2, FER-R8)
-- [ ] 6.3 `api/test/unit/patch-student.use-case.test.ts` — **import-path update ONLY**; file stays at its current legacy location, no move/consolidate (FER-R9)
-- [ ] 6.4 If any of the above suites boot Prisma/DB (integration/e2e controller tests), note this is a pre-existing property of the suite, not introduced here — flag for the honesty check in Phase 7 rather than skip silently
+- [x] 6.1 Enumerate the full set before editing: `rg -l "\bForbiddenError\b" api --glob "**/*.test.ts"` (12 hits, minus the new forbidden-error.test.ts itself = 11 real) + `rg -l "ForbiddenError" api --glob "**/*.spec.ts"` (4 hits) + `rg -l "\bForbiddenError\b" api/test` (1 legacy) — real total reconciled to **16**, matching design's count exactly once `.spec.ts` files (not covered by the design's literal command) are included (design §6.2)
+- [x] 6.2 Split-import each hit from 6.1: `nivel-terciario` n/a (no test files there import it), `student` (`patch-student.use-case.spec.ts`, `throw-guardian-error.spec.ts`), `asistencia` (5 test files), `asistencia-reporting` (2 use-case tests + 1 controller test), `grading` (2 spec files), `institution` (1 test), `student-observation` (1 test), `asistencia.controller.test.ts` — all 15 files under `api/src` fixed (FER-R2, FER-R8)
+- [x] 6.3 `api/test/unit/patch-student.use-case.test.ts` — **import-path update ONLY**; file stays at its current legacy location, no move/consolidate (FER-R9)
+- [x] 6.4 None of the 16 fixed files boot Prisma/DB — all are mocked-repo unit/spec tests or plain-instantiation controller tests. DB-bound suites exist elsewhere in the repo (pre-existing, unrelated to this change) and are addressed honestly in Phase 7.2
 
 ## Phase 7: Verification Gate — FER-R1..R9
 
