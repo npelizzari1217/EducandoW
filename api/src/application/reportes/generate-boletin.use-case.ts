@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
-import { ok } from '@educandow/domain';
+import { ok, err } from '@educandow/domain';
 import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
@@ -118,18 +118,20 @@ export class GenerateBoletinUseCase {
    *
    * @returns The PDF Buffer ready to be served as application/pdf.
    */
-  async execute(alumnosXCursoXCicloId: string): Promise<Result<Buffer, PdfError>> {
-    const client = this.tenantClient();
+  async execute(alumnosXCursoXCicloId: string): Promise<Result<Buffer, PdfError | BoletinError>> {
+    const clientResult = this.tenantClient();
+    if (clientResult.isErr()) return err(clientResult.unwrapErr());
+    const client = clientResult.unwrap();
 
     // 1. Fetch AlumnosXCursoXCiclo row (replaces enrollment.findUnique)
     const axcc = await (client as any).alumnosXCursoXCiclo.findUnique({
       where: { id: alumnosXCursoXCicloId },
     });
     if (!axcc) {
-      throw new BoletinError('Alumno×Curso×Ciclo no encontrado', 'AXCC_NOT_FOUND', 404);
+      return err(new BoletinError('Alumno×Curso×Ciclo no encontrado', 'AXCC_NOT_FOUND', 404));
     }
     if (!axcc.printable) {
-      throw new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422);
+      return err(new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422));
     }
 
     // 2. Cache-first: return stored PDF if it already exists (key = axcc.id)
@@ -145,7 +147,7 @@ export class GenerateBoletinUseCase {
       include: { course: true },
     });
     if (!cc) {
-      throw new BoletinError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404);
+      return err(new BoletinError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404));
     }
 
     // Build the internal enrollment-shaped object from axcc + cc (internals unchanged)
@@ -163,7 +165,7 @@ export class GenerateBoletinUseCase {
     // 4. Fetch student
     const student = await (client as any).student.findUnique({ where: { id: axcc.studentId } });
     if (!student) {
-      throw new BoletinError('Alumno no encontrado', 'STUDENT_NOT_FOUND', 404);
+      return err(new BoletinError('Alumno no encontrado', 'STUDENT_NOT_FOUND', 404));
     }
 
     // 5. Fetch institution name (master DB)
@@ -182,7 +184,9 @@ export class GenerateBoletinUseCase {
     const asistencia = await this.buildAsistencia(client, axcc.studentId, axcc.courseCycleId ?? null, resolvedEnrollment.level);
 
     // 8b. Build exam board results (SECUNDARIO only)
-    const baseLevel = this.getBaseLevel(resolvedEnrollment.level);
+    const baseLevelResult = this.getBaseLevel(resolvedEnrollment.level);
+    if (baseLevelResult.isErr()) return err(baseLevelResult.unwrapErr());
+    const baseLevel = baseLevelResult.unwrap();
     const mesasExamen = baseLevel === 'SECUNDARIO'
       ? await this.buildMesasExamen(client, resolvedEnrollment.studentId)
       : undefined;
@@ -208,11 +212,11 @@ export class GenerateBoletinUseCase {
     // 10. Choose and render template
     const template = this.templates.get(baseLevel);
     if (!template) {
-      throw new BoletinError(
+      return err(new BoletinError(
         `Nivel pedagógico no soportado para boletín: ${levelName}`,
         'BOLETIN_LEVEL_UNKNOWN',
         422,
-      );
+      ));
     }
     const html = template(datos);
 
@@ -889,10 +893,10 @@ export class GenerateBoletinUseCase {
 
   // ── Helpers ────────────────────────────────────────────────
 
-  private tenantClient(): TenantPrismaClient {
+  private tenantClient(): Result<TenantPrismaClient, BoletinError> {
     const c = TenantContext.getClient();
-    if (!c) throw new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500);
-    return c;
+    if (!c) return err(new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500));
+    return ok(c);
   }
 
   /**
@@ -917,11 +921,11 @@ export class GenerateBoletinUseCase {
 
   /**
    * Returns the base level string for template selection.
-   * Throws BOLETIN_LEVEL_UNKNOWN (422) for unrecognised level codes
+   * Returns err(BoletinError BOLETIN_LEVEL_UNKNOWN, 422) for unrecognised level codes
    * instead of silently defaulting to PRIMARIO (which would produce a wrong PDF).
    * Accepts both base encoding (1-4) and decade encoding (10-49).
    */
-  getBaseLevel(levelCode: number): string {
+  getBaseLevel(levelCode: number): Result<string, BoletinError> {
     const base = this.levelDecade(levelCode) * 10;
     const names: Record<number, string> = {
       10: 'INICIAL',
@@ -931,13 +935,13 @@ export class GenerateBoletinUseCase {
     };
     const name = names[base];
     if (!name) {
-      throw new BoletinError(
+      return err(new BoletinError(
         `Nivel pedagógico desconocido: ${levelCode}`,
         'BOLETIN_LEVEL_UNKNOWN',
         422,
-      );
+      ));
     }
-    return name;
+    return ok(name);
   }
 
   /**

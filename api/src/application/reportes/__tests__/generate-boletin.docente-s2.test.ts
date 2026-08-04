@@ -327,8 +327,10 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
 
-    // printable=false → STUDENT_NOT_PRINTABLE (after T13); RED now because execute reads enrollment
-    await expect(uc.execute('axcc-pri')).rejects.toThrowError(
+    // printable=false → STUDENT_NOT_PRINTABLE
+    const result = await uc.execute('axcc-pri');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
     );
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
@@ -349,7 +351,9 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Primario/Secundario (lev
       { getMasterClient: vi.fn().mockReturnValue({ institution: { findUnique: vi.fn().mockResolvedValue(null) } }) } as never,
     );
 
-    await expect(uc.execute('axcc-sec')).rejects.toThrowError(
+    const result = await uc.execute('axcc-sec');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
     );
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
