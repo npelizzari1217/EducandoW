@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ok, err } from '@educandow/domain';
-import { BoletinError } from '../generate-boletin.use-case';
+import { ok, err, DomainError, BatchAllFailedError, AxccNotFoundError } from '@educandow/domain';
 import { GenerateBoletinBatchUseCase } from '../generate-boletin-batch.use-case';
 import { PdfError } from '../../shared/errors/pdf.error';
+import { InfrastructureError } from '../../shared/errors/infrastructure-error';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -51,26 +52,16 @@ vi.mock('archiver', () => {
 // ── W3 — batch all-fail guard ──────────────────────────────────────────────────
 
 describe('GenerateBoletinBatchUseCase — error codes', () => {
-  it('NO_PRINTABLE_STUDENTS error shape is correct', () => {
-    const err = new BoletinError('No hay alumnos imprimibles en este ciclo', 'NO_PRINTABLE_STUDENTS', 422);
-    expect(err.code).toBe('NO_PRINTABLE_STUDENTS');
-    expect(err.httpStatus).toBe(422);
+  it('BATCH_ALL_FAILED error shape is correct', () => {
+    const e = new BatchAllFailedError('No se pudo generar ningún boletín del lote — todos fallaron');
+    expect(e.code).toBe('BATCH_ALL_FAILED');
   });
 
-  it('BATCH_ALL_FAILED (422) is thrown when all per-student PDFs fail', () => {
-    const err = new BoletinError(
-      'No se pudo generar ningún boletín del lote — todos fallaron',
-      'BATCH_ALL_FAILED',
-      422,
-    );
-    expect(err.code).toBe('BATCH_ALL_FAILED');
-    expect(err.httpStatus).toBe(422);
-  });
-
-  it('BATCH_ALL_FAILED is a BoletinError instance', () => {
-    const err = new BoletinError('todos fallaron', 'BATCH_ALL_FAILED', 422);
-    expect(err).toBeInstanceOf(BoletinError);
-    expect(err).toBeInstanceOf(Error);
+  it('BATCH_ALL_FAILED is a DomainError instance', () => {
+    const e = new BatchAllFailedError('todos fallaron');
+    expect(e).toBeInstanceOf(BatchAllFailedError);
+    expect(e).toBeInstanceOf(DomainError);
+    expect(e).toBeInstanceOf(Error);
   });
 });
 
@@ -96,8 +87,8 @@ describe('batch PDF success counting logic', () => {
     expect(successCount).toBe(0);
     // Guard: successCount === 0 should trigger BATCH_ALL_FAILED
     if (successCount === 0) {
-      const err = new BoletinError('todos fallaron', 'BATCH_ALL_FAILED', 422);
-      expect(err.code).toBe('BATCH_ALL_FAILED');
+      const batchError = new BatchAllFailedError('todos fallaron');
+      expect(batchError.code).toBe('BATCH_ALL_FAILED');
     }
   });
 
@@ -118,13 +109,13 @@ describe('batch PDF success counting logic', () => {
 describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () => {
   // ADR-5: singleUC.execute now returns Result<Buffer, PdfError> (PDF failures,
   // canal A) instead of resolving to a raw Buffer / throwing. `throwIds` keeps
-  // the throw path available to prove the batch still handles BoletinError
+  // the throw path available to prove the batch still handles a thrown DomainError
   // (canal B, validation) — the dual-channel coexistence documented in ADR-3.
   function makeSingleUC(successIds: string[] = [], throwIds: string[] = []): any {
     return {
       execute: vi.fn().mockImplementation(async (axccId: string) => {
         if (successIds.includes(axccId)) return ok(Buffer.from(`PDF-${axccId}`));
-        if (throwIds.includes(axccId)) throw new BoletinError('fail', 'INTERNAL_ERROR', 500);
+        if (throwIds.includes(axccId)) throw new AxccNotFoundError('fail');
         return err(new PdfError({ cause: new Error(`render failed for ${axccId}`) }));
       }),
     };
@@ -259,10 +250,10 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
     }
   });
 
-  it('(PPR-S10) singleUC still handles thrown BoletinError (canal B) alongside Result errors (canal A)', async () => {
+  it('(PPR-S10) singleUC still handles a thrown DomainError (canal B) alongside Result errors (canal A)', async () => {
     const rows = makeAxccRows([
       { id: 'axcc-A', studentId: 'stu-A', printable: true },
-      { id: 'axcc-B', studentId: 'stu-B', printable: true }, // throws BoletinError
+      { id: 'axcc-B', studentId: 'stu-B', printable: true }, // throws AxccNotFoundError
     ]);
     const client = {
       alumnosXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(rows) },
@@ -280,7 +271,7 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
     expect(appendedEntries[0].buffer.toString()).toBe('PDF-axcc-A');
   });
 
-  it('(NET-NEW) all rows fail: execute returns err(BATCH_ALL_FAILED) instead of throwing', async () => {
+  it('(NET-NEW) all rows fail: execute returns err(BatchAllFailedError) instanceof DomainError, code BATCH_ALL_FAILED', async () => {
     const rows = makeAxccRows([
       { id: 'axcc-A', studentId: 'stu-A', printable: true },
       { id: 'axcc-B', studentId: 'stu-B', printable: true },
@@ -299,13 +290,13 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
-    expect(error).toBeInstanceOf(BoletinError);
+    expect(error).toBeInstanceOf(DomainError);
+    expect(error).toBeInstanceOf(BatchAllFailedError);
     expect(error.code).toBe('BATCH_ALL_FAILED');
-    expect(error.httpStatus).toBe(422);
     expect(appendedEntries).toHaveLength(0);
   });
 
-  it('(NET-NEW) missing tenant context: execute returns err(INTERNAL_ERROR) instead of throwing', async () => {
+  it('(RER-R3, NET-NEW) missing tenant context: execute returns err(TenantClientUnavailableError) instanceof InfrastructureError, code TENANT_CLIENT_UNAVAILABLE, httpStatus 500', async () => {
     vi.mocked(TenantContext.getClient).mockReturnValue(undefined as any);
 
     const batchUC = new GenerateBoletinBatchUseCase(makeSingleUC());
@@ -314,8 +305,8 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
 
     expect(result.isErr()).toBe(true);
     const error = result.unwrapErr();
-    expect(error).toBeInstanceOf(BoletinError);
-    expect(error.code).toBe('INTERNAL_ERROR');
-    expect(error.httpStatus).toBe(500);
+    expect(error).toBeInstanceOf(InfrastructureError);
+    expect(error).toBeInstanceOf(TenantClientUnavailableError);
+    expect(error).toMatchObject({ code: 'TENANT_CLIENT_UNAVAILABLE', httpStatus: 500 });
   });
 });

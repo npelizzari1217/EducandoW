@@ -1,11 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Archiver from 'archiver';
 import { Writable } from 'stream';
-import { ok, err } from '@educandow/domain';
+import { ok, err, BatchAllFailedError } from '@educandow/domain';
 import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
-import { GenerateBoletinUseCase, BoletinError } from './generate-boletin.use-case';
+import { TenantClientUnavailableError } from '../shared/errors/infrastructure-errors';
+import { GenerateBoletinUseCase } from './generate-boletin.use-case';
 
 /**
  * GenerateBoletinBatchUseCase — generates report cards for all printable students
@@ -29,7 +30,7 @@ export class GenerateBoletinBatchUseCase {
    *
    * @param courseCycleId - CourseCycle.uuid (replaces the old cycleId / AcademicCycle grain)
    */
-  async execute(courseCycleId: string): Promise<Result<Buffer, BoletinError>> {
+  async execute(courseCycleId: string): Promise<Result<Buffer, BatchAllFailedError | TenantClientUnavailableError>> {
     const clientResult = this.tenantClient();
     if (clientResult.isErr()) return err(clientResult.unwrapErr());
     const client = clientResult.unwrap();
@@ -80,8 +81,8 @@ export class GenerateBoletinBatchUseCase {
       const row = rows[i];
       try {
         // singleUC.execute now takes alumnosXCursoXCicloId (row.id) — T13 repoint.
-        // ADR-5: singleUC.execute returns Result<Buffer, PdfError> (canal A, PDF
-        // failures) — the try/catch below is kept ONLY for BoletinError
+        // ADR-5: singleUC.execute returns Result<Buffer, PdfError | ...> (canal A,
+        // PDF/domain failures) — the try/catch below is kept ONLY for a DomainError
         // (canal B, validation), which the singleUC can still throw before
         // reaching the port.
         const result = await this.singleUC.execute(row.id);
@@ -104,16 +105,14 @@ export class GenerateBoletinBatchUseCase {
         this.logger.error(
           `Failed to generate PDF for AlumnosXCursoXCiclo ${row.id}: ${(err as Error).message}`,
         );
-        // Continue with next student — don't fail the whole batch (canal B: BoletinError)
+        // Continue with next student — don't fail the whole batch (canal B: thrown DomainError)
       }
     }
 
     // Guard: if printable rows existed but ALL individual PDFs failed, do not return empty ZIP
     if (successCount === 0) {
-      return err(new BoletinError(
+      return err(new BatchAllFailedError(
         'No se pudo generar ningún boletín del lote — todos fallaron',
-        'BATCH_ALL_FAILED',
-        422,
       ));
     }
 
@@ -147,9 +146,9 @@ export class GenerateBoletinBatchUseCase {
     });
   }
 
-  private tenantClient(): Result<TenantPrismaClient, BoletinError> {
+  private tenantClient(): Result<TenantPrismaClient, TenantClientUnavailableError> {
     const c = TenantContext.getClient();
-    if (!c) return err(new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500));
+    if (!c) return err(new TenantClientUnavailableError());
     return ok(c);
   }
 }
