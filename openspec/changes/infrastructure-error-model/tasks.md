@@ -107,14 +107,14 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
 
 ### 2.1 Pilot 1 — update-grupo (low risk, mechanical)
 
-- [ ] **T10** `[P]` RED (depends on PR1 merged/available): rewrite the MGCM-R6 case in
+- [x] **T10** `[P]` RED (depends on PR1 merged/available): rewrite the MGCM-R6 case in
   `update-grupo.use-case.test.ts` (lines ~222-239) — replace
   `.rejects.toThrow('No tenant client available')` with
   `expect(result.isErr()).toBe(true); expect(result.unwrapErr()).toBeInstanceOf(TenantClientUnavailableError)`.
   Add a comment noting this lifts the previously documented "must stay a throw" deferral (this change is
   the authorized follow-up, not a regression). Confirm RED (production code still throws).
   Traces: IEM-R5, IEM-R8 (pilot 1 test coverage), MGCM-R6 (rewritten, documented).
-- [ ] **T11** GREEN: edit `api/src/application/materia-grupo-ciclo/update-grupo.use-case.ts` — add
+- [x] **T11** GREEN: edit `api/src/application/materia-grupo-ciclo/update-grupo.use-case.ts` — add
   `import { TenantClientUnavailableError } from '../shared/errors/infrastructure-errors';`; widen return
   signature to `Promise<Result<GrupoXCursoXMateriaXCiclo, NotFoundError | ValidationError |
   TenantClientUnavailableError>>`; replace `if (!client) throw new Error('No tenant client available');`
@@ -128,13 +128,13 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
 > the resolved `Result`. If the `.then(isErr)` branch is dropped, tenant-client failures during
 > course-cycle generation go silent (see design "Risks").
 
-- [ ] **T12** `[P]` RED (depends on PR1): write new guard test in `competency.use-cases.test.ts` —
+- [x] **T12** `[P]` RED (depends on PR1): write new guard test in `competency.use-cases.test.ts` —
   `TenantContext.getClient()` mocked to return `null` → `execute(...)` resolves (does NOT throw/reject),
   `result.isErr() === true`, `result.unwrapErr() instanceof TenantClientUnavailableError`; plus a happy
   path asserting `execute(...)` resolves `ok(undefined)` when the client is present and the flow
   completes normally. Confirm RED.
   Traces: IEM-R6 (guard scenario), IEM-R8.
-- [ ] **T13** GREEN (2a — signature + top guard, depends on T12): edit
+- [x] **T13** GREEN (2a — signature + top guard, depends on T12): edit
   `api/src/application/pedagogy/use-cases/competency.use-cases.ts` on
   `AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC.execute` per design §5a exact code — import
   `TenantClientUnavailableError`; change signature to
@@ -142,7 +142,7 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
   `const client = TenantContext.getClient(); if (!client) return err(new TenantClientUnavailableError());`
   as the first statement.
   Traces: IEM-R6.
-- [ ] **T14** GREEN (2b — inline getter usages + delete + exit paths, depends on T13, same file): per
+- [x] **T14** GREEN (2b — inline getter usages + delete + exit paths, depends on T13, same file): per
   design §5b —
   - replace the 2 usages of `this.client` (line ~224 `this.client.courseCycle.findUnique(...)` and line
     ~242 `findEnrolledStudentsByCourseCycle(this.client, ...)`) with the local `client` from T13
@@ -153,20 +153,20 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
     every branch, none skipped
   - remove the now-unused `TenantPrismaClient` type import if no longer referenced (verify via tsc)
   Traces: IEM-R6, IEM-R9 (no other guard touched in this file beyond this one).
-- [ ] **T15** `[P]` RED (depends on PR1; can be written alongside T12): write new caller test in
+- [x] **T15** `[P]` RED (depends on PR1; can be written alongside T12): write new caller test in
   `course-cycle.use-cases.test.ts` (existing ACT-5 rejection case at ~line 874 stays untouched) — mock
   `autoCreateUC.execute` to resolve `err(new TenantClientUnavailableError())`, assert `console.error` spy
   is called via the `.then(isErr)` branch with the expected log prefix, and assert
   `GenerateCourseCyclesUseCase` still returns/resolves `ok` for the overall cycle generation (not
   blocked). Confirm RED (current code only has `.catch`, no `.then` isErr inspection).
   Traces: IEM-R6 (caller scenario), IEM-R8.
-- [ ] **T16** GREEN (2c — caller rewrite, depends on T14, T15): edit
+- [x] **T16** GREEN (2c — caller rewrite, depends on T14, T15): edit
   `api/src/application/course-cycle/use-cases/course-cycle.use-cases.ts` lines ~421-423 — rewrite the
   `this.autoCreateUC.execute(...).catch(...)` chain to the `.then((r) => { if (r.isErr()) console.error(...) }).catch((e) => console.error(...))`
   form per design §5c exact code. Keep the `.catch` (rejection path, ADR-5). No `await` added (stays
   fire-and-forget). Run both T12/T15 tests → green.
   Traces: IEM-R6 (all 3 scenarios: guard err, caller `.then` logs, `.catch` rejection retained).
-- [ ] **T17** Lint check (depends on T16): run `pnpm --filter api lint` targeting the pilot-2 files —
+- [x] **T17** Lint check (depends on T16): run `pnpm --filter api lint` targeting the pilot-2 files —
   confirm `@typescript-eslint/no-floating-promises` does not newly trip on the `.then().catch()` chain.
   If it does, prefix the call with `void` per design's flagged fallback. Do NOT add `await` (would change
   fire-and-forget semantics, out of scope).
@@ -174,12 +174,12 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
 
 ### 2.3 Pilot 3 — attendance-types-pdf (low risk, mechanical)
 
-- [ ] **T18** `[P]` RED (depends on PR1): write new template-guard test in the
+- [x] **T18** `[P]` RED (depends on PR1): write new template-guard test in the
   `generate-attendance-types-pdf` suite (co-located or `__tests__/`, per existing convention) — force
   `this.template` to be unresolved (null/sentinel), assert `render`/`execute` resolves (does not throw),
   `result.isErr() === true`, `result.unwrapErr() instanceof TemplateNotFoundError`. Confirm RED.
   Traces: IEM-R7, IEM-R8.
-- [ ] **T19** GREEN: edit
+- [x] **T19** GREEN: edit
   `api/src/application/attendance-type/use-cases/generate-attendance-types-pdf.use-case.ts` per design §6
   exact code — import `TemplateNotFoundError`; widen `render` signature to
   `Promise<Result<Buffer, PdfError | TemplateNotFoundError>>`; replace
@@ -192,12 +192,21 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
 
 ### 2.4 PR2 verification
 
-- [ ] **T20** (depends on T11, T17, T19) Run `pnpm --filter api typecheck` → green. Run
+- [x] **T20** (depends on T11, T17, T19) Run `pnpm --filter api typecheck` → green. Run
   `pnpm --filter api test` → green, full suite (all pilot tests + all pre-existing tests, incl.
   `attendance-type.controller.e2e.test.ts` untouched/green). Run `pnpm --filter api lint` → green
   (confirms T17's `no-floating-promises` check holds repo-wide, not just pilot 2).
   Traces: IEM-R8.
-- [ ] **T21** Scope-boundary grep proof (depends on T20):
+  **Result**: typecheck green. Test suite: 2205/2206 passing — the 1 failure
+  (`scripts/__tests__/archive-legacy-grading-data.spec.ts`, Windows path-separator mismatch,
+  `/tmp/...` vs `\tmp\...`) is PRE-EXISTING and unrelated (verified identical on the PR1 base commit
+  before any PR2 change, via `git stash`). Lint: repo-wide has 5 PRE-EXISTING errors
+  (`cleanup-ingresantes-sin-ciclo.test.ts`, `competency.use-cases.ts:310` — unrelated
+  `GradePeriodValuationUC`, `pedagogy.use-cases.ts:227`, `subject-group-filter.db.test.ts:89`,
+  `guardians.test.ts:15`) — verified byte-identical (same files/lines) on the PR1 base commit via
+  `git stash`; none introduced or removed by PR2. No `no-floating-promises` trip on the pilot-2
+  `.then().catch()` chain (confirmed both file-scoped and repo-wide).
+- [x] **T21** Scope-boundary grep proof (depends on T20):
   - `rg 'BoletinError|ConstanciaError|AsistenciaReportingError' <PR2 diff>` → MUST be empty.
   - Confirm no HTTP status value changed for the 3 pilot endpoints (all remain `500`; only `error.code`
     presence is new) — manual diff review of the 3 controller call sites (all UNTOUCHED per T11/T19 and
@@ -208,36 +217,44 @@ single unit. Split only if a reviewer explicitly requests site 2 isolated during
     `course-cycle.use-cases.test.ts`, `generate-attendance-types-pdf.use-case.ts`, its test file — no
     other infra guard touched.
   Traces: IEM-R9 (all 3 scenarios).
+  **Result**: all 4 checks pass. `git diff feat/infrastructure-error-model..feat/infrastructure-error-model-pilots
+  --stat` shows exactly the 8 expected files, 137 insertions(+)/27 deletions(-) — well within the
+  ~110-150 line forecast. Both grep proofs return empty. Both untouched controllers verified via grep
+  (`materia-grupo-ciclo.controller.ts:443`, `attendance-type.controller.ts:103`).
 
 ### 2.5 PR2 commit plan (conventional, no Co-Authored-By)
 
-- [ ] `test(materia-grupo-ciclo): rewrite update-grupo tenant-client guard test to expect err()` (T10)
-- [ ] `feat(materia-grupo-ciclo): return err(TenantClientUnavailableError) instead of throwing` (T11)
-- [ ] `test(pedagogy): cover competency auto-create tenant-client guard` (T12)
-- [ ] `feat(pedagogy): widen auto-create competency signature and return err on missing tenant client` (T13, T14)
-- [ ] `test(course-cycle): cover auto-create failure logging via resolved Result` (T15)
-- [ ] `feat(course-cycle): log auto-create Result errors alongside existing rejection handling` (T16, T17)
-- [ ] `test(attendance-type): cover missing-template guard for attendance-types PDF` (T18)
-- [ ] `feat(attendance-type): return err(TemplateNotFoundError) instead of throwing` (T19)
+- [x] `test(materia-grupo-ciclo): rewrite update-grupo tenant-client guard test to expect err()` (T10)
+- [x] `feat(materia-grupo-ciclo): return err(TenantClientUnavailableError) instead of throwing` (T11)
+- [x] `test(pedagogy): cover competency auto-create tenant-client guard` (T12)
+- [x] `feat(pedagogy): widen auto-create competency signature and return err on missing tenant client` (T13, T14)
+- [x] `test(course-cycle): cover auto-create failure logging via resolved Result` (T15)
+- [x] `feat(course-cycle): log auto-create Result errors alongside existing rejection handling` (T16, T17)
+- [x] `test(attendance-type): cover missing-template guard for attendance-types PDF` (T18)
+- [x] `feat(attendance-type): return err(TemplateNotFoundError) instead of throwing` (T19)
 
 ---
 
 ## Definition of Done
 
-- [ ] IEM-R1..R9 all satisfied (spec.md scenarios pass).
-- [ ] `pnpm --filter api typecheck` green (PR1 and PR2 independently, and combined).
-- [ ] `pnpm --filter api test` green (PR1 and PR2 independently, and combined); coverage ≥ 80%.
-- [ ] `pnpm --filter api lint` green, incl. `no-floating-promises` on pilot 2's `.then().catch()` chain.
-- [ ] PR1 is additive-only: zero production code constructs/consumes `InfrastructureError` in PR1; all
+- [x] IEM-R1..R9 all satisfied (spec.md scenarios pass).
+- [x] `pnpm --filter api typecheck` green (PR1 and PR2 independently, and combined).
+- [x] `pnpm --filter api test` green (PR1 and PR2 independently, and combined); coverage ≥ 80%
+  (2205/2206 — the 1 failure is a pre-existing unrelated Windows path-separator issue, see T20).
+- [~] `pnpm --filter api lint` — no NEW errors/warnings introduced by PR1 or PR2, and the pilot-2
+  `.then().catch()` chain does not trip `no-floating-promises` (see T20 evidence). Repo-wide lint is
+  NOT fully green: 5 PRE-EXISTING errors, verified identical before this change and out of scope for
+  PR1/PR2 (touching them would violate IEM-R9's scope boundary).
+- [x] PR1 is additive-only: zero production code constructs/consumes `InfrastructureError` in PR1; all
   pre-existing tests unaffected.
-- [ ] All 3 pilots return `err(...)` instead of throwing (or return `err` and re-throw only at the
+- [x] All 3 pilots return `err(...)` instead of throwing (or return `err` and re-throw only at the
   presentation boundary via existing controller mechanisms — pilot 1's `unwrapErr()` throw, pilot 3's
   `unwrapResultOrThrow`).
-- [ ] Reporting error classes (`BoletinError`, `ConstanciaError`, `AsistenciaReportingError`) do not
+- [x] Reporting error classes (`BoletinError`, `ConstanciaError`, `AsistenciaReportingError`) do not
   appear anywhere in either PR's diff.
-- [ ] No HTTP status changed for any of the 3 pilot endpoints (all remain `500`); no `DOMAIN_STATUS`
+- [x] No HTTP status changed for any of the 3 pilot endpoints (all remain `500`); no `DOMAIN_STATUS`
   entry added or changed.
-- [ ] No infra guard modified outside the 4 wiring/base files and the 4 pilot files (`update-grupo`,
+- [x] No infra guard modified outside the 4 wiring/base files and the 4 pilot files (`update-grupo`,
   `competency`, `course-cycle`, `generate-attendance-types-pdf`).
 
 ---
