@@ -242,13 +242,33 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   `Result` channel; `GenerateBoletinBatchUseCase` also changed `Promise<Buffer>` → `Promise<Result<…>>`.
   `ForbiddenError` (already `ApplicationError` via `forbidden-error-reclassification` #124) just moved
   throw → `err`. The 3 bare-`Error` classes `BoletinError`/`ConstanciaError`/`AsistenciaReportingError`
-  were **NOT reclassified** — verification proved none of their sites are caller-context/authz (they are
-  NOT_FOUND, intrinsic invariants, and infra guards), so the earlier blanket instruction to migrate them
-  to `extends ApplicationError` was semantically incorrect and has been removed. Their correct
-  classification (candidate `DomainError` for NOT_FOUND/invariants, `InfrastructureError` for the 5 infra
-  guards, plus a product decision on the ambiguous `INSTITUTION_NOT_FOUND` 500 and `BATCH_ALL_FAILED`
-  aggregate) is DEFERRED to follow-up #3. `attendance-type-pdf` was already FULLY MIGRATED separately
-  (module `attendance-type`, archived 2026-07-31) — it is not part of this change.
+  were **NOT reclassified** in this change — verification proved none of their sites are
+  caller-context/authz (they are NOT_FOUND, intrinsic invariants, and infra guards), so the earlier
+  blanket instruction to migrate them to `extends ApplicationError` was semantically incorrect and was
+  removed. `attendance-type-pdf` was already FULLY MIGRATED separately (module `attendance-type`,
+  archived 2026-07-31) — it is not part of this change. **UPDATE (reporting-errors-reclassification,
+  4 stacked slices, closes this follow-up):** the 11 reporting codes across `BoletinError` /
+  `ConstanciaError` / `AsistenciaReportingError` were reclassified into the layered model and the 3 bare
+  classes now **NO LONGER EXIST** (grep-verified 0 hits). 8 new `DomainError` subclasses were added
+  under `packages/domain/src/reportes/errors/` — `AxccNotFoundError` (`AXCC_NOT_FOUND`),
+  `ReporteStudentNotFoundError` (`STUDENT_NOT_FOUND`), `ReporteCourseCycleNotFoundError`
+  (`COURSE_CYCLE_NOT_FOUND`), `MateriaXCursoXCicloNotFoundError` (`MATERIA_X_CURSO_X_CICLO_NOT_FOUND`),
+  `StudentNotPrintableError` (`STUDENT_NOT_PRINTABLE`), `StudentNotEligibleError`
+  (`STUDENT_NOT_ELIGIBLE`), `BoletinLevelUnknownError` (`BOLETIN_LEVEL_UNKNOWN`), and
+  `BatchAllFailedError` (`BATCH_ALL_FAILED`) — all extend `DomainError` directly (not `NotFoundError`,
+  to preserve per-code `code` strings), with matching `DOMAIN_STATUS` entries (404/422, never 400). The
+  ambiguous `INSTITUTION_NOT_FOUND` 500 got a dedicated `InstitutionNotFoundError` (new
+  `InfrastructureError` subclass in `api/src/application/shared/errors/infrastructure-errors.ts`,
+  fixed 500 — a master/tenant data-integrity fault, not a client-visible domain outcome). The
+  `TEMPLATE_NOT_FOUND` guards (asistencia + boletin + constancia) and the 3 tenant-context guards reuse
+  the existing Change-1 `TemplateNotFoundError` / `TenantClientUnavailableError` verbatim (no new
+  reportes-local infra class). The ONLY wire-`code` change across all 11 codes: the 3 tenant guards'
+  `code` moved from `INTERNAL_ERROR` to `TENANT_CLIENT_UNAVAILABLE` (status 500 unchanged); all other 8
+  codes and all HTTP statuses/body shapes are byte-identical to pre-change behavior.
+  `unwrapResultOrThrow` gained an `instanceof DomainError` re-throw branch (bound relaxed to
+  `httpStatus?: number`) so `DomainError` results map through `AppExceptionFilter`'s `DOMAIN_STATUS`
+  unchanged. 4 PRs stacked on `main` (Slice 0 shared/additive → Slice 1 asistencia-reporting → Slice 2
+  boletin + batch → Slice 3 constancia + close-out), each green independently.
 - `asistencia` — FULLY MIGRATED (archived 2026-08-03) by change `asistencia-result-migration`
   (4 stacked slices: list pair, record-general, record-subject, generate + month-status). All 41
   throws across the 6 use-cases (`list-general`, `list-subject`, `record-general`, `record-subject`,
@@ -292,7 +312,9 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   a shared helper would remove the duplication once enough consumers exist to justify it.
 - `InfrastructureError` tier — MODELED + piloted (archived 2026-08-04) by change `infrastructure-error-model`
   (base class + filter/`unwrapResultOrThrow` wiring + 3 pilots: `update-grupo`, `competency`,
-  `generate-attendance-types-pdf`). Consumed by the `reporting-errors-reclassification` follow-up for its 5 infra guards.
+  `generate-attendance-types-pdf`). Consumed by the `reporting-errors-reclassification` change for its
+  5 infra guards (3 tenant-context + 2 template) plus the new `InstitutionNotFoundError` subclass —
+  reporting consumer now **DONE** (closed, all 4 slices merged).
 
 ### Classification note (ApplicationError vs DomainError)
 

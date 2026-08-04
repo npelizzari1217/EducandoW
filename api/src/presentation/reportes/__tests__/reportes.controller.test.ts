@@ -10,9 +10,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException } from '@nestjs/common';
-import { ok, err, AxccNotFoundError, BatchAllFailedError } from '@educandow/domain';
+import {
+  ok,
+  err,
+  AxccNotFoundError,
+  BatchAllFailedError,
+  StudentNotEligibleError,
+} from '@educandow/domain';
 import { ReportesController } from '../reportes.controller';
-import { ConstanciaError } from '../../../application/reportes/templates/constancia.template';
 import { PdfError } from '../../../application/shared/errors/pdf.error';
 import { TenantClientUnavailableError } from '../../../application/shared/errors/infrastructure-errors';
 
@@ -147,7 +152,7 @@ describe('ReportesController', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); not a ConstanciaError so it is re-thrown to the global filter (no PDF ever sent, no throw inside application)', async () => {
+    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); not a DomainError/InfrastructureError so it is re-thrown to the global filter (no PDF ever sent, no throw inside application)', async () => {
       constanciaUC.execute.mockResolvedValue(err(new PdfError({ cause: new Error('boom') })));
       const res = makeRes();
 
@@ -160,16 +165,29 @@ describe('ReportesController', () => {
       expect(res.send).not.toHaveBeenCalled();
     });
 
-    it('maps err(ConstanciaError) to an HttpException with its httpStatus and preserved code', async () => {
-      constanciaUC.execute.mockResolvedValue(err(new ConstanciaError('no elegible', 'STUDENT_NOT_ELIGIBLE', 422)));
+    it('maps err(StudentNotEligibleError) to the SAME DomainError instance, re-thrown identity-preserving, code STUDENT_NOT_ELIGIBLE', async () => {
+      constanciaUC.execute.mockResolvedValue(err(new StudentNotEligibleError('no elegible')));
       const res = makeRes();
 
       const promise = controller.createConstanciaRegular('axcc-1', body, res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(422);
-        expect((e.getResponse() as Record<string, unknown>).code).toBe('STUDENT_NOT_ELIGIBLE');
+      await expect(promise).rejects.toBeInstanceOf(StudentNotEligibleError);
+      await promise.catch((e: StudentNotEligibleError) => {
+        expect(e.code).toBe('STUDENT_NOT_ELIGIBLE');
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
+
+    it('(RER-R3) err(TenantClientUnavailableError) (no tenant context) → the SAME InfrastructureError instance, code TENANT_CLIENT_UNAVAILABLE at 500, no res.send', async () => {
+      constanciaUC.execute.mockResolvedValue(err(new TenantClientUnavailableError()));
+      const res = makeRes();
+
+      const promise = controller.createConstanciaRegular('axcc-1', body, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(TenantClientUnavailableError);
+      await promise.catch((e: TenantClientUnavailableError) => {
+        expect(e.code).toBe('TENANT_CLIENT_UNAVAILABLE');
+        expect(e.httpStatus).toBe(500);
       });
       expect(res.send).not.toHaveBeenCalled();
     });

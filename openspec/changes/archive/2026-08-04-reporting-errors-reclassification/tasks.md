@@ -137,25 +137,25 @@ Traces: RER-R1, RER-R3, RER-R5, RER-R6, RER-R8.
 
 Traces: RER-R1, RER-R3, RER-R5, RER-R6, RER-R7, RER-R8.
 
-- [ ] 3.1 RED — Update `generate-constancia-regular.use-case` test suite: re-derive
+- [x] 3.1 RED — Update `generate-constancia-regular.use-case` test suite: re-derive
       `.toBeInstanceOf(ConstanciaError)` asserts for the 7 sites (design §6.3); tenant guard asserts
       `TENANT_CLIENT_UNAVAILABLE`/500; `InstitutionNotFoundError` instanceof `InfrastructureError`.
-- [ ] 3.2 GREEN — In `generate-constancia-regular.use-case.ts`, swap L97, L105, L117, L124, L137, L153,
+- [x] 3.2 GREEN — In `generate-constancia-regular.use-case.ts`, swap L97, L105, L117, L124, L137, L153,
       L192 per design §6.3 (verify `TemplateNotFoundError('constancia-regular.hbs')` message is byte-identical
       to the old string per design §6.3 footnote); update L13 import (domain subclasses from
       `@educandow/domain`, `TenantClientUnavailableError`/`InstitutionNotFoundError`/`TemplateNotFoundError`
       from `../shared/errors/infrastructure-errors`); widen `execute` return union.
-- [ ] 3.3 Delete `ConstanciaError` class from `templates/constancia.template.ts` (L33-42), single-module,
+- [x] 3.3 Delete `ConstanciaError` class from `templates/constancia.template.ts` (L33-42), single-module,
       last reference now gone.
-- [ ] 3.4 Update `reportes.controller` constancia tests for the tenant wire-code delta.
-- [ ] 3.5 RER-R5 final grep guard (test or CI check): 0 hits for `BoletinError`, `ConstanciaError`,
+- [x] 3.4 Update `reportes.controller` constancia tests for the tenant wire-code delta.
+- [x] 3.5 RER-R5 final grep guard (test or CI check): 0 hits for `BoletinError`, `ConstanciaError`,
       `AsistenciaReportingError` across the entire tree (production + tests).
-- [ ] 3.6 Canonical spec sync — edit `openspec/specs/application-error-handling/spec.md`: update the
+- [x] 3.6 Canonical spec sync — edit `openspec/specs/application-error-handling/spec.md`: update the
       `reportes / asistencia-reporting` follow-up entry (currently lines 239-251) from "DEFERRED to
       follow-up #3" to FULLY DONE, listing the 8 `DomainError` + `InstitutionNotFoundError` classes and
       the tenant wire-code fix; update the "InfrastructureError tier" follow-up line (currently line 295)
       to mark the reporting consumer as closed.
-- [ ] 3.7 Verify: `pnpm --filter api typecheck` → `pnpm --filter api test` → `pnpm --filter api lint`,
+- [x] 3.7 Verify: `pnpm --filter api typecheck` → `pnpm --filter api test` → `pnpm --filter api lint`,
       coverage ≥ 80%. Full-tree grep guard (3.5) green.
-- [ ] 3.8 Commit: `refactor(constancia): reclassify errors to DomainError/InfrastructureError subclasses` +
+- [x] 3.8 Commit: `refactor(constancia): reclassify errors to DomainError/InfrastructureError subclasses` +
       `docs(sdd): sync application-error-handling canonical spec for reporting-errors-reclassification`

@@ -1,9 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ok, err } from '@educandow/domain';
+import {
+  ok,
+  err,
+  DomainError,
+  AxccNotFoundError,
+  ReporteStudentNotFoundError,
+  StudentNotEligibleError,
+  ReporteCourseCycleNotFoundError,
+} from '@educandow/domain';
 import { GenerateConstanciaRegularUseCase } from '../generate-constancia-regular.use-case';
-import { ConstanciaError } from '../templates/constancia.template';
 import { PdfError } from '../../shared/errors/pdf.error';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+import {
+  TenantClientUnavailableError,
+  InstitutionNotFoundError,
+  TemplateNotFoundError,
+} from '../../shared/errors/infrastructure-errors';
+import { InfrastructureError } from '../../shared/errors/infrastructure-error';
 
 // ── Module mocks ────────────────────────────────────────────────────────────
 
@@ -102,23 +115,6 @@ const defaultInput = {
   fechaEmision: '2026-06-26',
 };
 
-// ── ConstanciaError shape ────────────────────────────────────────────────────
-
-describe('ConstanciaError', () => {
-  it('stores code and httpStatus', () => {
-    const e = new ConstanciaError('test message', 'TEST_CODE', 404);
-    expect(e.message).toBe('test message');
-    expect(e.code).toBe('TEST_CODE');
-    expect(e.httpStatus).toBe(404);
-    expect(e.name).toBe('ConstanciaError');
-  });
-
-  it('defaults httpStatus to 422', () => {
-    const e = new ConstanciaError('msg', 'CODE');
-    expect(e.httpStatus).toBe(422);
-  });
-});
-
 // ── GenerateConstanciaRegularUseCase.execute ─────────────────────────────────
 
 describe('GenerateConstanciaRegularUseCase.execute', () => {
@@ -141,9 +137,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-missing', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'AXCC_NOT_FOUND', httpStatus: 404 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(AxccNotFoundError);
+    expect(error).toBeInstanceOf(DomainError);
+    expect((error as AxccNotFoundError).code).toBe('AXCC_NOT_FOUND');
   });
 
   // ── Case (b): student.fechaDePase != null → 422 ──────────────────────────
@@ -168,9 +165,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'STUDENT_NOT_ELIGIBLE', httpStatus: 422 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(StudentNotEligibleError);
+    expect(error).toBeInstanceOf(DomainError);
+    expect((error as StudentNotEligibleError).code).toBe('STUDENT_NOT_ELIGIBLE');
   });
 
   // ── Case (c): happy path → ok(Buffer) ─────────────────────────────────────
@@ -391,9 +389,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'STUDENT_NOT_FOUND', httpStatus: 404 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(ReporteStudentNotFoundError);
+    expect(error).toBeInstanceOf(DomainError);
+    expect((error as ReporteStudentNotFoundError).code).toBe('STUDENT_NOT_FOUND');
   });
 
   // ── Fix 2: CourseCycle null → 404 ──────────────────────────────────────────
@@ -410,9 +409,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(ReporteCourseCycleNotFoundError);
+    expect(error).toBeInstanceOf(DomainError);
+    expect((error as ReporteCourseCycleNotFoundError).code).toBe('COURSE_CYCLE_NOT_FOUND');
   });
 
   // ── Fix 3: Institution null when institutionId is set → 500 ─────────────────
@@ -431,9 +431,11 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'INSTITUTION_NOT_FOUND', httpStatus: 500 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(InstitutionNotFoundError);
+    expect(error).toBeInstanceOf(InfrastructureError);
+    expect((error as InstitutionNotFoundError).code).toBe('INSTITUTION_NOT_FOUND');
+    expect((error as InstitutionNotFoundError).httpStatus).toBe(500);
   });
 
   // ── Fix 5: REQ-7 master/tenant isolation ──────────────────────────────────
@@ -569,10 +571,12 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     expect(htmlArg).toContain('Nivel 5');
   });
 
-  // ── Guard: no tenant context → INTERNAL_ERROR 500 ─────────────────────────
-  // Covers the if (!tenantClient) branch at the top of execute().
+  // ── Guard: no tenant context → TENANT_CLIENT_UNAVAILABLE 500 (RER-R3) ─────
+  // Covers the if (!tenantClient) branch at the top of execute(). Wire-code
+  // changed from INTERNAL_ERROR to TENANT_CLIENT_UNAVAILABLE (the ONLY code
+  // change in this slice); status 500 unchanged.
 
-  it('[guard] throws INTERNAL_ERROR (500) when TenantContext.getClient() returns null', async () => {
+  it('[guard] (RER-R3) throws TenantClientUnavailableError (TENANT_CLIENT_UNAVAILABLE, 500) when TenantContext.getClient() returns null', async () => {
     vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
 
     const uc = new GenerateConstanciaRegularUseCase(
@@ -583,17 +587,20 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'INTERNAL_ERROR', httpStatus: 500 }),
-    );
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(TenantClientUnavailableError);
+    expect(error).toBeInstanceOf(InfrastructureError);
+    expect((error as TenantClientUnavailableError).code).toBe('TENANT_CLIENT_UNAVAILABLE');
+    expect((error as TenantClientUnavailableError).httpStatus).toBe(500);
   });
 
   // ── Guard: template absent → TEMPLATE_NOT_FOUND 500 ──────────────────────
   // Covers the if (!this.template) branch in execute() (step 8).
   // We nullify the private field directly — avoids fs mocking and is
   // semantically equivalent to the constructor not finding the .hbs file.
+  // TemplateNotFoundError is the reused Change-1 infra class (RER-R1).
 
-  it('[guard] throws TEMPLATE_NOT_FOUND (500) when template is null (file not found scenario)', async () => {
+  it('[guard] throws TemplateNotFoundError (TEMPLATE_NOT_FOUND, 500) when template is null (file not found scenario)', async () => {
     const tenantClient = makeTenantClient();
     vi.mocked(TenantContext.getClient).mockReturnValue(tenantClient as any);
 
@@ -608,8 +615,14 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     const result = await uc.execute('axcc-1', defaultInput);
 
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND', httpStatus: 500 }),
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(TemplateNotFoundError);
+    expect(error).toBeInstanceOf(InfrastructureError);
+    expect((error as TemplateNotFoundError).code).toBe('TEMPLATE_NOT_FOUND');
+    expect((error as TemplateNotFoundError).httpStatus).toBe(500);
+    // Message byte-identical to the pre-reclassification wire string (design §6.3 footnote)
+    expect((error as TemplateNotFoundError).message).toBe(
+      'Template constancia-regular.hbs no encontrado',
     );
   });
 });
