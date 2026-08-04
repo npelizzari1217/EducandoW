@@ -17,9 +17,9 @@ import type {
   GradeScaleRepository,
   GradingPeriodRepository,
 } from '@educandow/domain';
-import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 import { findEnrolledStudentsByCourseCycle } from '../../../infrastructure/persistence/prisma/queries/enrolled-students.query';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 
 // ── SubjectCompetency CRUD ─────────────────────────────
 
@@ -218,30 +218,33 @@ export class AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC {
    * CompetenciaXMateriaXAlumnoXCursoXCiclo parent rows (studentId, competencyId, courseCycleId).
    * skipDuplicates at DB level ensures idempotency.
    */
-  async execute({ courseCycleId }: { courseCycleId: string }): Promise<void> {
+  async execute({ courseCycleId }: { courseCycleId: string }): Promise<Result<void, TenantClientUnavailableError>> {
+    const client = TenantContext.getClient();
+    if (!client) return err(new TenantClientUnavailableError());
+
     // 1. Resolve CourseCycle row directly via TenantContext (avoids circular DI;
     //    consistent with enrollment-lookup pattern below).
-    const cc = await this.client.courseCycle.findUnique({
+    const cc = await client.courseCycle.findUnique({
       where: { uuid: courseCycleId },
       select: { courseId: true, studyPlanId: true },
     });
-    if (!cc) return;
+    if (!cc) return ok(undefined);
 
     // 2. All StudyPlanSubject IDs under this plan
     const spsIds = await this.studyPlanRepo.findStudyPlanSubjectIdsByPlan(cc.studyPlanId);
-    if (spsIds.length === 0) return;
+    if (spsIds.length === 0) return ok(undefined);
 
     // 3. All active competencies across those subjects
     const competencies = (
       await Promise.all(spsIds.map((id) => this.competencyRepo.findActiveByStudyPlanSubject(id)))
     ).flat();
-    if (competencies.length === 0) return;
+    if (competencies.length === 0) return ok(undefined);
 
     // 4. Enrolled students via shared infra helper (avoids circular DI;
     //    helper is a plain function that takes the tenant client directly).
-    const enrolled = await findEnrolledStudentsByCourseCycle(this.client, courseCycleId);
+    const enrolled = await findEnrolledStudentsByCourseCycle(client, courseCycleId);
     const studentIds = enrolled.map((s) => s.studentId);
-    if (studentIds.length === 0) return;
+    if (studentIds.length === 0) return ok(undefined);
 
     // 5. Batch-create parent valuations — DB skipDuplicates handles re-runs
     const valuations = studentIds.flatMap((studentId) =>
@@ -251,12 +254,7 @@ export class AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC {
     );
 
     await this.valuationRepo.bulkCreate(valuations);
-  }
-
-  private get client(): TenantPrismaClient {
-    const c = TenantContext.getClient();
-    if (!c) throw new Error('TenantContext: no client available');
-    return c;
+    return ok(undefined);
   }
 }
 
