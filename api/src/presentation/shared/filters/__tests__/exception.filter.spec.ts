@@ -23,11 +23,19 @@ import {
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ApplicationError } from '../../../../application/shared/errors/application-error';
+import { InfrastructureError } from '../../../../application/shared/errors/infrastructure-error';
 
 // Local stub — mirrors a real ApplicationError subclass without pulling in the users module.
 class StubApplicationError extends ApplicationError {
   constructor(message: string, code: string, httpStatus: number) {
     super(message, code, httpStatus);
+  }
+}
+
+// Local stub — mirrors a real InfrastructureError subclass without pulling in a pilot module.
+class StubInfrastructureError extends InfrastructureError {
+  constructor(message: string, code: string) {
+    super(message, code);
   }
 }
 
@@ -268,6 +276,55 @@ describe('AppExceptionFilter', () => {
       const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
       expect(body.error.code).toBe('NOT_FOUND');
       expect(body.error.status).toBe(404);
+    });
+  });
+
+  describe('IEM-R3: InfrastructureError branch', () => {
+    // IEM-R3.S1 — InfrastructureError instance maps to 500 with its code
+    it('maps InfrastructureError to 500 with its code and message', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new StubInfrastructureError('No tenant client available', 'TENANT_CLIENT_UNAVAILABLE');
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(500);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: {
+          status: 500,
+          code: 'TENANT_CLIENT_UNAVAILABLE',
+          message: 'No tenant client available',
+        },
+      });
+    });
+
+    // IEM-R3.S2 — does not fall through to the generic Error branch (which would drop `code`)
+    it('does not fall through to the generic Error fallback (code is present, not dropped)', () => {
+      const filter = new AppExceptionFilter();
+      const { host, jsonFn } = makeMockHost();
+      const exc = new StubInfrastructureError('No tenant client available', 'TENANT_CLIENT_UNAVAILABLE');
+
+      filter.catch(exc, host);
+
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe('TENANT_CLIENT_UNAVAILABLE');
+    });
+
+    // IEM-R3.S3 — ApplicationError and DomainError handling is unaffected
+    it('ApplicationError and DomainError handling is unaffected by the new branch', () => {
+      const filter = new AppExceptionFilter();
+      const { host: appHost, statusFn: appStatusFn, jsonFn: appJsonFn } = makeMockHost();
+      filter.catch(new StubApplicationError('denied', 'SOME_CODE', 403), appHost);
+      expect(appStatusFn).toHaveBeenCalledWith(403);
+      expect(appJsonFn).toHaveBeenCalledWith({
+        error: { status: 403, code: 'SOME_CODE', message: 'denied' },
+      });
+
+      const { host: domHost, statusFn: domStatusFn, jsonFn: domJsonFn } = makeMockHost();
+      filter.catch(new NotFoundError('CourseCycle', 'cc-1'), domHost);
+      expect(domStatusFn).toHaveBeenCalledWith(404);
+      const domBody: { error: Record<string, unknown> } = domJsonFn.mock.calls[0][0];
+      expect(domBody.error.code).toBe('NOT_FOUND');
     });
   });
 });

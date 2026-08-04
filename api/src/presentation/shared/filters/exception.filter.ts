@@ -2,6 +2,7 @@ import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logge
 import { Request, Response } from 'express';
 import { DomainError } from '@educandow/domain';
 import { ApplicationError } from '../../../application/shared/errors/application-error';
+import { InfrastructureError } from '../../../application/shared/errors/infrastructure-error';
 
 // Map domain error codes to HTTP status
 const DOMAIN_STATUS: Record<string, number> = {
@@ -93,6 +94,10 @@ export class AppExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof ApplicationError) {
       status = exception.httpStatus;
+      message = exception.message;
+      code = exception.code;
+    } else if (exception instanceof InfrastructureError) {
+      status = exception.httpStatus; // fixed 500
       message = exception.message;
       code = exception.code;
     } else if (exception instanceof DomainError) {
