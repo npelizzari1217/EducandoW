@@ -418,9 +418,19 @@ export class GenerateCourseCyclesUseCase {
         // Fire-and-forget: sync CompetencyValuation parents for this CourseCycle on BOTH
         // create AND update, so newly added subjects/competencies (or newly enrolled students)
         // get their valuations. Idempotent (skipDuplicates); failure must NOT block generation.
-        this.autoCreateUC.execute({ courseCycleId: courseCycleUuid }).catch((e) => {
-          console.error('[GenerateCourseCycles] AutoCreate failed (non-blocking):', e);
-        });
+        this.autoCreateUC
+          .execute({ courseCycleId: courseCycleUuid })
+          .then((r) => {
+            if (r.isErr()) {
+              console.error(
+                '[GenerateCourseCycles] AutoCreate failed (non-blocking):',
+                r.unwrapErr(),
+              );
+            }
+          })
+          .catch((e) => {
+            console.error('[GenerateCourseCycles] AutoCreate rejected (non-blocking):', e);
+          });
 
         // Fire-and-forget: materialize MateriaXCursoXCiclo from plan subjects (F3-A1, D1).
         // Aditivo: creates missing rows + re-syncs studyPlanSubjectId on existing ones.
