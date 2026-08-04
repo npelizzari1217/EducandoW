@@ -225,14 +225,14 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
-  it('unknown/missing courseCycleId → AsistenciaReportingError with 404', async () => {
+  it('unknown/missing courseCycleId → err(AsistenciaReportingError) with 404', async () => {
     const { uc } = makeUC({ ccExists: false });
-    await expect(
-      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] }),
-    ).rejects.toMatchObject({ httpStatus: 404 });
-    await expect(
-      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] }),
-    ).rejects.toBeInstanceOf(AsistenciaReportingError);
+    const result = await uc.executeGeneral({
+      courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AsistenciaReportingError);
+    expect(result.unwrapErr()).toMatchObject({ httpStatus: 404 });
   });
 
   it('non-admin preceptor of the CourseCycle → allowed (Door 2)', async () => {
@@ -246,28 +246,32 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     expect(asignacionRepo.isPreceptor).toHaveBeenCalled();
   });
 
-  it('non-admin, not a preceptor → ForbiddenError', async () => {
+  it('non-admin, not a preceptor → err(ForbiddenError)', async () => {
     const { uc } = makeUC({ isPreceptor: false });
-    await expect(
-      uc.executeGeneral({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
-  it('non-admin, not a DocenteXCiclo in this cycle → ForbiddenError', async () => {
+  it('non-admin, not a DocenteXCiclo in this cycle → err(ForbiddenError)', async () => {
     const { uc } = makeUC({ docenteExists: false });
-    await expect(
-      uc.executeGeneral({ courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
-  it('non-admin, courseCycle not found (Door 2) → ForbiddenError, fails closed', async () => {
+  it('non-admin, courseCycle not found (Door 2) → err(ForbiddenError), fails closed', async () => {
     const { uc, docenteRepo, asignacionRepo } = makeUC({ ccExists: false });
-    await expect(
-      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(
-      uc.executeGeneral({ courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
+    const result = await uc.executeGeneral({
+      courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    expect(result.unwrapErr()).toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
     // Door 2 short-circuits before ever reaching the docente/preceptor lookups.
     expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
     expect(asignacionRepo.isPreceptor).not.toHaveBeenCalled();

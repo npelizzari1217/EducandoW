@@ -86,6 +86,10 @@ export class AppExceptionFilter implements ExceptionFilter {
         } else if (Array.isArray(obj.message)) {
           message = (obj.message as string[]).join('; ');
         }
+        // ARR-R2/R7 Option B: re-read `code` set by unwrapResultOrThrow's generic
+        // HttpException branch, so bare-Error-with-code classes don't lose their
+        // machine-readable code once the manual res.json mapping is removed.
+        if (typeof obj.code === 'string') code = obj.code;
       }
     } else if (exception instanceof ApplicationError) {
       status = exception.httpStatus;

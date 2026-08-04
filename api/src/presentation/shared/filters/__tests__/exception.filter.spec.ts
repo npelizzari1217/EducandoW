@@ -137,6 +137,25 @@ describe('AppExceptionFilter', () => {
     });
   });
 
+  describe('ARR-R2/R7 Option B: HttpException branch re-reads `code` from the thrown response object', () => {
+    it('HttpException with a `code` key in its response body → code IS preserved in the final envelope', () => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = new HttpException(
+        { statusCode: 404, code: 'COURSE_CYCLE_NOT_FOUND', message: 'CourseCycle no encontrado' },
+        HttpStatus.NOT_FOUND,
+      );
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(404);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.status).toBe(404);
+      expect(body.error.code).toBe('COURSE_CYCLE_NOT_FOUND');
+      expect(body.error.message).toBe('CourseCycle no encontrado');
+    });
+  });
+
   describe('FILTER-5: Existing domain error (NOT_FOUND) → code appears in error.code', () => {
     it('NotFoundError maps to 404 and includes code "NOT_FOUND" in envelope', () => {
       const filter = new AppExceptionFilter();
