@@ -25,18 +25,3 @@ export interface DatosConstancia {
   destinatario: string;
   fechaEmisionLarga: string;
 }
-
-/**
- * Typed error for constancia generation failures.
- * Mirror of BoletinError — keeps error handling symmetrical in the controller.
- */
-export class ConstanciaError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly httpStatus: number = 422,
-  ) {
-    super(message);
-    this.name = 'ConstanciaError';
-  }
-}

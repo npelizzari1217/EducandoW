@@ -3,14 +3,24 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
 import type { Result } from '@educandow/domain';
-import { err } from '@educandow/domain';
+import {
+  err,
+  AxccNotFoundError,
+  ReporteStudentNotFoundError,
+  StudentNotEligibleError,
+  ReporteCourseCycleNotFoundError,
+} from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
 import type { PdfError } from '../shared/errors/pdf.error';
 import type { DatosConstancia } from './templates/constancia.template';
-import { ConstanciaError } from './templates/constancia.template';
+import {
+  TenantClientUnavailableError,
+  InstitutionNotFoundError,
+  TemplateNotFoundError,
+} from '../shared/errors/infrastructure-errors';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -91,10 +101,22 @@ export class GenerateConstanciaRegularUseCase {
   async execute(
     axccId: string,
     input: ConstanciaInput,
-  ): Promise<Result<Buffer, PdfError | ConstanciaError>> {
+  ): Promise<
+    Result<
+      Buffer,
+      | PdfError
+      | TenantClientUnavailableError
+      | AxccNotFoundError
+      | ReporteStudentNotFoundError
+      | StudentNotEligibleError
+      | ReporteCourseCycleNotFoundError
+      | InstitutionNotFoundError
+      | TemplateNotFoundError
+    >
+  > {
     const tenantClient = TenantContext.getClient();
     if (!tenantClient) {
-      return err(new ConstanciaError('No tenant context available', 'INTERNAL_ERROR', 500));
+      return err(new TenantClientUnavailableError());
     }
 
     // ── Step 1: Fetch AlumnosXCursoXCiclo ────────────────────────────────────
@@ -102,11 +124,7 @@ export class GenerateConstanciaRegularUseCase {
       where: { id: axccId },
     });
     if (!axcc) {
-      return err(new ConstanciaError(
-        'AlumnosXCursoXCiclo no encontrado',
-        'AXCC_NOT_FOUND',
-        404,
-      ));
+      return err(new AxccNotFoundError('AlumnosXCursoXCiclo no encontrado'));
     }
 
     // ── Step 2: Fetch Student + eligibility checks ───────────────────────────
@@ -114,17 +132,11 @@ export class GenerateConstanciaRegularUseCase {
       where: { id: axcc.studentId },
     });
     if (!student) {
-      return err(new ConstanciaError(
-        'Alumno no encontrado',
-        'STUDENT_NOT_FOUND',
-        404,
-      ));
+      return err(new ReporteStudentNotFoundError('Alumno no encontrado'));
     }
     if (student.fechaDePase != null) {
-      return err(new ConstanciaError(
+      return err(new StudentNotEligibleError(
         'El alumno tiene fecha de pase asignada y no puede recibir constancia de alumno regular',
-        'STUDENT_NOT_ELIGIBLE',
-        422,
       ));
     }
 
@@ -134,11 +146,7 @@ export class GenerateConstanciaRegularUseCase {
       include: { course: true, cycle: true },
     });
     if (!cc) {
-      return err(new ConstanciaError(
-        'CourseCycle no encontrado',
-        'COURSE_CYCLE_NOT_FOUND',
-        404,
-      ));
+      return err(new ReporteCourseCycleNotFoundError('CourseCycle no encontrado'));
     }
 
     // ── Step 4: Fetch Institution from master ────────────────────────────────
@@ -150,11 +158,7 @@ export class GenerateConstanciaRegularUseCase {
         })
       : null;
     if (institutionId != null && institution == null) {
-      return err(new ConstanciaError(
-        'Institución no encontrada',
-        'INSTITUTION_NOT_FOUND',
-        500,
-      ));
+      return err(new InstitutionNotFoundError('Institución no encontrada'));
     }
 
     // ── Step 5: Resolve logo as base64 data-URI (optional, never blocks PDF) ─
@@ -189,11 +193,7 @@ export class GenerateConstanciaRegularUseCase {
 
     // ── Step 8: Render template ──────────────────────────────────────────────
     if (!this.template) {
-      return err(new ConstanciaError(
-        'Template constancia-regular.hbs no encontrado',
-        'TEMPLATE_NOT_FOUND',
-        500,
-      ));
+      return err(new TemplateNotFoundError('constancia-regular.hbs'));
     }
     const html = this.template(datos);
 
