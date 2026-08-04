@@ -5,9 +5,8 @@
  * use-cases + mocked Express Response — same lightweight style used across
  * this codebase's controller tests (see asistencia-reporting.controller.test.ts).
  *
- * Scope: only the 2 endpoints that changed to unwrapResultOrThrow
- * (getBoletin, createConstanciaRegular). getBoletinBatch is unchanged
- * (still consumes a raw Buffer from the ZIP use-case) — not covered here.
+ * Scope: getBoletin, getBoletinBatch (net-new, ARR-R6/C.7), and
+ * createConstanciaRegular.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException } from '@nestjs/common';
@@ -75,6 +74,66 @@ describe('ReportesController', () => {
       await promise.catch((e: HttpException) => {
         expect(e.getStatus()).toBe(404);
         expect((e.getResponse() as Record<string, unknown>).code).toBe('AXCC_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('GET boletin/curso/:courseCycleId (NET-NEW — ARR-R6/C.7)', () => {
+    it('ok(buffer) → responds 200 with the ZIP, no throw in application', async () => {
+      batchUC.execute.mockResolvedValue(ok(Buffer.from('ZIP-CONTENT')));
+      const res = makeRes();
+
+      await controller.getBoletinBatch('cc-1', res as never);
+
+      expect(res.set).toHaveBeenCalledWith(expect.objectContaining({
+        'Content-Type': 'application/zip',
+      }));
+      expect(res.send).toHaveBeenCalledWith(Buffer.from('ZIP-CONTENT'));
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('ok(emptyBuffer) → still responds 200 with the empty ZIP (zero printable rows)', async () => {
+      batchUC.execute.mockResolvedValue(ok(Buffer.alloc(0)));
+      const res = makeRes();
+
+      await controller.getBoletinBatch('cc-1', res as never);
+
+      expect(res.send).toHaveBeenCalledWith(Buffer.alloc(0));
+      expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('err(BATCH_ALL_FAILED) → HttpException 422 with code preserved, no res.send', async () => {
+      batchUC.execute.mockResolvedValue(err(new BoletinError(
+        'No se pudo generar ningún boletín del lote — todos fallaron',
+        'BATCH_ALL_FAILED',
+        422,
+      )));
+      const res = makeRes();
+
+      const promise = controller.getBoletinBatch('cc-1', res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(422);
+        expect((e.getResponse() as Record<string, unknown>).code).toBe('BATCH_ALL_FAILED');
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
+
+    it('err(INTERNAL_ERROR) (no tenant context) → HttpException 500, no res.send', async () => {
+      batchUC.execute.mockResolvedValue(err(new BoletinError(
+        'No tenant context available',
+        'INTERNAL_ERROR',
+        500,
+      )));
+      const res = makeRes();
+
+      const promise = controller.getBoletinBatch('cc-1', res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(500);
       });
       expect(res.send).not.toHaveBeenCalled();
     });

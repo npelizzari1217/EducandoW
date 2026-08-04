@@ -83,18 +83,18 @@ never edit `extends` on `BoletinError`/`ConstanciaError`/`AsistenciaReportingErr
 
 ## Slice C — boletin-batch (ARR-R1, R2, R4, R5, R6)
 
-- [ ] C.0 Create branch `refactor/asistencia-reporting-result-c` from `refactor/asistencia-reporting-result-b`
-- [ ] C.1 `generate-boletin-batch.use-case.ts` L31 (`tenantClient()` L148 `INTERNAL_ERROR`): convert to sync `Result<TenantPrismaClient, BoletinError>`, propagate via `isErr()`/`unwrap()` at the L31 call site — ARR-R1/R4
-- [ ] C.2 Same file L109-113: `BATCH_ALL_FAILED` throw → `err(...)` — ARR-R1
-- [ ] C.3 Same file L57 (empty-ZIP) and L126 (final): wrap success returns in `ok(...)`; per-row try/catch loop (L74-105) stays unchanged (already consumes `Result` via `isErr()`/`continue`) — ARR-R4
-- [ ] C.4 `execute` signature → `Promise<Result<Buffer, BoletinError>>` (was `Promise<Buffer>`) — ARR-R4
-- [ ] C.5 `reportes.controller.ts#getBoletinBatch` (L63-88): delete try/catch + `instanceof BoletinError` map → `unwrapResultOrThrow(await this.batchUC.execute(...))` — ARR-R5
-- [ ] C.6 Rewrite `generate-boletin-batch.use-case.test.ts` (~11 tests): success/empty-ZIP → `isOk()`/`.unwrap()`; `BATCH_ALL_FAILED` → `isErr()`/`unwrapErr()` — ARR-R6
-- [ ] C.7 **NET-NEW** `reportes.controller.test.ts`: add `getBoletinBatch` coverage — success (`ok(Buffer)` → `res.set`/`res.send`, no error), empty ZIP (`ok(emptyBuffer)` → 200), `BATCH_ALL_FAILED` (`err(...)` → `.rejects.toBeInstanceOf(HttpException)` 422 + `code === 'BATCH_ALL_FAILED'`), `INTERNAL_ERROR`/no-tenant (`err(...)` → 500) — ARR-R6
-- [ ] C.8 Commit: `refactor(reportes): Result-return generate-boletin-batch (Promise<Buffer> -> Result)`
-- [ ] C.9 Commit: `refactor(reportes): retrofit getBoletinBatch to unwrapResultOrThrow`
-- [ ] C.10 Commit: `test(reportes): migrate batch tests + add net-new getBoletinBatch controller test`
-- [ ] C.11 **Verify**: `pnpm --filter api typecheck` green (confirms `Promise<Result<Buffer, BoletinError>>` signature); `pnpm --filter api test` green (Slices A/B stay green); `rg "throw new" api/src/application/reportes/generate-boletin-batch.use-case.ts` → 0; diff budget check (~165-210, Low-Mod). Docker available but no `.db.test.ts` exists for this module — unit + tsc suffice; run integration only if a test file actually exercises these controllers via DB.
+- [x] C.0 Create branch `refactor/asistencia-reporting-result-c` from `refactor/asistencia-reporting-result-b`
+- [x] C.1 `generate-boletin-batch.use-case.ts` L31 (`tenantClient()` L148 `INTERNAL_ERROR`): convert to sync `Result<TenantPrismaClient, BoletinError>`, propagate via `isErr()`/`unwrap()` at the L31 call site — ARR-R1/R4
+- [x] C.2 Same file L109-113: `BATCH_ALL_FAILED` throw → `err(...)` — ARR-R1
+- [x] C.3 Same file L57 (empty-ZIP) and L126 (final): wrap success returns in `ok(...)`; per-row try/catch loop (L74-105) stays unchanged (already consumes `Result` via `isErr()`/`continue`) — ARR-R4
+- [x] C.4 `execute` signature → `Promise<Result<Buffer, BoletinError>>` (was `Promise<Buffer>`) — ARR-R4
+- [x] C.5 `reportes.controller.ts#getBoletinBatch` (L63-88): delete try/catch + `instanceof BoletinError` map → `unwrapResultOrThrow(await this.batchUC.execute(...))` — ARR-R5. DEVIATION: also dropped the now-unused `BoletinError` import from this file's top-level import line (design D.5 assigned this to Slice D, but `noUnusedLocals` in `api/tsconfig.base.json` fails `tsc --noEmit` immediately once `getBoletinBatch` stops referencing it — C must be green independently per ADR-3/verify gate, so the removal was pulled forward to C.5. `ConstanciaError` import untouched — still used by Slice D's `createConstanciaRegular`.)
+- [x] C.6 Rewrite `generate-boletin-batch.use-case.test.ts` (~11 tests): success/empty-ZIP → `isOk()`/`.unwrap()`; `BATCH_ALL_FAILED` → `isErr()`/`unwrapErr()` — ARR-R6. Added 2 NET-NEW unit tests exercising the real `execute()` err() paths end-to-end (all-rows-fail → `BATCH_ALL_FAILED`; missing tenant → `INTERNAL_ERROR`), since none of the original ~11 tests actually drove `execute()` through either throw site (they tested `BoletinError`'s shape directly or pure counting logic) — file now has 13 tests.
+- [x] C.7 **NET-NEW** `reportes.controller.test.ts`: added `getBoletinBatch` coverage — success (`ok(Buffer)` → `res.set`/`res.send`, no error), empty ZIP (`ok(emptyBuffer)` → 200), `BATCH_ALL_FAILED` (`err(...)` → `.rejects.toBeInstanceOf(HttpException)` 422 + `code === 'BATCH_ALL_FAILED'`), `INTERNAL_ERROR`/no-tenant (`err(...)` → 500) — ARR-R6. Verified genuine RED first (temporarily reverted `reportes.controller.ts` to the pre-C.5 try/catch version via `git stash`, ran the 4 new tests → all failed with `TypeError`/wrong-exception-type), then restored the C.5 implementation → GREEN (4/4 pass).
+- [x] C.8 Commit `426c2ec`: `refactor(reportes): Result-return generate-boletin-batch (Promise<Buffer> -> Result)`
+- [x] C.9 Commit `9ff09d2`: `refactor(reportes): retrofit getBoletinBatch to unwrapResultOrThrow`
+- [x] C.10 Commit `10bb9d9`: `test(reportes): migrate batch tests + add net-new getBoletinBatch controller test`
+- [x] C.11 **Verify**: `pnpm --filter api typecheck` green (confirms `Promise<Result<Buffer, BoletinError>>` signature) ✓; `pnpm --filter api test` → 2197/2198 pass, only pre-existing unrelated failure `archive-legacy-grading-data.spec.ts` (Windows path-separator issue, untouched by this change) ✓; `rg "throw new" api/src/application/reportes/generate-boletin-batch.use-case.ts` → 0 ✓; diff budget: 133 additions / 39 deletions = 172 changed lines, within ~165-210 (Low-Mod) ✓. Docker available but no `.db.test.ts` exists for this module — unit + tsc sufficed; no controller exercises DB directly.
 
 ---
 
