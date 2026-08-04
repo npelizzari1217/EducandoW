@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
 import type { Result } from '@educandow/domain';
+import { err } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
@@ -87,10 +88,13 @@ export class GenerateConstanciaRegularUseCase {
     }
   }
 
-  async execute(axccId: string, input: ConstanciaInput): Promise<Result<Buffer, PdfError>> {
+  async execute(
+    axccId: string,
+    input: ConstanciaInput,
+  ): Promise<Result<Buffer, PdfError | ConstanciaError>> {
     const tenantClient = TenantContext.getClient();
     if (!tenantClient) {
-      throw new ConstanciaError('No tenant context available', 'INTERNAL_ERROR', 500);
+      return err(new ConstanciaError('No tenant context available', 'INTERNAL_ERROR', 500));
     }
 
     // ── Step 1: Fetch AlumnosXCursoXCiclo ────────────────────────────────────
@@ -98,11 +102,11 @@ export class GenerateConstanciaRegularUseCase {
       where: { id: axccId },
     });
     if (!axcc) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'AlumnosXCursoXCiclo no encontrado',
         'AXCC_NOT_FOUND',
         404,
-      );
+      ));
     }
 
     // ── Step 2: Fetch Student + eligibility checks ───────────────────────────
@@ -110,18 +114,18 @@ export class GenerateConstanciaRegularUseCase {
       where: { id: axcc.studentId },
     });
     if (!student) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'Alumno no encontrado',
         'STUDENT_NOT_FOUND',
         404,
-      );
+      ));
     }
     if (student.fechaDePase != null) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'El alumno tiene fecha de pase asignada y no puede recibir constancia de alumno regular',
         'STUDENT_NOT_ELIGIBLE',
         422,
-      );
+      ));
     }
 
     // ── Step 3: Fetch CourseCycle → CourseSection (grade/division) + AcademicCycle (name) ──
@@ -130,11 +134,11 @@ export class GenerateConstanciaRegularUseCase {
       include: { course: true, cycle: true },
     });
     if (!cc) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'CourseCycle no encontrado',
         'COURSE_CYCLE_NOT_FOUND',
         404,
-      );
+      ));
     }
 
     // ── Step 4: Fetch Institution from master ────────────────────────────────
@@ -146,11 +150,11 @@ export class GenerateConstanciaRegularUseCase {
         })
       : null;
     if (institutionId != null && institution == null) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'Institución no encontrada',
         'INSTITUTION_NOT_FOUND',
         500,
-      );
+      ));
     }
 
     // ── Step 5: Resolve logo as base64 data-URI (optional, never blocks PDF) ─
@@ -185,11 +189,11 @@ export class GenerateConstanciaRegularUseCase {
 
     // ── Step 8: Render template ──────────────────────────────────────────────
     if (!this.template) {
-      throw new ConstanciaError(
+      return err(new ConstanciaError(
         'Template constancia-regular.hbs no encontrado',
         'TEMPLATE_NOT_FOUND',
         500,
-      );
+      ));
     }
     const html = this.template(datos);
 
