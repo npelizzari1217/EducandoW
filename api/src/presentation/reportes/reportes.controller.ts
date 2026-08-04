@@ -5,7 +5,7 @@ import { Response } from 'express';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
-import { GenerateBoletinUseCase, BoletinError } from '../../application/reportes/generate-boletin.use-case';
+import { GenerateBoletinUseCase } from '../../application/reportes/generate-boletin.use-case';
 import { GenerateBoletinBatchUseCase } from '../../application/reportes/generate-boletin-batch.use-case';
 import { GenerateConstanciaRegularUseCase } from '../../application/reportes/generate-constancia-regular.use-case';
 import { ConstanciaError } from '../../application/reportes/templates/constancia.template';
@@ -54,25 +54,13 @@ export class ReportesController {
     @Param('courseCycleId') courseCycleId: string,
     @Res() res: Response,
   ) {
-    try {
-      const zipBuffer = await this.batchUC.execute(courseCycleId);
-      res.set({
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename="boletines-curso-${courseCycleId}.zip"`,
-        'Content-Length': zipBuffer.length.toString(),
-      });
-      res.send(zipBuffer);
-    } catch (err) {
-      if (err instanceof BoletinError) {
-        res.status(err.httpStatus).json({
-          statusCode: err.httpStatus,
-          error: err.code,
-          message: err.message,
-        });
-      } else {
-        throw err;
-      }
-    }
+    const zipBuffer = unwrapResultOrThrow(await this.batchUC.execute(courseCycleId));
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="boletines-curso-${courseCycleId}.zip"`,
+      'Content-Length': zipBuffer.length.toString(),
+    });
+    res.send(zipBuffer);
   }
 
   /**
