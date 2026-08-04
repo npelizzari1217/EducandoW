@@ -27,6 +27,7 @@
 import { HttpException } from '@nestjs/common';
 import type { Result } from '@educandow/domain';
 import { ApplicationError } from '../../../application/shared/errors/application-error';
+import { InfrastructureError } from '../../../application/shared/errors/infrastructure-error';
 
 export function unwrapResultOrThrow<T, E extends { httpStatus: number; code: string; message: string }>(
   result: Result<T, E>,
@@ -35,6 +36,9 @@ export function unwrapResultOrThrow<T, E extends { httpStatus: number; code: str
     const error = result.unwrapErr();
     if (error instanceof ApplicationError) {
       throw error;
+    }
+    if (error instanceof InfrastructureError) {
+      throw error; // preserve instanceof identity so AppExceptionFilter reads code/httpStatus
     }
     throw new HttpException(
       { statusCode: error.httpStatus, code: error.code, message: error.message },
