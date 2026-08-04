@@ -7,11 +7,19 @@ import { ok, err } from '@educandow/domain';
 import { unwrapResultOrThrow } from '../unwrap-result-or-throw';
 import { PdfError } from '../../../../application/shared/errors/pdf.error';
 import { ApplicationError } from '../../../../application/shared/errors/application-error';
+import { InfrastructureError } from '../../../../application/shared/errors/infrastructure-error';
 
 /** Minimal concrete ApplicationError for exercising the helper's ApplicationError branch. */
 class TestApplicationError extends ApplicationError {
   constructor() {
     super('scope denied', 'TEST_APP_ERROR', 403);
+  }
+}
+
+/** Minimal concrete InfrastructureError for exercising the helper's InfrastructureError branch. */
+class TestInfrastructureError extends InfrastructureError {
+  constructor() {
+    super('No tenant client available', 'TENANT_CLIENT_UNAVAILABLE');
   }
 }
 
@@ -62,6 +70,19 @@ describe('unwrapResultOrThrow', () => {
     const result = unwrapResultOrThrow(ok(buffer));
 
     expect(result).toBe(buffer);
+  });
+
+  it('(IEM-R4) err(infrastructureError) → re-throws the SAME instance as-is (preserves instanceof, not wrapped in HttpException)', () => {
+    const infraError = new TestInfrastructureError();
+
+    try {
+      unwrapResultOrThrow(err(infraError));
+      expect.unreachable('should have thrown');
+    } catch (e) {
+      expect(e).toBe(infraError); // same instance — not re-wrapped
+      expect(e).toBeInstanceOf(InfrastructureError);
+      expect(e).not.toBeInstanceOf(HttpException);
+    }
   });
 
   it('(ARR-R2/R7 Option B) err(bare-Error-with-code) → thrown HttpException body carries `code` under a `code` key (not dropped)', () => {
