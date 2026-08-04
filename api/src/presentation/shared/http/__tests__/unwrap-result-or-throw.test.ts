@@ -24,7 +24,7 @@ class TestInfrastructureError extends InfrastructureError {
   }
 }
 
-/** Minimal bare-Error-with-code class, mirrors AsistenciaReportingError/BoletinError/ConstanciaError shape. */
+/** Minimal bare-Error-with-code class, mirrors BoletinError/ConstanciaError shape. */
 class TestBareCodeError extends Error {
   constructor(
     message: string,

@@ -7,8 +7,10 @@
  * "covered by T3.9 use-case test rendering real HTML").
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { ok, err } from '@educandow/domain';
+import { ok, err, DomainError, ReporteCourseCycleNotFoundError } from '@educandow/domain';
 import { ForbiddenError } from '../../shared/errors/forbidden-error';
+import { InfrastructureError } from '../../shared/errors/infrastructure-error';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 import {
   AttendanceType,
   AttendanceBehaviorValue,
@@ -30,13 +32,9 @@ import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let GenerateAsistenciaMensualPdfUseCase: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let AsistenciaReportingError: any;
 beforeAll(async () => {
   const mod = await import('../generate-asistencia-mensual-pdf.use-case');
   GenerateAsistenciaMensualPdfUseCase = mod.GenerateAsistenciaMensualPdfUseCase;
-  const errMod = await import('../asistencia-reporting.errors');
-  AsistenciaReportingError = errMod.AsistenciaReportingError;
 });
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -225,14 +223,27 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeGeneral', () => {
     expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
-  it('unknown/missing courseCycleId → err(AsistenciaReportingError) with 404', async () => {
+  it('unknown/missing courseCycleId → err(ReporteCourseCycleNotFoundError) instanceof DomainError, code COURSE_CYCLE_NOT_FOUND', async () => {
     const { uc } = makeUC({ ccExists: false });
     const result = await uc.executeGeneral({
       courseCycleId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
     });
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toBeInstanceOf(AsistenciaReportingError);
-    expect(result.unwrapErr()).toMatchObject({ httpStatus: 404 });
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(ReporteCourseCycleNotFoundError);
+    expect(result.unwrapErr()).toMatchObject({ code: 'COURSE_CYCLE_NOT_FOUND' });
+  });
+
+  it('tenant client unavailable → err(TenantClientUnavailableError) instanceof InfrastructureError, code TENANT_CLIENT_UNAVAILABLE, httpStatus 500', async () => {
+    const { uc } = makeUC();
+    vi.mocked(TenantContext.getClient).mockReturnValue(undefined as never);
+    const result = await uc.executeGeneral({
+      courseCycleId: CC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(InfrastructureError);
+    expect(result.unwrapErr()).toBeInstanceOf(TenantClientUnavailableError);
+    expect(result.unwrapErr()).toMatchObject({ code: 'TENANT_CLIENT_UNAVAILABLE', httpStatus: 500 });
   });
 
   it('non-admin preceptor of the CourseCycle → allowed (Door 2)', async () => {

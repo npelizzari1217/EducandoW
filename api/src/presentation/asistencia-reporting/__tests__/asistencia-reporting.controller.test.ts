@@ -9,10 +9,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Reflector } from '@nestjs/core';
 import { HttpException } from '@nestjs/common';
-import { ok, err } from '@educandow/domain';
+import { ok, err, ReporteCourseCycleNotFoundError, MateriaXCursoXCicloNotFoundError } from '@educandow/domain';
 import { ForbiddenError } from '../../../application/shared/errors/forbidden-error';
+import { TenantClientUnavailableError } from '../../../application/shared/errors/infrastructure-errors';
 import { AsistenciaReportingController } from '../asistencia-reporting.controller';
-import { AsistenciaReportingError } from '../../../application/asistencia-reporting/asistencia-reporting.errors';
 import { PdfError } from '../../../application/shared/errors/pdf.error';
 import { ROLES_KEY } from '../../../infrastructure/auth/decorators/roles.decorator';
 
@@ -56,17 +56,29 @@ describe('AsistenciaReportingController', () => {
       expect(res.send).toHaveBeenCalledWith(Buffer.from('PDF-GENERAL'));
     });
 
-    it('maps err(AsistenciaReportingError) to an HttpException with its httpStatus and preserved code', async () => {
+    it('maps err(ReporteCourseCycleNotFoundError) to the SAME DomainError instance (404 via AppExceptionFilter DOMAIN_STATUS mapping)', async () => {
       useCase.executeGeneral.mockResolvedValue(
-        err(new AsistenciaReportingError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404)),
+        err(new ReporteCourseCycleNotFoundError('CourseCycle no encontrado')),
       );
       const res = makeRes();
       const promise = controller.printGeneral('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(404);
-        expect((e.getResponse() as Record<string, unknown>).code).toBe('COURSE_CYCLE_NOT_FOUND');
+      await expect(promise).rejects.toBeInstanceOf(ReporteCourseCycleNotFoundError);
+      await promise.catch((e: ReporteCourseCycleNotFoundError) => {
+        expect(e.code).toBe('COURSE_CYCLE_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
+
+    it('(RER-R3) maps err(TenantClientUnavailableError) to the SAME InfrastructureError instance, code TENANT_CLIENT_UNAVAILABLE at 500', async () => {
+      useCase.executeGeneral.mockResolvedValue(err(new TenantClientUnavailableError()));
+      const res = makeRes();
+      const promise = controller.printGeneral('cc-1', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(TenantClientUnavailableError);
+      await promise.catch((e: TenantClientUnavailableError) => {
+        expect(e.code).toBe('TENANT_CLIENT_UNAVAILABLE');
+        expect(e.httpStatus).toBe(500);
       });
       expect(res.send).not.toHaveBeenCalled();
     });
@@ -94,7 +106,7 @@ describe('AsistenciaReportingController', () => {
       ).rejects.toBe(boom);
     });
 
-    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); handleError rethrows it (not AsistenciaReportingError/ForbiddenError), no PDF ever sent', async () => {
+    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); handleError rethrows it (not ReporteCourseCycleNotFoundError/ForbiddenError), no PDF ever sent', async () => {
       useCase.executeGeneral.mockResolvedValue(err(new PdfError({ cause: new Error('boom') })));
       const res = makeRes();
 
@@ -129,17 +141,29 @@ describe('AsistenciaReportingController', () => {
       expect(useCase.executeMateria).toHaveBeenCalledWith(expect.objectContaining({ grupoId: 'grp-1' }));
     });
 
-    it('maps err(AsistenciaReportingError) to an HttpException with its httpStatus and preserved code', async () => {
+    it('maps err(MateriaXCursoXCicloNotFoundError) to the SAME DomainError instance (404 via AppExceptionFilter DOMAIN_STATUS mapping)', async () => {
       useCase.executeMateria.mockResolvedValue(
-        err(new AsistenciaReportingError('MateriaXCursoXCiclo no encontrada', 'MATERIA_X_CURSO_X_CICLO_NOT_FOUND', 404)),
+        err(new MateriaXCursoXCicloNotFoundError('MateriaXCursoXCiclo no encontrada')),
       );
       const res = makeRes();
       const promise = controller.printMateria('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(404);
-        expect((e.getResponse() as Record<string, unknown>).code).toBe('MATERIA_X_CURSO_X_CICLO_NOT_FOUND');
+      await expect(promise).rejects.toBeInstanceOf(MateriaXCursoXCicloNotFoundError);
+      await promise.catch((e: MateriaXCursoXCicloNotFoundError) => {
+        expect(e.code).toBe('MATERIA_X_CURSO_X_CICLO_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
+    });
+
+    it('(RER-R3) maps err(TenantClientUnavailableError) to the SAME InfrastructureError instance, code TENANT_CLIENT_UNAVAILABLE at 500', async () => {
+      useCase.executeMateria.mockResolvedValue(err(new TenantClientUnavailableError()));
+      const res = makeRes();
+      const promise = controller.printMateria('mxcc-1', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(TenantClientUnavailableError);
+      await promise.catch((e: TenantClientUnavailableError) => {
+        expect(e.code).toBe('TENANT_CLIENT_UNAVAILABLE');
+        expect(e.httpStatus).toBe(500);
       });
       expect(res.send).not.toHaveBeenCalled();
     });

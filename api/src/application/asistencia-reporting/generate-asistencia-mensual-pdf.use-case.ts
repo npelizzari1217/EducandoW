@@ -31,6 +31,8 @@ import {
   daysInMonth,
   ok,
   err,
+  ReporteCourseCycleNotFoundError,
+  MateriaXCursoXCicloNotFoundError,
 } from '@educandow/domain';
 import { ForbiddenError } from '../shared/errors/forbidden-error';
 import type {
@@ -51,7 +53,7 @@ import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.se
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import { resolveLogoDataUri } from '../../infrastructure/reporting/resolve-logo-data-uri';
 import type { PdfError } from '../shared/errors/pdf.error';
-import { AsistenciaReportingError } from './asistencia-reporting.errors';
+import { TemplateNotFoundError, TenantClientUnavailableError } from '../shared/errors/infrastructure-errors';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
 
   async executeGeneral(
     input: GenerateAsistenciaGeneralInput,
-  ): Promise<Result<Buffer, PdfError | AsistenciaReportingError | ForbiddenError>> {
+  ): Promise<Result<Buffer, PdfError | ReporteCourseCycleNotFoundError | MateriaXCursoXCicloNotFoundError | TemplateNotFoundError | TenantClientUnavailableError | ForbiddenError>> {
     const { courseCycleId, year, month, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
@@ -158,7 +160,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
       select: { level: true, courseName: true },
     });
     if (!cc) {
-      return err(new AsistenciaReportingError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404));
+      return err(new ReporteCourseCycleNotFoundError('CourseCycle no encontrado'));
     }
 
     const enrichedRows = await this.generalRepo.findByScopeAndMonthEnriched(
@@ -178,7 +180,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
 
   async executeMateria(
     input: GenerateAsistenciaMateriaInput,
-  ): Promise<Result<Buffer, PdfError | AsistenciaReportingError | ForbiddenError>> {
+  ): Promise<Result<Buffer, PdfError | ReporteCourseCycleNotFoundError | MateriaXCursoXCicloNotFoundError | TemplateNotFoundError | TenantClientUnavailableError | ForbiddenError>> {
     const { materiaXCursoXCicloId, year, month, grupoId, userId, userRoles } = input;
 
     const scope = resolveAccessScope({ roles: userRoles });
@@ -195,9 +197,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
       select: { courseCycleId: true, subject: { select: { name: true } } },
     });
     if (!materia) {
-      return err(new AsistenciaReportingError(
-        'MateriaXCursoXCiclo no encontrada', 'MATERIA_X_CURSO_X_CICLO_NOT_FOUND', 404,
-      ));
+      return err(new MateriaXCursoXCicloNotFoundError('MateriaXCursoXCiclo no encontrada'));
     }
 
     // Riesgo C: level resolved via materiaXCursoXCiclo → courseCycle → level.
@@ -206,7 +206,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
       select: { level: true, courseName: true },
     });
     if (!cc) {
-      return err(new AsistenciaReportingError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404));
+      return err(new ReporteCourseCycleNotFoundError('CourseCycle no encontrado'));
     }
 
     let studentIds: string[] | undefined;
@@ -238,11 +238,9 @@ export class GenerateAsistenciaMensualPdfUseCase {
     year: number;
     month: number;
     enrichedRows: (EnrichedGeneralAttendance | EnrichedMateriaAttendance)[];
-  }): Promise<Result<Buffer, PdfError | AsistenciaReportingError>> {
+  }): Promise<Result<Buffer, PdfError | TemplateNotFoundError>> {
     if (!this.template) {
-      return err(new AsistenciaReportingError(
-        'Template asistencia-mensual.hbs no encontrado', 'TEMPLATE_NOT_FOUND', 500,
-      ));
+      return err(new TemplateNotFoundError('asistencia-mensual.hbs'));
     }
 
     const { scopeLabel, level, year, month, enrichedRows } = params;
@@ -319,7 +317,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
   private async checkDoor2General(
     courseCycleId: string,
     userId: string,
-  ): Promise<Result<void, ForbiddenError | AsistenciaReportingError>> {
+  ): Promise<Result<void, ForbiddenError | TenantClientUnavailableError>> {
     const clientResult = this.tenantClient();
     if (clientResult.isErr()) return err(clientResult.unwrapErr());
     const client = clientResult.unwrap();
@@ -347,7 +345,7 @@ export class GenerateAsistenciaMensualPdfUseCase {
   private async checkDoor2Materia(
     materiaXCursoXCicloId: string,
     userId: string,
-  ): Promise<Result<void, ForbiddenError | AsistenciaReportingError>> {
+  ): Promise<Result<void, ForbiddenError | TenantClientUnavailableError>> {
     const clientResult = this.tenantClient();
     if (clientResult.isErr()) return err(clientResult.unwrapErr());
     const client = clientResult.unwrap();
@@ -380,10 +378,10 @@ export class GenerateAsistenciaMensualPdfUseCase {
     return ok(undefined);
   }
 
-  private tenantClient(): Result<TenantPrismaClient, AsistenciaReportingError> {
+  private tenantClient(): Result<TenantPrismaClient, TenantClientUnavailableError> {
     const c = TenantContext.getClient();
     if (!c) {
-      return err(new AsistenciaReportingError('No tenant context available', 'INTERNAL_ERROR', 500));
+      return err(new TenantClientUnavailableError());
     }
     return ok(c);
   }
