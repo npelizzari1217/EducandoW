@@ -170,8 +170,9 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
     expect(singleUC.execute).toHaveBeenCalledWith('axcc-A');
     expect(singleUC.execute).toHaveBeenCalledWith('axcc-C');
     expect(singleUC.execute).not.toHaveBeenCalledWith('axcc-B');
-    // Result is a ZIP buffer
-    expect(result).toBeInstanceOf(Buffer);
+    // Result is ok(ZIP buffer)
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
   it('Scenario B — batch with zero printable: returns empty ZIP, no error', async () => {
@@ -186,10 +187,11 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
     const singleUC = makeSingleUC();
     const batchUC = new GenerateBoletinBatchUseCase(singleUC);
 
-    // Zero printable students → NO error, returns empty ZIP (REQ-PG-4)
+    // Zero printable students → NO error, returns ok(empty ZIP) (REQ-PG-4)
     const result = await batchUC.execute('cc-1');
 
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
     expect(singleUC.execute).not.toHaveBeenCalled();
   });
 
@@ -235,8 +237,9 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
 
     const result = await batchUC.execute('cc-1');
 
-    // Batch does NOT throw — resolves to a ZIP Buffer
-    expect(result).toBeInstanceOf(Buffer);
+    // Batch does NOT err — resolves to ok(ZIP Buffer)
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
 
     // singleUC.execute was called for all 3 rows (batch doesn't skip on Result)
     expect(singleUC.execute).toHaveBeenCalledTimes(3);
@@ -271,8 +274,48 @@ describe('GenerateBoletinBatchUseCase — repointed to AlumnosXCursoXCiclo', () 
 
     const result = await batchUC.execute('cc-1');
 
-    expect(result).toBeInstanceOf(Buffer);
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeInstanceOf(Buffer);
     expect(appendedEntries).toHaveLength(1);
     expect(appendedEntries[0].buffer.toString()).toBe('PDF-axcc-A');
+  });
+
+  it('(NET-NEW) all rows fail: execute returns err(BATCH_ALL_FAILED) instead of throwing', async () => {
+    const rows = makeAxccRows([
+      { id: 'axcc-A', studentId: 'stu-A', printable: true },
+      { id: 'axcc-B', studentId: 'stu-B', printable: true },
+    ]);
+    const client = {
+      alumnosXCursoXCiclo: { findMany: vi.fn().mockResolvedValue(rows) },
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    // Neither axcc-A nor axcc-B is in successIds/throwIds → makeSingleUC's
+    // default branch returns err(PdfError) for both — all rows fail.
+    const singleUC = makeSingleUC();
+    const batchUC = new GenerateBoletinBatchUseCase(singleUC);
+
+    const result = await batchUC.execute('cc-1');
+
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(BoletinError);
+    expect(error.code).toBe('BATCH_ALL_FAILED');
+    expect(error.httpStatus).toBe(422);
+    expect(appendedEntries).toHaveLength(0);
+  });
+
+  it('(NET-NEW) missing tenant context: execute returns err(INTERNAL_ERROR) instead of throwing', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(undefined as any);
+
+    const batchUC = new GenerateBoletinBatchUseCase(makeSingleUC());
+
+    const result = await batchUC.execute('cc-1');
+
+    expect(result.isErr()).toBe(true);
+    const error = result.unwrapErr();
+    expect(error).toBeInstanceOf(BoletinError);
+    expect(error.code).toBe('INTERNAL_ERROR');
+    expect(error.httpStatus).toBe(500);
   });
 });
