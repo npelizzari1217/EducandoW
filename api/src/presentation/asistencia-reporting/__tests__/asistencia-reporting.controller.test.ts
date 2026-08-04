@@ -8,7 +8,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Reflector } from '@nestjs/core';
-import { ForbiddenException, HttpException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { ok, err } from '@educandow/domain';
 import { ForbiddenError } from '../../../application/shared/errors/forbidden-error';
 import { AsistenciaReportingController } from '../asistencia-reporting.controller';
@@ -56,14 +56,19 @@ describe('AsistenciaReportingController', () => {
       expect(res.send).toHaveBeenCalledWith(Buffer.from('PDF-GENERAL'));
     });
 
-    it('maps AsistenciaReportingError to its httpStatus', async () => {
-      useCase.executeGeneral.mockRejectedValue(
-        new AsistenciaReportingError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404),
+    it('maps err(AsistenciaReportingError) to an HttpException with its httpStatus and preserved code', async () => {
+      useCase.executeGeneral.mockResolvedValue(
+        err(new AsistenciaReportingError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404)),
       );
       const res = makeRes();
-      await controller.printGeneral('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'COURSE_CYCLE_NOT_FOUND' }));
+      const promise = controller.printGeneral('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(404);
+        expect((e.getResponse() as Record<string, unknown>).code).toBe('COURSE_CYCLE_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
     });
 
     it('exposes @Roles module/action metadata consistent with the asistencia list endpoints (ATTENDANCE/READ)', () => {
@@ -72,15 +77,15 @@ describe('AsistenciaReportingController', () => {
       expect(roles).toContainEqual({ module: 'ATTENDANCE', action: 'READ' });
     });
 
-    it('maps a domain ForbiddenError (Door 2 rejection) to NestJS ForbiddenException', async () => {
-      useCase.executeGeneral.mockRejectedValue(new ForbiddenError('User is not a preceptor for this CursoXCiclo'));
+    it('maps a domain err(ForbiddenError) (Door 2 rejection) to the SAME ForbiddenError instance (403 via ApplicationError filter branch)', async () => {
+      useCase.executeGeneral.mockResolvedValue(err(new ForbiddenError('User is not a preceptor for this CursoXCiclo')));
       const res = makeRes();
       await expect(
         controller.printGeneral('cc-1', makeUser() as never, { year: 2026, month: 7 }, res as never),
-      ).rejects.toBeInstanceOf(ForbiddenException);
+      ).rejects.toBeInstanceOf(ForbiddenError);
     });
 
-    it('rethrows unknown errors untouched (delegates to the global exception filter)', async () => {
+    it('rethrows unknown errors untouched (a genuine bug bypassing the Result channel; delegates to the global exception filter)', async () => {
       const boom = new Error('unexpected');
       useCase.executeGeneral.mockRejectedValue(boom);
       const res = makeRes();
@@ -124,13 +129,19 @@ describe('AsistenciaReportingController', () => {
       expect(useCase.executeMateria).toHaveBeenCalledWith(expect.objectContaining({ grupoId: 'grp-1' }));
     });
 
-    it('maps AsistenciaReportingError to its httpStatus', async () => {
-      useCase.executeMateria.mockRejectedValue(
-        new AsistenciaReportingError('MateriaXCursoXCiclo no encontrada', 'MATERIA_X_CURSO_X_CICLO_NOT_FOUND', 404),
+    it('maps err(AsistenciaReportingError) to an HttpException with its httpStatus and preserved code', async () => {
+      useCase.executeMateria.mockResolvedValue(
+        err(new AsistenciaReportingError('MateriaXCursoXCiclo no encontrada', 'MATERIA_X_CURSO_X_CICLO_NOT_FOUND', 404)),
       );
       const res = makeRes();
-      await controller.printMateria('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
-      expect(res.status).toHaveBeenCalledWith(404);
+      const promise = controller.printMateria('nope', makeUser() as never, { year: 2026, month: 7 }, res as never);
+
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(404);
+        expect((e.getResponse() as Record<string, unknown>).code).toBe('MATERIA_X_CURSO_X_CICLO_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
     });
 
     it('exposes @Roles module/action metadata (ATTENDANCE/READ)', () => {

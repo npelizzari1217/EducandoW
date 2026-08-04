@@ -1,5 +1,5 @@
 /**
- * unwrapResultOrThrow — Result → HTTP materialization helper (ADR-6, PPR-S6/S7).
+ * unwrapResultOrThrow — Result → HTTP materialization helper (ADR-6, PPR-S6/S7, ARR-R2/R7 Option B).
  */
 import { describe, it, expect } from 'vitest';
 import { HttpException } from '@nestjs/common';
@@ -12,6 +12,18 @@ import { ApplicationError } from '../../../../application/shared/errors/applicat
 class TestApplicationError extends ApplicationError {
   constructor() {
     super('scope denied', 'TEST_APP_ERROR', 403);
+  }
+}
+
+/** Minimal bare-Error-with-code class, mirrors AsistenciaReportingError/BoletinError/ConstanciaError shape. */
+class TestBareCodeError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly httpStatus: number,
+  ) {
+    super(message);
+    this.name = 'TestBareCodeError';
   }
 }
 
@@ -50,5 +62,21 @@ describe('unwrapResultOrThrow', () => {
     const result = unwrapResultOrThrow(ok(buffer));
 
     expect(result).toBe(buffer);
+  });
+
+  it('(ARR-R2/R7 Option B) err(bare-Error-with-code) → thrown HttpException body carries `code` under a `code` key (not dropped)', () => {
+    const bareError = new TestBareCodeError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404);
+
+    try {
+      unwrapResultOrThrow(err(bareError));
+      expect.unreachable('should have thrown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(HttpException);
+      const httpException = e as HttpException;
+      expect(httpException.getStatus()).toBe(404);
+      const body = httpException.getResponse() as Record<string, unknown>;
+      expect(body.code).toBe('COURSE_CYCLE_NOT_FOUND');
+      expect(body.message).toBe('CourseCycle no encontrado');
+    }
   });
 });

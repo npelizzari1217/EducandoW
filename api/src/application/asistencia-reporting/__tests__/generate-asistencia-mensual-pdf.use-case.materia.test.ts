@@ -210,12 +210,12 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
 
   it('unknown materiaXCursoXCicloId → same error contract as General (404)', async () => {
     const { uc } = makeUC({ materiaExists: false });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] }),
-    ).rejects.toBeInstanceOf(AsistenciaReportingError);
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'] }),
-    ).rejects.toMatchObject({ httpStatus: 404 });
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['ADMIN'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(AsistenciaReportingError);
+    expect(result.unwrapErr()).toMatchObject({ httpStatus: 404 });
   });
 
   it('teacher with a group in the materia → allowed (Door 2)', async () => {
@@ -227,41 +227,45 @@ describe('GenerateAsistenciaMensualPdfUseCase — executeMateria', () => {
     expect(result.unwrap()).toBeInstanceOf(Buffer);
   });
 
-  it('teacher with no group in the materia → ForbiddenError', async () => {
+  it('teacher with no group in the materia → err(ForbiddenError)', async () => {
     const { uc } = makeUC({ teacherGroups: [] });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
-  it('non-admin, not a DocenteXCiclo in this cycle → ForbiddenError', async () => {
+  it('non-admin, not a DocenteXCiclo in this cycle → err(ForbiddenError)', async () => {
     const { uc } = makeUC({ docenteExists: false });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
   });
 
-  it('non-admin, materiaXCursoXCiclo not found (Door 2) → ForbiddenError, fails closed', async () => {
+  it('non-admin, materiaXCursoXCiclo not found (Door 2) → err(ForbiddenError), fails closed', async () => {
     const { uc, docenteRepo, grupoRepo } = makeUC({ materiaExists: false });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('MateriaXCursoXCiclo not found') });
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: 'nope', year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    expect(result.unwrapErr()).toMatchObject({ message: expect.stringContaining('MateriaXCursoXCiclo not found') });
     // Door 2 short-circuits before ever reaching the docente/group lookups.
     expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
     expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
   });
 
-  it('non-admin, courseCycle not found for the materia (Door 2) → ForbiddenError, fails closed', async () => {
+  it('non-admin, courseCycle not found for the materia (Door 2) → err(ForbiddenError), fails closed', async () => {
     const { uc, docenteRepo, grupoRepo } = makeUC({ ccExists: false });
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toBeInstanceOf(ForbiddenError);
-    await expect(
-      uc.executeMateria({ materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'] }),
-    ).rejects.toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
+    const result = await uc.executeMateria({
+      materiaXCursoXCicloId: MXCC_ID, year: YEAR, month: MONTH, userId: 'u1', userRoles: ['TEACHER'],
+    });
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(ForbiddenError);
+    expect(result.unwrapErr()).toMatchObject({ message: expect.stringContaining('CourseCycle not found') });
     expect(docenteRepo.findByUserAndCycle).not.toHaveBeenCalled();
     expect(grupoRepo.findGroupsForDocente).not.toHaveBeenCalled();
   });

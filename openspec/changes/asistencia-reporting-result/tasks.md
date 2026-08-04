@@ -41,24 +41,24 @@ never edit `extends` on `BoletinError`/`ConstanciaError`/`AsistenciaReportingErr
 
 ## Slice A — asistencia-reporting (ARR-R1, R2, R4, R5, R6, R7)
 
-- [ ] A.0 Create branch `refactor/asistencia-reporting-result` from post-#124 `main` (rebase if needed)
-- [ ] A.1 **[RED]** `api/src/presentation/shared/unwrap-result-or-throw.test.ts`: add/adjust test asserting the thrown `HttpException`'s body carries `code` (not just `statusCode`/`message`) for a bare-`Error`-with-`code` input
-- [ ] A.2 **[RED]** `api/src/presentation/shared/exception.filter.spec.ts`: add/adjust test asserting the `HttpException` branch re-reads `code` from the thrown response object into the final envelope
-- [ ] A.3 **[GREEN]** `unwrap-result-or-throw.ts`: widen generic bound to admit bare `Error`-with-`code`/`httpStatus`/`message`; branch-2 `HttpException` body → put code under `code` key (`{ statusCode, code: error.code, message: error.message }`) — ARR-R2/R7 Option B, 2-line additive fix
-- [ ] A.4 **[GREEN]** `exception.filter.ts` `HttpException` branch: add `if (typeof obj.code === 'string') code = obj.code;` — re-reads `code` into final `{ error: { status, code, message } }` envelope
-- [ ] A.5 `generate-asistencia-mensual-pdf.use-case.ts` L153,185,196: 3 `AsistenciaReportingError` throws (`COURSE_CYCLE_NOT_FOUND`×2, `MATERIA_X_CURSO_X_CICLO_NOT_FOUND`) → `err(...)` in `executeGeneral`/`executeMateria` — ARR-R1
-- [ ] A.6 Same file L230: `TEMPLATE_NOT_FOUND` throw in `render` → `err(...)`; `render` signature → `Promise<Result<Buffer, PdfError | AsistenciaReportingError>>` — ARR-R1/R4
-- [ ] A.7 Same file L313,318,323,334,342,347,352: 7 `ForbiddenError` throws in `checkDoor2General`/`checkDoor2Materia` → `err(...)`; both helpers → `Promise<Result<void, ForbiddenError | AsistenciaReportingError>>` — ARR-R1/R4
-- [ ] A.8 Same file L359: `tenantClient()` L356-362 → sync `Result<TenantPrismaClient, AsistenciaReportingError>` (was throwing); propagate at both call sites (L147/179) and inside `checkDoor2*` (L307/328) via `isErr()`/`unwrap()` — ARR-R1/R4
-- [ ] A.9 `executeGeneral`/`executeMateria` final signatures → `Promise<Result<Buffer, PdfError | AsistenciaReportingError | ForbiddenError>>`; wire the Door-2 auth-gate `check.isErr()` guard at L143-145/L175-177 — ARR-R4
-- [ ] A.10 `asistencia-reporting.controller.ts`: delete `handleError()` (L118-131) + both try/catch blocks; `printGeneral`/`printMateria` → `unwrapResultOrThrow(await this.generateUC.execute*(...))`; remove now-unused `ForbiddenException`/`ForbiddenError`/`AsistenciaReportingError` imports if unreferenced — ARR-R5
-- [ ] A.11 Rewrite `generate-asistencia-mensual-pdf.use-case.test.ts` (general) + `.materia.test.ts`: all `.rejects.toBeInstanceOf(...)` → `isErr()`/`unwrapErr()`; success paths → `.unwrap()` where a raw buffer was read — ARR-R6
-- [ ] A.12 Rewrite `asistencia-reporting.controller.test.ts` identity cases: `AsistenciaReportingError` maps (general L59-67, materia L127-134) → `mockResolvedValue(err(...))` + assert `.rejects.toBeInstanceOf(HttpException)` status 404 + `getResponse().code === 'COURSE_CYCLE_NOT_FOUND'`; `ForbiddenError` map (L75-81) → `err(new ForbiddenError(...))` + `.rejects.toBeInstanceOf(ForbiddenError)` (403); "rethrows unknown errors" (L83-90) → `err(boom)` form — ARR-R6
-- [ ] A.13 Commit: `refactor(http): widen unwrapResultOrThrow bound, preserve error code (Option B)`
-- [ ] A.14 Commit: `refactor(asistencia-reporting): return Result from generate-asistencia-mensual-pdf (12 throws)`
-- [ ] A.15 Commit: `refactor(asistencia-reporting): consume Result in controller, drop handleError/try-catch`
-- [ ] A.16 Commit: `test(asistencia-reporting): migrate helper/filter/use-case/controller tests to Result`
-- [ ] A.17 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green; `rg "throw new" api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts` → 0; diff budget check (~240-310, Moderate)
+- [x] A.0 Create branch `refactor/asistencia-reporting-result` from post-#124 `main` (rebase if needed)
+- [x] A.1 **[RED]** `api/src/presentation/shared/unwrap-result-or-throw.test.ts`: add/adjust test asserting the thrown `HttpException`'s body carries `code` (not just `statusCode`/`message`) for a bare-`Error`-with-`code` input
+- [x] A.2 **[RED]** `api/src/presentation/shared/exception.filter.spec.ts`: add/adjust test asserting the `HttpException` branch re-reads `code` from the thrown response object into the final envelope
+- [x] A.3 **[GREEN]** `unwrap-result-or-throw.ts`: widen generic bound to admit bare `Error`-with-`code`/`httpStatus`/`message`; branch-2 `HttpException` body → put code under `code` key (`{ statusCode, code: error.code, message: error.message }`) — ARR-R2/R7 Option B, 2-line additive fix
+- [x] A.4 **[GREEN]** `exception.filter.ts` `HttpException` branch: add `if (typeof obj.code === 'string') code = obj.code;` — re-reads `code` into final `{ error: { status, code, message } }` envelope
+- [x] A.5 `generate-asistencia-mensual-pdf.use-case.ts` L153,185,196: 3 `AsistenciaReportingError` throws (`COURSE_CYCLE_NOT_FOUND`×2, `MATERIA_X_CURSO_X_CICLO_NOT_FOUND`) → `err(...)` in `executeGeneral`/`executeMateria` — ARR-R1
+- [x] A.6 Same file L230: `TEMPLATE_NOT_FOUND` throw in `render` → `err(...)`; `render` signature → `Promise<Result<Buffer, PdfError | AsistenciaReportingError>>` — ARR-R1/R4
+- [x] A.7 Same file L313,318,323,334,342,347,352: 7 `ForbiddenError` throws in `checkDoor2General`/`checkDoor2Materia` → `err(...)`; both helpers → `Promise<Result<void, ForbiddenError | AsistenciaReportingError>>` — ARR-R1/R4
+- [x] A.8 Same file L359: `tenantClient()` L356-362 → sync `Result<TenantPrismaClient, AsistenciaReportingError>` (was throwing); propagate at both call sites (L147/179) and inside `checkDoor2*` (L307/328) via `isErr()`/`unwrap()` — ARR-R1/R4
+- [x] A.9 `executeGeneral`/`executeMateria` final signatures → `Promise<Result<Buffer, PdfError | AsistenciaReportingError | ForbiddenError>>`; wire the Door-2 auth-gate `check.isErr()` guard at L143-145/L175-177 — ARR-R4
+- [x] A.10 `asistencia-reporting.controller.ts`: delete `handleError()` (L118-131) + both try/catch blocks; `printGeneral`/`printMateria` → `unwrapResultOrThrow(await this.generateUC.execute*(...))`; remove now-unused `ForbiddenException`/`ForbiddenError`/`AsistenciaReportingError` imports if unreferenced — ARR-R5
+- [x] A.11 Rewrite `generate-asistencia-mensual-pdf.use-case.test.ts` (general) + `.materia.test.ts`: all `.rejects.toBeInstanceOf(...)` → `isErr()`/`unwrapErr()`; success paths → `.unwrap()` where a raw buffer was read — ARR-R6
+- [x] A.12 Rewrite `asistencia-reporting.controller.test.ts` identity cases: `AsistenciaReportingError` maps (general L59-67, materia L127-134) → `mockResolvedValue(err(...))` + assert `.rejects.toBeInstanceOf(HttpException)` status 404 + `getResponse().code === 'COURSE_CYCLE_NOT_FOUND'`; `ForbiddenError` map (L75-81) → `err(new ForbiddenError(...))` + `.rejects.toBeInstanceOf(ForbiddenError)` (403); "rethrows unknown errors" (L83-90) → `err(boom)` form — ARR-R6
+- [x] A.13 Commit: `refactor(http): widen unwrapResultOrThrow bound, preserve error code (Option B)`
+- [x] A.14 Commit: `refactor(asistencia-reporting): return Result from generate-asistencia-mensual-pdf (12 throws)`
+- [x] A.15 Commit: `refactor(asistencia-reporting): consume Result in controller, drop handleError/try-catch`
+- [x] A.16 Commit: `test(asistencia-reporting): migrate helper/filter/use-case/controller tests to Result`
+- [x] A.17 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green; `rg "throw new" api/src/application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case.ts` → 0; diff budget check (~240-310, Moderate)
 
 ---
 
