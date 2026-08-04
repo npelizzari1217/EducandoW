@@ -43,6 +43,7 @@ vi.mock('../../../infrastructure/auth/tenant.context', () => ({
 }));
 
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 
 // ── Helpers ───────────────────────────────────────────────
 
@@ -158,6 +159,47 @@ describe('ListSubjectCompetenciesUC', () => {
 describe('AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC.execute({ courseCycleId })', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  // infrastructure-error-model, PR2, T12: tenant-client guard now returns Result instead of throwing.
+  it('T12: guard — returns err(TenantClientUnavailableError) when TenantContext.getClient() returns null, does NOT throw', async () => {
+    const competencyRepo = makeCompetencyRepo([]);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo([]);
+
+    vi.mocked(TenantContext.getClient).mockReturnValue(null as never);
+
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
+
+    const result = await uc.execute({ courseCycleId: 'cc-uuid-1' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(TenantClientUnavailableError);
+  });
+
+  it('T12: happy path — resolves ok(undefined) when tenant client is present and the flow completes', async () => {
+    const comp = makeCompetency('comp-uuid-1', 'sps-1');
+    const competencyRepo = makeCompetencyRepo([comp]);
+    const valuationRepo = makeValuationRepo();
+    const studyPlanRepo = makeStudyPlanRepo(['sps-1']);
+
+    const prismaClient = makePrismaClient({
+      courseCycle: {
+        findUnique: vi.fn().mockResolvedValue({ courseId: 'section-1', studyPlanId: 'plan-1' }),
+      },
+      alumnosXCursoXCiclo: {
+        findMany: vi.fn().mockResolvedValue([
+          { studentId: 'student-1', student: { firstName: 'Juan', lastName: 'Pérez' } },
+        ]),
+      },
+    });
+    vi.mocked(TenantContext.getClient).mockReturnValue(prismaClient as never);
+
+    const uc = new AutoCreateCompetenciasXMateriaXAlumnoXCursoXCicloUC(competencyRepo, valuationRepo, studyPlanRepo);
+    const result = await uc.execute({ courseCycleId: 'cc-uuid-1' });
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap()).toBeUndefined();
   });
 
   it('creates parent valuations for all (student × competency) pairs in a CourseCycle', async () => {

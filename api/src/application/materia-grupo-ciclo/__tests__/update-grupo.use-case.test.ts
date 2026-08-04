@@ -17,6 +17,7 @@ import {
 import { DocenteXCicloService } from '../../docente-ciclo/docente-x-ciclo.service';
 import type { DocenteXCicloRepository } from '@educandow/domain';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -219,7 +220,12 @@ describe('UpdateGrupoUseCase', () => {
     expect(grupoRepo.update).not.toHaveBeenCalled();
   });
 
-  it('infra guard — still throws (NOT Result) when TenantContext.getClient() returns null (MGCM-R6)', async () => {
+  // MGCM-R6 REWRITE (infrastructure-error-model, PR2, T10): this test previously asserted
+  // a bare throw ('No tenant client available') and was documented as "must stay a throw"
+  // pending the InfrastructureError tier. This change IS the authorized follow-up that lifts
+  // that deferral — NOT a regression. The guard now returns err(TenantClientUnavailableError)
+  // instead of throwing.
+  it('infra guard — returns err(TenantClientUnavailableError) when TenantContext.getClient() returns null (MGCM-R6)', async () => {
     vi.mocked(TenantContext.getClient).mockReturnValue(null as any);
 
     const grupo = makeGrupo();
@@ -233,8 +239,9 @@ describe('UpdateGrupoUseCase', () => {
 
     const uc = new UpdateGrupoUseCase(grupoRepo, materiaRepo, docenteService, prisma as any);
 
-    await expect(uc.execute({ id: 'g-1', userId: 'user-2' })).rejects.toThrow(
-      'No tenant client available',
-    );
+    const result = await uc.execute({ id: 'g-1', userId: 'user-2' });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(TenantClientUnavailableError);
   });
 });

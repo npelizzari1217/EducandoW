@@ -28,6 +28,7 @@ import {
 } from '@educandow/domain';
 import type { Result } from '@educandow/domain';
 import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
+import { TemplateNotFoundError } from '../../shared/errors/infrastructure-errors';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 import { PrismaService } from '../../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../../shared/ports/pdf.port';
@@ -87,7 +88,7 @@ export class GenerateAttendanceTypesPdfUseCase {
 
   async execute(
     input: GenerateAttendanceTypesPdfInput,
-  ): Promise<Result<Buffer, PdfError | AttendanceTypeLevelOutOfScopeError>> {
+  ): Promise<Result<Buffer, PdfError | AttendanceTypeLevelOutOfScopeError | TemplateNotFoundError>> {
     const { level, active, currentUser } = input;
     const scope = resolveAccessScope(currentUser);
 
@@ -110,9 +111,9 @@ export class GenerateAttendanceTypesPdfUseCase {
 
   // ── Shared render pipeline ───────────────────────────────────────────────
 
-  private async render(types: AttendanceType[]): Promise<Result<Buffer, PdfError>> {
+  private async render(types: AttendanceType[]): Promise<Result<Buffer, PdfError | TemplateNotFoundError>> {
     if (!this.template) {
-      throw new Error('Template attendance-types.hbs no encontrado');
+      return err(new TemplateNotFoundError('attendance-types.hbs'));
     }
 
     const rows: AttendanceTypesReportRow[] = types

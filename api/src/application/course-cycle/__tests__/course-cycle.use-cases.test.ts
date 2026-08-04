@@ -27,7 +27,8 @@ import {
   AcademicCycleClosedError,
   ValidationError,
 } from '@educandow/domain';
-import { Id, NotFoundError } from '@educandow/domain';
+import { Id, NotFoundError, err } from '@educandow/domain';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -890,5 +891,39 @@ describe('GenerateCourseCyclesUseCase', () => {
     expect(result.created).toBe(1);
     expect(result.updated).toBe(0);
     expect(result.total).toBe(1);
+  });
+
+  // infrastructure-error-model, PR2, T15: autoCreateUC.execute now resolves a Result instead of
+  // always resolving void — the caller must inspect isErr() and log via the .then() branch.
+  // The existing ACT-5 rejection case (above) stays untouched: .catch(...) still covers real rejections.
+  it('T15: logs via console.error when autoCreateUC.execute resolves err(TenantClientUnavailableError), without blocking generation', async () => {
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const erroringAutoCreateUC = {
+      execute: vi.fn().mockResolvedValue(err(new TenantClientUnavailableError())),
+    } as never;
+    const uc = new GenerateCourseCyclesUseCase(mockRepo, mockPlanRepo, mockCycleRepo, erroringAutoCreateUC);
+
+    mockPlanRepo.findById = vi.fn().mockResolvedValue({
+      id: Id.reconstruct('plan-1'), name: 'Plan 2026', level: 2, modality: 0,
+      academicYear: '2026', active: true, createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockPlanRepo.findPlanCoursesByPlan = vi.fn().mockResolvedValue([
+      { id: 'spc-1', courseSectionId: 'course-1', courseSectionName: 'Matemática', studyPlanId: 'plan-1' },
+    ]);
+    mockRepo.findByPair = vi.fn().mockResolvedValue(null);
+
+    const result = await uc.execute({ level: 20, cycleId: 'cycle-1', studyPlanId: 'plan-1' });
+
+    // fire-and-forget: allow the .then(isErr) branch to resolve before asserting
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(result.isOk()).toBe(true);
+    expect(result.unwrap().created).toBe(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[GenerateCourseCycles] AutoCreate failed'),
+      expect.any(TenantClientUnavailableError),
+    );
+
+    consoleErrorSpy.mockRestore();
   });
 });

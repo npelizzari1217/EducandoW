@@ -190,6 +190,39 @@ governs authorization DECISIONS already made elsewhere (`role-hierarchy`), not a
 - WHEN inspecting files under the `auth` module (login/token issuance)
 - THEN no file under that module MUST appear in the diff
 
+### Requirement: InfrastructureError tier
+
+The system SHALL define `abstract class InfrastructureError extends Error` in
+`api/src/application/shared/errors/infrastructure-error.ts` — the 3rd tier of the layered model
+(`DomainError → ApplicationError → InfrastructureError → Presentation`). It models failures whose
+cause is the INFRASTRUCTURE ITSELF (a dependency unavailable, an artifact missing), always an
+unexpected server condition. Unlike `ApplicationError`, its `httpStatus` MUST be a **fixed field
+equal to `500`** (not a constructor parameter — no subclass may override it); `code` is a required
+readonly instance property. The three hierarchies MUST NOT overlap (`instanceof ApplicationError`
+and `instanceof DomainError` MUST both be `false`). Modeled + piloted by change
+`infrastructure-error-model` (archived 2026-08-04) — see its delta spec (IEM-R1..R9) for full scenarios.
+
+`AppExceptionFilter` MUST map an `instanceof InfrastructureError` exception to status `500`, `code`,
+and `message`, in a branch evaluated after `ApplicationError` and before the generic `Error`
+fallback (so `code` is never dropped). `unwrapResultOrThrow` MUST re-throw an `InfrastructureError`
+as-is (identity-preserving), mirroring its `ApplicationError` branch.
+
+Concrete subclasses (`api/src/application/shared/errors/infrastructure-errors.ts`):
+`TenantClientUnavailableError` (code `TENANT_CLIENT_UNAVAILABLE`) and `TemplateNotFoundError`
+(code `TEMPLATE_NOT_FOUND`). New infra consumers MUST add subclasses grouped by failure semantics.
+
+#### Scenario: InfrastructureError maps to 500 with its code
+
+- GIVEN a use case returns `err(new TenantClientUnavailableError())` and it reaches the HTTP boundary
+- WHEN the request completes
+- THEN the response status MUST be `500` and the body MUST include `error.code = 'TENANT_CLIENT_UNAVAILABLE'`
+
+#### Scenario: httpStatus is not overridable
+
+- GIVEN any concrete `InfrastructureError` subclass
+- WHEN its constructor is inspected
+- THEN it MUST NOT accept an `httpStatus` parameter — `httpStatus` MUST always resolve to `500`
+
 ## Out of Scope / Follow-up
 
 Consumers not yet migrated to this capability (tracked as separate changes, NOT implemented here):
@@ -199,10 +232,10 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   `validateTeacherLevel` helper, C `add-student-to-grupo`). 15 of 17 throws were mechanical
   `Result`-wraps of existing `DomainError`s; the group ⊆ materia intrinsic invariant got a NEW
   `DomainError` subclass `GrupoMateriaMismatchError` (code `GRUPO_MATERIA_MISMATCH`, HTTP 422 —
-  fixing a prior bare-`Error` 500 bug). Remaining for this area: the 2 mistyped infrastructure
-  guards (`update-grupo.use-case.ts` "No tenant client available", `competency.use-cases.ts:258`)
-  DEFERRED to the `InfrastructureError` follow-up below; the `createGrupo` controller raw-Prisma
-  anti-pattern; domain entity constructor guards.
+  fixing a prior bare-`Error` 500 bug). The 2 mistyped infrastructure guards
+  (`update-grupo.use-case.ts` "No tenant client available", `competency.use-cases.ts`) are now DONE —
+  piloted by `infrastructure-error-model` (archived 2026-08-04) as `err(TenantClientUnavailableError)`.
+  Remaining for this area: the `createGrupo` controller raw-Prisma anti-pattern; domain entity constructor guards.
 - `reportes` / `asistencia-reporting` — FULLY MIGRATED (throw → `Result`) by change
   `asistencia-reporting-result` (épico follow-up #2, 4 stacked slices A asistencia-reporting /
   B boletin / C boletin-batch / D constancia). All 28 throws across the 4 use-cases moved into the
@@ -240,8 +273,9 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   **reclassified from `DomainError` to `ApplicationError`** (fixed `httpStatus = 403`) and moved to
   `api/src/application/shared/errors/` — it is the **2nd real consumer** of the `ApplicationError`
   catalog (after the `users.use-cases.ts` pilot), proving the abstraction generalizes. HTTP 403
-  unchanged (no behavior regression). Remaining: the `generate-attendance-types-pdf.use-case.ts`
-  template bare-`Error` guard (infra, deferred to `InfrastructureError`).
+  unchanged (no behavior regression). The `generate-attendance-types-pdf.use-case.ts` template
+  bare-`Error` guard is now DONE — piloted by `infrastructure-error-model` (archived 2026-08-04) as
+  `err(TemplateNotFoundError)`.
 - `ForbiddenError` reclassification — FULLY DONE (archived 2026-08-03) by change
   `forbidden-error-reclassification`. The generic `ForbiddenError` (AuthZ caller-context) was moved
   `packages/domain` → `api/src/application/shared/errors/forbidden-error.ts` and reclassified
@@ -256,8 +290,9 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
 - Long tail: `pedagogy`, `ingresante`, `institution`, `asignacion-curso`, `nivel-terciario`.
 - Shared `unwrapOrThrow` helper — 23+ controllers duplicate `if (isErr) throw unwrapErr()` inline;
   a shared helper would remove the duplication once enough consumers exist to justify it.
-- 2 mistyped infrastructure guards (`update-grupo.use-case.ts:43`, `competency.use-cases.ts:258`)
-  need a minimal `InfrastructureError` — separate concern from `ApplicationError`, not yet modeled.
+- `InfrastructureError` tier — MODELED + piloted (archived 2026-08-04) by change `infrastructure-error-model`
+  (base class + filter/`unwrapResultOrThrow` wiring + 3 pilots: `update-grupo`, `competency`,
+  `generate-attendance-types-pdf`). Consumed by the `reporting-errors-reclassification` follow-up for its 5 infra guards.
 
 ### Classification note (ApplicationError vs DomainError)
 

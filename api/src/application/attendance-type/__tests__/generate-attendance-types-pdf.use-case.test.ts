@@ -12,6 +12,7 @@ import { ok, err } from '@educandow/domain';
 import { AttendanceType, AttendanceTypeCode, AttendanceBehavior, AttendanceBehaviorValue } from '@educandow/domain';
 import { PdfError } from '../../shared/errors/pdf.error';
 import { AttendanceTypeLevelOutOfScopeError } from '../../shared/errors/attendance-type-level-out-of-scope-error';
+import { TemplateNotFoundError } from '../../shared/errors/infrastructure-errors';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
   TenantContext: {
@@ -204,5 +205,20 @@ describe('GenerateAttendanceTypesPdfUseCase — render pipeline', () => {
 
     expect(result.isOk()).toBe(true);
     expect(result.unwrap()).toBe(buffer);
+  });
+
+  // infrastructure-error-model, PR2, T18: template-guard now returns Result instead of throwing.
+  // Force the unresolved-template scenario directly (mirrors the established pattern in
+  // generate-constancia-regular.use-case.test.ts — avoids fs mocking).
+  it('T18: guard — returns err(TemplateNotFoundError) when the template is unresolved, does NOT throw', async () => {
+    const { uc, pdfGenerator } = makeUC();
+    // Simulate the constructor not finding attendance-types.hbs
+    (uc as any).template = null;
+
+    const result = await uc.execute({ currentUser: rootUser });
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(TemplateNotFoundError);
+    expect(pdfGenerator.generatePdf).not.toHaveBeenCalled();
   });
 });
