@@ -33,26 +33,14 @@ export class ReportesController {
     @Param('alumnosXCursoXCicloId') alumnosXCursoXCicloId: string,
     @Res() res: Response,
   ) {
-    try {
-      const result = await this.singleUC.execute(alumnosXCursoXCicloId);
-      const pdfBuffer = unwrapResultOrThrow(result);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="boletin-${alumnosXCursoXCicloId}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      });
-      res.send(pdfBuffer);
-    } catch (err) {
-      if (err instanceof BoletinError) {
-        res.status(err.httpStatus).json({
-          statusCode: err.httpStatus,
-          error: err.code,
-          message: err.message,
-        });
-      } else {
-        throw err;
-      }
-    }
+    const result = await this.singleUC.execute(alumnosXCursoXCicloId);
+    const pdfBuffer = unwrapResultOrThrow(result);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="boletin-${alumnosXCursoXCicloId}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.send(pdfBuffer);
   }
 
   /**
