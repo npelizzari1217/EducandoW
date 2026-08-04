@@ -10,11 +10,11 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HttpException } from '@nestjs/common';
-import { ok, err } from '@educandow/domain';
+import { ok, err, AxccNotFoundError, BatchAllFailedError } from '@educandow/domain';
 import { ReportesController } from '../reportes.controller';
-import { BoletinError } from '../../../application/reportes/generate-boletin.use-case';
 import { ConstanciaError } from '../../../application/reportes/templates/constancia.template';
 import { PdfError } from '../../../application/shared/errors/pdf.error';
+import { TenantClientUnavailableError } from '../../../application/shared/errors/infrastructure-errors';
 
 function makeRes() {
   return {
@@ -51,7 +51,7 @@ describe('ReportesController', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); not a BoletinError so it is re-thrown to the global filter (no PDF ever sent, no throw inside application)', async () => {
+    it('(PPR-S8) err(PdfError) → the helper throws HttpException(500); not a DomainError/InfrastructureError so it is re-thrown to the global filter (no PDF ever sent, no throw inside application)', async () => {
       singleUC.execute.mockResolvedValue(err(new PdfError({ cause: new Error('boom') })));
       const res = makeRes();
 
@@ -64,16 +64,15 @@ describe('ReportesController', () => {
       expect(res.send).not.toHaveBeenCalled();
     });
 
-    it('maps err(BoletinError) to an HttpException with its httpStatus and preserved code', async () => {
-      singleUC.execute.mockResolvedValue(err(new BoletinError('no encontrado', 'AXCC_NOT_FOUND', 404)));
+    it('maps err(AxccNotFoundError) to the SAME DomainError instance, re-thrown identity-preserving (not wrapped in HttpException)', async () => {
+      singleUC.execute.mockResolvedValue(err(new AxccNotFoundError('no encontrado')));
       const res = makeRes();
 
       const promise = controller.getBoletin('axcc-missing', res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(404);
-        expect((e.getResponse() as Record<string, unknown>).code).toBe('AXCC_NOT_FOUND');
+      await expect(promise).rejects.toBeInstanceOf(AxccNotFoundError);
+      await promise.catch((e: AxccNotFoundError) => {
+        expect(e.code).toBe('AXCC_NOT_FOUND');
       });
       expect(res.send).not.toHaveBeenCalled();
     });
@@ -103,37 +102,31 @@ describe('ReportesController', () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it('err(BATCH_ALL_FAILED) → HttpException 422 with code preserved, no res.send', async () => {
-      batchUC.execute.mockResolvedValue(err(new BoletinError(
+    it('err(BatchAllFailedError) → the SAME DomainError instance, re-thrown identity-preserving, code BATCH_ALL_FAILED', async () => {
+      batchUC.execute.mockResolvedValue(err(new BatchAllFailedError(
         'No se pudo generar ningún boletín del lote — todos fallaron',
-        'BATCH_ALL_FAILED',
-        422,
       )));
       const res = makeRes();
 
       const promise = controller.getBoletinBatch('cc-1', res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(422);
-        expect((e.getResponse() as Record<string, unknown>).code).toBe('BATCH_ALL_FAILED');
+      await expect(promise).rejects.toBeInstanceOf(BatchAllFailedError);
+      await promise.catch((e: BatchAllFailedError) => {
+        expect(e.code).toBe('BATCH_ALL_FAILED');
       });
       expect(res.send).not.toHaveBeenCalled();
     });
 
-    it('err(INTERNAL_ERROR) (no tenant context) → HttpException 500, no res.send', async () => {
-      batchUC.execute.mockResolvedValue(err(new BoletinError(
-        'No tenant context available',
-        'INTERNAL_ERROR',
-        500,
-      )));
+    it('(RER-R3) err(TenantClientUnavailableError) (no tenant context) → the SAME InfrastructureError instance, code TENANT_CLIENT_UNAVAILABLE at 500, no res.send', async () => {
+      batchUC.execute.mockResolvedValue(err(new TenantClientUnavailableError()));
       const res = makeRes();
 
       const promise = controller.getBoletinBatch('cc-1', res as never);
 
-      await expect(promise).rejects.toBeInstanceOf(HttpException);
-      await promise.catch((e: HttpException) => {
-        expect(e.getStatus()).toBe(500);
+      await expect(promise).rejects.toBeInstanceOf(TenantClientUnavailableError);
+      await promise.catch((e: TenantClientUnavailableError) => {
+        expect(e.code).toBe('TENANT_CLIENT_UNAVAILABLE');
+        expect(e.httpStatus).toBe(500);
       });
       expect(res.send).not.toHaveBeenCalled();
     });

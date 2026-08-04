@@ -2,10 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { ok, err } from '@educandow/domain';
-import { GenerateBoletinUseCase, BoletinError } from '../generate-boletin.use-case';
+import {
+  ok,
+  err,
+  DomainError,
+  AxccNotFoundError,
+  StudentNotPrintableError,
+  ReporteCourseCycleNotFoundError,
+  ReporteStudentNotFoundError,
+  BoletinLevelUnknownError,
+} from '@educandow/domain';
+import { GenerateBoletinUseCase } from '../generate-boletin.use-case';
 import type { MesaExamenBoletin } from '../templates/boletin.template';
 import { PdfError } from '../../shared/errors/pdf.error';
+import { InfrastructureError } from '../../shared/errors/infrastructure-error';
+import { TenantClientUnavailableError } from '../../shared/errors/infrastructure-errors';
 import { TenantContext } from '../../../infrastructure/auth/tenant.context';
 
 vi.mock('../../../infrastructure/auth/tenant.context', () => ({
@@ -109,20 +120,19 @@ describe('GenerateBoletinUseCase.getBaseLevel', () => {
     expect(uc.getBaseLevel(21).unwrap()).toBe('PRIMARIO');
   });
 
-  it('returns err(BOLETIN_LEVEL_UNKNOWN) for an unknown level (e.g. 50)', () => {
+  it('returns err(BoletinLevelUnknownError) instanceof DomainError, code BOLETIN_LEVEL_UNKNOWN, for an unknown level (e.g. 50)', () => {
     const result = uc.getBaseLevel(50);
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'BOLETIN_LEVEL_UNKNOWN', httpStatus: 422 }),
-    );
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(BoletinLevelUnknownError);
+    expect(result.unwrapErr().code).toBe('BOLETIN_LEVEL_UNKNOWN');
   });
 
-  it('returns err(BOLETIN_LEVEL_UNKNOWN) for level 0', () => {
+  it('returns err(BoletinLevelUnknownError) for level 0', () => {
     const result = uc.getBaseLevel(0);
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'BOLETIN_LEVEL_UNKNOWN' }),
-    );
+    expect(result.unwrapErr()).toBeInstanceOf(BoletinLevelUnknownError);
+    expect(result.unwrapErr().code).toBe('BOLETIN_LEVEL_UNKNOWN');
   });
 
   // ── HOTFIX: base-encoded levels (1-4) — prod bug where enrollments have level=4 not level=40
@@ -443,31 +453,31 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     vi.mocked(TenantContext.getInstitutionId).mockReturnValue(null);
   });
 
-  it('T12-A: throws AXCC_NOT_FOUND (404) when AlumnosXCursoXCiclo row does not exist', async () => {
+  it('T12-A: returns err(AxccNotFoundError) instanceof DomainError, code AXCC_NOT_FOUND, when AlumnosXCursoXCiclo row does not exist', async () => {
     const client = makeAxccClient({ axcc: null });
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = makeUcForExecute();
     const result = await uc.execute('axcc-missing');
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'AXCC_NOT_FOUND', httpStatus: 404 }),
-    );
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(AxccNotFoundError);
+    expect(result.unwrapErr().code).toBe('AXCC_NOT_FOUND');
   });
 
-  it('T12-B: throws STUDENT_NOT_PRINTABLE (422) when axcc.printable is false', async () => {
+  it('T12-B: returns err(StudentNotPrintableError) instanceof DomainError, code STUDENT_NOT_PRINTABLE, when axcc.printable is false', async () => {
     const client = makeAxccClient({ axcc: { id: 'axcc-1', courseCycleId: 'cc-1', studentId: 'stu-1', printable: false } });
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = makeUcForExecute();
     const result = await uc.execute('axcc-1');
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE', httpStatus: 422 }),
-    );
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(StudentNotPrintableError);
+    expect(result.unwrapErr().code).toBe('STUDENT_NOT_PRINTABLE');
   });
 
-  it('T12-C: throws COURSE_CYCLE_NOT_FOUND when CourseCycle cannot be resolved from axcc.courseCycleId', async () => {
+  it('T12-C: returns err(ReporteCourseCycleNotFoundError) instanceof DomainError, code COURSE_CYCLE_NOT_FOUND, when CourseCycle cannot be resolved from axcc.courseCycleId', async () => {
     // Verifies that execute() fetches courseCycle (not enrollment), so it can gate on cc being found
     const axcc = { id: 'axcc-1', courseCycleId: 'cc-missing', studentId: 'stu-1', printable: true };
     const client = {
@@ -480,11 +490,44 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     const uc = makeUcForExecute(null);
     const result = await uc.execute('axcc-1');
     expect(result.isErr()).toBe(true);
-    expect(result.unwrapErr()).toEqual(
-      expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
-    );
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(ReporteCourseCycleNotFoundError);
+    expect(result.unwrapErr().code).toBe('COURSE_CYCLE_NOT_FOUND');
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
     expect(client.courseCycle.findUnique).toHaveBeenCalled();
+  });
+
+  it('T12-E: returns err(ReporteStudentNotFoundError) instanceof DomainError, code STUDENT_NOT_FOUND, when Student row cannot be resolved from axcc.studentId', async () => {
+    const axcc = { id: 'axcc-1', courseCycleId: 'cc-1', studentId: 'stu-missing', printable: true };
+    const cc = {
+      uuid: 'cc-1', level: 20, cycleId: 'cyc-1',
+      course: { grade: '2°', division: 'A', academicYear: '2025' },
+    };
+    const client = {
+      alumnosXCursoXCiclo: { findUnique: vi.fn().mockResolvedValue(axcc) },
+      courseCycle: { findUnique: vi.fn().mockResolvedValue(cc) },
+      student: { findUnique: vi.fn().mockResolvedValue(null) }, // student not found
+    };
+    vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
+
+    const uc = makeUcForExecute(null);
+    const result = await uc.execute('axcc-1');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(DomainError);
+    expect(result.unwrapErr()).toBeInstanceOf(ReporteStudentNotFoundError);
+    expect(result.unwrapErr().code).toBe('STUDENT_NOT_FOUND');
+    expect(client.student.findUnique).toHaveBeenCalled();
+  });
+
+  it('(RER-R3) T12-F: returns err(TenantClientUnavailableError) instanceof InfrastructureError, code TENANT_CLIENT_UNAVAILABLE, httpStatus 500, when no tenant context', async () => {
+    vi.mocked(TenantContext.getClient).mockReturnValue(undefined as any);
+
+    const uc = makeUcForExecute();
+    const result = await uc.execute('axcc-1');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toBeInstanceOf(InfrastructureError);
+    expect(result.unwrapErr()).toBeInstanceOf(TenantClientUnavailableError);
+    expect(result.unwrapErr()).toMatchObject({ code: 'TENANT_CLIENT_UNAVAILABLE', httpStatus: 500 });
   });
 
   it('T12-D: cache key is axcc.id (not enrollmentId); storage.getPath called with axcc.id', async () => {
@@ -645,23 +688,6 @@ describe('GenerateBoletinUseCase — cache-first', () => {
     expect(pdfGenerator.generatePdf).not.toHaveBeenCalled();
 
     fs.unlinkSync(tmpFile);
-  });
-});
-
-// ── BoletinError shape ────────────────────────────────────────────────────────
-
-describe('BoletinError', () => {
-  it('stores code and httpStatus', () => {
-    const e = new BoletinError('test message', 'TEST_CODE', 404);
-    expect(e.message).toBe('test message');
-    expect(e.code).toBe('TEST_CODE');
-    expect(e.httpStatus).toBe(404);
-    expect(e.name).toBe('BoletinError');
-  });
-
-  it('defaults httpStatus to 422', () => {
-    const e = new BoletinError('msg', 'CODE');
-    expect(e.httpStatus).toBe(422);
   });
 });
 

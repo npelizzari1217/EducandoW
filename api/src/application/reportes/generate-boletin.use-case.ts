@@ -2,13 +2,22 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import Handlebars from 'handlebars';
-import { ok, err } from '@educandow/domain';
+import {
+  ok,
+  err,
+  AxccNotFoundError,
+  StudentNotPrintableError,
+  ReporteCourseCycleNotFoundError,
+  ReporteStudentNotFoundError,
+  BoletinLevelUnknownError,
+} from '@educandow/domain';
 import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { PdfPort, PDF_PORT } from '../shared/ports/pdf.port';
 import type { PdfError } from '../shared/errors/pdf.error';
+import { TenantClientUnavailableError } from '../shared/errors/infrastructure-errors';
 import { PdfStorageService } from '../../infrastructure/reporting/pdf-storage.service';
 import type { DatosBoletin, MateriaBoletin, AsistenciaBoletin, MesaExamenBoletin, CompetencyBoletin, PreviaBoletin, InformeInicialBoletin, AreaInicialBoletin, SlotCursadaBoletin, IntentoFinalBoletin, GrupoCuatrimestreBoletin } from './templates/boletin.template';
 import type { SlotCursadaTerciarioValue } from '@educandow/domain';
@@ -32,18 +41,6 @@ function formatFecha(date: Date): string {
 
 // ── Primario constants ─────────────────────────────────────────────────────────
 const ALL_FINAL_TYPES = ['FINAL', 'DICIEMBRE', 'MARZO', 'DEFINITIVA'] as const;
-
-/** Error codes for boletin generation */
-export class BoletinError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string,
-    public readonly httpStatus: number = 422,
-  ) {
-    super(message);
-    this.name = 'BoletinError';
-  }
-}
 
 /**
  * GenerateBoletinUseCase — generates a single student's report card (PDF).
@@ -118,7 +115,7 @@ export class GenerateBoletinUseCase {
    *
    * @returns The PDF Buffer ready to be served as application/pdf.
    */
-  async execute(alumnosXCursoXCicloId: string): Promise<Result<Buffer, PdfError | BoletinError>> {
+  async execute(alumnosXCursoXCicloId: string): Promise<Result<Buffer, PdfError | AxccNotFoundError | StudentNotPrintableError | ReporteCourseCycleNotFoundError | ReporteStudentNotFoundError | BoletinLevelUnknownError | TenantClientUnavailableError>> {
     const clientResult = this.tenantClient();
     if (clientResult.isErr()) return err(clientResult.unwrapErr());
     const client = clientResult.unwrap();
@@ -128,10 +125,10 @@ export class GenerateBoletinUseCase {
       where: { id: alumnosXCursoXCicloId },
     });
     if (!axcc) {
-      return err(new BoletinError('Alumno×Curso×Ciclo no encontrado', 'AXCC_NOT_FOUND', 404));
+      return err(new AxccNotFoundError('Alumno×Curso×Ciclo no encontrado'));
     }
     if (!axcc.printable) {
-      return err(new BoletinError('El alumno está marcado como no imprimible', 'STUDENT_NOT_PRINTABLE', 422));
+      return err(new StudentNotPrintableError('El alumno está marcado como no imprimible'));
     }
 
     // 2. Cache-first: return stored PDF if it already exists (key = axcc.id)
@@ -147,7 +144,7 @@ export class GenerateBoletinUseCase {
       include: { course: true },
     });
     if (!cc) {
-      return err(new BoletinError('CourseCycle no encontrado', 'COURSE_CYCLE_NOT_FOUND', 404));
+      return err(new ReporteCourseCycleNotFoundError('CourseCycle no encontrado'));
     }
 
     // Build the internal enrollment-shaped object from axcc + cc (internals unchanged)
@@ -165,7 +162,7 @@ export class GenerateBoletinUseCase {
     // 4. Fetch student
     const student = await (client as any).student.findUnique({ where: { id: axcc.studentId } });
     if (!student) {
-      return err(new BoletinError('Alumno no encontrado', 'STUDENT_NOT_FOUND', 404));
+      return err(new ReporteStudentNotFoundError('Alumno no encontrado'));
     }
 
     // 5. Fetch institution name (master DB)
@@ -212,10 +209,8 @@ export class GenerateBoletinUseCase {
     // 10. Choose and render template
     const template = this.templates.get(baseLevel);
     if (!template) {
-      return err(new BoletinError(
+      return err(new BoletinLevelUnknownError(
         `Nivel pedagógico no soportado para boletín: ${levelName}`,
-        'BOLETIN_LEVEL_UNKNOWN',
-        422,
       ));
     }
     const html = template(datos);
@@ -893,9 +888,9 @@ export class GenerateBoletinUseCase {
 
   // ── Helpers ────────────────────────────────────────────────
 
-  private tenantClient(): Result<TenantPrismaClient, BoletinError> {
+  private tenantClient(): Result<TenantPrismaClient, TenantClientUnavailableError> {
     const c = TenantContext.getClient();
-    if (!c) return err(new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500));
+    if (!c) return err(new TenantClientUnavailableError());
     return ok(c);
   }
 
@@ -921,11 +916,11 @@ export class GenerateBoletinUseCase {
 
   /**
    * Returns the base level string for template selection.
-   * Returns err(BoletinError BOLETIN_LEVEL_UNKNOWN, 422) for unrecognised level codes
+   * Returns err(BoletinLevelUnknownError) for unrecognised level codes
    * instead of silently defaulting to PRIMARIO (which would produce a wrong PDF).
    * Accepts both base encoding (1-4) and decade encoding (10-49).
    */
-  getBaseLevel(levelCode: number): Result<string, BoletinError> {
+  getBaseLevel(levelCode: number): Result<string, BoletinLevelUnknownError> {
     const base = this.levelDecade(levelCode) * 10;
     const names: Record<number, string> = {
       10: 'INICIAL',
@@ -935,10 +930,8 @@ export class GenerateBoletinUseCase {
     };
     const name = names[base];
     if (!name) {
-      return err(new BoletinError(
+      return err(new BoletinLevelUnknownError(
         `Nivel pedagógico desconocido: ${levelCode}`,
-        'BOLETIN_LEVEL_UNKNOWN',
-        422,
       ));
     }
     return ok(name);

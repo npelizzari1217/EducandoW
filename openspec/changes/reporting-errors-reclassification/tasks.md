@@ -114,24 +114,24 @@ Traces: RER-R1, RER-R3, RER-R5, RER-R6, RER-R8.
 
 Traces: RER-R1, RER-R3, RER-R5, RER-R6, RER-R8.
 
-- [ ] 2.1 RED — Update `generate-boletin.use-case` test suite: re-derive `.toBeInstanceOf(BoletinError)`
+- [x] 2.1 RED — Update `generate-boletin.use-case` test suite: re-derive `.toBeInstanceOf(BoletinError)`
       asserts for the 7 sites (design §6.1) to the new concrete classes; tenant guard asserts
       `TENANT_CLIENT_UNAVAILABLE`/500.
-- [ ] 2.2 GREEN — In `generate-boletin.use-case.ts`, swap L131, L134, L150, L168, L215, L898
+- [x] 2.2 GREEN — In `generate-boletin.use-case.ts`, swap L131, L134, L150, L168, L215, L898
       (`tenantClient`), L938 (`getBaseLevel`) per design §6.1; widen `execute`/`getBaseLevel`/`tenantClient`
       return unions; update imports.
-- [ ] 2.3 RED — Update `generate-boletin-batch.use-case` test suite for L113 `BATCH_ALL_FAILED` and L152
+- [x] 2.3 RED — Update `generate-boletin-batch.use-case` test suite for L113 `BATCH_ALL_FAILED` and L152
       `tenantClient` (design §6.2).
-- [ ] 2.4 GREEN — In `generate-boletin-batch.use-case.ts`, swap L113 and L152 per design §6.2; update
+- [x] 2.4 GREEN — In `generate-boletin-batch.use-case.ts`, swap L113 and L152 per design §6.2; update
       L8 import (drop `BoletinError`, add `BatchAllFailedError` from `@educandow/domain`,
       `TenantClientUnavailableError` from infra); widen `execute`/`tenantClient` return unions.
-- [ ] 2.5 Delete inline `BoletinError` class (L37-46 of `generate-boletin.use-case.ts`) — only now that
+- [x] 2.5 Delete inline `BoletinError` class (L37-46 of `generate-boletin.use-case.ts`) — only now that
       BOTH `generate-boletin.use-case.ts` and `generate-boletin-batch.use-case.ts` are migrated.
-- [ ] 2.6 Update `reportes.controller` tests covering boletin + batch endpoints for the tenant wire-code
+- [x] 2.6 Update `reportes.controller` tests covering boletin + batch endpoints for the tenant wire-code
       delta and any status assertions touched by the reclassification.
-- [ ] 2.7 Verify: `pnpm --filter api typecheck` → `pnpm --filter api test` → `pnpm --filter api lint`.
+- [x] 2.7 Verify: `pnpm --filter api typecheck` → `pnpm --filter api test` → `pnpm --filter api lint`.
       Grep confirms zero remaining references to `BoletinError`.
-- [ ] 2.8 Commit: `refactor(boletin): reclassify errors to DomainError/InfrastructureError subclasses`
+- [x] 2.8 Commit: `refactor(boletin): reclassify errors to DomainError/InfrastructureError subclasses`
 
 ## Slice 3 — Constancia + close-out (~180 lines) — PR 4, base PR 3
 
