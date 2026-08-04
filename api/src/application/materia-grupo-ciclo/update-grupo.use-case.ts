@@ -5,6 +5,7 @@ import { DocenteXCicloService } from '../docente-ciclo/docente-x-ciclo.service';
 import { PrismaService } from '../../infrastructure/persistence/prisma/prisma.service';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import { validateTeacherLevel } from './validate-teacher-level';
+import { TenantClientUnavailableError } from '../shared/errors/infrastructure-errors';
 
 /**
  * UpdateGrupoUseCase — edits name and/or reassigns docente of a grupo.
@@ -27,7 +28,7 @@ export class UpdateGrupoUseCase {
     id: string;
     name?: string;
     userId?: string;
-  }): Promise<Result<GrupoXCursoXMateriaXCiclo, NotFoundError | ValidationError>> {
+  }): Promise<Result<GrupoXCursoXMateriaXCiclo, NotFoundError | ValidationError | TenantClientUnavailableError>> {
     const grupo = await this.grupoRepo.findById(input.id);
     if (!grupo) return err(new NotFoundError('GrupoXCursoXMateriaXCiclo', input.id));
 
@@ -41,7 +42,7 @@ export class UpdateGrupoUseCase {
       if (levelCheck.isErr()) return err(levelCheck.unwrapErr());
 
       const client = TenantContext.getClient();
-      if (!client) throw new Error('No tenant client available');
+      if (!client) return err(new TenantClientUnavailableError());
 
       const cc = await client.courseCycle.findUnique({
         where: { uuid: materia.courseCycleId },
