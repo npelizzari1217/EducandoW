@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import Archiver from 'archiver';
 import { Writable } from 'stream';
+import { ok, err } from '@educandow/domain';
+import type { Result } from '@educandow/domain';
 import { TenantContext } from '../../infrastructure/auth/tenant.context';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import { GenerateBoletinUseCase, BoletinError } from './generate-boletin.use-case';
@@ -27,8 +29,10 @@ export class GenerateBoletinBatchUseCase {
    *
    * @param courseCycleId - CourseCycle.uuid (replaces the old cycleId / AcademicCycle grain)
    */
-  async execute(courseCycleId: string): Promise<Buffer> {
-    const client = this.tenantClient();
+  async execute(courseCycleId: string): Promise<Result<Buffer, BoletinError>> {
+    const clientResult = this.tenantClient();
+    if (clientResult.isErr()) return err(clientResult.unwrapErr());
+    const client = clientResult.unwrap();
 
     // Find all printable AlumnosXCursoXCiclo rows for this CourseCycle
     const rows: Array<{
@@ -53,7 +57,7 @@ export class GenerateBoletinBatchUseCase {
     // Zero printable rows → return empty ZIP (REQ-PG-4 / Scenario B — no error)
     if (rows.length === 0) {
       this.logger.log(`No printable students in CourseCycle ${courseCycleId} — returning empty ZIP`);
-      return this.buildZip([], []);
+      return ok(await this.buildZip([], []));
     }
 
     this.logger.log(`Generating batch PDFs for ${rows.length} students in CourseCycle ${courseCycleId}`);
@@ -106,11 +110,11 @@ export class GenerateBoletinBatchUseCase {
 
     // Guard: if printable rows existed but ALL individual PDFs failed, do not return empty ZIP
     if (successCount === 0) {
-      throw new BoletinError(
+      return err(new BoletinError(
         'No se pudo generar ningún boletín del lote — todos fallaron',
         'BATCH_ALL_FAILED',
         422,
-      );
+      ));
     }
 
     // Enganchar los listeners ANTES de finalizar: archiver v7 resuelve finalize()
@@ -123,7 +127,7 @@ export class GenerateBoletinBatchUseCase {
     });
 
     await archive.finalize();
-    return done;
+    return ok(await done);
   }
 
   /**
@@ -143,9 +147,9 @@ export class GenerateBoletinBatchUseCase {
     });
   }
 
-  private tenantClient(): TenantPrismaClient {
+  private tenantClient(): Result<TenantPrismaClient, BoletinError> {
     const c = TenantContext.getClient();
-    if (!c) throw new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500);
-    return c;
+    if (!c) return err(new BoletinError('No tenant context available', 'INTERNAL_ERROR', 500));
+    return ok(c);
   }
 }
