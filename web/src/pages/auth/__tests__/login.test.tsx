@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
 }));
 
-vi.mock('/home/usuario/proyectos/educandow/web/src/context/auth-context', () => ({
+vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({ login: mocks.login, isLoading: mocks.isLoading }),
 }));
 

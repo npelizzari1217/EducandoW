@@ -20,7 +20,7 @@ const { mockApiGet, mockApiPost, mockApiPatch, mockApiDelete, mockStudentUpdate 
   mockStudentUpdate: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('/home/usuario/proyectos/educandow/web/src/api/client', () => ({
+vi.mock('../../../api/client', () => ({
   default: {
     get: mockApiGet,
     post: mockApiPost,
@@ -37,8 +37,8 @@ let mockStudentList: unknown[] = [];
 // (deleting/deleteError via useState) built on top of the mocked apiClient.delete, so
 // rejections re-render the component with a real deleteError message — a static mock
 // return value can't do that since it never changes across renders.
-vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('/home/usuario/proyectos/educandow/web/src/hooks/use-api')>();
+vi.mock('../../../hooks/use-api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../hooks/use-api')>();
   return {
     useApiList: () => ({
       data: mockStudentList,
@@ -72,7 +72,7 @@ function setAuthMock(roles: string[], institutionId?: string) {
   mockInstitutionId = institutionId;
 }
 
-vi.mock('/home/usuario/proyectos/educandow/web/src/context/auth-context', () => ({
+vi.mock('../../../context/auth-context', () => ({
   useAuth: () => ({
     user: {
       id: 'user-1',
@@ -94,7 +94,7 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/context/auth-context', () => 
 // ── Mock useInstitution ──
 let mockInstitutionConfig = { id: 'inst-1', name: 'Instituto A' };
 
-vi.mock('/home/usuario/proyectos/educandow/web/src/context/institution-context', () => ({
+vi.mock('../../../context/institution-context', () => ({
   useInstitution: () => ({
     config: mockInstitutionConfig,
     isLoading: false,
@@ -105,7 +105,7 @@ vi.mock('/home/usuario/proyectos/educandow/web/src/context/institution-context',
 }));
 
 // ── Mock use-theme (needed by Card component) ──
-vi.mock('/home/usuario/proyectos/educandow/web/src/hooks/use-theme', () => ({
+vi.mock('../../../hooks/use-theme', () => ({
   useTheme: () => ({
     theme: {},
     setTheme: vi.fn(),

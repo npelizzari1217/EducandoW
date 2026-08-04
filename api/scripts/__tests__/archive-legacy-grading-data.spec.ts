@@ -11,6 +11,7 @@
 
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import * as fs from 'fs';
+import * as path from 'path';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 import {
   LEGACY_TABLES,
@@ -114,11 +115,11 @@ describe('Scenario A — Export por tenant', () => {
       .mocked(fs.writeFileSync)
       .mock.calls.map(([p]) => p as string);
 
-    expect(writtenPaths).toContain(`${OUTPUT_DIR}/alpha/notas.json`);
-    expect(writtenPaths).toContain(`${OUTPUT_DIR}/alpha/evaluaciones.json`);
-    expect(writtenPaths).toContain(`${OUTPUT_DIR}/alpha/notas_trimestrales.json`);
-    expect(writtenPaths).toContain(`${OUTPUT_DIR}/alpha/periodos_evaluacion.json`);
-    expect(writtenPaths).toContain(`${OUTPUT_DIR}/alpha/subject_assignments.json`);
+    expect(writtenPaths).toContain(path.join(OUTPUT_DIR, 'alpha', 'notas.json'));
+    expect(writtenPaths).toContain(path.join(OUTPUT_DIR, 'alpha', 'evaluaciones.json'));
+    expect(writtenPaths).toContain(path.join(OUTPUT_DIR, 'alpha', 'notas_trimestrales.json'));
+    expect(writtenPaths).toContain(path.join(OUTPUT_DIR, 'alpha', 'periodos_evaluacion.json'));
+    expect(writtenPaths).toContain(path.join(OUTPUT_DIR, 'alpha', 'subject_assignments.json'));
   });
 
   it('el contenido escrito incluye los datos del tenant', async () => {
