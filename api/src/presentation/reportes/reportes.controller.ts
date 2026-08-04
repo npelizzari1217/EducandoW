@@ -8,7 +8,6 @@ import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
 import { GenerateBoletinUseCase } from '../../application/reportes/generate-boletin.use-case';
 import { GenerateBoletinBatchUseCase } from '../../application/reportes/generate-boletin-batch.use-case';
 import { GenerateConstanciaRegularUseCase } from '../../application/reportes/generate-constancia-regular.use-case';
-import { ConstanciaError } from '../../application/reportes/templates/constancia.template';
 import { ConstanciaBodySchema, ConstanciaBodyDto } from './dto/constancia.dto';
 import { ZodValidationPipe } from '../shared/pipes/zod-validation.pipe';
 import { unwrapResultOrThrow } from '../shared/http/unwrap-result-or-throw';
@@ -75,25 +74,13 @@ export class ReportesController {
     @Body(new ZodValidationPipe(ConstanciaBodySchema)) dto: ConstanciaBodyDto,
     @Res() res: Response,
   ) {
-    try {
-      const result = await this.constanciaUC.execute(axccId, dto);
-      const pdfBuffer = unwrapResultOrThrow(result);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="constancia-regular-${axccId}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      });
-      res.send(pdfBuffer);
-    } catch (err) {
-      if (err instanceof ConstanciaError) {
-        res.status(err.httpStatus).json({
-          statusCode: err.httpStatus,
-          error: err.code,
-          message: err.message,
-        });
-      } else {
-        throw err;
-      }
-    }
+    const result = await this.constanciaUC.execute(axccId, dto);
+    const pdfBuffer = unwrapResultOrThrow(result);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="constancia-regular-${axccId}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.send(pdfBuffer);
   }
 }
