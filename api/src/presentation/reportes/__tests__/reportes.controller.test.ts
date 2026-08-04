@@ -167,14 +167,18 @@ describe('ReportesController', () => {
       expect(res.send).not.toHaveBeenCalled();
     });
 
-    it('still maps a thrown ConstanciaError to its httpStatus (canal B, unchanged)', async () => {
-      constanciaUC.execute.mockRejectedValue(new ConstanciaError('no elegible', 'STUDENT_NOT_ELIGIBLE', 422));
+    it('maps err(ConstanciaError) to an HttpException with its httpStatus and preserved code', async () => {
+      constanciaUC.execute.mockResolvedValue(err(new ConstanciaError('no elegible', 'STUDENT_NOT_ELIGIBLE', 422)));
       const res = makeRes();
 
-      await controller.createConstanciaRegular('axcc-1', body, res as never);
+      const promise = controller.createConstanciaRegular('axcc-1', body, res as never);
 
-      expect(res.status).toHaveBeenCalledWith(422);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'STUDENT_NOT_ELIGIBLE' }));
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(422);
+        expect((e.getResponse() as Record<string, unknown>).code).toBe('STUDENT_NOT_ELIGIBLE');
+      });
+      expect(res.send).not.toHaveBeenCalled();
     });
   });
 });
