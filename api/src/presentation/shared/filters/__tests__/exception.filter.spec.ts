@@ -20,6 +20,15 @@ import {
   PreviousMonthOpenError,
   PresenteTypeNotFoundError,
   GrupoMateriaMismatchError,
+  DomainError,
+  AxccNotFoundError,
+  ReporteStudentNotFoundError,
+  ReporteCourseCycleNotFoundError,
+  MateriaXCursoXCicloNotFoundError,
+  StudentNotPrintableError,
+  StudentNotEligibleError,
+  BoletinLevelUnknownError,
+  BatchAllFailedError,
 } from '@educandow/domain';
 import type { ArgumentsHost } from '@nestjs/common';
 import { ApplicationError } from '../../../../application/shared/errors/application-error';
@@ -325,6 +334,33 @@ describe('AppExceptionFilter', () => {
       expect(domStatusFn).toHaveBeenCalledWith(404);
       const domBody: { error: Record<string, unknown> } = domJsonFn.mock.calls[0][0];
       expect(domBody.error.code).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('RER-R2: DOMAIN_STATUS 400-regression guard for reporting DomainError subclasses', () => {
+    const cases: Array<{ build: () => DomainError; expectedStatus: number }> = [
+      { build: () => new AxccNotFoundError('Alumno×Curso×Ciclo no encontrado'), expectedStatus: 404 },
+      { build: () => new ReporteStudentNotFoundError('Alumno no encontrado'), expectedStatus: 404 },
+      { build: () => new ReporteCourseCycleNotFoundError('CourseCycle no encontrado'), expectedStatus: 404 },
+      { build: () => new MateriaXCursoXCicloNotFoundError('MateriaXCursoXCiclo no encontrada'), expectedStatus: 404 },
+      { build: () => new StudentNotPrintableError('El alumno está marcado como no imprimible'), expectedStatus: 422 },
+      { build: () => new StudentNotEligibleError('El alumno no es elegible'), expectedStatus: 422 },
+      { build: () => new BoletinLevelUnknownError('Nivel pedagógico no soportado para boletín: X'), expectedStatus: 422 },
+      { build: () => new BatchAllFailedError('No se pudo generar ningún boletín del lote — todos fallaron'), expectedStatus: 422 },
+    ];
+
+    it.each(cases)('$expectedStatus — never regresses to 400', ({ build, expectedStatus }) => {
+      const filter = new AppExceptionFilter();
+      const { host, statusFn, jsonFn } = makeMockHost();
+      const exc = build();
+
+      filter.catch(exc, host);
+
+      expect(statusFn).toHaveBeenCalledWith(expectedStatus);
+      expect(statusFn).not.toHaveBeenCalledWith(400);
+      const body: { error: Record<string, unknown> } = jsonFn.mock.calls[0][0];
+      expect(body.error.code).toBe(exc.code);
+      expect(body.error.status).toBe(expectedStatus);
     });
   });
 });

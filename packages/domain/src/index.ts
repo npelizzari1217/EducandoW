@@ -6,6 +6,16 @@ export { NotFoundError } from './shared/errors/not-found-error';
 export { ValidationError } from './shared/errors/validation-error';
 export { AlumnoAlreadyInGrupoError } from './shared/errors/alumno-already-in-grupo-error';
 export { GrupoMateriaMismatchError } from './shared/errors/grupo-materia-mismatch-error';
+export {
+  AxccNotFoundError,
+  ReporteStudentNotFoundError,
+  ReporteCourseCycleNotFoundError,
+  MateriaXCursoXCicloNotFoundError,
+  StudentNotPrintableError,
+  StudentNotEligibleError,
+  BoletinLevelUnknownError,
+  BatchAllFailedError,
+} from './reportes';
 export { DomainEvent } from './shared/events/domain-event';
 export type { EventBus, EventHandler } from './shared/event-bus';
 

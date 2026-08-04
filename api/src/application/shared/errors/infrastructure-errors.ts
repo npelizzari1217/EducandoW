@@ -24,3 +24,14 @@ export class TemplateNotFoundError extends InfrastructureError {
     super(`Template ${templateName} no encontrado`, 'TEMPLATE_NOT_FOUND');
   }
 }
+
+/**
+ * InstitutionNotFoundError — the institution row is absent in the MASTER DB although
+ * an institutionId is present on the TenantContext. A master/tenant data-integrity
+ * fault (dangling reference), not a client-visible domain outcome → HTTP 500 (preserved).
+ */
+export class InstitutionNotFoundError extends InfrastructureError {
+  constructor(message = 'Institución no encontrada') {
+    super(message, 'INSTITUTION_NOT_FOUND');
+  }
+}
