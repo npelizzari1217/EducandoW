@@ -20,10 +20,9 @@
  * button is available to precisely the same audience as the on-screen grid.
  */
 import {
-  Controller, Get, Param, Query, Res, UseGuards, ForbiddenException,
+  Controller, Get, Param, Query, Res, UseGuards,
 } from '@nestjs/common';
 import { Response } from 'express';
-import { ForbiddenError } from '../../application/shared/errors/forbidden-error';
 import { AuthGuard } from '../../infrastructure/auth/guards/auth.guard';
 import { RolesGuard } from '../../infrastructure/auth/guards/roles.guard';
 import { Roles } from '../../infrastructure/auth/decorators/roles.decorator';
@@ -37,7 +36,6 @@ import {
   AsistenciaMensualPrintMateriaQueryDto,
 } from './dto/asistencia-reporting.dto';
 import { GenerateAsistenciaMensualPdfUseCase } from '../../application/asistencia-reporting/generate-asistencia-mensual-pdf.use-case';
-import { AsistenciaReportingError } from '../../application/asistencia-reporting/asistencia-reporting.errors';
 import { unwrapResultOrThrow } from '../shared/http/unwrap-result-or-throw';
 
 @Controller()
@@ -59,24 +57,20 @@ export class AsistenciaReportingController {
     @Query(new ZodValidationPipe(AsistenciaMensualPrintGeneralQuerySchema)) query: AsistenciaMensualPrintGeneralQueryDto,
     @Res() res: Response,
   ): Promise<void> {
-    try {
-      const result = await this.generateUC.executeGeneral({
-        courseCycleId: ccId,
-        year: query.year,
-        month: query.month,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      const pdfBuffer = unwrapResultOrThrow(result);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="asistencia-mensual-${ccId}-${query.year}-${query.month}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      });
-      res.send(pdfBuffer);
-    } catch (err) {
-      this.handleError(err, res);
-    }
+    const result = await this.generateUC.executeGeneral({
+      courseCycleId: ccId,
+      year: query.year,
+      month: query.month,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    const pdfBuffer = unwrapResultOrThrow(result);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="asistencia-mensual-${ccId}-${query.year}-${query.month}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.send(pdfBuffer);
   }
 
   /**
@@ -92,41 +86,20 @@ export class AsistenciaReportingController {
     @Query(new ZodValidationPipe(AsistenciaMensualPrintMateriaQuerySchema)) query: AsistenciaMensualPrintMateriaQueryDto,
     @Res() res: Response,
   ): Promise<void> {
-    try {
-      const result = await this.generateUC.executeMateria({
-        materiaXCursoXCicloId: materiaId,
-        year: query.year,
-        month: query.month,
-        grupoId: query.grupoId,
-        userId: user.userId,
-        userRoles: user.roles,
-      });
-      const pdfBuffer = unwrapResultOrThrow(result);
-      res.set({
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="asistencia-mensual-${materiaId}-${query.year}-${query.month}.pdf"`,
-        'Content-Length': pdfBuffer.length.toString(),
-      });
-      res.send(pdfBuffer);
-    } catch (err) {
-      this.handleError(err, res);
-    }
-  }
-
-  // ── Shared error mapping ────────────────────────────────────────────────
-
-  private handleError(err: unknown, res: Response): void {
-    if (err instanceof AsistenciaReportingError) {
-      res.status(err.httpStatus).json({
-        statusCode: err.httpStatus,
-        error: err.code,
-        message: err.message,
-      });
-      return;
-    }
-    if (err instanceof ForbiddenError || (err as Error)?.constructor?.name === 'ForbiddenError') {
-      throw new ForbiddenException((err as Error).message);
-    }
-    throw err;
+    const result = await this.generateUC.executeMateria({
+      materiaXCursoXCicloId: materiaId,
+      year: query.year,
+      month: query.month,
+      grupoId: query.grupoId,
+      userId: user.userId,
+      userRoles: user.roles,
+    });
+    const pdfBuffer = unwrapResultOrThrow(result);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="asistencia-mensual-${materiaId}-${query.year}-${query.month}.pdf"`,
+      'Content-Length': pdfBuffer.length.toString(),
+    });
+    res.send(pdfBuffer);
   }
 }
