@@ -86,7 +86,7 @@ describe('ListSubjectAttendanceUseCase — group filter DB integration (T-24)', 
 
       // Both students in materia
       const axm1 = await runInTenant(i1, () => alumnosXMateriaRepo.addStudent(materia.id, student1.id));
-      const axm2 = await runInTenant(i1, () => alumnosXMateriaRepo.addStudent(materia.id, student2.id));
+      await runInTenant(i1, () => alumnosXMateriaRepo.addStudent(materia.id, student2.id));
 
       // Create a docente for groups
       const docenteUser = 'docente-user-1';

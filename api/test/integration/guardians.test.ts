@@ -12,7 +12,6 @@ import {
   StudentRepository,
   Student,
   NotFoundError,
-  ValidationError,
   Id,
   Mobile,
 } from '@educandow/domain';
