@@ -3,7 +3,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { HttpException } from '@nestjs/common';
-import { ok, err } from '@educandow/domain';
+import type { Result } from '@educandow/domain';
+import { ok, err, DomainError, AxccNotFoundError } from '@educandow/domain';
 import { unwrapResultOrThrow } from '../unwrap-result-or-throw';
 import { PdfError } from '../../../../application/shared/errors/pdf.error';
 import { ApplicationError } from '../../../../application/shared/errors/application-error';
@@ -99,5 +100,27 @@ describe('unwrapResultOrThrow', () => {
       expect(body.code).toBe('COURSE_CYCLE_NOT_FOUND');
       expect(body.message).toBe('CourseCycle no encontrado');
     }
+  });
+
+  it('(RER-R4) err(domainError) → re-throws the SAME instance as-is (preserves instanceof DomainError, not wrapped in HttpException)', () => {
+    const domainError = new AxccNotFoundError('Alumno×Curso×Ciclo no encontrado');
+
+    try {
+      unwrapResultOrThrow(err(domainError));
+      expect.unreachable('should have thrown');
+    } catch (e) {
+      expect(e).toBe(domainError); // same instance — not re-wrapped
+      expect(e).toBeInstanceOf(DomainError);
+      expect(e).not.toBeInstanceOf(HttpException);
+      expect((e as DomainError).code).toBe('AXCC_NOT_FOUND');
+    }
+  });
+
+  it('(RER-R4) tsc compiles for a caller typed Result<T, DomainError | PdfError>', () => {
+    function callerReturningUnion(): Result<Buffer, DomainError | PdfError> {
+      return err(new AxccNotFoundError('Alumno×Curso×Ciclo no encontrado'));
+    }
+
+    expect(() => unwrapResultOrThrow(callerReturningUnion())).toThrow(DomainError);
   });
 });

@@ -58,6 +58,15 @@ const DOMAIN_STATUS: Record<string, number> = {
   PREVIOUS_MONTH_OPEN: 409,
   // Autollenado de Presente al Generar — asistencia-autollenado-p (PR-4, ATR-R11.5)
   PRESENTE_TYPE_NOT_FOUND: 422,
+  // Reportes — reporting-errors-reclassification (RER-R2)
+  AXCC_NOT_FOUND: 404,
+  STUDENT_NOT_FOUND: 404,
+  COURSE_CYCLE_NOT_FOUND: 404,
+  MATERIA_X_CURSO_X_CICLO_NOT_FOUND: 404,
+  STUDENT_NOT_PRINTABLE: 422,
+  STUDENT_NOT_ELIGIBLE: 422,
+  BOLETIN_LEVEL_UNKNOWN: 422,
+  BATCH_ALL_FAILED: 422,
 };
 
 @Catch()
