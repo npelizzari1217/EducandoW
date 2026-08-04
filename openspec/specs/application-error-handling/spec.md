@@ -203,11 +203,19 @@ Consumers not yet migrated to this capability (tracked as separate changes, NOT 
   guards (`update-grupo.use-case.ts` "No tenant client available", `competency.use-cases.ts:258`)
   DEFERRED to the `InfrastructureError` follow-up below; the `createGrupo` controller raw-Prisma
   anti-pattern; domain entity constructor guards.
-- `reportes` / `asistencia-reporting` / `attendance-type-pdf` (30 throws) — UNBLOCKED (PR #111 merged
-  2026-07-12). Its `ForbiddenError` throws were already reclassified by `forbidden-error-reclassification`
-  (import + `ApplicationError` parent only, throw idiom preserved); remaining: migrate
-  `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError` + `Result`.
-  Next up as épico follow-up #2.
+- `reportes` / `asistencia-reporting` — FULLY MIGRATED (throw → `Result`) by change
+  `asistencia-reporting-result` (épico follow-up #2, 4 stacked slices A asistencia-reporting /
+  B boletin / C boletin-batch / D constancia). All 28 throws across the 4 use-cases moved into the
+  `Result` channel; `GenerateBoletinBatchUseCase` also changed `Promise<Buffer>` → `Promise<Result<…>>`.
+  `ForbiddenError` (already `ApplicationError` via `forbidden-error-reclassification` #124) just moved
+  throw → `err`. The 3 bare-`Error` classes `BoletinError`/`ConstanciaError`/`AsistenciaReportingError`
+  were **NOT reclassified** — verification proved none of their sites are caller-context/authz (they are
+  NOT_FOUND, intrinsic invariants, and infra guards), so the earlier blanket instruction to migrate them
+  to `extends ApplicationError` was semantically incorrect and has been removed. Their correct
+  classification (candidate `DomainError` for NOT_FOUND/invariants, `InfrastructureError` for the 5 infra
+  guards, plus a product decision on the ambiguous `INSTITUTION_NOT_FOUND` 500 and `BATCH_ALL_FAILED`
+  aggregate) is DEFERRED to follow-up #3. `attendance-type-pdf` was already FULLY MIGRATED separately
+  (module `attendance-type`, archived 2026-07-31) — it is not part of this change.
 - `asistencia` — FULLY MIGRATED (archived 2026-08-03) by change `asistencia-result-migration`
   (4 stacked slices: list pair, record-general, record-subject, generate + month-status). All 41
   throws across the 6 use-cases (`list-general`, `list-subject`, `record-general`, `record-subject`,

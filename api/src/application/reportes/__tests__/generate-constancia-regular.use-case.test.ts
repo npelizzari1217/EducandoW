@@ -138,7 +138,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma() as never,
     );
 
-    await expect(uc.execute('axcc-missing', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-missing', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'AXCC_NOT_FOUND', httpStatus: 404 }),
     );
   });
@@ -162,7 +165,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma() as never,
     );
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_ELIGIBLE', httpStatus: 422 }),
     );
   });
@@ -382,7 +388,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma() as never,
     );
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_FOUND', httpStatus: 404 }),
     );
   });
@@ -398,7 +407,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma() as never,
     );
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
     );
   });
@@ -416,7 +428,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma(null) as never, // institution.findUnique returns null
     );
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'INSTITUTION_NOT_FOUND', httpStatus: 500 }),
     );
   });
@@ -565,7 +580,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
       makePrisma() as never,
     );
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'INTERNAL_ERROR', httpStatus: 500 }),
     );
   });
@@ -587,7 +605,10 @@ describe('GenerateConstanciaRegularUseCase.execute', () => {
     // Simulate the constructor not finding constancia-regular.hbs
     (uc as any).template = null;
 
-    await expect(uc.execute('axcc-1', defaultInput)).rejects.toThrowError(
+    const result = await uc.execute('axcc-1', defaultInput);
+
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'TEMPLATE_NOT_FOUND', httpStatus: 500 }),
     );
   });
