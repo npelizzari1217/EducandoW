@@ -50,7 +50,7 @@ describe('GenerateBoletinUseCase — HOTFIX-2: template loading from real src la
     // Each known base level must have a template — the template lookup in execute()
     // uses this.templates.get(baseLevel), so an empty Map would produce the prod error.
     for (const level of [10, 20, 30, 40]) {
-      const baseLevel = uc.getBaseLevel(level);
+      const baseLevel = uc.getBaseLevel(level).unwrap();
       expect(templates.has(baseLevel)).toBe(true);
     }
   });
@@ -90,57 +90,61 @@ describe('GenerateBoletinUseCase.getBaseLevel', () => {
   });
 
   it('returns INICIAL for level 10', () => {
-    expect(uc.getBaseLevel(10)).toBe('INICIAL');
+    expect(uc.getBaseLevel(10).unwrap()).toBe('INICIAL');
   });
 
   it('returns PRIMARIO for level 20', () => {
-    expect(uc.getBaseLevel(20)).toBe('PRIMARIO');
+    expect(uc.getBaseLevel(20).unwrap()).toBe('PRIMARIO');
   });
 
   it('returns SECUNDARIO for level 30', () => {
-    expect(uc.getBaseLevel(30)).toBe('SECUNDARIO');
+    expect(uc.getBaseLevel(30).unwrap()).toBe('SECUNDARIO');
   });
 
   it('returns TERCIARIO for level 40', () => {
-    expect(uc.getBaseLevel(40)).toBe('TERCIARIO');
+    expect(uc.getBaseLevel(40).unwrap()).toBe('TERCIARIO');
   });
 
   it('returns the base level for a sub-code (e.g. 21 → PRIMARIO)', () => {
-    expect(uc.getBaseLevel(21)).toBe('PRIMARIO');
+    expect(uc.getBaseLevel(21).unwrap()).toBe('PRIMARIO');
   });
 
-  it('throws BOLETIN_LEVEL_UNKNOWN for an unknown level (e.g. 50)', () => {
-    expect(() => uc.getBaseLevel(50)).toThrowError(
+  it('returns err(BOLETIN_LEVEL_UNKNOWN) for an unknown level (e.g. 50)', () => {
+    const result = uc.getBaseLevel(50);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'BOLETIN_LEVEL_UNKNOWN', httpStatus: 422 }),
     );
   });
 
-  it('throws BOLETIN_LEVEL_UNKNOWN for level 0', () => {
-    expect(() => uc.getBaseLevel(0)).toThrowError(
+  it('returns err(BOLETIN_LEVEL_UNKNOWN) for level 0', () => {
+    const result = uc.getBaseLevel(0);
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'BOLETIN_LEVEL_UNKNOWN' }),
     );
   });
 
   // ── HOTFIX: base-encoded levels (1-4) — prod bug where enrollments have level=4 not level=40
   it('[HOTFIX] returns INICIAL for base-encoded level 1', () => {
-    expect(uc.getBaseLevel(1)).toBe('INICIAL');
+    expect(uc.getBaseLevel(1).unwrap()).toBe('INICIAL');
   });
 
   it('[HOTFIX] returns PRIMARIO for base-encoded level 2', () => {
-    expect(uc.getBaseLevel(2)).toBe('PRIMARIO');
+    expect(uc.getBaseLevel(2).unwrap()).toBe('PRIMARIO');
   });
 
   it('[HOTFIX] returns SECUNDARIO for base-encoded level 3', () => {
-    expect(uc.getBaseLevel(3)).toBe('SECUNDARIO');
+    expect(uc.getBaseLevel(3).unwrap()).toBe('SECUNDARIO');
   });
 
   it('[HOTFIX] returns TERCIARIO for base-encoded level 4 (was throwing BOLETIN_LEVEL_UNKNOWN in prod)', () => {
-    expect(uc.getBaseLevel(4)).toBe('TERCIARIO');
+    expect(uc.getBaseLevel(4).unwrap()).toBe('TERCIARIO');
   });
 
   it('[HOTFIX] level=4 and level=40 both map to TERCIARIO (dual-encoding compatibility)', () => {
-    expect(uc.getBaseLevel(4)).toBe('TERCIARIO');
-    expect(uc.getBaseLevel(40)).toBe('TERCIARIO');
+    expect(uc.getBaseLevel(4).unwrap()).toBe('TERCIARIO');
+    expect(uc.getBaseLevel(40).unwrap()).toBe('TERCIARIO');
   });
 });
 
@@ -444,7 +448,9 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = makeUcForExecute();
-    await expect(uc.execute('axcc-missing')).rejects.toThrowError(
+    const result = await uc.execute('axcc-missing');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'AXCC_NOT_FOUND', httpStatus: 404 }),
     );
   });
@@ -454,7 +460,9 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = makeUcForExecute();
-    await expect(uc.execute('axcc-1')).rejects.toThrowError(
+    const result = await uc.execute('axcc-1');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE', httpStatus: 422 }),
     );
   });
@@ -470,7 +478,9 @@ describe('GenerateBoletinUseCase.execute — repointed to AlumnosXCursoXCiclo', 
     vi.mocked(TenantContext.getClient).mockReturnValue(client as any);
 
     const uc = makeUcForExecute(null);
-    await expect(uc.execute('axcc-1')).rejects.toThrowError(
+    const result = await uc.execute('axcc-1');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'COURSE_CYCLE_NOT_FOUND', httpStatus: 404 }),
     );
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();

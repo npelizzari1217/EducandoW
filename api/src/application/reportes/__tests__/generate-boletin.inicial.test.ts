@@ -294,11 +294,12 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Inicial (level=10)', () 
     );
 
     // printable=false → STUDENT_NOT_PRINTABLE
-    // RED: execute() currently reads enrollment.findUnique (TypeError) instead of axcc
-    await expect(uc.execute('axcc-ini')).rejects.toThrowError(
+    const result = await uc.execute('axcc-ini');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
     );
-    // After T13 GREEN: alumnosXCursoXCiclo.findUnique IS called; enrollment is NOT
+    // alumnosXCursoXCiclo.findUnique IS called; enrollment is NOT
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
   });
 });

@@ -65,14 +65,18 @@ describe('ReportesController', () => {
       expect(res.send).not.toHaveBeenCalled();
     });
 
-    it('still maps a thrown BoletinError to its httpStatus (canal B, unchanged)', async () => {
-      singleUC.execute.mockRejectedValue(new BoletinError('no encontrado', 'AXCC_NOT_FOUND', 404));
+    it('maps err(BoletinError) to an HttpException with its httpStatus and preserved code', async () => {
+      singleUC.execute.mockResolvedValue(err(new BoletinError('no encontrado', 'AXCC_NOT_FOUND', 404)));
       const res = makeRes();
 
-      await controller.getBoletin('axcc-missing', res as never);
+      const promise = controller.getBoletin('axcc-missing', res as never);
 
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'AXCC_NOT_FOUND' }));
+      await expect(promise).rejects.toBeInstanceOf(HttpException);
+      await promise.catch((e: HttpException) => {
+        expect(e.getStatus()).toBe(404);
+        expect((e.getResponse() as Record<string, unknown>).code).toBe('AXCC_NOT_FOUND');
+      });
+      expect(res.send).not.toHaveBeenCalled();
     });
   });
 

@@ -619,9 +619,10 @@ describe('execute() via AlumnosXCursoXCiclo adapter — Terciario (level=40)', (
 
     const uc = makeTerciarioUseCase();
 
-    // printable=false → STUDENT_NOT_PRINTABLE (GREEN after T13)
-    // RED now: execute() reads enrollment.findUnique → TypeError instead
-    await expect(uc.execute('axcc-ter')).rejects.toThrowError(
+    // printable=false → STUDENT_NOT_PRINTABLE
+    const result = await uc.execute('axcc-ter');
+    expect(result.isErr()).toBe(true);
+    expect(result.unwrapErr()).toEqual(
       expect.objectContaining({ code: 'STUDENT_NOT_PRINTABLE' }),
     );
     expect(client.alumnosXCursoXCiclo.findUnique).toHaveBeenCalled();
