@@ -100,21 +100,21 @@ never edit `extends` on `BoletinError`/`ConstanciaError`/`AsistenciaReportingErr
 
 ## Slice D — constancia + docs (ARR-R1, R2, R4, R5, R6, R8)
 
-- [ ] D.0 Create branch `refactor/asistencia-reporting-result-d` from `refactor/asistencia-reporting-result-c`
-- [ ] D.1 `generate-constancia-regular.use-case.ts` L93 (inline tenant guard): `INTERNAL_ERROR` throw → `err(...)` — ARR-R1
-- [ ] D.2 Same file L101,113,120,133,149,188: 6 more `ConstanciaError` throws (`AXCC_NOT_FOUND`, `STUDENT_NOT_FOUND`, `STUDENT_NOT_ELIGIBLE`, `COURSE_CYCLE_NOT_FOUND`, `INSTITUTION_NOT_FOUND`, `TEMPLATE_NOT_FOUND`) → `err(...)` — status/class unchanged even for the 2 ambiguous codes (deferred to follow-up #3) — ARR-R1/R7
-- [ ] D.3 `execute` signature → `Promise<Result<Buffer, PdfError | ConstanciaError>>`; final `generatePdf(html)` passthrough unchanged — ARR-R4
-- [ ] D.4 `reportes.controller.ts#createConstanciaRegular` (L95-122): delete try/catch + `instanceof ConstanciaError` map → `unwrapResultOrThrow(await this.constanciaUC.execute(...))` — ARR-R5
-- [ ] D.5 Final import sweep: remove now-unreferenced `BoletinError`/`ConstanciaError` imports from `reportes.controller.ts` (verify no `instanceof` remains across all 3 endpoints) — ARR-R5
-- [ ] D.6 Rewrite `generate-constancia-regular.use-case.test.ts` (~13 tests): all 7 `.rejects.toBeInstanceOf(ConstanciaError)` → `isErr()`/`unwrapErr()`; success → `.unwrap()` — ARR-R6
-- [ ] D.7 Rewrite `reportes.controller.test.ts` L107-115 (`createConstanciaRegular` maps thrown `ConstanciaError`): `mockResolvedValue(err(new ConstanciaError('no elegible','STUDENT_NOT_ELIGIBLE',422)))` + `.rejects.toBeInstanceOf(HttpException)` 422 + `code === 'STUDENT_NOT_ELIGIBLE'` — ARR-R6
-- [ ] D.8 **DELETE** `api/src/presentation/reportes/__tests__/constancia-controller.test.ts` (149 lines) — legacy duplicate asserting the old flat body; coverage subsumed by rewritten `reportes.controller.test.ts` — ARR-R6
-- [ ] D.9 Edit `openspec/specs/application-error-handling/spec.md` L206-210: remove the blanket "migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`" instruction; record pure `throw`→`Result` conversion with 3 classes unchanged; reference follow-up #3 for their classification — ARR-R8
-- [ ] D.10 Commit: `refactor(reportes): return Result from generate-constancia-regular (7 throws)`
-- [ ] D.11 Commit: `refactor(reportes): consume constancia Result, remove dead BoletinError/ConstanciaError imports`
-- [ ] D.12 Commit: `test(reportes): migrate constancia tests, delete legacy constancia-controller.test.ts`
-- [ ] D.13 Commit: `docs(spec): correct application-error-handling consumer entry (ARR-R8)`
-- [ ] D.14 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green (Slices A/B/C stay green); `rg "throw new" api/src/application/reportes/generate-constancia-regular.use-case.ts` → 0; `constancia-controller.test.ts` absent; diff budget check (~200-280, Moderate)
+- [x] D.0 Create branch `refactor/asistencia-reporting-result-d` from `refactor/asistencia-reporting-result-c`
+- [x] D.1 `generate-constancia-regular.use-case.ts` L93 (inline tenant guard): `INTERNAL_ERROR` throw → `err(...)` — ARR-R1
+- [x] D.2 Same file L101,113,120,133,149,188: 6 more `ConstanciaError` throws (`AXCC_NOT_FOUND`, `STUDENT_NOT_FOUND`, `STUDENT_NOT_ELIGIBLE`, `COURSE_CYCLE_NOT_FOUND`, `INSTITUTION_NOT_FOUND`, `TEMPLATE_NOT_FOUND`) → `err(...)` — status/class unchanged even for the 2 ambiguous codes (deferred to follow-up #3) — ARR-R1/R7
+- [x] D.3 `execute` signature → `Promise<Result<Buffer, PdfError | ConstanciaError>>`; final `generatePdf(html)` passthrough unchanged — ARR-R4
+- [x] D.4 `reportes.controller.ts#createConstanciaRegular` (L95-122): delete try/catch + `instanceof ConstanciaError` map → `unwrapResultOrThrow(await this.constanciaUC.execute(...))` — ARR-R5
+- [x] D.5 Final import sweep: remove now-unreferenced `BoletinError`/`ConstanciaError` imports from `reportes.controller.ts` (verify no `instanceof` remains across all 3 endpoints) — ARR-R5. NOTE: `BoletinError` import was already removed in Slice C (C.5 deviation); only `ConstanciaError` import remained and was swept here.
+- [x] D.6 Rewrite `generate-constancia-regular.use-case.test.ts` (~13 tests): all 7 `.rejects.toBeInstanceOf(ConstanciaError)` → `isErr()`/`unwrapErr()`; success → `.unwrap()` — ARR-R6
+- [x] D.7 Rewrite `reportes.controller.test.ts` L107-115 (`createConstanciaRegular` maps thrown `ConstanciaError`): `mockResolvedValue(err(new ConstanciaError('no elegible','STUDENT_NOT_ELIGIBLE',422)))` + `.rejects.toBeInstanceOf(HttpException)` 422 + `code === 'STUDENT_NOT_ELIGIBLE'` — ARR-R6
+- [x] D.8 **DELETE** `api/src/presentation/reportes/__tests__/constancia-controller.test.ts` (149 lines) — legacy duplicate asserting the old flat body; coverage subsumed by rewritten `reportes.controller.test.ts` — ARR-R6
+- [x] D.9 Edit `openspec/specs/application-error-handling/spec.md` L206-210: remove the blanket "migrate `BoletinError`/`ConstanciaError`/`AsistenciaReportingError` to `extends ApplicationError`" instruction; record pure `throw`→`Result` conversion with 3 classes unchanged; reference follow-up #3 for their classification — ARR-R8
+- [x] D.10 Commit: `refactor(reportes): return Result from generate-constancia-regular (7 throws)`
+- [x] D.11 Commit: `refactor(reportes): consume constancia Result, remove dead BoletinError/ConstanciaError imports`
+- [x] D.12 Commit: `test(reportes): migrate constancia tests, delete legacy constancia-controller.test.ts`
+- [x] D.13 Commit: `docs(spec): correct application-error-handling consumer entry (ARR-R8)`
+- [x] D.14 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green (Slices A/B/C stay green); `rg "throw new" api/src/application/reportes/generate-constancia-regular.use-case.ts` → 0; `constancia-controller.test.ts` absent; diff budget check (~200-280, Moderate)
 
 ---
 
