@@ -3,7 +3,7 @@
  * Covers: countNullCycleIngresantes + cleanupTenantIngresantes helpers.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { countNullCycleIngresantes, cleanupTenantIngresantes } from '../cleanup-ingresantes-sin-ciclo';
 import type { PrismaClient as TenantPrismaClient } from '@prisma/tenant-client';
 

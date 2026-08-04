@@ -307,7 +307,7 @@ export class GradePeriodValuationUC {
     }
 
     // 5. Lazy-create or load existing child row
-    let child =
+    const child =
       (await this.periodRepo.findByValuationAndPeriod(parent.id.get(), input.periodItemId)) ??
       CompetenciaXPeriodoXMateriaXAlumnoXCursoXCiclo.create({ valuationId: parent.id.get(), periodItemId: input.periodItemId });
 

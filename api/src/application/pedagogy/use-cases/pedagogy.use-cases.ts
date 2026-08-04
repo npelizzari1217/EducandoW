@@ -224,7 +224,7 @@ export class UpdateSubjectUC {
 @Injectable()
 export class CreateCourseSectionUC { constructor(private r: CourseSectionRepository, private planRepo: StudyPlanRepository) {} async execute(input: { name?: string; grade?: string; division?: string; level: string; modality?: string; academicYear: string; institutionId?: string; studyPlanId?: string }): Promise<Result<CourseSection, ValidationError>> {
     let levelVal = buildLevel(input.level, input.modality);
-    let academicYear = input.academicYear;
+    const academicYear = input.academicYear;
 
     if (input.studyPlanId) {
       const plan = await this.planRepo.findById(input.studyPlanId);
