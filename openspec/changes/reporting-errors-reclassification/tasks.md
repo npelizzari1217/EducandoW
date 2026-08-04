@@ -92,23 +92,23 @@ Traces: RER-R1, RER-R2, RER-R3, RER-R4, RER-R7, RER-R8.
 
 Traces: RER-R1, RER-R3, RER-R5, RER-R6, RER-R8.
 
-- [ ] 1.1 RED — Update `generate-asistencia-mensual-pdf.use-case` test suite: re-derive
+- [x] 1.1 RED — Update `generate-asistencia-mensual-pdf.use-case` test suite: re-derive
       `.toBeInstanceOf(AsistenciaReportingError)` asserts to the new concrete classes per site (design §6.4);
       add the tenant guard assertion for `code === 'TENANT_CLIENT_UNAVAILABLE'` at 500.
-- [ ] 1.2 GREEN — In `generate-asistencia-mensual-pdf.use-case.ts`, swap the 5 call sites (L161, L198,
+- [x] 1.2 GREEN — In `generate-asistencia-mensual-pdf.use-case.ts`, swap the 5 call sites (L161, L198,
       L209, L243 `render`, L386 `tenantClient`) per design §6.4 exact mapping; update imports (drop
       `AsistenciaReportingError`, add `ReporteCourseCycleNotFoundError` + `MateriaXCursoXCicloNotFoundError`
       from `@educandow/domain`, `TemplateNotFoundError` + `TenantClientUnavailableError` from
       `../shared/errors/infrastructure-errors`).
-- [ ] 1.3 Widen return-type unions per design §6.4: `executeGeneral`/`executeMateria`, `render`,
+- [x] 1.3 Widen return-type unions per design §6.4: `executeGeneral`/`executeMateria`, `render`,
       `tenantClient`, `checkDoor2General`/`checkDoor2Materia`.
-- [ ] 1.4 Delete `asistencia-reporting.errors.ts` (single-module, last reference now gone).
-- [ ] 1.5 Update `asistencia-reporting.controller` test(s) for the tenant wire-code delta
+- [x] 1.4 Delete `asistencia-reporting.errors.ts` (single-module, last reference now gone).
+- [x] 1.5 Update `asistencia-reporting.controller` test(s) for the tenant wire-code delta
       (`INTERNAL_ERROR` → `TENANT_CLIENT_UNAVAILABLE`) — RER-R3 is the ONLY code-string change in this slice.
-- [ ] 1.6 Verify: domain build (no-op, unchanged since Slice 0) → `pnpm --filter api typecheck` →
+- [x] 1.6 Verify: domain build (no-op, unchanged since Slice 0) → `pnpm --filter api typecheck` →
       `pnpm --filter api test` → `pnpm --filter api lint`. Grep confirms zero remaining references to
       `AsistenciaReportingError` in the tree.
-- [ ] 1.7 Commit: `refactor(asistencia-reporting): reclassify errors to DomainError/InfrastructureError subclasses`
+- [x] 1.7 Commit: `refactor(asistencia-reporting): reclassify errors to DomainError/InfrastructureError subclasses`
 
 ## Slice 2 — Boletin + batch (~250 lines) — PR 3, base PR 2
 
