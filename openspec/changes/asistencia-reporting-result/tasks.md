@@ -64,20 +64,20 @@ never edit `extends` on `BoletinError`/`ConstanciaError`/`AsistenciaReportingErr
 
 ## Slice B — boletin (ARR-R1, R2, R4, R5, R6)
 
-- [ ] B.0 Create branch `refactor/asistencia-reporting-result-b` from `refactor/asistencia-reporting-result`
-- [ ] B.1 `generate-boletin.use-case.ts` L129,132,148,166: 4 `BoletinError` throws (`AXCC_NOT_FOUND`, `STUDENT_NOT_PRINTABLE`, `COURSE_CYCLE_NOT_FOUND`, `STUDENT_NOT_FOUND`) in `execute` → `err(...)` — ARR-R1
-- [ ] B.2 Same file L934: `getBaseLevel(levelCode)` → `Result<string, BoletinError>` (was throwing `BOLETIN_LEVEL_UNKNOWN`); L185 caller in `execute` propagates via `isErr()`/`unwrap()` — ARR-R1/R4
-- [ ] B.3 Same file L211: separate `BOLETIN_LEVEL_UNKNOWN` guard (missing `.hbs` template for a known level) → `err(...)` — distinct site from B.2's L934, do NOT double-convert — ARR-R1
-- [ ] B.4 Same file L892-896: `tenantClient()` → sync `Result<TenantPrismaClient, BoletinError>` (was throwing `INTERNAL_ERROR`); L122 caller propagates — ARR-R1/R4
-- [ ] B.5 `execute` signature → `Promise<Result<Buffer, PdfError | BoletinError>>` — ARR-R4
-- [ ] B.6 `reportes.controller.ts#getBoletin` (L30-56): delete try/catch + `instanceof BoletinError` map → `unwrapResultOrThrow(await this.singleUC.execute(...))`; keep `BoletinError` import (still used by batch endpoint until Slice C) — ARR-R5
-- [ ] B.7 Rewrite `generate-boletin.use-case.test.ts`: all `.rejects.toBeInstanceOf(BoletinError)` → `isErr()`/`unwrapErr()`; success → `.unwrap()` — ARR-R6
-- [ ] B.8 Verify `generate-boletin.{inicial,terciario,docente-s2}.test.ts` compile against new `execute`/`getBaseLevel` signatures (they call private builders directly, not `execute` — likely untouched except shared import) — ARR-R6
-- [ ] B.9 Rewrite `reportes.controller.test.ts` L68-76 (`getBoletin` maps thrown `BoletinError`): `mockResolvedValue(err(new BoletinError('no encontrado','AXCC_NOT_FOUND',404)))` + `.rejects.toBeInstanceOf(HttpException)` status 404 + `getResponse().code === 'AXCC_NOT_FOUND'` — ARR-R6
-- [ ] B.10 Commit: `refactor(reportes): return Result from generate-boletin (7 throws)`
-- [ ] B.11 Commit: `refactor(reportes): consume boletin Result in getBoletin`
-- [ ] B.12 Commit: `test(reportes): migrate boletin use-case + controller tests to Result`
-- [ ] B.13 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green (Slice A stays green); `rg "throw new" api/src/application/reportes/generate-boletin.use-case.ts` → 0; diff budget check (~175-230, Low-Mod)
+- [x] B.0 Create branch `refactor/asistencia-reporting-result-b` from `refactor/asistencia-reporting-result`
+- [x] B.1 `generate-boletin.use-case.ts` L129,132,148,166: 4 `BoletinError` throws (`AXCC_NOT_FOUND`, `STUDENT_NOT_PRINTABLE`, `COURSE_CYCLE_NOT_FOUND`, `STUDENT_NOT_FOUND`) in `execute` → `err(...)` — ARR-R1
+- [x] B.2 Same file L934: `getBaseLevel(levelCode)` → `Result<string, BoletinError>` (was throwing `BOLETIN_LEVEL_UNKNOWN`); L185 caller in `execute` propagates via `isErr()`/`unwrap()` — ARR-R1/R4
+- [x] B.3 Same file L211: separate `BOLETIN_LEVEL_UNKNOWN` guard (missing `.hbs` template for a known level) → `err(...)` — distinct site from B.2's L934, do NOT double-convert — ARR-R1
+- [x] B.4 Same file L892-896: `tenantClient()` → sync `Result<TenantPrismaClient, BoletinError>` (was throwing `INTERNAL_ERROR`); L122 caller propagates — ARR-R1/R4
+- [x] B.5 `execute` signature → `Promise<Result<Buffer, PdfError | BoletinError>>` — ARR-R4
+- [x] B.6 `reportes.controller.ts#getBoletin` (L30-56): delete try/catch + `instanceof BoletinError` map → `unwrapResultOrThrow(await this.singleUC.execute(...))`; keep `BoletinError` import (still used by batch endpoint until Slice C) — ARR-R5
+- [x] B.7 Rewrite `generate-boletin.use-case.test.ts`: all `.rejects.toBeInstanceOf(BoletinError)` → `isErr()`/`unwrapErr()`; success → `.unwrap()` — ARR-R6
+- [x] B.8 Verify `generate-boletin.{inicial,terciario,docente-s2}.test.ts` compile against new `execute`/`getBaseLevel` signatures — CORRECTION: each file DOES have one `execute()`-level test (T12-INI/TER/PRI/SEC) asserting `STUDENT_NOT_PRINTABLE` via `.rejects.toThrowError`, not just private-builder calls as assumed; all 4 rewritten to `isErr()`/`unwrapErr()` alongside the private-builder tests (untouched) — ARR-R6
+- [x] B.9 Rewrite `reportes.controller.test.ts` L68-76 (`getBoletin` maps thrown `BoletinError`): `mockResolvedValue(err(new BoletinError('no encontrado','AXCC_NOT_FOUND',404)))` + `.rejects.toBeInstanceOf(HttpException)` status 404 + `getResponse().code === 'AXCC_NOT_FOUND'` — ARR-R6
+- [x] B.10 Commit: `refactor(reportes): return Result from generate-boletin (7 throws)`
+- [x] B.11 Commit: `refactor(reportes): consume boletin Result in getBoletin`
+- [x] B.12 Commit: `test(reportes): migrate boletin use-case + controller tests to Result`
+- [x] B.13 **Verify**: `pnpm --filter api typecheck` green; `pnpm --filter api test` green (Slice A stays green); `rg "throw new" api/src/application/reportes/generate-boletin.use-case.ts` → 0; diff budget check (~175-230, Low-Mod) — actual: 154 changed lines, within budget
 
 ---
 
